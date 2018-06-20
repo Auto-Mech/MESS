@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXE_LINKER_FLAGS "-Wl,--warn-unresolved-symbols")
-include_directories(${PROJECT_SOURCE_DIR}/src/libmess)
 add_library(mess
     ${PROJECT_SOURCE_DIR}/src/libmess/atom.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/io.cc
@@ -39,15 +38,18 @@ add_library(mess
 add_executable(messdr ${PROJECT_SOURCE_DIR}/src/mess_driver.cc)
 add_executable(messpf ${PROJECT_SOURCE_DIR}/src/partition_function.cc)
 add_executable(messabs ${PROJECT_SOURCE_DIR}/src/abstraction.cc)
+add_library(messtools SHARED ${PROJECT_SOURCE_DIR}/src/messtools.cc)
 set_target_properties(messdr PROPERTIES OUTPUT_NAME "mess")
-target_link_libraries(messdr mess blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
-target_link_libraries(messpf mess blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
-target_link_libraries(messabs mess blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+set_target_properties(messtools PROPERTIES PREFIX "")
+target_link_libraries(messdr
+    mess blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+target_link_libraries(messpf
+    mess blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+target_link_libraries(messabs
+    mess blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+target_link_libraries(messtools
+    mess blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
 install(TARGETS messdr DESTINATION bin)
 install(TARGETS messpf DESTINATION bin)
 install(TARGETS messabs DESTINATION bin)
-
-add_library(messtools SHARED ${PROJECT_SOURCE_DIR}/src/messtools.cc)
-set_target_properties(messtools PROPERTIES PREFIX "")
-target_link_libraries(messtools mess blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
 install(TARGETS messtools LIBRARY DESTINATION lib)
