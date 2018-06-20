@@ -2,6 +2,11 @@
 
 [![Build Status](https://travis-ci.com/PACChem/MESS.svg)](https://travis-ci.com/PACChem/MESS)
 
+## Reference
+
+See Y. Georgievskii, J. A. Miller, M. P. Burke, and S. J. Klippenstein,
+Reformulation and Solution of the Master Equation for Multiple-Well Chemical
+Reactions, J. Phys. Chem. A, 117, 12146-12154 (2013).
 
 ## Acknowledgment
 
