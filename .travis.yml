@@ -42,3 +42,4 @@ script:
     - cat messpf.dat
     - messabs messabs.inp
     - cat messabs.out
+    - cd ..
