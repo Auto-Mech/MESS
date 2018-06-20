@@ -1,0 +1,129 @@
+!TemperatureList[K]                     20.  50.  100.  200.  300. 
+TemperatureList[K]                    10. 20. 35. 50. 75. 100. 150. 200. 250. 300. 400.
+!TemperatureList[K]                    200. 300 400 500 600 700 800 900 1000 1100 1200 1300 1400 1500 1600 1700 1800 1900 2000 2100. 2200. 2300. 2400. 2500.
+!TemperatureList[K]                    200. 300 400 600 800 1000  1250 1500 1750 2000 2250. 2500.
+!PressureList[bar]                      1.
+PressureList[bar]                      1.e-15 1.e-12 1.e-9 1.e-8 1.e-7 1.e-6 1.e-5 1.e-4 1.e-3 1.e-2 1.e-1 1. 10.
+!PressureList[bar]                      1.e-15 1.e-12 1.e-9 
+!PressureList[bar]                      1.e-9 1.e-8 1.e-7 1.e-6 
+!PressureList[bar]                      1.e-6 1e-3  1.  
+EnergyStepOverTemperature             0.2          #Ratio of discretization energy step to T
+ExcessEnergyOverTemperature           30
+ModelEnergyLimit[kcal/mol]            400
+WellCutoff                            10
+ChemicalEigenvalueMax                 0.2
+ChemicalEigenvalueMin                 1.e-6          #only for direct diagonalization method
+CalculationMethod                     direct
+EigenvalueOutput                                    eigenvalue.out
+!EigenvectorOutput                                  eigenvector.out
+!EigenvectorNumber                    0
+!ReductionNumber                      5
+!Reactant        #ground energy of bimolecular species will be used as a reference.
+MicroRateOutput                         ke.out
+MicroEnerMin[kcal/mol]                  0.
+MicroEnerMax[kcal/mol]                  20.
+MicroEnerStep[kcal/mol]                 0.1
+
+Model
+ EnergyRelaxation
+   Exponential
+     Factor[1/cm]                   100
+     Power                            0.85
+     ExponentCutoff                   15
+   End
+  CollisionFrequency  ! these need to be fixed before examining P dependence
+    LennardJones                                     
+       Epsilons[1/cm]                    200.  200.   !
+       Sigmas[angstrom]                  4.0   4.
+       Masses[amu]                       45    28
+    End
+  Well		W1	# NH2CHO
+    Species
+      RRHO
+	Geometry[angstrom]	6
+       N                  -0.938656   -0.561431    0.000000
+       C                   0.000000    0.418760    0.000000
+       O                   1.197671    0.232440    0.000000
+       H                  -1.916868   -0.344663    0.000000
+       H                  -0.645208   -1.522329    0.000000
+       H                  -0.448702    1.424929    0.000000
+	Core	RigidRotor
+      	  SymmetryFactor	1.
+	End
+	Frequencies[1/cm]	12
+    153.5810               567.1908               646.6104
+   1052.0833              1056.3693              1276.8560
+   1427.9498              1623.4475              1797.7954
+   2975.6708              3608.2397              3752.2442
+	InfraredIntensities[km/mol]		12
+    204.8490                10.8981                14.6691
+      1.9463                 4.6328               103.0483
+      6.1839                55.8200               367.3874
+     99.9335                38.2206                43.7388
+ 	ZeroEnergy[kcal/mol]			-99.08
+	ElectronicLevels[1/cm]			1
+		0	1
+      End             
+  End
+  Bimolecular		P1	# NH2
+    Fragment	NH2
+      RRHO
+	Geometry[angstrom]	3
+       N                   0.000000    0.000000    0.142092
+       H                   0.000000    0.800338   -0.497322
+       H                   0.000000   -0.800338   -0.497322
+	Core	RigidRotor
+	  SymmetryFactor	2 
+	End
+	Frequencies[1/cm]	3
+	1554.0331              3390.0596              3483.9105
+	ZeroEnergy[1/cm]			0
+	ElectronicLevels[1/cm]			1
+		0	2
+      End             
+    Fragment	HCO
+      RRHO
+	Geometry[angstrom]	3
+       C                   0.061650    0.586366    0.000000
+       O                   0.061650   -0.591988    0.000000
+       H                  -0.863104    1.217706    0.000000
+	Core	RigidRotor
+	  SymmetryFactor	1 
+	End
+	Frequencies[1/cm]	3
+	1120.4973              1894.7450              2691.0020
+	ZeroEnergy[1/cm]			0
+	ElectronicLevels[1/cm]			1
+		0	2
+      End             
+    GroundEnergy[kcal/mol]                      0.0
+  End
+  Barrier	B1	W1   P1  # NH2 + HCO = NH2CHO
+      RRHO
+        Stoichiometry N1C1O1H3
+         Core     Rotd
+         File ne_hco_nh2.dat
+           SymmetryFactor        2.
+         End
+!           FragmentGeometry[angstrom]      3
+! N          0.0000000000        0.0000000000       -0.0805286172
+! H          0.0000000000        0.8006452455        0.5595274433
+! H          0.0000000000       -0.8006452455        0.5595274433
+!           FragmentGeometry[angstrom]      3
+!       C                   0.061650    0.586366    0.000000
+!       O                   0.061650   -0.591988    0.000000
+!       H                  -0.863104    1.217706    0.000000
+!            SymmetryFactor               2
+!            PotentialPrefactor[au]       1.0
+!            PotentialPowerExponent       6
+!          End
+        Frequencies[1/cm]			6
+	1120.4973              1894.7450              2691.0020
+	1554.0331              3390.0596              3483.9105
+        ZeroEnergy[kcal/mol]			0.
+        ElectronicLevels[1/cm]			1
+		0	1
+  End
+End
+
+

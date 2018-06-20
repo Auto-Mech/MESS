@@ -1,0 +1,59 @@
+TemperatureList[K]                      200. 250. 300 400. 500. 600. 700. 800. 900. 1000. 1100. 1200. 1300. 1400. 1500. 1625. 1750. 1875. 2000. 2125. 2250. 2375. 2500. 2625. 2750. 2875. 3000.
+  Bimolecular		P1	# H2O2 + H
+    Fragment	H2O2
+      RRHO
+	Geometry[angstrom]	4
+       O                   0.000000    0.725120   -0.058075
+       O                   0.000000   -0.725120   -0.058075
+       H                   0.791033    0.896131    0.464604
+       H                  -0.791033   -0.896131    0.464604
+	Core	RigidRotor
+	  SymmetryFactor	1 
+	End
+	Frequencies[1/cm]	6
+	381	935	1328	1439	3792	3793
+	ZeroEnergy[1/cm]			0
+	ElectronicLevels[1/cm]			1
+		0	1
+      End             
+    Fragment        H
+      Atom
+         Mass[amu]     1
+         ElectronicLevels[1/cm]     1
+            0    2
+       End
+    GroundEnergy[kcal/mol]			0.0
+  End
+  Bimolecular		P2	# HO2 + H2
+	Dummy
+  Barrier	B3	P1   P2  # H2O2 + H = HO2 + H2
+      RRHO
+        Geometry[angstrom]    5
+      O               -0.513851   -0.401099    0.017057
+      O                0.765417    0.160831   -0.119399
+      H               -1.224757    0.468201   -0.012716
+      H                1.062895    0.216411    0.797787
+      H               -1.850665    1.237528    0.033664
+	Core	RigidRotor
+	  SymmetryFactor	0.5
+	End
+!        Rotor                    Hindered
+!          Group                        8
+!          Axis                         2 3
+!          Symmetry                     1
+!          Potential[kcal/mol]          12
+!	0.147 0.058 0.011 0.427 1.854 3.179 3.612 3.179 1.854 0.427 0.011 0.058
+!        End
+        Frequencies[1/cm]			8
+    405.3861               447.9287
+    710.7747              1002.8370              1298.7752
+   1409.1076              1521.1976              3748.5863
+        ZeroEnergy[kcal/mol]		        7.62
+        ElectronicLevels[1/cm]			1
+		0	2
+       Tunneling         Eckart
+         ImaginaryFrequency[1/cm]           1904.
+         WellDepth[kcal/mol]                  7.62
+         WellDepth[kcal/mol]                  24.97
+       End
+  End
