@@ -21,9 +21,12 @@ install:
     - sudo apt-get install gfortran
     - wget http://www.netlib.org/slatec/slatec_src.tgz
     - tar -zxvf slatec_src.tgz
-    - gfortran -shared -O2 src/*.f -o libslatec.so -fPIC
+    - cd src
+    - rm bvder.f  bvsup.f  dbvder.f  dbvsup.f  drkfab.f  rkfab.f bvpor.f dbvpor.f  dexbvp.f  exbvp.f
+    - gfortran -shared -O2 ./*.f -o libslatec.so -fPIC
     - sudo mv libslatec.so /usr/local/lib/.
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+    - cd ..
     # Install MESS
     - mkdir build
     - cd build
