@@ -37,6 +37,7 @@
 # Ignore output files
 *.log
 *.out
+messpf.dat
 
 # Ignore my build and cache directories
 build/

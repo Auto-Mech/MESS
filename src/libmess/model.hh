@@ -38,6 +38,8 @@ namespace Model {
   int escape_size       ();    // number of wells with escape channels
   int escape_well_index (int); // escape well index
 
+/* AVC */
+  void check_interatomic_distances(const std::vector<Atom>&);
   void shift_cm_to_zero(std::vector<Atom>&);
   Lapack::SymmetricMatrix inertia_moment_matrix(const std::vector<Atom>&);
   void read_geometry (IO::KeyBufferStream&, std::vector<Atom>&, int =ANGSTROM);
@@ -492,6 +494,11 @@ namespace Model {
     double _core_weight (double) const;
     
   public:
+    /* AVC */
+    RigidRotor (const std::vector<Atom>&, int, const std::vector<double>&,
+                double, const std::vector<std::vector<double>>&, const std::vector<double>&,
+                const std::vector<std::vector<double>>&,
+                const std::map<std::string, double>&, double);
     RigidRotor (IO::KeyBufferStream&, const std::vector<Atom>&, int) throw(Error::General);
     ~RigidRotor ();
 
@@ -698,6 +705,8 @@ namespace Model {
     void _print () const;
 
     Species (IO::KeyBufferStream&, const std::string&, int) throw(Error::General);
+/* AVC */
+    Species (const std::vector<Atom>&, const std::string&, int, double, double);
     Species (const std::string&, int);
     
   public:
@@ -767,6 +776,12 @@ namespace Model {
 
   public:
     RRHO (IO::KeyBufferStream&, const std::string&, int) throw(Error::General);
+/* AVC */
+    RRHO (const std::vector<Atom>&, const std::string&, int, double, double,
+          const std::vector<double>&, const std::vector<int>&, const std::vector<double>&,
+          double, const std::vector<std::vector<double>>&, const std::vector<double>&,
+          const std::vector<std::vector<double>>&,
+          const std::map<std::string, double>&, double);
     ~RRHO ();
 
     double states (double) const; // density or number of states of absolute energy
