@@ -1261,23 +1261,6 @@ Lapack::SymmetricMatrix Model::inertia_moment_matrix(const std::vector<Atom>& at
   return res;
 }
 
-/* AVC */
-void Model::check_interatomic_distances(const std::vector<Atom>& atom) {
-    // check interatomic distances
-    for(unsigned int i = 0; i < atom.size(); ++i) {
-        for(unsigned int j = i + 1; j < atom.size(); ++j) {
-            double dtemp = vdistance(atom[i], atom[j]);
-            if(dtemp < atom_dist_min) {
-                std::cerr << "the distance between the " << i + 1 << " and "
-                    << j + 1 << "-th atoms = " << dtemp
-                    << " bohr is less then " << atom_dist_min
-                    << " bohr: check the geometry\n";
-                throw Error::Range();
-            }
-        }
-    }
-}
-
 void Model::shift_cm_to_zero(std::vector<Atom>& atom)
 {
   D3::Vector vtemp;
@@ -5042,144 +5025,6 @@ double Model::PhaseSpaceTheory::states (double ener) const
 /********************************************************************************************
  *********************************** RIGID ROTOR CORE MODEL *********************************
  ********************************************************************************************/
-/* AVC */
-Model::RigidRotor::RigidRotor(const std::vector<Atom>& atoms, int m,
-                              const std::vector<double>& freqs, double emax,
-                              const std::vector<std::vector<double>>& anharms,
-                              const std::vector<double>& rcons,
-                              const std::vector<std::vector<double>>& rvcs,
-                              const std::map<std::string, double>& rdists,
-                              double symfac)
-    : Core(m), _factor(1./symfac), _rdim(0), _rofactor(0.), _ground(0.),
-      _emax(emax), _nmax(0.), _frequency(freqs), _rvc(rvcs)
-{
-    _anharm.resize(_frequency.size());
-    for(int i = 0; i < _anharm.size(); ++i) {
-        for(int j = 0; j <= i; ++j) {
-            _anharm(i, j) = anharms[i][j];
-        }
-    }
-    switch(rcons.size()) {
-        case 1:
-            _rdim = 2;
-            _factor /= rcons[0];
-            break;
-        case 2:
-            if(rcons[0] != rcons[1])
-                  IO::log << IO::log_offset
-                  << "WARNING: inertia moments for linear molecule read from input file differ\n";
-            _rdim = 2;
-            _factor /= rcons[0];
-            break;
-        case 3:
-            _rdim = 3;
-            _factor /= std::sqrt(rcons[0] * rcons[1] * rcons[2]);
-            break;
-        default:
-            std::cerr << "rotational constant vector: wrong size\n";
-            throw Error::Range();
-    }
-    Lapack::SymmetricMatrix distort;
-    distort.resize(3);
-    distort = 0.;
-    for(auto d = rdists.begin(); d != rdists.end(); ++d) {
-        std::string stemp = d->first;
-        double dtemp = d->second;
-        if(stemp == "aaaa") {
-            //
-            distort(0,0) += 0.75 * dtemp;
-        }
-        else if(stemp == "bbbb") {
-            //
-            distort(1,1) += 0.75 * dtemp;
-        }
-        else if(stemp == "cccc") {
-            //
-            distort(2,2) += 0.75 * dtemp;
-        }
-        else if(stemp == "bbaa") {
-            //
-            distort(0,1) += 0.5 * dtemp;
-        }
-        else if(stemp == "ccbb") {
-            //
-            distort(1,2) += 0.5 * dtemp;
-        }
-        else if(stemp == "ccaa") {
-            //
-            distort(0,2) += 0.5 * dtemp;
-        }
-        else if(stemp == "baba") {
-            //
-            distort(0,1) += dtemp;
-        }
-        else if(stemp == "cbcb") {
-            //
-            distort(1,2) += dtemp;
-        }
-        else if(stemp == "caca") {
-            //
-            distort(0,2) += dtemp;
-        }
-        else {
-            //
-            ErrOut err_out;
-            err_out << "unknown index: " << stemp
-                << ": available indices: aaaa, bbbb, cccc, bbaa, ccaa, ccbb, baba, cbcb, caca";
-        }
-    }
-    if(_rdim == 3 && distort.isinit()) {
-        for(int i = 0; i < 3; ++i)
-            for(int j = i; j < 3; ++j)
-	            _rofactor += distort(i, j) / rcons[i] / rcons[j];
-    
-        _rofactor /= 4.;
-    
-        IO::log << "centrifugal distortion factor (rho factor, 1/K): "
-            << _rofactor * Phys_const::kelv << "\n";
-    }
-    if(_frequency.size()) {
-        if(_fdegen.size() > _frequency.size()) {
-            std::cerr << "number of frequency degeneracies exceeds number of frequencies\n";
-            throw Error::Init();
-        }
-
-        for(unsigned int i = _fdegen.size(); i < _frequency.size(); ++i)
-            _fdegen.push_back(1);
-        
-        // rovibrational coupling
-        if(_rvc.size()) {
-            // check the dimensionality
-            for(int f = 0; f < _frequency.size(); ++f)
-                  if(_rvc[f].size() != _rdim) {
-                      std::cerr << f + 1
-                          << "-th frequency: rovibrational coupling size " << _rvc[f].size()
-                          << " inconsistent with rotational dimension " << _rdim << "\n";
-                      throw Error::Range();
-                  }
-
-            // zero-point rotational constant correction
-            for(int i = 0; i < _rdim; ++i) {
-                double dtemp = 0.;
-                for(int f = 0; f < _frequency.size(); ++f)
-                    dtemp += _rvc[f][i] * _fdegen[f] / rcons[i];
-                
-                dtemp = 1. - 0.5 * dtemp;
-                
-                if(dtemp <= 0.) {
-                    std::cerr << "negative zero-point correction to "
-                        << i + 1 << "-th rotational constant\n";
-                    throw Error::Range();
-                }
-                _factor /= std::sqrt(dtemp);
-
-                for(int f = 0; f < _frequency.size(); ++f)
-                    _rvc[f][i] /= rcons[i] * dtemp;
-                  
-            }
-        } // rovibrational coupling
-    }
-}
 
 Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>& atom,  int m)
   throw(Error::General) : Core(m), _factor(1.), _rdim(0), _rofactor(0.), _ground(0.), _emax(-1.) 
@@ -9834,15 +9679,6 @@ void Model::MultiRotor::rotational_energy_levels () const
 /********************************************************************************************
  *********** ABSTRACT CLASS REPRESENTING WELL, BARRIER, AND BIMOLECULAR FRAGMENT ************
  ********************************************************************************************/
-/* AVC */
-Model::Species::Species (const std::vector<Atom>& atoms, const std::string& n, int m,
-                         double mass=-1., double eground=0.)
-  : _atom(atoms), _name(n), _mode(m), _mass(mass), _ground(eground),
-    _print_min(0.), _print_max(0.), _print_step(-1.)
-{
-    check_interatomic_distances(_atom);
-    shift_cm_to_zero(_atom);
-}
 
 Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m) throw(Error::General)
   : _name(n), _mode(m), _mass(-1.), _print_step(-1.)
@@ -10323,20 +10159,6 @@ double Model::ReadSpecies::weight (double temperature) const
 
 /************************* RIGID ROTOR HARMONIC OSCILLATOR MODEL **************************/
 
-/* AVC */
-Model::RRHO::RRHO (const std::vector<Atom>& atoms, const std::string& n, int m,
-                   double mass, double eground, const std::vector<double>& elevels,
-                   const std::vector<int>& edegens, const std::vector<double>& freqs,
-                   double emax, const std::vector<std::vector<double>>& anharms,
-                   const std::vector<double>& rcons,
-                   const std::vector<std::vector<double>>& rvcs,
-                   const std::map<std::string, double>& rdists, double symfac)
-  :Species(atoms, n, m, mass, eground), _elevel(elevels), _edegen(edegens),
-   _emax(-1.), _sym_num(1.), _real_ground(_ground), _nmax(0.),
-   _core(new RigidRotor(atoms, m, freqs, emax, anharms, rcons, rvcs, rdists, symfac))
-{
-}
-
 Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(Error::General)
   :Species(from, n, m),  _emax(-1.), _sym_num(1.)
 {
@@ -10696,6 +10518,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
     _no_run = true;
   //std::cerr << funame << "core has not been initialized\n";
   //throw Error::Init();
+  //}
 
   // zero energy
   if(!isener && !iszero) {
@@ -10919,6 +10742,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
   _print();
 
   //graph_perturbation_theory_correction();
+  
 }// RRHO
 
 void Model::RRHO::_init_graphex (std::istream& from)
