@@ -1,9 +1,4 @@
-/*
-    Copyright (C) 2018 Yuri Georgievski (ygeorgi@anl.gov), Stephen J.
-    Klippenstein (sjk@anl.gov), and Argonne National Laboratory.
 
-    See https://github.com/PACChem/MESS for copyright and licensing details.
-*/
 
 #ifndef LAPACK_HH
 #define LAPACK_HH
@@ -704,6 +699,7 @@ namespace Lapack {
   }
 
   // Generalized eigenvalue problem
+  //
   Vector diagonalize(SymmetricMatrix, SymmetricMatrix, Matrix* = 0) throw(Error::General);
 
   /****************************************************************
@@ -947,6 +943,10 @@ namespace Lapack {
 
     return Array<complex>::operator[](i1 + i2 * (i2 + 1) / 2);
   }
+
+  // Generalized eigenvalue problem
+  //
+  Vector diagonalize(const HermitianMatrix&, const HermitianMatrix&, ComplexMatrix* = 0) throw(Error::General);
 
   /************************************************************************
    ************************** COMPLEX VECTOR ******************************

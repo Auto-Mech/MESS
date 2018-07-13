@@ -1,9 +1,4 @@
-/*
-    Copyright (C) 2018 Yuri Georgievski (ygeorgi@anl.gov), Stephen J.
-    Klippenstein (sjk@anl.gov), and Argonne National Laboratory.
 
-    See https://github.com/PACChem/MESS for copyright and licensing details.
-*/
 
 #ifndef MODEL_HH
 #define MODEL_HH
@@ -551,18 +546,26 @@ namespace Model {
    ********************************************************************************************/
   
     class MultiRotorSampling: public Core {
+      //
       std::vector<InternalRotation> _internal_rotation; // internal rotations description
 
       class Sampling {
+	//
 	double _weight_factor;
+
 	double _pot_energy;
+
 	std::vector<double> _frequency;
+
 	int _dof;
+
       public:
+	//
 	Sampling (double wf, double pe, const std::vector<double>& f, int dof)
 	  : _weight_factor(wf), _pot_energy(pe), _frequency(f), _dof(dof) {}
 
 	double statistical_weight (double temperature) const;
+
 	double states (double energy, int mode) const;
       };
 
@@ -575,94 +578,127 @@ namespace Model {
    ********************************************************************************************/
 
   class MultiRotor: public Core {
-
+    //
     std::vector<InternalRotation> _internal_rotation; // internal rotations description
 
     double  _external_symmetry; // external rotation symmetry number
 
-    typedef std::map<int, double>::const_iterator                  _Pit; // potential iterator
-    typedef std::map<int, Lapack::SymmetricMatrix>::const_iterator _Mit; // mass iterator
-
     // internal & external mobilities fourier expansions
+    //
     MultiIndexConvert                      _mass_index; // mass fourier expansion/sampling dimensions
-    std::map<int, Lapack::SymmetricMatrix> _imm_four; // internal mobility matrix fourier expansion
-    std::map<int, double> _erf_four; // external rotation factor [sqrt(I1*I2*I3)] fourier expansion
+
+    std::map<int, Lapack::SymmetricMatrix>     _imm_four; //           internal mobility matrix fourier expansion
+    std::map<int, Lapack::SymmetricMatrix> _eff_imm_four; // effective internal mobility matrix fourier expansion
+
+    std::map<int, double>     _ctf_four; // curvlinear transformation factor(dx/dx' determinant) fourier expansion
+    std::map<int, double>     _irf_four; // internal rotation factor fourier expansion
+    std::map<int, double>     _erf_four; // external rotation factor fourier expansion
+    std::map<int, double> _eff_erf_four; // effective external rotation factor fourier expansion
+
 
     std::vector<Lapack::SymmetricMatrix> _internal_mobility_real;
     std::vector<Lapack::SymmetricMatrix> _external_mobility_real;
     std::vector<Lapack::Matrix>          _coriolis_coupling_real;
-  
+    Lapack::Vector                                     _ctf_real;
+
     std::map<int, Lapack::ComplexMatrix> _internal_mobility_fourier;// fourier transform
     std::map<int, Lapack::ComplexMatrix> _coriolis_coupling_fourier;// fourier transform
     std::map<int, Lapack::ComplexMatrix> _external_mobility_fourier;// fourier transform
-    
+    std::map<int, Lapack::complex>             _ctf_complex_fourier;
+
     // fourier expansion for potential and vibrational frequencies
-    MultiIndexConvert                   _pot_four_index; // potential fourier expansion dimensions
-    std::map<int, double>               _pot_four; // potential fourier expansion
-    std::vector<std::map<int, double> > _vib_four; // vibrational frequencies fourier expansion
+    MultiIndexConvert                 _pot_four_index; // potential fourier expansion dimensions
+
+    std::map<int, double>                   _pot_four; //           potential fourier expansion
+    std::map<int, double>               _eff_pot_four; // effective potential fourier expansion
+
+    std::vector<std::map<int, double> >     _vib_four; //           vibrational frequencies fourier expansion
+    std::vector<std::map<int, double> > _eff_vib_four; // effective vibrational frequencies fourier expansion
 
     MultiIndexConvert                   _pot_index; // potential sampling dimensions
+
     Lapack::Vector                      _pot_real; // potential sampling data
+
+    double                              _pot_shift; // constant part of the potential
 
     std::map<int, Lapack::complex> _pot_complex_fourier; // potential complex fourier transform
 
     // properties on the angular grid
+    //
     MultiIndexConvert           _grid_index; // angular grid dimensions
 
-    std::vector<double>         _pot_grid; // potential on the grid 
-    std::vector<Lapack::Vector> _vib_grid; // vibrational frequencies on the grid
+    std::vector<double>          _pot_grid; // potential on the grid 
+    std::vector<Lapack::Vector>  _vib_grid; // vibrational frequencies on the grid
     std::vector<Lapack::Vector> _freq_grid; // internal rotation frequencies on the grid
-    std::vector<double>         _mass_grid; // square root of the internal mass determinant on the grid
-    std::vector<double>         _erf_grid; // square root of the inertia moments product on the grid
+    std::vector<double>          _irf_grid; // square root of the internal mass determinant on the grid
+    std::vector<double>          _erf_grid; // square root of the inertia moments product on the grid
 
     double                _angle_grid_cell; // angular grid cell volume
     std::vector<double>   _angle_grid_step; // angular grid step
 
     // quantum energy levels
+    //
     std::vector<std::vector<double> > _energy_level; // quantum energy levels relative to the ground one
+
     std::vector<std::vector<double> >     _mean_erf; // state averaged external rotation factor [sqrt(I1*I2*I3)]
+
     double                                  _ground; // ground level energy
 
     // controls
-    bool   _is_ext_rot;             // include external rotation
+    //
+    bool   _with_ctf;               // include curvlinear transformation factor into hamiltonian
+    bool   _with_ext_rot;           // include external rotation
     bool   _full_quantum_treatment; // all vibrational populational states calculated
     double _level_ener_max;         // maximum energy for quantum levels calculation relative to the potential minimum
     double _mtol;                   // mass matrix elements tolerance for pruning
     double _ptol;                   // potential matrix element tolerance for pruning
+    double _vtol;                   // vibrational frequency matrix element tolerance for pruning
     double _extra_ener;             // maximal interpolation energy relative to the ground level
     double _extra_step;             // extrapolation logarithmic step
     double _ener_quant;             // energy descretization step
     int    _amom_max;               // angular momentum maximum
 
     // interpolation
+    //
     double _pot_global_min;  // potential global minimum
+
     double _cstates_pow;     // extrapolation power value
+
     Slatec::Spline _cstates; // classical number/density of states relative to the potential minimum
+
     Slatec::Spline _qfactor; // quantum correction factor for number/density of states relative to the ground level
 
     void _set_qfactor ();
+
     void _set_states_base (Array<double>&, int =0) const;
 
     // estimates
+    //
     std::vector<double> _mobility_parameter;
+
     Lapack::SymmetricMatrix _mobility_min;
-    double _inertia_moment_max;
 
-    typedef std::map<int, int> _Der;
-
+    std::vector<double> _rotational_constant;
+    
   public:
     
     MultiRotor(IO::KeyBufferStream&, const std::vector<Atom>&,  int = DENSITY) throw(Error::General);
+
     ~MultiRotor();
 
     int        internal_size ()      const { return _internal_rotation.size(); }
+
     int             symmetry (int i) const { return _internal_rotation[i].symmetry(); }
+
     double external_symmetry ()      const { return _external_symmetry; }
 
-    double                  potential                (const std::vector<double>&, const _Der& =_Der()) const;
+    double                  potential                (const std::vector<double>&, 
+						      const std::map<int, int>& = std::map<int,int>()) const;
     Lapack::SymmetricMatrix mass                     (const std::vector<double>& angle)                const;
     Lapack::Vector          vibration                (const std::vector<double>& angle)                const;
     double                  external_rotation_factor (const std::vector<double>& angle)                const;
+    double                  internal_rotation_factor (const std::vector<double>& angle)                const;
+    double                         curvlinear_factor (const std::vector<double>& angle)                const;
     Lapack::Vector          frequencies              (const std::vector<double>& angle)                const;
     Lapack::SymmetricMatrix force_constant_matrix    (const std::vector<double>& angle)                const;
     Lapack::Vector          potential_gradient       (const std::vector<double>& angle)                const;
@@ -701,10 +737,18 @@ namespace Model {
     Species (const std::string&, int);
     
   public:
+
+    enum {CORE_WEIGHT,
+	  HARMONIC_WEIGHT,
+	  ANHARMONIC_WEIGHT,
+	  HINDERED_ROTOR_WEIGHT,
+	  ELECTRONIC_WEIGHT
+    };
+    
     virtual ~Species();
 
     virtual double states (double) const =0; // density or number of states of absolute energy
-    virtual double weight (double) const =0; // weight relative to the ground
+    virtual double weight (double, std::map<int, double>* =0) const =0; // weight relative to the ground
 
     double ground () const { return _ground; }
     virtual void shift_ground (double e) { _ground += e; }
@@ -741,14 +785,25 @@ namespace Model {
   /************************* RIGID ROTOR HARMONIC OSCILATOR MODEL ************************/
 
   class RRHO : public Species {
-    SharedPointer<Tunnel>                 _tunnel; // tunneling   
+    //
+    SharedPointer<Tunnel>                 _tunnel; // tunneling
+    
     SharedPointer<Core>                     _core; // other degrees of freedom
+    
     std::vector<SharedPointer<Rotor> >     _rotor; // hindered rotors
+    
     std::vector<double>                _frequency; // real frequencies
+    
     std::vector<double>                   _elevel; // electronic energy levels
+    
     std::vector<int>                      _edegen; // electronic level degeneracies
 
+    std::vector<int>                      _fdegen; // frequencies degeneracies
+    
+    Lapack::SymmetricMatrix               _anharm; // second order anharmonic energy level expansion
+
     double _sym_num;
+    
     double _real_ground;
 
     // interpolation
@@ -770,7 +825,7 @@ namespace Model {
     ~RRHO ();
 
     double states (double) const; // density or number of states of absolute energy
-    double weight (double) const; // weight relative to the ground
+    double weight (double, std::map<int, double>* =0) const; // weight relative to the ground
 
     double real_ground () const { return _real_ground; }
     void shift_ground (double e) { _ground += e; _real_ground += e; }
@@ -804,7 +859,7 @@ namespace Model {
     ~ReadSpecies ();
 
     double states (double) const;
-    double weight (double) const;
+    double weight (double, std::map<int, double>* =0) const;
   };
   
   
@@ -826,7 +881,7 @@ namespace Model {
     ~UnionSpecies ();
 
     double states (double) const;
-    double weight (double) const;
+    double weight (double, std::map<int, double>* = 0) const;
 
     void shift_ground (double);
     double real_ground () const { return _real_ground; }
@@ -862,7 +917,7 @@ namespace Model {
     ~VarBarrier ();
 
     double states (double) const;
-    double weight (double) const;
+    double weight (double, std::map<int, double>* = 0) const;
 
     double real_ground () const { return _real_ground; }
     void shift_ground (double e) { _ground += e; _real_ground += e; }
@@ -882,7 +937,7 @@ namespace Model {
     AtomicSpecies(IO::KeyBufferStream& from, const std::string&) throw(Error::General);
     ~AtomicSpecies ();
 
-    double weight (double) const;
+    double weight (double, std::map<int, double>* = 0) const;
     double states (double) const;
 
     void shift_ground (double e);
@@ -908,7 +963,7 @@ namespace Model {
     Arrhenius(IO::KeyBufferStream& from, const std::string&) throw(Error::General);
     ~Arrhenius ();
 
-    double weight (double) const;
+    double weight (double, std::map<int, double>* = 0) const;
     double states (double) const;
 
     void shift_ground (double e);

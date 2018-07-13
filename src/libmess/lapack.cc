@@ -1,10 +1,3 @@
-/*
-    Copyright (C) 2018 Yuri Georgievski (ygeorgi@anl.gov), Stephen J.
-    Klippenstein (sjk@anl.gov), and Argonne National Laboratory.
-
-    See https://github.com/PACChem/MESS for copyright and licensing details.
-*/
-
 #include "lapack.hh"
 #include "error.hh"
 #include "io.hh"
@@ -873,11 +866,134 @@ Lapack::Vector Lapack::diagonalize(SymmetricMatrix a0, SymmetricMatrix b0, Matri
   throw Error::Run();
 }
 
+Lapack::Vector Lapack::diagonalize (const HermitianMatrix& a0, const HermitianMatrix& b0, ComplexMatrix* evec) throw(Error::General)
+{
+  const char funame [] = "Lapack::diagonalize: ";
+
+  const char lapack_funame [] = "ZHPGVD: ";
+
+  if(!a0.size() || !b0.size()) {
+    //
+    std::cerr << funame << "not initialized\n";
+
+    throw Error::Init();
+  }
+
+  if(a0.size() != b0.size()) {
+    //
+    std::cerr << funame << "dimensions mismatch\n";
+
+    throw Error::Range();
+  }
+
+  HermitianMatrix a = a0;
+  HermitianMatrix b = b0;
+
+  Vector res(a.size());
+
+  char   job = 'N';
+
+  complex* z = 0;
+
+  Array<complex> work(5);
+  Array<double> rwork(5);
+  Array<int_t>  iwork(5);
+
+  int_t  lwork = -1;
+  int_t lrwork = -1;
+  int_t liwork = -1;
+
+
+  if(evec) {
+    //
+    evec->resize(a.size());
+
+    z = *evec;
+
+    job = 'V';
+  }
+
+  int_t info = 1;
+
+  zhpgvd_(1, job, 'U', a.size(), a, b , res, z, a.size(), work, lwork, rwork, lrwork, iwork, liwork, info);
+
+  if(info < 0) {
+    //
+    std::cerr << funame << lapack_funame << -info 
+	      << "-th argument has an illegal value\n";
+
+    throw Error::Range();
+  }
+
+  if(info) {
+    //
+    std::cerr << funame << lapack_funame
+	      << "failed with info = " << info << "\n";
+
+    throw Error::Logic();
+  }
+
+  lwork  = (int_t)work[0].real();
+
+  lrwork = (int_t)rwork[0];
+
+  liwork = iwork[0];
+  
+  /*
+  std::cout << funame 
+	    << "  lwork = " << std::setw(6) <<  lwork 
+	    << " lrwork = " << std::setw(6) << lrwork 
+	    << " liwork = " << std::setw(6) << liwork 
+	    << std::endl;
+  */
+    
+  work.resize(lwork);
+
+  rwork.resize(lrwork);
+
+  iwork.resize(liwork);
+
+  zhpgvd_(1, job, 'U', a.size(), a, b , res, z, a.size(), work, lwork, rwork, lrwork, iwork, liwork, info);
+
+  if(!info)
+    //
+    return res;
+
+  if(info < 0) {
+    //
+    std::cerr << funame << lapack_funame << -info 
+	      << "-th argument has an illegal value\n";
+
+    throw Error::Logic();
+  }
+
+  if(info <= a.size() ) {
+    //
+    std::cerr << funame << lapack_funame << info 
+	      << " off-diagonal  elements  of an intermediate tridiagonal form did not converge to zero\n";
+
+    throw Error::Math();
+  }
+
+  if(info <= 2 * a.size() ){
+    //
+    std::cerr << funame << lapack_funame << " the leading minor of order " << info - a.size()
+	      << " of B is not positively definite\n";
+
+    throw Error::Math();
+  }
+
+  std::cerr << funame << lapack_funame <<  "failed with info = " << info << "\n";
+
+  throw Error::Run();
+}
+
 /****************************************************************
  ********************** LU Factorization ************************
  ****************************************************************/
 
 // calculates a parity of the permutation
+//
 Lapack::int_t Lapack::parity (RefArr<int_t> perm)
 {
   if(perm.size() < 2)

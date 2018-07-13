@@ -1,9 +1,4 @@
-/*
-    Copyright (C) 2018 Yuri Georgievski (ygeorgi@anl.gov), Stephen J.
-    Klippenstein (sjk@anl.gov), and Argonne National Laboratory.
 
-    See https://github.com/PACChem/MESS for copyright and licensing details.
-*/
 
 #ifndef UNITS_HH
 #define UNITS_HH

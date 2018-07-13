@@ -1,10 +1,3 @@
-/*
-    Copyright (C) 2018 Yuri Georgievski (ygeorgi@anl.gov), Stephen J.
-    Klippenstein (sjk@anl.gov), and Argonne National Laboratory.
-
-    See https://github.com/PACChem/MESS for copyright and licensing details.
-*/
-
 #include "molpro.hh"
 #include "system.hh"
 #include "error.hh"

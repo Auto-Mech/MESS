@@ -24,6 +24,41 @@ extern "C" {
 	      double* work, const Lapack::int_t& lwork, Lapack::int_t* iwork, const Lapack::int_t& liwork, 
 	      Lapack::int_t& info);
 
+  // simultaneous diagonalization of two hermitian matrices, B should be positively defined
+  //
+  int zhpgvd_(const Lapack::int_t& itype, // calculation type: 1 - A * x = lamda * B * x; 2 - A * B * x = lamda * x; 3 - B * A * x = lamda * x
+	      //
+	      const char&          job,   // job type: V - eigenvalues and eigenvectors; N - eigenvalues only
+	      //
+	      const char&          uplo,  // matrix packing type: U - upper triangle packing; L - low triangle packing
+	      //
+	      const Lapack::int_t& n,     // matrices order
+	      //
+	      Lapack::complex*     a,     // A matrix
+	      //
+	      Lapack::complex*     b,     // B matrix
+	      //
+	      double*              w,     // eigenvalues
+	      //
+	      Lapack::complex*     z,     // eigenvectors
+	      //
+	      const Lapack::int_t& ldz,   // leading dimeinsion of matrix z
+	      //
+	      Lapack::complex*     work,  // complex workspace
+	      //
+	      const Lapack::int_t& lwork, // complex workspace size
+	      //
+	      double*              rwork, // real workspace
+	      //
+	      const Lapack::int_t& lrwork,// real workspace size
+	      //
+	      Lapack::int_t*       iwork, // integer workspace
+	      //
+	      const Lapack::int_t& liwork,// integer workspace size
+	      //
+	      Lapack::int_t&       info   // exit status
+	      );
+
   int dsbevd_(const char& job, const char& uplo, const Lapack::int_t& n, const Lapack::int_t& kd, 
 	      double* ab, const Lapack::int_t& ldab, double* w, double* z, const Lapack::int_t& ldz,
 	      double* work, const Lapack::int_t& lwork, Lapack::int_t* iwork, const Lapack::int_t& liwork,
