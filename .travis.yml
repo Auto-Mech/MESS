@@ -1,4 +1,4 @@
-language: python
+language: c++
 
 dist: xenial
 
@@ -6,17 +6,8 @@ os: linux
 
 compiler: gcc
 
-python: "3.6"
-
 install:
-    - pip install pybind11
-    - pip install pytest
     - sudo apt-get install libopenblas-dev liblapack-dev
-    # Install MPACK
-    - sudo apt-get install libmpc-dev libmpfr-dev libqd-dev libqd0v5
-    - wget https://www.tbi.univie.ac.at/~entzian/mpack_build/mpack/download/ubuntu/xubuntu_17_04/mpack-dev_0.8.0_amd64.deb
-    - sudo dpkg -i mpack-dev_0.8.0_amd64.deb
-    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu
     # Install SLATEC the hacky way
     - sudo apt-get install gfortran
     - wget http://www.netlib.org/slatec/slatec_src.tgz
@@ -24,20 +15,13 @@ install:
     - cd src
     - rm bvder.f  bvsup.f  dbvder.f  dbvsup.f  drkfab.f  rkfab.f bvpor.f dbvpor.f  dexbvp.f  exbvp.f
     - gfortran -shared -O2 ./*.f -o libslatec.so -fPIC
-    - sudo mv libslatec.so /usr/local/lib/.
-    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+    - sudo mv libslatec.so /usr/lib/.
     - cd ..
-    # Install MESS
-    - mkdir build
-    - cd build
-    - cmake .. -DCMAKE_CXX_FLAGS="`python -m pybind11 --includes`"
-    - make
+    # Install MESS without MPACK
+    - cmake .
     - sudo make install
-    - export PYTHONPATH=$PYTHONPATH:/usr/local/lib
-    - cd ..
 
 script:
-    - pytest -v
     - cd examples/
     - mess mess.inp
     - cat mess.out

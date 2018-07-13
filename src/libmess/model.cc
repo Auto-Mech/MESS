@@ -1,10 +1,3 @@
-/*
-    Copyright (C) 2018 Yuri Georgievski (ygeorgi@anl.gov), Stephen J.
-    Klippenstein (sjk@anl.gov), and Argonne National Laboratory.
-
-    See https://github.com/PACChem/MESS for copyright and licensing details.
-*/
-
 #include <ios>
 #include <iomanip>
 #include <cmath>
@@ -1158,34 +1151,54 @@ void Model::init (IO::KeyBufferStream& from) throw(Error::General)
  ********************************************************************************************/
 
 // <m|f(k)|n> for m, n, and k harmonics
+//
 int Model::rotation_matrix_element (int m, int n, int p, double& fac)
 {
   if(!p && n == m)
+    //
     return 0;
   
   if(!m && n == p || !n && m == p) {
+    //
     fac /= M_SQRT2;
+
     return 0;
   }
 
   // all three fourier harmonics are cosines
+  //
   if(m % 2 + n % 2 + p % 2 == 0 && (m + n == p || m + p == n || n + p == m)) {
+    //
     fac /= 2.;
+
     return 0;
   }
 
   // two fourier harmonics are sines and  one is cosine
+  //
   if(m % 2 + n % 2 + p % 2 == 2) {
-    if(!(m % 2))
+    //
+    if(!(m % 2)) {
+      //
       std::swap(m, p);
-    if(!(n % 2))
+    }
+
+    if(!(n % 2)) {
+      //
       std::swap(n, p);
+    }
+
     if(m == n + p || n == m + p) {
+      //
       fac /= 2.;
+
       return 0;
     }
+
     if(p == m + n + 2) {
+      //
       fac /= -2.;
+
       return 0;
     }
   }
@@ -3240,23 +3253,50 @@ Model::Rotor::~Rotor ()
 
 void Model::Rotor::convolute(Array<double>& stat_grid, double ener_quant) const
 {
+  const char funame [] = "Model::Rotor::convolute: ";
+  
+  int    itemp;
+  double dtemp;
+
   Array<double> new_stat_grid = stat_grid;
 
-  int itemp;
-
   std::map<int, int> shift;
+  
   for(int n = 1; n < level_size(); ++n) {
-    itemp = int(std::ceil(energy_level(n) / ener_quant));
-    shift[itemp]++;
+    //
+    dtemp = std::ceil(energy_level(n) / ener_quant);
+
+    if(dtemp < 0.) {
+      //
+      std::cerr << funame << n << "-th energy level is negative: "
+		<< energy_level(n) / Phys_const::kcal << " kcal/mol\n";
+
+      throw Error::Range();
+    }
+    
+    if(dtemp < (double)stat_grid.size()) {
+      //
+      itemp = (int)dtemp;
+      
+      shift[itemp]++;
+    }
+    else {
+      //
+      IO::log << IO::log_offset << funame << "WARNING: "
+	      << n << "-th energy level is too high: "
+	      << energy_level(n) / Phys_const::kcal << " kcal/mol\n";
+    }
   }
 
 #pragma omp parallel for default(shared) schedule(static, 10)
 
-  for(int i = 0; i < stat_grid.size(); ++i) {
+  for(int i = 0; i < stat_grid.size(); ++i)
+    //
     for(std::map<int, int>::const_iterator it = shift.begin(); it != shift.end(); ++it)
+      //
       if(i >= it->first)
+	//
 	new_stat_grid[i] += (double)it->second * stat_grid[i - it->first];
-  }
 
   stat_grid = new_stat_grid; 
 }
@@ -5045,13 +5085,13 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   Key      freq_key("Frequencies[1/cm]"               );
   Key    fscale_key("FrequencyScalingFactor"          );
   Key     degen_key("FrequencyDegeneracies"           );
+  Key      harm_key("AreFrequenciesHarmonic"          );
   Key    anharm_key("Anharmonicities[1/cm]"           );
   Key     rovib_key("RovibrationalCouplings[1/cm]"    );
   Key      dist_key("RotationalDistortion[1/cm]"      );
   Key      emax_key("InterpolationEnergyMax[kcal/mol]");
   Key     estep_key("InterpolationEnergyStep[1/cm]"   );
   Key     extra_key("ExtrapolationStep"               );
-  Key      harm_key("AreFrequenciesHarmonic"          );
   Key      zero_key("ZeroPointEnergy[1/cm]"           );
   
   bool issym  = false;
@@ -6285,6 +6325,8 @@ Model::InternalRotation::InternalRotation (IO::KeyBufferStream& from) throw(Erro
 {
   const char funame [] = "Model::InternalRotation::InternalRotation: ";
 
+  IO::Marker funame_marker("InternalRotation", IO::Marker::NOTIME);
+
   KeyGroup InternalRotationDefinition;
 
   Key msize_key("MassExpansionSize"     );
@@ -6299,115 +6341,210 @@ Model::InternalRotation::InternalRotation (IO::KeyBufferStream& from) throw(Erro
   std::string stemp;
 
   std::string token, line, comment;
-  //std::string token = IO::last_key, line, comment;
-  //IO::last_key.clear();
+
   while(from >> token) {
+    //
     // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+
       break;
     }
-    // mass expansion size
+    // mass fourier expansion size
+    //
     else if(msize_key == token) {
+      //
       if(!(from >> _msize)) {
+	//
 	std::cerr << funame << token << ": corruped\n";
+
 	throw Error::Input();
       }
       std::getline(from, comment);
 
-      if(_msize < 1 || !(_msize % 2)) {
+      if(_msize < 1) {
+	//
 	std::cerr << funame << token << ": should be positive and odd\n";
+
 	throw Error::Range();
+      }
+
+      if(!(_msize % 2)) {
+	//
+	++_msize;
+
+	IO::log << IO::log_offset << token << ": WARNING: should be odd: changing to " << _msize << "\n";
       }
     }
     // potential fourier expansion size
+    //
     else if(psize_key == token) {
+      //
       if(_psize) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+
 	throw Error::Init();
       }
       if(!(from >> _psize)) {
+	//
 	std::cerr << funame << token << ": corruped\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
       if(_psize < 1 || !(_psize % 2)) {
+	//
 	std::cerr << funame << token << ": should be positive and odd\n";
+
 	throw Error::Range();
+      }
+
+      if(!(_psize % 2)) {
+	//
+	++_psize;
+
+	IO::log << IO::log_offset << token << ": WARNING: should be odd: changing to " << _psize << "\n";
       }
     }
     // minimal quantum state size
+    //
     else if(qmin_key == token) {
+      //
       if(_qmin) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+
 	throw Error::Init();
       }
+
       if(!(from >> _qmin)) {
+	//
 	std::cerr << funame << token << ": corruped\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
-      if(_qmin < 1 || !(_qmin % 2)) {
+      if(_qmin < 1) {
+	//
 	std::cerr << funame << token << ": should be positive and odd\n";
+
 	throw Error::Range();
+      }
+
+      if(!(_qmin % 2)) {
+	//
+	++_qmin;
+
+	IO::log << IO::log_offset << token << ": WARNING: should be odd: changing to " << _qmin << "\n";
       }
     }
     // maximal quantum state size
+    //
     else if(qmax_key == token) {
+      //
       if(_qmax) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+
 	throw Error::Init();
       }
+
       if(!(from >> _qmax)) {
+	//
 	std::cerr << funame << token << ": corruped\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
-      if(_qmax < 1 || !(_qmax % 2)) {
+      if(_qmax < 1) {
+	//
 	std::cerr << funame << token << ": should be positive and odd\n";
+
 	throw Error::Range();
       }
+
+      if(!(_qmax % 2)) {
+	//
+	++_qmax;
+
+	IO::log << IO::log_offset << token << ": WARNING: should be odd: changing to " << _qmax << "\n";
+      }
     }
-    // angular grid size
+    // grid size
+    //
     else if(wsize_key == token) {
+      //
       if(!(from >> _wsize)) {
+	//
 	std::cerr << funame << token << ": corruped\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
       if(_wsize < 1) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+
 	throw Error::Range();
       }
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+
       Key::show_all(std::cerr);
+
       std::cerr << "\n";
+
       throw Error::Init();
-    }
-  } //while(from >> token);
+    }//
+    //
+  }// input cycle
   
   /************************************ CHECKING ***************************************/
+
   if(!from) {
+    //
     std::cerr << funame << "input is corrupted\n";
+
     throw Error::Input();
   }
 
   if(!_msize) {
+    //
     std::cerr << funame << "mass expansion size not initialized\n";
+    
     throw Error::Init();
   }
 
   if(!_wsize) {
+    //
     std::cerr << funame << "angular grid size not initialized\n";
+
     throw Error::Init();
   }
+
+  if(!_qmin || !_qmax || _qmin > _qmax) {
+    //
+    std::cerr << funame << "harmonic expansion size limits should be positive, odd, and ordered: " << _qmin << ", " << _qmax << "\n";
+
+    throw Error::Range();
+    //
+  }//
+  //
 }// InternalRotation
 
 Model::InternalRotation::~InternalRotation ()
@@ -6419,11 +6556,13 @@ Model::InternalRotation::~InternalRotation ()
  ***************************** MULTIPLE COUPLED ROTORS MODEL ********************************
  ********************************************************************************************/
 
-Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>& atom, int mm)
-  throw(Error::General)
+Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>& atom, int mm)  throw(Error::General)
+
   : Core(mm), _extra_ener(-1.), _extra_step(0.1), _ener_quant(Phys_const::incm), _level_ener_max(-1.),
-    _is_ext_rot(true), _full_quantum_treatment(false), _amom_max(0), _ptol(-1.), _mtol(-1.),
-    _external_symmetry(1.)
+
+    _with_ext_rot(true), _full_quantum_treatment(false), _amom_max(0), _ptol(-1.), _vtol(-1.), _mtol(-1.),
+
+    _pot_shift(0.), _external_symmetry(1.), _with_ctf(false)
 {
   const char funame [] = "Model::MultiRotor::MultiRotor: ";
 
@@ -6446,9 +6585,14 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   Key     extra_key("ExtrapolationStep"               );  
   Key      erot_key("WithoutExternalRotation"         );  
   Key      full_key("FullQuantumTreatment"            );
-  Key      ptol_key("PotentialPruningTolerance"       );
-  Key      mtol_key("MassPruningTolerance"            );
+  Key      ptol_key("PotentialTolerance"              );
+  Key      vtol_key("FrequencyTolerance"              );
+  Key      mtol_key("MobilityTolerance"               );
   Key      amom_key("AngularMomentumMax"              );
+  Key     force_key("ForceQFactor"                    );
+  Key       ctf_key("WithCurvlinearFactor"            );
+
+  bool  force_qfactor = false;
   
   int             itemp;
   double          dtemp;
@@ -6457,300 +6601,501 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   Lapack::Vector  vtemp;
   Lapack::Matrix  mtemp;
 
-  double            fac;
-
   std::vector<int>    ivec;
   std::vector<double> dvec;
 
   std::string token, line, comment;
 
   std::vector<std::vector<double> > vibration_sampling; // vibrational sampling data
+
   while(from >> token) {
+    //
     // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+
       break;
     }
-    // internal motion definition
-    else if(irot_key == token) {
+    // internal rotation factor included
+    //
+    else if(ctf_key == token) {
+      //
       std::getline(from, comment);
-      IO::log << IO::log_offset << _internal_rotation.size() + 1 << "-th internal rotation definition ... ";
+
+      _with_ctf = true;
+    }
+    // force qfactor
+    //
+    else if(force_key == token) {
+      //
+      std::getline(from, comment);
+
+      force_qfactor = true;
+    }
+    // internal motion definition
+    //
+    else if(irot_key == token) {
+      //
+      std::getline(from, comment);
+
+      IO::log << IO::log_offset << _internal_rotation.size() + 1 << "-th internal rotation definition:\n";
+
       _internal_rotation.push_back(InternalRotation(from));
-      IO::log << "done\n";
     }
     // potential and vibrational samplings
+    //
     else if(kcal_pes_key == token || incm_pes_key == token || kj_pes_key == token) {
+      //
       if(_pot_index.rank()) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+
 	throw Error::Init();
       }
 
       // file reading
+      //
       IO::LineInput name_input(from);
+
       if(!(name_input >> stemp)) {
+	//
 	std::cerr << funame << token << ": cannot read potential energy surface file name\n";
+
 	throw Error::Input();
       }
 
       std::ifstream file_input(stemp.c_str());
+
       if(!file_input) {
+	//
 	std::cerr << funame << token << ": cannot open potential energy surface file " << stemp << "\n";
+
 	throw Error::Input();
       }
 
       // sampling dimensions      
+      //
       ivec.clear();
+
       IO::LineInput sampling_dimensions_input(file_input);
+
       while(sampling_dimensions_input >> itemp) {
+	//
 	if(itemp < 1) {
+	  //
 	  std::cerr << funame << token << ": the sampling dimensions should be positive\n";
+
 	  throw Error::Range();
 	}
+
 	ivec.push_back(itemp);
       }
 
       _pot_index.resize(ivec);
+
       _pot_real.resize(_pot_index.size());
 
       // vibrational frequencies  subset
+      //
       std::set<int> vib_set;
+
       IO::LineInput vib_set_input(file_input);
+
       while(vib_set_input >> itemp) {
+	//
 	if(itemp < 1) {
+	  //
 	  std::cerr << funame << token << ": vibration index should be positive\n";
+
 	  throw Error::Init();
 	}
+
 	if(!vib_set.insert(itemp).second) {
+	  //
 	  std::cerr << funame << token << ": identical vibration indices\n";
+
 	  throw Error::Init();
 	}
       }
       
       if(vib_set.size()) {
+	//
 	_vib_four.resize(vib_set.size());
+
+	_eff_vib_four.resize(vib_set.size());
+
 	vibration_sampling.resize(_pot_index.size());
       }
 
       // headline
+      //
       std::getline(file_input, comment);
 
       std::set<int> pl_pool;
+
       // sampling reading
+      //
       for(int pl = 0; pl < _pot_index.size(); ++pl) {
+	//
 	IO::LineInput sampling_input(file_input);
+
 	// reading potential sampling index
+	//
 	for(int i = 0; i < ivec.size(); ++i) {
+	  //
 	  if(!(sampling_input >> itemp)) {
+	    //
 	    std::cerr << funame << token 
 		      << ": potential data corrupted: line input format: i_1 ... i_n energy f_1 ... f_m\n";
+
 	    throw Error::Input();
 	  }
+
 	  // Fortran style indexing in input
+	  //
 	  if(itemp < 1 || itemp > _pot_index.size(i)) {
+	    //
 	    std::cerr << funame << token 
 		      << ": " << i + 1 
 		      << "-th potential sampling index (Fortran style indexing) out of range\n";
+
 	    throw Error::Range();
 	  }
+
 	  ivec[i] = itemp - 1;
 	}
 
 	// potential sampling linear index
+	//
 	int pl_curr = _pot_index(ivec);
+
 	if(!pl_pool.insert(pl_curr).second) {
+	  //
 	  std::cerr << funame << token << ": identical sampling: (";
+
 	  for(int i = 0; i < ivec.size(); ++i) {
+	    //
 	    if(i)
+	      //
 	      std::cerr << ", ";
+
 	    std::cerr << ivec[i] + 1;	
 	  }
 	  std::cerr << ")\n";
+
 	  throw Error::Init();
 	}
 
 	// reading potential energy
+	//
 	if(!(sampling_input >> dtemp)) {
+	  //
 	  std::cerr << funame << token 
 		    << ": potential data corrupted: line input format: i_1 ... i_n energy f_1 .. f_m\n";
+
 	  throw Error::Input();
 	}
 
 	if(kcal_pes_key == token)
+	  //
 	  dtemp *= Phys_const::kcal;
+
 	if(incm_pes_key == token)
+	  //
 	  dtemp *= Phys_const::incm;
+
 	if(kj_pes_key == token)
+	  //
 	  dtemp *= Phys_const::kjoul;
 	
 	_pot_real[pl_curr] = dtemp;
 
 	// reading vibrational frequencies
+	//
 	if(_vib_four.size()) {
+	  //
 	  itemp = 0;
+
 	  while(sampling_input >> dtemp) {
+	    //
 	    dtemp *= Phys_const::incm;
+
 	    ++itemp;
 
 	    if(vib_set.find(itemp) != vib_set.end()) {
+	      //
 	      if(dtemp <= 0.) {
+		//
 		std::cerr << funame << token << ": ("; 
+
 		for(int i = 0; i < ivec.size(); ++i) {
+		  //
 		  if(i)
+		    //
 		    std::cerr << ", ";
+
 		  std::cerr << ivec[i] + 1;
 		}
 		std::cerr << ")-th sampling: " << itemp << "-th frequency negative\n";
+
 		throw Error::Range();
 	      }
+
 	      vibration_sampling[pl_curr].push_back(dtemp);
 	    }	  
 	  }
 
 	  // checking
+	  //
 	  if(vibration_sampling[pl_curr].size() != _vib_four.size()) {
+	    //
 	    std::cerr << funame << token << ": (";
+
 	    for(int i = 0; i < ivec.size(); ++i) {
+	      //
 	      if(i)
+		//
 		std::cerr << ", ";
+
 	      std::cerr << ivec[i] + 1;
 	    }
 	    std::cerr << ")-th sampling: wrong frequencies # = "
 		      << vibration_sampling[pl_curr].size() 
 		      << ", total read freq. # = " << itemp << "\n";
+
 	    throw Error::Range();
 	  }
+	  //
 	}// reading vibrational frequencies
+	//
       }// reading sampling
     }
     // external rotational symmetry
+    //
     else if(symm_key == token) {
+      //
       if(!(from >> _external_symmetry)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(_external_symmetry <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+
 	throw Error::Range();
       }
     }
     // include external rotation
+    //
     else if(erot_key == token) {
-      _is_ext_rot = false;
+      //
+      _with_ext_rot = false;
+      
       std::getline(from, comment);
     }
     // full quantum treatment
+    //
     else if(full_key == token) {
+      //
       _full_quantum_treatment = true;
+
       std::getline(from, comment);
     }
     // maximum quantum level energy relative to the potential minimum
+    //
     else if(kcal_qmax_key == token || incm_qmax_key == token || kj_qmax_key == token) {
+      //
       if(!(from >> _level_ener_max)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
       if(kcal_qmax_key == token)
+	//
 	_level_ener_max *= Phys_const::kcal;
+
       if(incm_qmax_key == token)
+	//
 	_level_ener_max *= Phys_const::incm;
+
       if(kj_qmax_key == token)
+	//
 	_level_ener_max *= Phys_const::kjoul;
     }
     // interpolation maximal energy
+    //
     else if(kcal_emax_key == token || incm_emax_key == token || kj_emax_key == token) {
+      //
       if(!(from >> _extra_ener)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
       if(_extra_ener <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+
 	throw Error::Range();
       }
 
       if(kcal_emax_key == token)
+	//
 	_extra_ener *= Phys_const::kcal;
+
       if(incm_emax_key == token)
+	//
 	_extra_ener *= Phys_const::incm;
+
       if(kj_emax_key == token)
+	//
 	_extra_ener *= Phys_const::kjoul;
     }
     // extrapolation step
+    //
     else if(extra_key == token) {
+      //
       if(!(from >> _extra_step)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
       if(_extra_step <= 0. || _extra_step >= 1.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+
 	throw Error::Range();
       }
     }
     // frequency quantum
+    //
     else if(estep_key == token) {
+      //
       if(!(from >> _ener_quant)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
       if(_ener_quant <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+
 	throw Error::Range();
       }
+
       _ener_quant *= Phys_const::incm;
     }
     // angular momentum quantum number maximum
+    //
     else if(amom_key == token) {
+      //
       if(!(from >> _amom_max)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
       if(_amom_max <= 0) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+
 	throw Error::Range();
       }
     }
     // potential matrix element tolerance
+    //
     else if(ptol_key == token) {
+      //
       if(!(from >> _ptol)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
-      if(_ptol <= 0. || _ptol >= 1.) {
+      if(_ptol <= 0. || _ptol >= 0.5) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+
+	throw Error::Range();
+      }
+    }
+    // vibrational frequency matrix element tolerance
+    //
+    else if(vtol_key == token) {
+      //
+      if(!(from >> _vtol)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      std::getline(from, comment);
+
+      if(_vtol <= 0. || _vtol >= 0.5) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+
 	throw Error::Range();
       }
     }
     // mass matrix element tolerance
+    //
     else if(mtol_key == token) {
+      //
       if(!(from >> _mtol)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+
       std::getline(from, comment);
 
-      if(_mtol <= 0. || _mtol >= 1.) {
+      if(_mtol <= 0. || _mtol >= 0.5) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+
 	throw Error::Range();
       }
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+
       Key::show_all(std::cerr);
+
       std::cerr << "\n";
+
       throw Error::Init();
     }
   }
@@ -6758,415 +7103,1331 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   /***************************************** CHECKING ****************************************/
 
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+
     throw Error::Input();
   }
 
   // number of internal motions
+  //
   if(!internal_size()) {
+    //
     std::cerr << funame << "internal motions are not defined\n";
+
     throw Error::Init();
   }
     
   // initial geometry
+  //
   if(!atom.size()) {
+    //
     std::cerr << funame << "geometry is not initialized\n";
+
     throw Error::Init();
   }
 
   // potential sampling dimensionality
+  //
   if(_pot_index.rank() != internal_size()) {
+    //
     std::cerr << funame << "potential dimensionality is inconsistent with the number of internal motions\n";
+
     throw Error::Init();
   }
 
-  if(_extra_ener < 0. && mode() != NOSTATES) {
+  if(_extra_ener < 0. && (mode() != NOSTATES || force_qfactor)) {
+    //
     std::cerr << funame << "Maximum interpolation energy not initialized\n";
+
     throw Error::Init();
   }
 
+  /******************************* INITIAL SETTINGS *******************************/
+  
   // zero-energy shift
+  //
   for(int v = 0; v < _vib_four.size(); ++v)
+    //
     for(int g = 0; g < _pot_index.size(); ++g)
-      _pot_real[g] += vibration_sampling[g][v] / 2.;  
+      //
+      _pot_real[g] += vibration_sampling[g][v] / 2.;
+
+  if(_ptol > 0. && _vtol < 0.)
+    //
+    _vtol = _ptol;
+  
 
   /******************************* MASS FOURIER EXPANSION *******************************/
   
   if(1) {
+    //
     IO::Marker work_marker("mass fourier expansion");
 
     // mass fourier expansion dimensions
+    //
     ivec.resize(internal_size());
+
     for(int r = 0; r < internal_size(); ++r) 
+      //
       ivec[r] = _internal_rotation[r].mass_fourier_size();
+
     _mass_index.resize(ivec);
 
     IO::log << IO::log_offset << "mass fourier expansion size = " << _mass_index.size() << std::endl;
 
     for(int h = 0; h < _mass_index.size(); ++h) {
+      //
       _imm_four[h].resize(internal_size());
+
       _imm_four[h] = 0.;
+
+      if(_with_ctf) {
+	//
+	_eff_imm_four[h].resize(internal_size());
+
+	_eff_imm_four[h] = 0.;
+      }
     }
 
     // external rotation quantized  
+    //
     if(_amom_max) {
+      //
       _internal_mobility_real.resize(_mass_index.size());
+
       _external_mobility_real.resize(_mass_index.size());
+
       _coriolis_coupling_real.resize(_mass_index.size());
+
+      _ctf_real.resize(_mass_index.size());
     }
 
     // sampling geometries
+    //
     for(int g = 0; g < _mass_index.size(); ++g) {// grid cycle
+      //
       std::vector<int> gv = _mass_index(g);
 
       // new geometry
+      //
       std::vector<Atom> atom_current = atom;
+
       if(g)
+	//
 	for(int r = 0; r < internal_size(); ++r) {
+	  //
 	  dtemp =  2. * M_PI * double(gv[r]) / double(symmetry(r) * _mass_index.size(r));// rotation angle
+
 	  atom_current = _internal_rotation[r].rotate(atom_current, dtemp);
 	}
 
       // shift center of mass to zero
+      //
       shift_cm_to_zero(atom_current);
 
-      // maximum external inertia moment
-      if(!g)
-	_inertia_moment_max = inertia_moment_matrix(atom_current).eigenvalues()[2];
-
       // coriolis coupling matrix initialization
+      //
       if(_amom_max)
+	//
 	_coriolis_coupling_real[g].resize(3, internal_size());
 
       // normal modes
+      //
       std::vector<std::vector<D3::Vector> > nm(internal_size());
+
       for(int r = 0; r < internal_size(); ++r) {
+	//
 	// normal mode and coriolis coupling
+	//
 	if(_amom_max) {
+	  //
 	  nm[r] = _internal_rotation[r].normal_mode(atom_current, &vtemp);
+
 	  _coriolis_coupling_real[g].column(r) = vtemp;
 	}    
 	// normal mode only
-	else
+	//
+	else {
+	  //
 	  nm[r] = _internal_rotation[r].normal_mode(atom_current);
+	}
       }
 
-      // internal mobility matrix
-      Lapack::SymmetricMatrix imm(internal_size());
-      for(int i = 0; i < internal_size(); ++i)
-	// generalized mass matrix
-	for(int j = i; j < internal_size(); ++j) {
-	  imm(i, j) = 0.;
-	  for(int a = 0; a < atom.size(); ++a)
-	    imm(i, j) += atom[a].mass() * vdot(nm[i][a], nm[j][a]);
-	}
+      // generalized mass matrix
+      //
+      Lapack::SymmetricMatrix gmm(internal_size());
 
-      // one-dimensional internal mobility output for original geometry
+      for(int i = 0; i < internal_size(); ++i) {
+	//
+	// generalized mass matrix
+	//
+	for(int j = i; j < internal_size(); ++j) {
+	  //
+	  gmm(i, j) = 0.;
+
+	  for(int a = 0; a < atom.size(); ++a)
+	    //
+	    gmm(i, j) += atom[a].mass() * vdot(nm[i][a], nm[j][a]);
+	}
+      }
+
+      // output: one-dimensional internal mobility for original geometry
+      //
       if(!g) {
+	//
 	IO::log << IO::log_offset << "1D internal mobilities for original geometry, 1/cm:";
+
 	for(int r = 0; r < internal_size(); ++r)
-	  IO::log << std::setw(12) << 0.5 / imm(r, r) / Phys_const::incm;
+	  //
+	  IO::log << std::setw(12) << 0.5 / gmm(r, r) / Phys_const::incm;
+
 	IO::log << "\n";
 
 	IO::log << IO::log_offset << "generalized mass matrix [amu * bohr * bohr] for original geometry:\n";
+
 	IO::log << IO::log_offset << std::setw(3) << "#\\#";
+
 	for(int r = 0; r < internal_size(); ++r)
+	  //
 	  IO::log << std::setw(12) << r + 1;
+
 	IO::log << "\n";
+
 	for(int r = 0; r < internal_size(); ++r) {
+	  //
 	  IO::log << IO::log_offset 
 		  << std::left <<  std::setw(3) << r + 1 << std::right;
+
 	  for(int s = 0; s <= r; ++s)
-	    IO::log << std::setw(12) << imm(r, s) / Phys_const::amu;
+	    //
+	    IO::log << std::setw(12) << gmm(r, s) / Phys_const::amu;
+
 	  IO::log << "\n";
 	}
+
+	Lapack::Vector pim = inertia_moment_matrix(atom_current).eigenvalues();
+
+	_rotational_constant.resize(pim.size());
+
+	IO::log << IO::log_offset << "external rotational constants for original geometry [1/cm]:";
+
+	for(int i = 0; i < pim.size(); ++i) {
+	  //
+	  IO::log << "   ";
+
+	  if(pim[i] > 0.) {
+	    //
+	    dtemp = 0.5 / pim[i];
+
+	    _rotational_constant[i] = dtemp;
+
+	    IO::log << dtemp / Phys_const::incm;
+	  }
+	  else {
+	    //
+	    std::cerr << funame << "molecule is linear?\n";
+
+	    throw Error::Range();
+	  }
+	}
+
+	IO::log << "\n";
       }
 
-      imm = imm.invert();
+      // Cholesky representation
+      //
+      Lapack::Cholesky gmm_chol(gmm);
+
+      // external rotation factor - sqrt(inertia moments product)
+      //
+      const double  erf = Lapack::Cholesky(inertia_moment_matrix(atom_current)).det_sqrt();
+
+      // internal rotation factor
+      //
+      const double irf = gmm_chol.det_sqrt();
+
+      // curvlinear transformation factor
+      //
+      const double ctf = irf * erf;
+
+      // internal mobility matrix
+      //
+      Lapack::SymmetricMatrix imm = gmm_chol.invert();
+
       imm /= 2.;
 
-      // internal mobility matrix output for original geometry
+      Lapack::SymmetricMatrix eff_imm;
+      
+      if(_with_ctf) {
+	//
+	eff_imm = imm.copy();
+	
+	eff_imm *= ctf;
+      }
+      
+      // output: internal mobility matrix for original geometry
+      //
       if(!g) {
+	//
 	IO::log << IO::log_offset << "internal mobility matrix for original geometry, 1/cm:\n";
+
 	IO::log << IO::log_offset << std::setw(3) << "#\\#";
+
 	for(int r = 0; r < internal_size(); ++r)
+	  //
 	  IO::log << std::setw(12) << r + 1;
+
 	IO::log << "\n";
+
 	for(int r = 0; r < internal_size(); ++r) {
+	  //
 	  IO::log << IO::log_offset 
 		  << std::left <<  std::setw(3) << r + 1 << std::right;
+
 	  for(int s = 0; s <= r; ++s)
+	    //
 	    IO::log << std::setw(12) << imm(r, s) / Phys_const::incm;
+
 	  IO::log << "\n";
 	}
       }
 
       // coriolis coupling with external (overall) rotations
+      //
       if(_amom_max) {
-	_internal_mobility_real[g] = imm;
+	//
+	_internal_mobility_real[g] = imm.copy();
+
 	Lapack::Matrix cc = _coriolis_coupling_real[g] * _internal_mobility_real[g];
+
 	_external_mobility_real[g] = inertia_moment_matrix(atom_current).invert();
+	
 	_external_mobility_real[g] /= 2.;
+
 	_external_mobility_real[g] += Lapack::SymmetricMatrix(cc * _coriolis_coupling_real[g].transpose());
+
 	_coriolis_coupling_real[g] = cc;
+
+	if(_with_ctf) {
+	  //
+	  _internal_mobility_real[g] *= ctf;
+
+	  _external_mobility_real[g] *= ctf;
+
+	  _coriolis_coupling_real[g] *= ctf;
+
+	  _ctf_real[g] = ctf;
+	}
       }
 
-      // external rotation factor - sqrt(inertia moments product)
-      double erf = 1.;
-      if(_is_ext_rot) 
-	erf = Lapack::Cholesky(inertia_moment_matrix(atom_current)).det_sqrt();
-
-      // fourier  transform
-      for(int h = 0; h < _mass_index.size(); ++h) {
+      for(int h = 0; h < _mass_index.size(); ++h) {// fourier expansion cycle
+	//
 	std::vector<int> hv = _mass_index(h);
 	
-	fac = 1.;
-	for(int r = 0; r < internal_size(); ++r)
-	  if(hv[r] % 2)
-	    fac *= std::sin(M_PI * double((hv[r] + 1) * gv[r])/ double(_mass_index.size(r)));
+	double dfac = 1.;
+       
+	for(int r = 0; r < internal_size(); ++r) {
+	  //
+	  if(!hv[r])
+	    //
+	    continue;
+	  
+	  if(hv[r] % 2) {
+	    //
+	    dfac *= std::sin(M_PI * double((hv[r] + 1) * gv[r])/ double(_mass_index.size(r)));
+	  }
 	  else
-	    fac *= std::cos(M_PI * double(hv[r] * gv[r])/ double(_mass_index.size(r)));
+	    //
+	    dfac *= std::cos(M_PI * double(hv[r] * gv[r])/ double(_mass_index.size(r)));
+	}
 
-	for(int i = 0; i < internal_size(); ++i)
-	  for(int j = i; j < internal_size(); ++j)
+	for(int i = 0; i < internal_size(); ++i) {
+	  //
+	  for(int j = i; j < internal_size(); ++j) {
+	    //
 	    //#pragma omp atomic
-	    _imm_four[h](i, j) += imm(i, j) * fac;
-      
-	if(_is_ext_rot)
-	  //#pragma omp atomic
-	  _erf_four[h] += erf * fac;
-      }
+	    //
+	    _imm_four[h](i, j) += imm(i, j) * dfac;
+
+	    if(_with_ctf) {
+	      //
+	      _eff_imm_four[h](i, j) += eff_imm(i, j) * dfac;
+	      //
+	    }//
+	    //
+	  }//
+	  //
+	}//
+
+	
+	if(_with_ctf)
+	  //
+	  _eff_erf_four[h] += erf * ctf * dfac;
+
+	_ctf_four[h] += ctf * dfac;
+	
+	_irf_four[h] += irf * dfac;
+
+	_erf_four[h] += erf * dfac;
+	
+	//
+      }// fourier expansion cycle
+      //
     }// grid cycle    
   
     // normalization
-    for(int h = 0; h < _mass_index.size(); ++h) {
+    //
+    for(int h = 0; h < _mass_index.size(); ++h) {// fourier expansion cycle
+      //
       std::vector<int> hv = _mass_index(h);
 
       // normalization factor
-      fac = double(_mass_index.size());
-      for(int r = 0; r < internal_size(); ++r)
-	if(hv[r])
-	  fac /= 2.;
-    
-      _imm_four[h] /= fac;	  
-      if(_is_ext_rot)
-	_erf_four[h] /= fac;
-    }
+      //
+      double dfac = double(_mass_index.size());
 
-    // averaged internal rotational constant matrix
+      for(int r = 0; r < internal_size(); ++r)
+	//
+	if(hv[r])
+	  //
+	  dfac /= 2.;
+    
+      _imm_four[h] /= dfac;	  
+
+      if(_with_ctf) {
+	//
+	_eff_imm_four[h] /= dfac;
+
+	_eff_erf_four[h] /= dfac;
+      }
+
+      _ctf_four[h] /= dfac;
+
+      _erf_four[h] /= dfac;
+      
+      _irf_four[h] /= dfac;
+      //
+    }// fourier expansion cycle
+
+    // output: averaged internal rotational constant matrix
+    //
     IO::log << IO::log_offset << "averaged internal mobility matrix, 1/cm:\n";
+
     IO::log << IO::log_offset 
 	    << std::setw(3) << "#\\#";
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       IO::log << std::setw(12) << r + 1;
+
     IO::log << "\n";
+
     for(int r = 0; r < internal_size(); ++r) {
+      //
       IO::log << IO::log_offset 
 	      << std::left <<  std::setw(3) << r + 1 << std::right;
+
       for(int s = 0; s <= r; ++s)
+	//
 	IO::log << std::setw(12) << _imm_four[0](r, s) / Phys_const::incm;
+
       IO::log << "\n";
     }
+
     IO::log << std::flush;
 
-    // internal, external rotation, coriolis coupling
+    // internal mobility matrix fourier expansion pruning
+    //
+    if(_mtol > 0.) {
+      //
+      IO::Marker  prune_marker("pruning internal mobility matrix fourier expansion");
+	
+      IO::log << IO::log_offset << "tolerance[%] = " << _mtol * 100. << "\n";
+
+      IO::log << IO::log_offset << "original internal mobility matrix fourier expansion size = " 
+	      << _imm_four.size() << "\n";
+
+      typedef std::map<int, Lapack::SymmetricMatrix>::iterator mit_t;
+
+      double threshold = 0.;
+
+      std::multimap<double, int> order_term;
+      
+      std::multimap<double, int>::const_iterator otit;
+
+      for(mit_t mit = _imm_four.begin(); mit != _imm_four.end(); ++mit) {// fourier expnasion cycle
+	//
+	dtemp = 0.;
+
+	for(int i = 0; i < internal_size(); ++i) {
+	  //
+	  for(int j = i; j < internal_size(); ++j) {
+	    //
+	    if(j != i) {
+	      //
+	      dtemp += 2. * mit->second(i, j) * mit->second(i, j);
+	    }
+	    else
+	      //
+	      dtemp += mit->second(i, j) * mit->second(i, j);
+	  }
+	}
+
+	std::vector<int> gv = _mass_index(mit->first);
+	  
+	itemp = 1;
+
+	for(int i = 0; i < internal_size(); ++i)
+	  //
+	  if(gv[i])
+	    //
+	    itemp *= 2;
+	  
+	dtemp /= (double)itemp;
+
+	threshold += dtemp;
+
+	order_term.insert(std::make_pair(dtemp, mit->first));
+	//
+      }// fourier expansion cycle
+
+      if(threshold == 0.) {
+	//
+	std::cerr << funame << "no kinetic energy term\n";
+
+	throw Error::Logic();
+      }
+
+      threshold *= _mtol;
+      
+      dtemp = 0.;
+      
+      for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	//
+	dtemp += otit->first;
+
+	if(dtemp > threshold)
+	  //
+	  break;
+
+	_imm_four.erase(otit->second);
+      }
+      
+      IO::log << IO::log_offset << "pruned   internal mobility matrix fourier expansion size = " 
+	      << _imm_four.size() << "\n";
+      //
+    }// internal mobility matrix fourier expansion pruning
+
+    // effective internal mobility matrix fourier expansion pruning
+    //
+    if(_mtol > 0. && _with_ctf) {
+      //
+      IO::Marker  prune_marker("pruning effective internal mobility matrix fourier expansion");
+	
+      IO::log << IO::log_offset << "tolerance[%] = " << _mtol * 100. << "\n";
+
+      IO::log << IO::log_offset << "original effective internal mobility matrix fourier expansion size = " 
+	      << _eff_imm_four.size() << "\n";
+
+      typedef std::map<int, Lapack::SymmetricMatrix>::iterator mit_t;
+
+      double threshold = 0.;
+
+      std::multimap<double, int> order_term;
+      
+      std::multimap<double, int>::const_iterator otit;
+
+      for(mit_t mit = _eff_imm_four.begin(); mit != _eff_imm_four.end(); ++mit) {// fourier expnasion cycle
+	//
+	dtemp = 0.;
+
+	for(int i = 0; i < internal_size(); ++i) {
+	  //
+	  for(int j = i; j < internal_size(); ++j) {
+	    //
+	    if(j != i) {
+	      //
+	      dtemp += 2. * mit->second(i, j) * mit->second(i, j);
+	    }
+	    else
+	      //
+	      dtemp += mit->second(i, j) * mit->second(i, j);
+	  }
+	}
+
+	std::vector<int> gv = _mass_index(mit->first);
+	  
+	itemp = 1;
+
+	for(int i = 0; i < internal_size(); ++i)
+	  //
+	  if(gv[i])
+	    //
+	    itemp *= 2;
+	  
+	dtemp /= (double)itemp;
+
+	threshold += dtemp;
+
+	order_term.insert(std::make_pair(dtemp, mit->first));
+	//
+      }// fourier expansion cycle
+
+      if(threshold == 0.) {
+	//
+	std::cerr << funame << "no kinetic energy term\n";
+
+	throw Error::Logic();
+      }
+
+      threshold *= _mtol;
+      
+      dtemp = 0.;
+      
+      for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	//
+	dtemp += otit->first;
+
+	if(dtemp > threshold)
+	  //
+	  break;
+
+	_eff_imm_four.erase(otit->second);
+      }
+      
+      IO::log << IO::log_offset << "pruned   effective internal mobility matrix fourier expansion size = " 
+	      << _eff_imm_four.size() << "\n";
+      //
+    }// effective internal mobility matrix fourier expansion pruning
+
+    // external rotational factor pruning
+    //
+    if(_mtol > 0.) {
+      //
+      IO::Marker  prune_marker("pruning external rotation factor fourier expansion");
+      
+      IO::log << IO::log_offset << "tolerance[%] = " << _mtol * 100. << "\n";
+
+      IO::log << IO::log_offset << "original external rotation factor fourier expansion size = " 
+	      << _erf_four.size() << "\n";
+
+      typedef std::map<int, double>::iterator pit_t;
+
+      double threshold = 0.;
+
+      std::multimap<double, int> order_term;
+      
+      std::multimap<double, int>::const_iterator otit;
+
+      for(pit_t pit = _erf_four.begin(); pit != _erf_four.end(); ++pit) {// fourier expansion cycle
+	//
+	std::vector<int> pv = _mass_index(pit->first);
+	  
+	itemp = 1;
+
+	for(int i = 0; i < internal_size(); ++i)
+	  //
+	  if(pv[i])
+	    //
+	    itemp *= 2;
+	  
+	dtemp = pit->second * pit->second / (double)itemp;
+	
+	threshold += dtemp;
+
+	order_term.insert(std::make_pair(dtemp, pit->first));
+
+      }// fourier expansion cycle
+
+      if(threshold == 0.) {
+	//
+	std::cerr << funame << "no external rotation\n";
+
+	throw Error::Logic();
+      }
+
+      threshold *= _mtol;
+      
+      dtemp = 0.;
+      
+      for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	//
+	dtemp += otit->first;
+
+	if(dtemp > threshold)
+	  //
+	  break;
+
+	_erf_four.erase(otit->second);
+      }
+
+      IO::log << IO::log_offset << "pruned   external rotation factor fourier expansion size = " 
+	      << _erf_four.size() << "\n";
+      //
+    }// external rotation factor pruning
+
+    // effective external rotational factor pruning
+    //
+    if(_mtol > 0. && _with_ctf) {
+      //
+      IO::Marker  prune_marker("pruning effective external rotation factor fourier expansion");
+      
+      IO::log << IO::log_offset << "tolerance[%] = " << _mtol * 100. << "\n";
+
+      IO::log << IO::log_offset << "original effective external rotation factor fourier expansion size = " 
+	      << _eff_erf_four.size() << "\n";
+
+      typedef std::map<int, double>::iterator pit_t;
+
+      double threshold = 0.;
+
+      std::multimap<double, int> order_term;
+      
+      std::multimap<double, int>::const_iterator otit;
+
+      for(pit_t pit = _eff_erf_four.begin(); pit != _eff_erf_four.end(); ++pit) {// fourier expansion cycle
+	//
+	std::vector<int> pv = _mass_index(pit->first);
+	  
+	itemp = 1;
+
+	for(int i = 0; i < internal_size(); ++i)
+	  //
+	  if(pv[i])
+	    //
+	    itemp *= 2;
+	  
+	dtemp = pit->second * pit->second / (double)itemp;
+	
+	threshold += dtemp;
+
+	order_term.insert(std::make_pair(dtemp, pit->first));
+
+      }// fourier expansion cycle
+
+      if(threshold == 0.) {
+	//
+	std::cerr << funame << "no external rotation\n";
+
+	throw Error::Logic();
+      }
+
+      threshold *= _mtol;
+      
+      dtemp = 0.;
+      
+      for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	//
+	dtemp += otit->first;
+
+	if(dtemp > threshold)
+	  //
+	  break;
+
+	_eff_erf_four.erase(otit->second);
+      }
+
+      IO::log << IO::log_offset << "pruned   effective external rotation factor fourier expansion size = " 
+	      << _eff_erf_four.size() << "\n";
+      //
+    }// effective external rotation factor pruning
+
+    // internal rotational factor pruning
+    //
+    if(_mtol > 0.) {
+      //
+      IO::Marker  prune_marker("pruning internal rotation factor fourier expansion");
+      
+      IO::log << IO::log_offset << "tolerance[%] = " << _mtol * 100. << "\n";
+
+      IO::log << IO::log_offset << "original internal rotation factor fourier expansion size = " 
+	      << _irf_four.size() << "\n";
+
+      typedef std::map<int, double>::iterator pit_t;
+
+      double threshold = 0.;
+
+      std::multimap<double, int> order_term;
+      
+      std::multimap<double, int>::const_iterator otit;
+
+      for(pit_t pit = _irf_four.begin(); pit != _irf_four.end(); ++pit) {// fourier expansion cycle
+	//
+	std::vector<int> pv = _mass_index(pit->first);
+	  
+	itemp = 1;
+
+	for(int i = 0; i < internal_size(); ++i)
+	  //
+	  if(pv[i])
+	    //
+	    itemp *= 2;
+	  
+	dtemp = pit->second * pit->second / (double)itemp;
+	
+	threshold += dtemp;
+
+	order_term.insert(std::make_pair(dtemp, pit->first));
+
+      }// fourier expansion cycle
+
+      if(threshold == 0.) {
+	//
+	std::cerr << funame << "no external rotation\n";
+
+	throw Error::Logic();
+      }
+
+      threshold *= _mtol;
+      
+      dtemp = 0.;
+      
+      for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	//
+	dtemp += otit->first;
+
+	if(dtemp > threshold)
+	  //
+	  break;
+
+	_irf_four.erase(otit->second);
+      }
+
+      IO::log << IO::log_offset << "pruned   internal rotation factor fourier expansion size = " 
+	      << _irf_four.size() << "\n";
+      //
+    }// internal rotation factor pruning
+
+    // curvlinear transformation factor pruning
+    //
+    if(_mtol > 0.) {
+      //
+      IO::Marker  prune_marker("pruning curvlinear transformation factor fourier expansion");
+      
+      IO::log << IO::log_offset << "tolerance[%] = " << _mtol * 100. << "\n";
+
+      IO::log << IO::log_offset << "original curvlinear transformation factor fourier expansion size = " 
+	      << _ctf_four.size() << "\n";
+
+      typedef std::map<int, double>::iterator pit_t;
+
+      double threshold = 0.;
+
+      std::multimap<double, int> order_term;
+      
+      std::multimap<double, int>::const_iterator otit;
+
+      for(pit_t pit = _ctf_four.begin(); pit != _ctf_four.end(); ++pit) {// fourier expansion cycle
+	//
+	std::vector<int> pv = _mass_index(pit->first);
+	  
+	itemp = 1;
+
+	for(int i = 0; i < internal_size(); ++i)
+	  //
+	  if(pv[i])
+	    //
+	    itemp *= 2;
+	  
+	dtemp = pit->second * pit->second / (double)itemp;
+	
+	threshold += dtemp;
+
+	order_term.insert(std::make_pair(dtemp, pit->first));
+
+      }// fourier expansion cycle
+
+      if(threshold == 0.) {
+	//
+	std::cerr << funame << "no external rotation\n";
+
+	throw Error::Logic();
+      }
+
+      threshold *= _mtol;
+      
+      dtemp = 0.;
+      
+      for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	//
+	dtemp += otit->first;
+
+	if(dtemp > threshold)
+	  //
+	  break;
+
+	_ctf_four.erase(otit->second);
+      }
+
+      IO::log << IO::log_offset << "pruned   curvlinear transformation factor fourier expansion size = " 
+	      << _ctf_four.size() << "\n";
+      //
+    }// curvlinear transformation factor pruning
+
+    // mass-related complex fourier expansions for rovibrational states quantization
+    //
     if(_amom_max) {
+      //
+      IO::Marker complex_mass_fourier_marker("mass-related complex fourier expansions for rovibrational states quantization");
+
       vtemp.resize(_mass_index.size());
+
       Lapack::ComplexVector ctemp;
-      typedef std::map<int, Lapack::ComplexMatrix>::iterator cfit_t;
+
+      typedef std::map<int, Lapack::ComplexMatrix>::iterator pit_t;
 
       for(int g = 0; g < _mass_index.size(); ++g)
+	//
 	if(_mass_index.conjugate(g) >= g) {
+	  //
 	  _internal_mobility_fourier[g].resize(internal_size());
+
 	  _coriolis_coupling_fourier[g].resize(3, internal_size());
+
 	  _external_mobility_fourier[g].resize(3);
 	}
 
       // internal rotation fourier expansion initialization
-      for(int i = 0; i < internal_size(); ++i)
+      //
+      for(int i = 0; i < internal_size(); ++i) {
+	//
 	for(int j = i; j < internal_size(); ++j) {
+	  //
 	  for(int l = 0; l < _mass_index.size(); ++l)
+	    //
 	    vtemp[l] = _internal_mobility_real[l](i, j);
+
 	  ctemp = Lapack::fourier_transform(vtemp, _mass_index);
-	  for(cfit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end(); ++pit) {
+
+	  for(pit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end(); ++pit) {
+	    //
 	    pit->second(i, j) = ctemp[pit->first];
+
 	    if(i != j)
+	      //
 	      pit->second(j, i) = ctemp[pit->first];
 	  }
 	}
+      }
 
       // external rotation fourier expansion initialization
-      for(int i = 0; i < 3; ++i)
+      //
+      for(int i = 0; i < 3; ++i) {
+	//
 	for(int j = i; j < 3; ++j) {
+	  //
 	  for(int l = 0; l < _mass_index.size(); ++l)
+	    //
 	    vtemp[l] = _external_mobility_real[l](i, j);
+
 	  ctemp = Lapack::fourier_transform(vtemp, _mass_index);
-	  for(cfit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end(); ++pit) {
+
+	  for(pit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end(); ++pit) {
+	    //
 	    pit->second(i, j) = ctemp[pit->first];
+
 	    if(i != j)
+	      //
 	      pit->second(j, i) = ctemp[pit->first];
 	  }
 	}
+      }
 
       // coriolis coupling fourier expansion initialization
-      for(int i = 0; i < 3; ++i)
+      //
+      for(int i = 0; i < 3; ++i) {
+	//
 	for(int j = 0; j < internal_size(); ++j) {
+	  //
 	  for(int l = 0; l < _mass_index.size(); ++l)
+	    //
 	    vtemp[l] = _coriolis_coupling_real[l](i, j);
+
 	  ctemp = Lapack::fourier_transform(vtemp, _mass_index);
-	  for(cfit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end(); ++pit)
+
+	  for(pit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end(); ++pit)
+	    //
 	    pit->second(i, j) = ctemp[pit->first];
 	}
-	  
-      // fourier expansions pruning
-      if(_mtol > 0. && _mass_index.size() > 1) {
-	IO::Marker  prune_marker("pruning mass-related complex fourier expansions", IO::Marker::ONE_LINE);
+      }
+      
+      // curvlinear transformation factor initialization
+      //
+      if(_with_ctf) {
+	//
+	ctemp = Lapack::fourier_transform(_ctf_real, _mass_index);
+
+	for(int g = 0; g < _mass_index.size(); ++g)
+	  //
+	  if(_mass_index.conjugate(g) >= g)
+	    //
+	    _ctf_complex_fourier[g] = ctemp[g];
+      }
+
+      // mass-related complex fourier expansions pruning
+      //
+      if(_mtol > 0.) {
+	//
+	IO::Marker  prune_marker("pruning mass-related complex fourier expansions");
 	
-	double principal, residue;
+	double threshold;
+
+	std::multimap<double, int> order_term;
+	
+	std::multimap<double, int>::const_iterator otit;
+
+	IO::log << IO::log_offset << "tolerance[%] = " << _mtol * 100. << "\n";
 
 	// internal mobility
-	principal = 0.;
-	for(cfit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end(); ++pit)
-	  if(pit != _internal_mobility_fourier.begin())
-	    for(int i = 0; i < internal_size(); ++i)
-	      for(int j = i; j < internal_size(); ++j)
-		principal += std::norm(pit->second(i, j));
-	
-	residue = 0.;
-	while(1) {
-	  double minval = -1.;
-	  cfit_t minpit = _internal_mobility_fourier.end();
-	  
-	  for(cfit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end(); ++pit)
-	    if(pit != _internal_mobility_fourier.begin()) {
-	      dtemp = 0.;
-	      for(int i = 0; i < internal_size(); ++i)
-		for(int j = i; j < internal_size(); ++j)
-		  dtemp += std::norm(pit->second(i, j));
-	      
-	      if(minval < 0. || dtemp < minval) {
-		minval = dtemp;
-		minpit = pit;
-	      }
-	    }
-	  residue += minval;
-	  if(residue > _mtol * principal)
-	    break;
-	  _internal_mobility_fourier.erase(minpit);
+	//
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "original effective internal mobility expansion size = " 
+		  << _internal_mobility_fourier.size() << "\n";
 	}
+	else
+	  //
+	  IO::log << IO::log_offset << "original internal mobility expansion size = " 
+		  << _internal_mobility_fourier.size() << "\n";
+
+	threshold = 0.;
+
+	order_term.clear();
+
+	for(pit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end(); ++pit) {// fouricer expansion cycle
+	  //
+	  dtemp = 0.;
+	  
+	  for(int i = 0; i < internal_size(); ++i) {
+	    //
+	    for(int j = i; j < internal_size(); ++j) {
+	      //
+	      if(i != j) {
+		//
+		dtemp += 2. * std::norm(pit->second(i, j));
+	      }
+	      else 
+		//
+		dtemp += std::norm(pit->second(i, j));
+	    }//
+	    //
+	  }//
+
+	  threshold += dtemp;
+
+	  order_term.insert(std::make_pair(dtemp, pit->first));
+			    
+	}// fourier expansion cycle
+
+	if(threshold == 0.) {
+	  //
+	  std::cerr << funame << "no internal mobility\n";
+
+	  throw Error::Logic();
+	}
+
+	threshold *= _mtol;
+	
+	dtemp = 0.;
+      
+	for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	  //
+	  dtemp += otit->first;
+	  
+	  if(dtemp > threshold)
+	    //
+	    break;
+
+	  _internal_mobility_fourier.erase(otit->second);
+	}
+
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "pruned   effective internal mobility expansion size = " 
+		  << _internal_mobility_fourier.size() << "\n";
+	}
+	else
+	  //
+	  IO::log << IO::log_offset << "pruned   internal mobility expansion size = " 
+		  << _internal_mobility_fourier.size() << "\n";
 
 	// external mobility
-	principal = 0.;
-	for(cfit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end(); ++pit)
-	  if(pit != _external_mobility_fourier.begin())
-	    for(int i = 0; i < 3; ++i)
-	      for(int j = i; j < 3; ++j)
-		principal += std::norm(pit->second(i, j));
-	
-	residue = 0.;
-	while(1) {
-	  double minval = -1.;
-	  cfit_t minpit = _external_mobility_fourier.end();
-	  
-	  for(cfit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end(); ++pit)
-	    if(pit != _external_mobility_fourier.begin()) {
-	      dtemp = 0.;
-	      for(int i = 0; i < 3; ++i)
-		for(int j = i; j < 3; ++j)
-		  dtemp += std::norm(pit->second(i, j));
-	      
-	      if(minval < 0. || dtemp < minval) {
-		minval = dtemp;
-		minpit = pit;
-	      }
-	    }
-	  residue += minval;
-	  if(residue > _mtol * principal)
-	    break;
-	  _external_mobility_fourier.erase(minpit);
+	//
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "original effective external mobility expansion size = " 
+		  << _external_mobility_fourier.size() << "\n";
 	}
+	else
+	  //
+	  IO::log << IO::log_offset << "original external mobility expansion size = " 
+		  << _external_mobility_fourier.size() << "\n";
+
+	threshold = 0.;
+
+	order_term.clear();
+
+	for(pit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end(); ++pit) {// fourier expansion cycle
+	  //
+	  dtemp = 0.;
+	  
+	  for(int i = 0; i < 3; ++i) {
+	    //
+	    for(int j = i; j < 3; ++j) {
+	      //
+	      if(i != j) {
+		//
+		dtemp += 2. * std::norm(pit->second(i, j));
+	      }
+	      else 
+		//
+		dtemp += std::norm(pit->second(i, j));
+	      //
+	    }//
+	    //
+	  }//
+
+	  threshold += dtemp;
+
+	  order_term.insert(std::make_pair(dtemp, pit->first));
+
+	}// fourier expansion cycle
+
+	if(threshold == 0.) {
+	  //
+	  std::cerr << funame << "no external mobility\n";
+	  
+	  throw Error::Logic();
+	}
+
+	threshold *= _mtol;
+	
+	dtemp = 0.;
+      
+	for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	  //
+	  dtemp += otit->first;
+	  
+	  if(dtemp > threshold)
+	    //
+	    break;
+
+	  _external_mobility_fourier.erase(otit->second);
+	}
+
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "pruned   effective external mobility expansion size = " 
+		  << _external_mobility_fourier.size() << "\n";
+	}
+	else
+	  //
+	  IO::log << IO::log_offset << "pruned   external mobility expansion size = " 
+		  << _external_mobility_fourier.size() << "\n";
 
 	// coriolis coupling
-	principal = 0.;
-	for(cfit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end(); ++pit)
-	  if(pit != _coriolis_coupling_fourier.begin())
-	    for(int i = 0; i < 3; ++i)
-	      for(int j = 0; j < internal_size(); ++j)
-		principal += std::norm(pit->second(i, j));
-	
-	residue = 0.;
-	while(1) {
-	  double minval = -1.;
-	  cfit_t minpit = _coriolis_coupling_fourier.end();
-	  
-	  for(cfit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end(); ++pit)
-	    if(pit != _coriolis_coupling_fourier.begin()) {
-	      dtemp = 0.;
-	      for(int i = 0; i < 3; ++i)
-		for(int j = 0; j < internal_size(); ++j)
-		  dtemp += std::norm(pit->second(i, j));
-	      
-	      if(minval < 0. || dtemp < minval) {
-		minval = dtemp;
-		minpit = pit;
-	      }
-	    }
-	  residue += minval;
-	  if(residue > _mtol * principal)
-	    break;
-	  _coriolis_coupling_fourier.erase(minpit);
+	//
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "original effective coriolis coupling expansion size = " 
+		  << _coriolis_coupling_fourier.size() << "\n";
 	}
+	else
+	  //
+	  IO::log << IO::log_offset << "original coriolis coupling expansion size = " 
+		  << _coriolis_coupling_fourier.size() << "\n";
 
-      }// fourier expansions pruning
+	threshold = 0.;
+
+	order_term.clear();
+
+	for(pit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end(); ++pit) {// fourier expansion cycle
+	  //
+	  dtemp = 0.;
+	  
+	  for(int i = 0; i < 3; ++i)
+	    //
+	    for(int j = 0; j < internal_size(); ++j)
+	      //
+	      dtemp += std::norm(pit->second(i, j));
+
+	  threshold += dtemp;
+	  
+	  order_term.insert(std::make_pair(dtemp, pit->first));
+	  
+	}// fourier expansion cycle
+	
+	threshold *= _mtol;
+	
+	dtemp = 0.;
+      
+	for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	  //
+	  dtemp += otit->first;
+	  
+	  if(dtemp > threshold)
+	    //
+	    break;
+
+	  _coriolis_coupling_fourier.erase(otit->second);
+	}
+	
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "pruned   effective coriolis coupling expansion size = " 
+		  << _coriolis_coupling_fourier.size() << "\n";
+	}
+	else
+	  //
+	  IO::log << IO::log_offset << "pruned   coriolis coupling expansion size = " 
+		  << _coriolis_coupling_fourier.size() << "\n";
+
+	// curvlinear transformation factor pruning
+	//
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "original curvlinear transformation factor expansion size = " 
+		  << _ctf_complex_fourier.size() << "\n";
+
+	  threshold = 0.;
+
+	  order_term.clear();
+
+	  typedef std::map<int, Lapack::complex>::const_iterator pit_t;
+
+	  for(pit_t pit = _ctf_complex_fourier.begin(); pit != _ctf_complex_fourier.end(); ++pit) {// fourier expansion cycle
+	    //
+	    dtemp = std::norm(pit->second);
+
+	    threshold += dtemp;
+	  
+	    order_term.insert(std::make_pair(dtemp, pit->first));
+	    //
+	  }// fourier expansion cycle
+	
+	  threshold *= _mtol;
+	
+	  dtemp = 0.;
+      
+	  for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	    //
+	    dtemp += otit->first;
+	  
+	    if(dtemp > threshold)
+	      //
+	      break;
+
+	    _ctf_complex_fourier.erase(otit->second);
+	  }
+	  
+	  IO::log << IO::log_offset << "pruned   curvlinear transformation factor expansion size = " 
+		  << _coriolis_coupling_fourier.size() << "\n";
+	  //
+	}//
+	//
+      }// mass-related complex fourier expansions pruning
 
       // add conjugated points for internal mobility 
+      //
       itemp = 0;
+
       ivec.resize(_internal_mobility_fourier.size());
-      for(cfit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end(); 
-	  ++pit, ++itemp)
+
+      for(pit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end(); ++pit, ++itemp)
+	//
 	ivec[itemp] = pit->first;
 	
       for(std::vector<int>::const_iterator pit = ivec.begin(); pit != ivec.end(); ++pit) { 
+	//
 	itemp = _mass_index.conjugate(*pit);
+
 	if(itemp != *pit) {
+	  //
 	  _internal_mobility_fourier[itemp].resize(internal_size());
+
 	  for(int i = 0; i < internal_size(); ++i)
+	    //
 	    for(int j = 0; j < internal_size(); ++j)		
+	      //
 	      _internal_mobility_fourier[itemp](i, j) = std::conj(_internal_mobility_fourier[*pit](i, j));
 	}
       }
 
       // add conjugated points for external mobility
+      //
       itemp = 0;
+
       ivec.resize(_external_mobility_fourier.size());
-      for(cfit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end(); 
-	  ++pit, ++itemp)
+      
+      for(pit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end(); ++pit, ++itemp)
+	//
 	ivec[itemp] = pit->first;
 	
       for(std::vector<int>::const_iterator pit = ivec.begin(); pit != ivec.end(); ++pit) { 
+	//
 	itemp = _mass_index.conjugate(*pit);
+
 	if(itemp != *pit) {
+	  //
 	  _external_mobility_fourier[itemp].resize(3);
+
 	  for(int i = 0; i < 3; ++i)
+	    //
 	    for(int j = 0; j < 3; ++j)		
+	      //
 	      _external_mobility_fourier[itemp](i, j) = std::conj(_external_mobility_fourier[*pit](i, j));
 	}
       }
 
       // add conjugated points for coriolis coupling
+      //
       itemp = 0;
+
       ivec.resize(_coriolis_coupling_fourier.size());
-      for(cfit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end();
-	  ++pit, ++itemp)
+
+      for(pit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end(); ++pit, ++itemp)
+	//
 	ivec[itemp] = pit->first;
 	
       for(std::vector<int>::const_iterator pit = ivec.begin(); pit != ivec.end(); ++pit) { 
+	//
 	itemp = _mass_index.conjugate(*pit);
+
 	if(itemp != *pit) {
+	  //
 	  _coriolis_coupling_fourier[itemp].resize(3, internal_size());
+
 	  for(int i = 0; i < 3; ++i)
+	    //
 	    for(int j = 0; j < internal_size(); ++j)		
+	      //
 	      _coriolis_coupling_fourier[itemp](i, j) = std::conj(_coriolis_coupling_fourier[*pit](i, j));
+	}
+      }
+    
+      // add conjugated points for curvlinear transformation factor
+      //
+      if(_with_ctf) {
+	//
+	typedef std::map<int, Lapack::complex>::const_iterator pit_t;
+	
+
+	itemp = 0;
+
+	ivec.resize(_ctf_complex_fourier.size());
+
+	for(pit_t  pit = _ctf_complex_fourier.begin(); pit != _ctf_complex_fourier.end(); ++pit, ++itemp)
+	  //
+	  ivec[itemp] = pit->first;
+	
+	for(std::vector<int>::const_iterator pit = ivec.begin(); pit != ivec.end(); ++pit) { 
+	  //
+	  itemp = _mass_index.conjugate(*pit);
+
+	  if(itemp != *pit) {
+	    //
+	    _ctf_complex_fourier[itemp] =std::conj(_ctf_complex_fourier[*pit]);
+	  }
 	}
       }
 
@@ -7176,7 +8437,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	IO::log << IO::log_offset << "internal mobility test:\n";
 	for(int i = 0; i < internal_size(); ++i)
 	for(int j = 0; j < internal_size(); ++j) {		
-	for(cfit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end();	++pit)
+	for(pit_t pit = _internal_mobility_fourier.begin(); pit != _internal_mobility_fourier.end();	++pit)
 	cval[pit->first] = pit->second(i, j);
 	ctemp = Lapack::fourier_transform(cval, _mass_index);
 	double dif_val = 0.;
@@ -7194,7 +8455,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	IO::log << IO::log_offset << "external mobility test:\n";
 	for(int i = 0; i < 3; ++i)
 	for(int j = 0; j < 3; ++j) {		
-	for(cfit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end();	++pit)
+	for(pit_t pit = _external_mobility_fourier.begin(); pit != _external_mobility_fourier.end();	++pit)
 	cval[pit->first] = pit->second(i, j);
 	ctemp = Lapack::fourier_transform(cval, _mass_index);
 	double dif_val = 0.;
@@ -7212,7 +8473,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	IO::log << IO::log_offset << "coriolis coupling test:\n";
 	for(int i = 0; i < 3; ++i)
 	for(int j = 0; j < internal_size(); ++j) {		
-	for(cfit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end(); ++pit)
+	for(pit_t pit = _coriolis_coupling_fourier.begin(); pit != _coriolis_coupling_fourier.end(); ++pit)
 	cval[pit->first] = pit->second(i, j);
 	ctemp = Lapack::fourier_transform(cval, _mass_index);
 	double dif_val = 0.;
@@ -7230,138 +8491,858 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       */
 
       // output
-      if(_mtol > 0. && _mass_index.size() > 1) {
-	IO::log << IO::log_offset << "pruned internal mobility expansion size = " 
+      //
+      if(_with_ctf) {
+	//
+	IO::log << IO::log_offset << "effective internal mobility expansion size (including conjugated terms) = " 
 		<< _internal_mobility_fourier.size() << "\n";
-	IO::log << IO::log_offset << "pruned external mobility expansion size = " 
+
+	IO::log << IO::log_offset << "effective external mobility expansion size (including conjugated terms) = " 
 		<< _external_mobility_fourier.size() << "\n";
-	IO::log << IO::log_offset << "pruned coriolis coupling expansion size = " 
+	
+	IO::log << IO::log_offset << "effective coriolis coupling expansion size (including conjugated terms) = " 
 		<< _coriolis_coupling_fourier.size() << "\n";
-      }// output
 
-    }// internal, external rotation, coriolis coupling
-      
-  } // mass fourier expansion
+	IO::log << IO::log_offset << "curvlinear factor expansion size (including conjugated terms) = " 
+		<< _ctf_complex_fourier.size() << "\n";
+      }
+      else {
+	//
+	IO::log << IO::log_offset << "internal mobility expansion size (including conjugated terms) = " 
+		<< _internal_mobility_fourier.size() << "\n";
 
+	IO::log << IO::log_offset << "external mobility expansion size (including conjugated terms) = " 
+		<< _external_mobility_fourier.size() << "\n";
+	
+	IO::log << IO::log_offset << "coriolis coupling expansion size (including conjugated terms) = " 
+		<< _coriolis_coupling_fourier.size() << "\n";
+      }
+      //
+    }// mass-related complex fourier expansions for rovibrational states quantization
+    //
+  }// mass fourier expansion
+  
   /********************************* POTENTIAL FOURIER EXPANSION *************************************/
 
-  // potential fourier expansion
   if(1) {
+    //
     IO::Marker work_marker("potential fourier expansion");
 
     // potential fourier expansion dimensions
+    //
     ivec.resize(internal_size());
+
     for(int r = 0; r < internal_size(); ++r) {
+      //
       itemp = _pot_index.size(r);
+
       itemp = itemp % 2 ? itemp : itemp + 1;
-      if(_internal_rotation[r].potential_fourier_size() > itemp) {
-	std::cerr << funame << "potential fourier expansion size should not be bigger than sampling size\n";
-	throw Error::Range();
+
+      if(_internal_rotation[r].potential_fourier_size()) {
+	//
+	if(_internal_rotation[r].potential_fourier_size() > itemp) {
+	  //
+	  IO::log << IO::log_offset << "WARNING: requested potential fourier expansion size should not be bigger than sampling size\n";
+	}
+	else 
+	  //
+	  itemp =  _internal_rotation[r].potential_fourier_size();
       }
-      ivec[r] = _internal_rotation[r].potential_fourier_size() ? 
-	_internal_rotation[r].potential_fourier_size() : itemp;
+
+      ivec[r] = itemp; 
     }
+
     _pot_four_index.resize(ivec);
 
     IO::log << IO::log_offset << "potential fourier expansion size = " << _pot_four_index.size() << std::endl;
 
     // potential fourier expansion
-    for(int h = 0; h < _pot_four_index.size(); ++h) {
-      std::vector<int> hv = _pot_four_index(h);
-      for(int g = 0; g < _pot_index.size(); ++g) {// grid cycle
-	std::vector<int> gv = _pot_index(g);
+    //
+    for(int g = 0; g < _pot_index.size(); ++g) {// grid cycle
+      //
+      std::vector<int> gv = _pot_index(g);
+
+      if(_with_ctf) {
+	//
+	// sampling configuration
+	//
+	std::vector<double> angle(internal_size());
+
+	for(int r = 0; r < internal_size(); ++r)
+	  //
+	  angle[r] = 2. * M_PI * double(gv[r]) / double(symmetry(r) * _pot_index.size(r));
+
+	dtemp = curvlinear_factor(angle);
+      }
+
+      const double ctf = dtemp;
+      
+      for(int h = 0; h < _pot_four_index.size(); ++h) {// fourier expansion cycle
+	//
+	std::vector<int> hv = _pot_four_index(h);
 
 	// fourier transform
-	fac = 1.;
-	for(int r = 0; r < internal_size(); ++r) 
-	  if(hv[r] % 2)
-	    fac *= std::sin(M_PI * double((hv[r] + 1)  * gv[r]) / double(_pot_index.size(r)));
+	//
+	double dfac = 1.;
+
+	for(int r = 0; r < internal_size(); ++r) {
+	  //
+	  if(!hv[r])
+	    //
+	    continue;
+
+	  if(hv[r] % 2) {
+	    //
+	    dfac *= std::sin(M_PI * double((hv[r] + 1)  * gv[r]) / double(_pot_index.size(r)));
+	  }
 	  else
-	    fac *= std::cos(M_PI * double(hv[r] * gv[r]) / double(_pot_index.size(r)));
-      
+	    //
+	    dfac *= std::cos(M_PI * double(hv[r] * gv[r]) / double(_pot_index.size(r)));
+	}
+
 	// potential
-	_pot_four[h] += fac * _pot_real[g];
+	//
+	_pot_four[h] += dfac * _pot_real[g];
 
 	// vibrational frequencies
-	for(int v = 0; v < _vib_four.size(); ++v)
-	  _vib_four[v][h] += fac * vibration_sampling[g][v];
-      }
+	//
+	for(int v = 0; v < _vib_four.size(); ++v) {
+	  //
+	  _vib_four[v][h] += dfac * vibration_sampling[g][v];
+	}//
+
+	if(_with_ctf) {
+	  //
+	  _eff_pot_four[h] += dfac * _pot_real[g] * ctf;
+
+	  // vibrational frequencies
+	  //
+	  for(int v = 0; v < _vib_four.size(); ++v) {
+	    //
+	    _eff_vib_four[v][h] += dfac * vibration_sampling[g][v] * ctf;
+	  }//
+	  //
+	}//
+	//
+      }// fourier expansion cycle
+      //
     }// grid cycle
 
     // normalization
-    for(int h = 0; h < _pot_four_index.size(); ++h) {
+    //
+    for(int h = 0; h < _pot_four_index.size(); ++h) {// fourier expansion cycle
+      //
       std::vector<int> hv = _pot_four_index(h);
 
-      fac = double(_pot_index.size());
-      for(int r = 0; r < internal_size(); ++r)
-	if(hv[r] && hv[r] != _pot_index.size(r))
-	  fac /= 2.;
+      double dfac = double(_pot_index.size());
 
-      _pot_four[h] /= fac;	  
+      for(int r = 0; r < internal_size(); ++r)
+	//
+	if(hv[r] && hv[r] != _pot_index.size(r))
+	  //
+	  dfac /= 2.;
+
+      _pot_four[h] /= dfac;	  
 
       for(int v = 0; v < _vib_four.size(); ++v)
-	_vib_four[v][h] /= fac;	  
-    }  
+	//
+	_vib_four[v][h] /= dfac;
 
-    // complex potential expansion
+      if(_with_ctf) {
+	//
+	_eff_pot_four[h] /= dfac;	  
+
+	for(int v = 0; v < _vib_four.size(); ++v)
+	  //
+	  _eff_vib_four[v][h] /= dfac;
+      }//
+      //
+    }// fourier expansion cycle 
+
+    _pot_shift = _pot_four.begin()->second;
+
+    _pot_four.erase(_pot_four.begin());
+    
+    //IO::log << IO::log_offset << "potential constant part[kcal/mol] = " << _pot_shift / Phys_const::kcal << "\n";
+    
+    // potential correlation analysis
+    //
+    if(_pot_four.size()) {
+      //
+      typedef std::map<int, double>::const_iterator pit_t;
+
+      // different order correlation terms contributions
+      //
+      dvec.resize(internal_size());
+
+      for(int i = 0;  i < dvec.size(); ++i)
+	//
+	dvec[i] = 0.;
+
+      
+      for(pit_t pit = _pot_four.begin(); pit != _pot_four.end(); ++pit) {// fourier expansion cycle
+	//
+	std::vector<int> pv = _pot_four_index(pit->first);
+
+	itemp = 0;
+
+	for(int r = 0; r < internal_size(); ++r)
+	  //
+	  if(pv[r])
+	    //
+	    ++itemp;
+
+	dvec[itemp - 1] += pit->second * pit->second / std::pow(2., (double)itemp);
+	//
+      }// fourier expansion cycle
+
+      dtemp = 0.;
+
+      for(int i = 0; i < dvec.size(); ++i)
+	//
+	dtemp += dvec[i];
+
+      if(dtemp == 0.) {
+	//
+	IO::log << IO::log_offset << "WARNING: potential is a constant\n";
+      }
+      else {
+	//
+	IO::log << IO::log_offset 
+		<< "different order potential correlation terms contributions, %:\n"
+		<< IO::log_offset << std::setw(3) << "#";
+
+	for(int r = 0; r < internal_size(); ++r)
+	  //
+	  IO::log << std::setw(13) << r + 1; 
+
+	IO::log  << "\n";
+
+	IO::log << IO::log_offset << std::setw(3) << "%"; 
+
+	for(int r = 0; r < internal_size(); ++r)
+	  //
+	  IO::log << std::setw(13) << 100. * dvec[r] / dtemp;
+
+	IO::log << "\n";
+      }
+    
+      // first order correlation contributions from different rotations
+      //
+      dvec.resize(internal_size());
+
+      for(int i = 0;  i < dvec.size(); ++i)
+	//
+	dvec[i] = 0.;
+
+      for(pit_t pit = _pot_four.begin(); pit != _pot_four.end(); ++pit) {// fourier expansion cycle
+	//
+	std::vector<int> pv = _pot_four_index(pit->first);
+
+	itemp = 0;
+
+	int rr;
+
+	for(int r = 0; r < internal_size(); ++r) {
+	  //
+	  if(pv[r]) {
+	    //
+	    rr = r;
+
+	    ++itemp;
+	  }
+	}
+
+	if(itemp == 1)
+	  //
+	  dvec[rr] += pit->second * pit->second / 2.;
+	//
+      }// fourier expansion cycle
+
+      dtemp = 0.;
+
+      for(int i = 0; i < dvec.size(); ++i)
+	//
+	dtemp += dvec[i];
+
+      if(dtemp > 0.) {
+	//
+	IO::log << IO::log_offset 
+		<< "first order correlation contributions to the potential from different rotations, %:\n"
+		<< IO::log_offset << std::setw(3) << "R";
+
+	for(int r = 0; r < internal_size(); ++r)
+	  //
+	  IO::log << std::setw(13) << r; 
+
+	IO::log  << "\n";
+	
+	IO::log << IO::log_offset << std::setw(3) << "%"; 
+
+	for(int r = 0; r < internal_size(); ++r)
+	  //
+	  IO::log << std::setw(13) << 100. * dvec[r] / dtemp;
+
+	IO::log << "\n";
+	//
+      }//
+
+      // high order harmonics potential contributions
+      //
+      IO::log << IO::log_offset << "high order harmonics potential contributions, %:\n";
+
+      IO::log << std::setprecision(3);
+
+      itemp = 0;
+
+      for(int r = 0; r < internal_size(); ++r)
+	//
+	if(_pot_four_index.size(r) > itemp)
+	  //
+	  itemp = _pot_four_index.size(r);
+
+      itemp /= 2;
+
+      IO::log << IO::log_offset << std::setw(3) << "R\\#";
+    
+      for(int i = 0; i < itemp; ++i)
+	//
+	IO::log << std::setw(9) << i + 1;
+
+      IO::log << "\n";
+    
+      for(int r = 0;  r < internal_size(); ++r) {
+	//
+	dvec.resize(_pot_four_index.size(r) / 2 + 1);
+
+	for(int i = 0;  i < dvec.size(); ++i)
+	  //
+	  dvec[i] = 0.;
+
+	for(pit_t pit = _pot_four.begin(); pit != _pot_four.end(); ++pit) {// fourier expansion cycle
+	  //
+	  std::vector<int> pv = _pot_four_index(pit->first);
+
+	  itemp = 1;
+
+	  for(int i = 0; i < internal_size(); ++i)
+	    //
+	    if(pv[i])
+	      //
+	      itemp *= 2;
+
+	  dvec[(pv[r] + 1) / 2] += pit->second * pit->second / (double)itemp;
+	  //
+	}//fourier expansion cycle
+
+	dtemp = 0.;
+
+	for(int i = 1; i < dvec.size(); ++i)
+	  //
+	  dtemp += dvec[i];
+
+	IO::log << IO::log_offset << std::setw(3) << r;
+
+	if(dtemp > 0.)
+	  //
+	  for(int i = 1; i < dvec.size(); ++i)
+	    //
+	    IO::log << std::setw(9) << 100. * dvec[i] / dtemp;
+
+	IO::log << "\n";
+      }
+
+      IO::log << std::setprecision(6);
+      //
+    }// potential correlation analysis
+    
+    // vibrational frequencies correlation analysis
+    //
+    if(_pot_four_index.size() > 1 && _vib_four.size()) {
+      //
+      typedef std::map<int, double>::const_iterator pit_t;
+
+      dvec.resize(internal_size());
+
+      for(int v = 0; v < _vib_four.size(); ++v) {// vibrational frequencies cycle
+	//
+	for(int i = 0;  i < dvec.size(); ++i)
+	  //
+	  dvec[i] = 0.;
+
+	for(pit_t pit = _vib_four[v].begin(); pit != _vib_four[v].end(); ++pit) {//fourier expansion cycle
+	  //
+	  if(pit != _vib_four[v].begin()) {
+	    //
+	    std::vector<int> pv = _pot_four_index(pit->first);
+
+	    itemp = 0;
+
+	    for(int r = 0; r < internal_size(); ++r)
+	      //
+	      if(pv[r])
+		//
+		++itemp;
+
+	    dvec[itemp - 1] += pit->second * pit->second / std::pow(2., (double)itemp);
+	  }
+	}
+
+	dtemp = 0.;
+
+	for(int i = 0; i < dvec.size(); ++i)
+	  //
+	  dtemp += dvec[i];
+
+	if(dtemp <= 0.) {
+	  //
+	  IO::log << IO::log_offset << "WARNING: " << v << "-th vibrational frequency is a constant\n";
+	}
+	else {
+	  //
+	  IO::log << IO::log_offset << std::setw(3) << std::left << v + 1 << std::right; 
+	  
+	  for(int r = 0; r < internal_size(); ++r)
+	    //
+	    IO::log << std::setw(13) << 100. * dvec[r] / dtemp;
+
+	  IO::log << "\n";
+	  //
+	}//
+	//
+      }// vibrational frequencies cycle
+      //
+    }// vibrational frequencies correlation analysis
+
+    std::vector<double> angle(internal_size());
+
+    // output: potential check
+    //
+    IO::log << IO::log_offset << "Model potential:\n";
+    
+    IO::log << IO::log_offset;
+
+    for(int r = 0; r < internal_size(); ++r)
+      //
+      IO::log << std::setw(14) << "phi_" << r + 1;
+
+    IO::log << std::setw(15) << "V, kcal/mol";
+
+    for(int r = 0; r < internal_size(); ++r)
+      //
+      IO::log << std::setw(14) << "f_" << r + 1;
+
+    IO::log << "\n";
+      
+    for(int g = 0; g < _pot_index.size(); ++g) {
+      //
+      std::vector<int> gv = _pot_index(g);
+
+      IO::log << IO::log_offset;
+
+      for(int r = 0; r < internal_size(); ++r) {
+	//
+	angle[r] = 2. * M_PI * double(gv[r]) / double(symmetry(r) * _pot_index.size(r));
+
+	IO::log << std::setw(15) << angle[r] * 180. / M_PI;
+      }
+
+      IO::log << std::setw(15) << potential(angle) / Phys_const::kcal;
+
+      vtemp = frequencies(angle);
+
+      for(int r = 0; r < internal_size(); ++r)
+	//
+	IO::log << std::setw(15) << vtemp[r] / Phys_const::incm;
+
+      IO::log << "\n";
+    }
+
+    IO::log << "\n";
+
+    // potential pruning
+    //
+    if(_ptol > 0.) {
+      //
+      IO::Marker  prune_marker("pruning potential fourier expansion");
+      
+      IO::log << IO::log_offset << "tolerance[%] = " << _ptol << "\n";
+
+      IO::log << IO::log_offset << "original potential fourier expansion size = " 
+	      << _pot_four.size() << "\n";
+
+      typedef std::map<int, double>::iterator pit_t;
+
+      double threshold = 0.;
+
+      std::multimap<double, int> order_term;
+
+      std::multimap<double, int>::const_iterator otit;
+
+      for(pit_t pit = _pot_four.begin(); pit != _pot_four.end(); ++pit) {// fourier expansion cycle
+	//
+	std::vector<int> pv = _pot_four_index(pit->first);
+	    
+	itemp = 1;
+
+	for(int i = 0; i < internal_size(); ++i)
+	  //
+	  if(pv[i])
+	    //
+	    itemp *= 2;
+	    
+	dtemp = pit->second * pit->second / (double)itemp;
+
+	threshold += dtemp;
+
+	order_term.insert(std::make_pair(dtemp, pit->first));
+
+      }// fourier expansion cycle
+
+      threshold *= _ptol;
+	
+      dtemp = 0.;
+      
+      for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	//
+	dtemp += otit->first;
+	
+	if(dtemp > threshold)
+	  //
+	  break;
+
+	_pot_four.erase(otit->second);
+      }
+      
+      IO::log << IO::log_offset << "pruned   potential fourier expansion size = " 
+	      << _pot_four.size() << "\n";
+      //
+    }// potential pruning
+
+    // effective potential pruning
+    //
+    if(_ptol > 0. && _with_ctf) {
+      //
+      IO::Marker  prune_marker("pruning effective potential fourier expansion");
+      
+      IO::log << IO::log_offset << "tolerance[%] = " << _ptol << "\n";
+
+      IO::log << IO::log_offset << "original effective potential fourier expansion size = " 
+	      << _eff_pot_four.size() << "\n";
+
+      typedef std::map<int, double>::iterator pit_t;
+
+      double threshold = 0.;
+
+      std::multimap<double, int> order_term;
+
+      std::multimap<double, int>::const_iterator otit;
+
+      for(pit_t pit = _eff_pot_four.begin(); pit != _eff_pot_four.end(); ++pit) {// fourier expansion cycle
+	//
+	if(pit == _eff_pot_four.begin())
+	  //
+	  continue;
+
+	std::vector<int> pv = _pot_four_index(pit->first);
+	    
+	itemp = 1;
+
+	for(int i = 0; i < internal_size(); ++i)
+	  //
+	  if(pv[i])
+	    //
+	    itemp *= 2;
+	    
+	dtemp = pit->second * pit->second / (double)itemp;
+
+	threshold += dtemp;
+
+	order_term.insert(std::make_pair(dtemp, pit->first));
+
+      }// fourier expansion cycle
+
+      threshold *= _ptol;
+	
+      dtemp = 0.;
+      
+      for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	//
+	dtemp += otit->first;
+	
+	if(dtemp > threshold)
+	  //
+	  break;
+
+	_eff_pot_four.erase(otit->second);
+      }
+      
+      IO::log << IO::log_offset << "pruned   effective potential fourier expansion size = " 
+	      << _eff_pot_four.size() << "\n";
+      //
+    }// effective potential pruning
+
+    // vibrational frequencies pruning
+    //
+    if(_vtol > 0. && _vib_four.size()) {
+      //
+      IO::Marker  prune_marker("pruning vibrational frequencies fourier expansion");
+
+      IO::log << IO::log_offset << "tolerance[%] = " << _vtol << "\n";
+
+      typedef std::map<int, double>::iterator pit_t;
+      
+      for(int v = 0; v < _vib_four.size(); ++v) {// vibrational frequencies cycle
+	//
+	IO::log << IO::log_offset << "original " << std::setw(2) << v << "-th vibrational frequency fourier expansion size = "
+		<< _vib_four[v].size() << "\n";
+
+	double threshold = 0.;
+
+	std::multimap<double, int> order_term;
+
+	std::multimap<double, int>::const_iterator otit;
+
+	for(pit_t pit = _vib_four[v].begin(); pit != _vib_four[v].end(); ++pit) {// fourier expansion cycle
+	  //
+	  std::vector<int> pv = _pot_four_index(pit->first);
+	    
+	  itemp = 1;
+
+	  for(int i = 0; i < internal_size(); ++i)
+	    //
+	    if(pv[i])
+	      //
+	      itemp *= 2;
+
+	  dtemp = pit->second * pit->second / (double)itemp;;
+
+	  threshold += dtemp;
+
+	  order_term.insert(std::make_pair(dtemp, pit->first));
+
+	}// fourier expansion cycle
+
+	threshold *= _vtol;
+	
+	dtemp = 0.;
+      
+	for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	  //
+	  dtemp += otit->first;
+	  
+	  if(dtemp > threshold)
+	    //
+	    break;
+
+	  _vib_four[v].erase(otit->second);
+	}
+
+	IO::log << IO::log_offset << "pruned   " << std::setw(2) << v << "-th vibrational frequency fourier expansion size = "
+		<< _vib_four[v].size() << "\n";
+	//
+      }// vibrational frequencies cycle
+      //
+    }// vibrational frequencies pruning
+
+    // effective vibrational frequencies pruning
+    //
+    if(_vtol > 0. && _eff_vib_four.size() && _with_ctf) {
+      //
+      IO::Marker  prune_marker("pruning effective vibrational frequencies fourier expansion");
+
+      IO::log << IO::log_offset << "tolerance[%] = " << _vtol << "\n";
+
+      typedef std::map<int, double>::iterator pit_t;
+      
+      for(int v = 0; v < _eff_vib_four.size(); ++v) {// vibrational frequencies cycle
+	//
+	IO::log << IO::log_offset << "original " << std::setw(2) << v << "-th effective vibrational frequency fourier expansion size = "
+		<< _eff_vib_four[v].size() << "\n";
+
+	double threshold = 0.;
+
+	std::multimap<double, int> order_term;
+
+	std::multimap<double, int>::const_iterator otit;
+
+	for(pit_t pit = _eff_vib_four[v].begin(); pit != _eff_vib_four[v].end(); ++pit) {// fourier expansion cycle
+	  //
+	  std::vector<int> pv = _pot_four_index(pit->first);
+	    
+	  itemp = 1;
+
+	  for(int i = 0; i < internal_size(); ++i)
+	    //
+	    if(pv[i])
+	      //
+	      itemp *= 2;
+
+	  dtemp = pit->second * pit->second / (double)itemp;;
+
+	  threshold += dtemp;
+
+	  order_term.insert(std::make_pair(dtemp, pit->first));
+
+	}// fourier expansion cycle
+
+	threshold *= _vtol;
+	
+	dtemp = 0.;
+      
+	for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	  //
+	  dtemp += otit->first;
+	  
+	  if(dtemp > threshold)
+	    //
+	    break;
+
+	  _eff_vib_four[v].erase(otit->second);
+	}
+
+	IO::log << IO::log_offset << "pruned   " << std::setw(2) << v << "-th effective vibrational frequency fourier expansion size = "
+		<< _eff_vib_four[v].size() << "\n";
+	//
+      }// vibrational frequencies cycle
+      //
+    }// effective vibrational frequencies pruning
+
+    // effective potential complex fourier expansion and pruning for rovibrational states quantization
+    //
     if(_amom_max) {
-      Lapack::ComplexVector ctemp = Lapack::fourier_transform(_pot_real, _pot_index);
-      typedef std::map<int, Lapack::complex>::iterator cfit_t;
+      //
+      IO::Marker complex_pot_four_marker("potential complex fourier expansion for rovibrational states quantization");
+
+      vtemp.resize(_pot_index.size());
+
+      for(int g = 0; g < _pot_index.size(); ++g) {
+	//
+	std::vector<int> gv = _pot_index(g);
+
+	if(_with_ctf) {
+	  //
+	  // sampling configuration
+	  //
+	  std::vector<double> angle(internal_size());
+
+	  for(int r = 0; r < internal_size(); ++r)
+	    //
+	    angle[r] = 2. * M_PI * double(gv[r]) / double(symmetry(r) * _pot_index.size(r));
+
+	  vtemp[g] = _pot_real[g] * curvlinear_factor(angle);
+	}
+	else
+	  //
+	  vtemp[g] = _pot_real[g];
+      }
+
+      Lapack::ComplexVector ctemp = Lapack::fourier_transform(vtemp, _pot_index);
+
+      typedef std::map<int, Lapack::complex>::iterator pit_t;
 	
       // initialization
+      //
       for(int g = 1; g < _pot_index.size(); ++g) {
+	//
 	std::vector<int> gv = _pot_index(g);
+
 	btemp = true;
-	for(int i = 0; i < internal_size(); ++i) {
-	  itemp = _internal_rotation[i].potential_fourier_size() / 2;
-	  if(_internal_rotation[i].potential_fourier_size() &&
-	     gv[i] > itemp && _pot_index.size(i) - gv[i] > itemp) {
+	
+	for(int r = 0; r < internal_size(); ++r) {
+	  //
+	  itemp = _internal_rotation[r].potential_fourier_size() ? _internal_rotation[r].potential_fourier_size() / 2 : -1;
+
+	  if(itemp >= 0 && itemp < gv[r] && itemp < _pot_index.size(r) - gv[r]) {
+	    //
 	    btemp = false;
+
 	    break;
 	  }
 	}
 
 	if(btemp && _pot_index.conjugate(g) >= g)
+	  //
 	  _pot_complex_fourier[g] = ctemp[g];
+	//
       }// initialization
 
-      // fourier expansion pruning
-      if(_ptol > 0. && _pot_index.size() > 1) {
-	IO::Marker  prune_marker("pruning potential complex fourier expansion", IO::Marker::ONE_LINE);
+      // potential complex fourier expansion pruning
+      //
+      if(_ptol > 0.) {
+	//
+	IO::Marker  prune_marker("pruning potential complex fourier expansion");
 	
-	double principal = 0.;
-	for(cfit_t pit = _pot_complex_fourier.begin(); pit != _pot_complex_fourier.end(); ++pit)
-	  principal += std::norm(pit->second);
-	
-	double residue = 0.;
-	while(1) {
-	  double minval = -1.;
-	  cfit_t minpit;
-	  for(cfit_t pit = _pot_complex_fourier.begin(); pit != _pot_complex_fourier.end(); ++pit) {
-	    dtemp = std::norm(pit->second);
-	    if(minval < 0. || dtemp < minval) {
-	      minval = dtemp;
-	      minpit = pit;
-	    }
-	  }
-	  residue += minval;
-	  if(residue > _ptol * principal)
-	    break;
-	  _pot_complex_fourier.erase(minpit);
+	IO::log << IO::log_offset << "tolerance[%] = " << _ptol * 100. << "\n";
+
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "original effective potential fourier expansion size = " << _pot_complex_fourier.size() << "\n";
 	}
-      }// fourier expansion pruning
+	else
+	  //
+	  IO::log << IO::log_offset << "original potential fourier expansion size = " << _pot_complex_fourier.size() << "\n";
+
+	double threshold = 0.;
+
+	std::multimap<double, int> order_term;
+
+	std::multimap<double, int>::const_iterator otit;
+
+	for(pit_t pit = _pot_complex_fourier.begin(); pit != _pot_complex_fourier.end(); ++pit) {// fourier expansion cycle
+	  //
+	  dtemp = std::norm(pit->second);
+
+	  threshold += dtemp;
+
+	  order_term.insert(std::make_pair(dtemp, pit->first));
+	  
+	}// fourier expansion cycle
+
+	threshold *= _ptol;
+	
+	dtemp = 0.;
+      
+	for(otit = order_term.begin(); otit != order_term.end(); ++otit) {
+	  //
+	  dtemp += otit->first;
+	  
+	  if(dtemp > threshold)
+	    //
+	    break;
+
+	  _pot_complex_fourier.erase(otit->second);
+	}
+
+	if(_with_ctf) {
+	  //
+	  IO::log << IO::log_offset << "pruned   effective potential fourier expansion size = " << _pot_complex_fourier.size() << "\n";
+	}
+	else
+	  //
+	  IO::log << IO::log_offset << "pruned   potential fourier expansion size = " << _pot_complex_fourier.size() << "\n";
+
+	//
+      }// potential fourier expansion pruning
 
       _pot_complex_fourier[0] = ctemp[0];
       
       // add conjugated points
+      //
       itemp = 0;
+
       ivec.resize(_pot_complex_fourier.size());
-      for(cfit_t pit = _pot_complex_fourier.begin(); pit != _pot_complex_fourier.end(); ++pit, ++itemp)
+
+      for(pit_t pit = _pot_complex_fourier.begin(); pit != _pot_complex_fourier.end(); ++pit, ++itemp)
+	//
 	ivec[itemp] = pit->first;
       
       for(std::vector<int>::const_iterator pit = ivec.begin(); pit != ivec.end(); ++pit) { 
+	//
 	itemp = _pot_index.conjugate(*pit);
+
 	if(itemp != *pit)
+	  //
 	  _pot_complex_fourier[itemp] = std::conj(_pot_complex_fourier[*pit]);
       }
       
@@ -7376,505 +9357,108 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	<< "\n";
       */
 
-      if(_ptol > 0. && _pot_index.size() > 1) {
-	IO::log << IO::log_offset << "pruned   potential complex fourier expansion size = " 
+      if(_with_ctf) {
+	//
+	IO::log << IO::log_offset << "effective potential complex fourier expansion size (including conjugated terms) = " 
 		<< _pot_complex_fourier.size() << "\n";
       }
-    }
+      else
+	//
+	IO::log << IO::log_offset << "potential complex fourier expansion size (including conjugated terms) = " 
+		<< _pot_complex_fourier.size() << "\n";
 
-    // potential correlation analysis
-    if(_pot_four_index.size() > 1) {
-
-      // different order correlation terms contributions
-      dvec.resize(internal_size());
-      for(int i = 0;  i < dvec.size(); ++i)
-	dvec[i] = 0.;
-
-      // potential fourier expansion cycle
-      for(_Pit pit = _pot_four.begin(); pit != _pot_four.end(); ++pit)
-	if(pit != _pot_four.begin()) {
-	  std::vector<int> pv = _pot_four_index(pit->first);
-
-	  itemp = 0;
-	  for(int r = 0; r < internal_size(); ++r)
-	    if(pv[r])
-	      ++itemp;
-
-	  dvec[itemp - 1] += pit->second * pit->second / std::pow(2., (double)itemp);
-	}
-
-      dtemp = 0.;
-      for(int i = 0; i < dvec.size(); ++i)
-	dtemp += dvec[i];
-
-      if(dtemp == 0.) {
-	std::cerr << funame << "potential should not be constant\n";
-	throw Error::Range();
-      }
-
-      IO::log << IO::log_offset 
-	      << "different order potential correlation terms contributions, %:\n"
-	      << IO::log_offset << std::setw(3) << "#";
-      for(int r = 0; r < internal_size(); ++r)
-	IO::log << std::setw(13) << r + 1; 
-      IO::log  << "\n";
-
-      IO::log << IO::log_offset << std::setw(3) << "%"; 
-      for(int r = 0; r < internal_size(); ++r)
-	IO::log << std::setw(13) << 100. * dvec[r] / dtemp;
-      IO::log << "\n";
-    
-      // first order correlation contributions from different rotations
-      dvec.resize(internal_size());
-      for(int i = 0;  i < dvec.size(); ++i)
-	dvec[i] = 0.;
-
-      // potential fourier expansion cycle
-      for(_Pit pit = _pot_four.begin(); pit != _pot_four.end(); ++pit)
-	if(pit != _pot_four.begin()) {
-	  std::vector<int> pv = _pot_four_index(pit->first);
-
-	  itemp = 0;
-	  int rr;
-	  for(int r = 0; r < internal_size(); ++r)
-	    if(pv[r]) {
-	      rr = r;
-	      ++itemp;
-	    }
-
-	  if(itemp == 1)
-	    dvec[rr] += pit->second * pit->second / 2.;
-	}
-
-      dtemp = 0.;
-      for(int i = 0; i < dvec.size(); ++i)
-	dtemp += dvec[i];
-
-      if(dtemp > 0.) {
-	IO::log << IO::log_offset 
-		<< "first order correlation contributions to the potential from different rotations, %:\n"
-		<< IO::log_offset << std::setw(3) << "R";
-	for(int r = 0; r < internal_size(); ++r)
-	  IO::log << std::setw(13) << r; 
-	IO::log  << "\n";
-	
-	IO::log << IO::log_offset << std::setw(3) << "%"; 
-	for(int r = 0; r < internal_size(); ++r)
-	  IO::log << std::setw(13) << 100. * dvec[r] / dtemp;
-	IO::log << "\n";
-      }
-    }
-    
-    // vibrational frequencies correlation analysis
-    if(_pot_four_index.size() > 1 && _vib_four.size()) {
-
-      dvec.resize(internal_size());
-
-      for(int v = 0; v < _vib_four.size(); ++v) {
-
-	for(int i = 0;  i < dvec.size(); ++i)
-	  dvec[i] = 0.;
-
-	// vibrational harminics cycle
-	for(_Pit pit = _vib_four[v].begin(); pit != _vib_four[v].end(); ++pit)
-	  if(pit != _vib_four[v].begin()) {
-	    std::vector<int> pv = _pot_four_index(pit->first);
-
-	    itemp = 0;
-	    for(int r = 0; r < internal_size(); ++r)
-	      if(pv[r])
-		++itemp;
-
-	    dvec[itemp - 1] += pit->second * pit->second / std::pow(2., (double)itemp);
-	  }
-
-	dtemp = 0.;
-	for(int i = 0; i < dvec.size(); ++i)
-	  dtemp += dvec[i];
-
-	if(dtemp <= 0.) {
-	  std::cerr << funame << "vibrational frequencies should not be constant\n";
-	  throw Error::Range();
-	}
-
-	IO::log << IO::log_offset << std::setw(3) << std::left << v + 1 << std::right; 
-	for(int r = 0; r < internal_size(); ++r)
-	  IO::log << std::setw(13) << 100. * dvec[r] / dtemp;
-	IO::log << "\n";
-      }
-    }
-
-    // high order harmonics potential contributions
-    if(_pot_four_index.size() > 1) {
-      IO::log << IO::log_offset << "high order harmonics potential contributions, %:\n";
-      IO::log << std::setprecision(3);
-
-      itemp = 0;
-      for(int r = 0; r < internal_size(); ++r)
-	if(_pot_four_index.size(r) > itemp)
-	  itemp = _pot_four_index.size(r);
-      itemp /= 2;
-
-      IO::log << IO::log_offset << std::setw(3) << "R\\#";    
-      for(int i = 0; i < itemp; ++i)
-	IO::log << std::setw(9) << i + 1;
-      IO::log << "\n";
-    
-      for(int r = 0;  r < internal_size(); ++r) {
-
-	dvec.resize(_pot_four_index.size(r) / 2 + 1);
-	for(int i = 0;  i < dvec.size(); ++i)
-	  dvec[i] = 0.;
-
-	for(_Pit pit = _pot_four.begin(); pit != _pot_four.end(); ++pit)
-	  if(pit != _pot_four.begin()) {
-	    std::vector<int> pv = _pot_four_index(pit->first);
-
-	    itemp = 1;
-	    for(int i = 0; i < internal_size(); ++i)
-	      if(pv[i])
-		itemp *= 2;
-
-	    dvec[(pv[r] + 1) / 2] += pit->second * pit->second / (double)itemp;
-	  }
-
-	dtemp = 0.;
-	for(int i = 1; i < dvec.size(); ++i)
-	  dtemp += dvec[i];
-
-	IO::log << IO::log_offset << std::setw(3) << r;
-	if(dtemp > 0.)
-	  for(int i = 1; i < dvec.size(); ++i)
-	    IO::log << std::setw(9) << 100. * dvec[i] / dtemp;
-	IO::log << "\n";
-      }
-      IO::log << std::setprecision(6);
-    }
-
-    std::vector<double> angle(internal_size());
-
-    // potential check
-    IO::log << IO::log_offset << "Model potential:\n";
-    IO::log << IO::log_offset;
-    for(int r = 0; r < internal_size(); ++r)
-      IO::log << std::setw(14) << "phi_" << r + 1;
-    IO::log << std::setw(15) << "V, kcal/mol";
-    for(int r = 0; r < internal_size(); ++r)
-      IO::log << std::setw(14) << "f_" << r + 1;
-    IO::log << "\n";
-      
-    for(int g = 0; g < _pot_index.size(); ++g) {
-      std::vector<int> gv = _pot_index(g);
-      IO::log << IO::log_offset;
-      for(int r = 0; r < internal_size(); ++r) {
-	angle[r] = 2. * M_PI * double(gv[r]) / double(symmetry(r) * _pot_index.size(r));
-	IO::log << std::setw(15) << angle[r] * 180. / M_PI;
-      }
-      IO::log << std::setw(15) << potential(angle) / Phys_const::kcal;
-      vtemp = frequencies(angle);
-      for(int r = 0; r < internal_size(); ++r)
-	IO::log << std::setw(15) << vtemp[r] / Phys_const::incm;
-      IO::log << "\n";
-    }
-    IO::log << "\n";
-
-    /*
-
-      #ifdef DEBUG
-
-      #endif
-
-    */
+      //
+    }// potential complex fourier expansion and pruning
+    //
   }// potential expansion
-
-  /********************************************* PRUNING ******************************************************/
-
-  // internal mobility matrix fourier expansion pruning
-  if(_mtol > 0. && _mass_index.size() > 1) {
-    IO::Marker  prune_marker("pruning internal mobility matrix fourier expansion");
-	
-    std::map<int, Lapack::SymmetricMatrix>::iterator minmit;
-    std::vector<double> residue(internal_size(), 0.), principal(internal_size(), 0.);
-    double val, minval;
-    int minfac;
-
-    for(std::map<int, Lapack::SymmetricMatrix>::iterator mit = _imm_four.begin(); 
-	mit != _imm_four.end(); ++mit)
-      if(mit != _imm_four.begin()) {
-	std::vector<int> gv = _mass_index(mit->first);
-	  
-	itemp = 1;
-	for(int i = 0; i < internal_size(); ++i)
-	  if(gv[i])
-	    itemp *= 2;
-	  
-	for(int i = 0; i < internal_size(); ++i)
-	  principal[i] += mit->second(i, i) * mit->second(i, i) / (double)itemp;
-      }
-
-    while(1) {
-      minval = -1.;
-      for(std::map<int, Lapack::SymmetricMatrix>::iterator mit = _imm_four.begin(); 
-	  mit != _imm_four.end(); ++mit)
-	if(mit != _imm_four.begin()) {
-	  std::vector<int> gv = _mass_index(mit->first);
-	    
-	  itemp = 1;
-	  for(int i = 0; i < internal_size(); ++i)
-	    if(gv[i])
-	      itemp *= 2;
-	    
-	  double val = 0.;
-	  for(int i = 0; i < internal_size(); ++i)
-	    if(principal[i] > 0.) {
-	      dtemp = mit->second(i, i) * mit->second(i, i) / (double)itemp / principal[i];
-	      if(dtemp > val)
-		val = dtemp;
-	    }
-	  
-	  if(minval < 0. || val < minval) {
-	    minval = val;
-	    minmit = mit;
-	    minfac = itemp;
-	  }
-	}
-
-      btemp = false;
-      for(int i = 0; i < internal_size(); ++i) {
-	residue[i] += minmit->second(i, i) * minmit->second(i, i) / (double)minfac;
-	if(residue[i] > _mtol * principal[i])
-	  btemp = true;
-      }
-
-      if(btemp)
-	break;
-
-      _imm_four.erase(minmit);
-    }
-
-    IO::log << IO::log_offset << "original internal mobility matrix fourier expansion size = " 
-	    << _mass_index.size() << "\n";
-    IO::log << IO::log_offset << "  pruned internal mobility matrix fourier expansion size = " 
-	    << _imm_four.size() << "\n";
-  }// internal mobility pruning
-
-  // external rotational factor pruning
-  if(_mtol > 0. && _mass_index.size() > 1) {
-    IO::Marker  prune_marker("pruning external rotation factor fourier expansion");
-      
-    std::map<int, double>::iterator minpit;
-    double minval, residue = 0., principal = 0.;
-
-    for(std::map<int, double>::iterator pit = _erf_four.begin(); pit != _erf_four.end(); ++pit)
-      if(pit != _erf_four.begin()) {
-	std::vector<int> pv = _mass_index(pit->first);
-	  
-	itemp = 1;
-	for(int i = 0; i < internal_size(); ++i)
-	  if(pv[i])
-	    itemp *= 2;
-	  
-	principal += pit->second * pit->second / (double)itemp;
-      }
-
-    while(1) {
-      minval = -1.;
-      for(std::map<int, double>::iterator pit = _erf_four.begin(); pit != _erf_four.end(); ++pit)
-	if(pit != _erf_four.begin()) {
-	  std::vector<int> pv = _mass_index(pit->first);
-	    
-	  itemp = 1;
-	  for(int i = 0; i < internal_size(); ++i)
-	    if(pv[i])
-	      itemp *= 2;
-	    
-	  dtemp = pit->second * pit->second / (double)itemp;
-	  if(minval < 0. || dtemp < minval) {
-	    minval = dtemp;
-	    minpit = pit;
-	  }
-	}
-
-      residue += minval;
-
-      if(residue > _mtol * principal)
-	break;
-
-      _erf_four.erase(minpit);
-    }
-    
-    IO::log << IO::log_offset << "original external rotation factor fourier expansion size = " 
-	    << _mass_index.size() << "\n";
-    IO::log << IO::log_offset << "  pruned external rotation factor fourier expansion size = " 
-	    << _erf_four.size() << "\n";
-  }// external rotation factor pruning
-
-  // potential pruning
-  if(_ptol > 0. && _pot_four_index.size() > 1) {
-    IO::Marker  prune_marker("pruning potential fourier expansion");
-      
-    std::map<int, double>::iterator minpit;
-
-    double principal = 0.;
-    for(_Pit pit = _pot_four.begin(); pit != _pot_four.end(); ++pit)
-      if(pit != _pot_four.begin()) {
-	std::vector<int> pv = _pot_four_index(pit->first);
-	    
-	itemp = 1;
-	for(int i = 0; i < internal_size(); ++i)
-	  if(pv[i])
-	    itemp *= 2;
-	    
-	dtemp = pit->second;
-	principal += dtemp * dtemp / (double)itemp;
-      }
-
-    double residue = 0.;
-    while(1) {
-      double minval = -1.;
-      minpit = _pot_four.end();
-      for(std::map<int, double>::iterator pit = _pot_four.begin(); pit != _pot_four.end(); ++pit)
-	if(pit != _pot_four.begin()) {
-	  std::vector<int> pv = _pot_four_index(pit->first);
-	    
-	  itemp = 1;
-	  for(int i = 0; i < internal_size(); ++i)
-	    if(pv[i])
-	      itemp *= 2;
-
-	  dtemp = pit->second * pit->second / (double)itemp;
-	  if(minval < 0. || dtemp < minval) {
-	    minval = dtemp;
-	    minpit = pit;
-	  }
-	}
-      if(minval < 0.) {
-	std::cerr << funame << "empty array?\n";
-	throw Error::Logic();
-      }
-      residue += minval;
-      if(residue > _ptol * principal)
-	break;
-      _pot_four.erase(minpit);
-    }
-
-    IO::log << IO::log_offset << "original potential fourier expansion size = " 
-	    << _pot_four_index.size() << "\n";
-    IO::log << IO::log_offset << "  pruned potential fourier expansion size = " 
-	    << _pot_four.size() << "\n";
-  }// potential pruning
-
-  // vibrational frequencies pruning
-  if(_ptol > 0. && _vib_four.size() && _pot_four_index.size() > 1) {
-    IO::Marker  prune_marker("pruning vibrational frequencies fourier expansion");
-      
-    std::map<int, double>::iterator minpit;
-    double minval, residue, principal;
-
-    for(int v = 0; v < _vib_four.size(); ++v) {
-      residue = principal = 0.;
-      for(std::map<int, double>::iterator pit = _vib_four[v].begin(); pit != _vib_four[v].end(); ++pit)
-	if(pit != _vib_four[v].begin()) {
-	  std::vector<int> pv = _pot_four_index(pit->first);
-	    
-	  itemp = 1;
-	  for(int i = 0; i < internal_size(); ++i)
-	    if(pv[i])
-	      itemp *= 2;
-	      
-	  principal += pit->second * pit->second / (double)itemp;
-	}
-
-      while(1) {
-	minval = -1.;
-	for(std::map<int, double>::iterator pit = _vib_four[v].begin(); pit != _vib_four[v].end(); ++pit)
-	  if(pit != _vib_four[v].begin()) {
-	    std::vector<int> pv = _pot_four_index(pit->first);
-	    
-	    itemp = 1;
-	    for(int i = 0; i < internal_size(); ++i)
-	      if(pv[i])
-		itemp *= 2;
-	      
-	    dtemp = pit->second * pit->second / (double)itemp;
-	    if(minval < 0. || dtemp < minval) {
-	      minval = dtemp;
-	      minpit = pit;
-	    }
-	  }
-	residue += minval;
-	if(residue > _ptol * principal)
-	  break;
-	_vib_four[v].erase(minpit);
-      }
-    }
-
-    IO::log << IO::log_offset << "original vibrational frequencies fourier expansion size = " 
-	    << _pot_four_index.size() << "\n";
-
-    IO::log << IO::log_offset << "pruned vibrational frequencies fourier expansion sizes = ";
-    for(int v = 0; v < _vib_four.size(); ++v)
-      IO::log << "   " << _vib_four[v].size();
-    IO::log << "\n";
-  }// vibrational frequencies pruning
 
   /*************************************** DESCRETIZATION *******************************************/
 
   if(1) {
+    //
     IO::Marker work_marker("descretization");
 
     double pot_max;
+
     std::vector<double> angle_min(internal_size()), angle_max(internal_size());
+
     std::vector<double> vib_min, vib_max;
 
     // angular integration grid dimensions
+    //
     ivec.resize(internal_size());
+
     for(int r = 0; r < internal_size(); ++r) 
+      //
       ivec[r] = _internal_rotation[r].weight_sampling_size();
+
     _grid_index.resize(ivec);
 
     IO::log << IO::log_offset << "angular integration grid size = " 
 	    << _grid_index.size() << std::endl;
 
     // angular step and volume
+    //
     _angle_grid_step.resize(internal_size());
+
     _angle_grid_cell = 1.;
+
     for(int r = 0; r < internal_size(); ++r) { 
+      //
       dtemp = 2. * M_PI / double(symmetry(r) * _grid_index.size(r)); 
+
       _angle_grid_step[r] = dtemp;
+
       _angle_grid_cell *= dtemp;
     }
   
     _pot_grid.resize(_grid_index.size());
+
     _freq_grid.resize(_grid_index.size());
-    _mass_grid.resize(_grid_index.size());
-    if(_is_ext_rot)
+
+    _irf_grid.resize(_grid_index.size());
+
+    if(_with_ext_rot)
+      //
       _erf_grid.resize(_grid_index.size());
       
     if(_vib_four.size()) {
+      //
       _vib_grid.resize(_grid_index.size());
+
       vib_min.resize(_vib_four.size());
+
       vib_max.resize(_vib_four.size());
     }
 
 #pragma omp parallel for default(shared) private(itemp, dtemp) schedule(static)
 
-    for(int g = 0; g < _grid_index.size(); ++g) {// grid cycle
-
+    // grid cycle
+    //
+    for(int g = 0; g < _grid_index.size(); ++g) {
+      //
       // current angle
+      //
       std::vector<int> gv = _grid_index(g);
+
       std::vector<double> angle(internal_size());
+
       for(int r = 0; r < internal_size(); ++r)
+	//
 	angle[r] = double(gv[r]) * _angle_grid_step[r];
 
       // potential
+      //
       _pot_grid[g]  = potential(angle);
 
       // mass factor
+      //
       try {
-	_mass_grid[g] =  Lapack::Cholesky(mass(angle)).det_sqrt();
+	//
+	_irf_grid[g] =  internal_rotation_factor(angle);
       } 
       catch(Error::General) {
+	//
 	std::cerr << funame 
 		  << "interpolated mass matrix is not positive definite: "
 	  "check your internal rotation definitions and/or increase mass expansion sizes\n";
@@ -7882,122 +9466,192 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       }
 
       // external rotation mass factor correction
-      if(_is_ext_rot) {
+      //
+      if(_with_ext_rot) {
+	//
 	dtemp = external_rotation_factor(angle);
+
 	if(dtemp < 0.) {
+	  //
 	  std::cerr << funame << "negative external rotation factor at (";
+
 	  for(int r = 0; r < internal_size(); ++r) {
-	    if(r)
+	    //
+	    if(r) {
+	      //
 	      std::cerr << ", ";
+	    }
 	    std::cerr << angle[r] * 180. / M_PI;
 	  }
 	  std::cerr << ") grid point\n";
+
 	  throw Error::Range();
 	}
+
 	_erf_grid[g] = dtemp;
       }
 
       // internal rotation local frequencies
+      //
       _freq_grid[g] = frequencies(angle);
 
       // vibrational frequencies
+      //
       if(_vib_four.size()) {
+	//
 	_vib_grid[g] = vibration(angle);
 	
-	for(int v = 0; v < _vib_four.size(); ++v) 
+	for(int v = 0; v < _vib_four.size(); ++v) {
+	  //
 	  if(_vib_grid[g][v] <= 0.) {
+	    //
 	    std::cerr << funame << v + 1 << "-th negative vibrational frequency at (";
+
 	    for(int r = 0; r < internal_size(); ++r) {
-	      if(r)
+	      //
+	      if(r) {
+		//
 		std::cerr << ", ";
+	      }
 	      std::cerr << angle[r] * 180. / M_PI;
 	    }
 	    std::cerr << ") grid point\n";
+
 	    throw Error::Range();
 	  }
+	}
       }
     }// grid cycle
 
-    // minima and maxima
+    // potential global minima and maxima
+    //
     int gmin, gmax;
+
     for(int g = 0; g < _grid_index.size(); ++g) {// grid cycle
+      //
       dtemp = _pot_grid[g];
+
       if(!g || dtemp < _pot_global_min) {
+	//
 	_pot_global_min   = dtemp;
+
 	gmin = g;
       }
+
       if(!g || dtemp > pot_max) {
+	//
 	pot_max   = dtemp;
+
 	gmax = g;
       }
-
-      if(_vib_four.size())
-	for(int v = 0; v < _vib_four.size(); ++v) {
-	  if(!g || _vib_grid[g][v] < vib_min[v])
-	    vib_min[v] = _vib_grid[g][v];
-	  if(!g || _vib_grid[g][v] > vib_max[v])
-	    vib_max[v] = _vib_grid[g][v];
-	}// grid cycle
-    }
+      
+      // vibrational frequencies minimum and maximum
+      //
+      for(int v = 0; v < _vib_four.size(); ++v) {
+	//
+	if(!g || _vib_grid[g][v] < vib_min[v]) {
+	  //
+	  vib_min[v] = _vib_grid[g][v];
+	}
+	if(!g || _vib_grid[g][v] > vib_max[v]) {
+	  //
+	  vib_max[v] = _vib_grid[g][v];
+	}
+      }
+    }// grid cycle
 
     // potential minimum energy correction
+    //
     ivec = _grid_index(gmin);
+    //
     for(int r = 0; r < internal_size(); ++r)
+      //
       angle_min[r] = double(ivec[r]) * _angle_grid_step[r];
 
     try {
+      //
       vtemp = Lapack::Cholesky(force_constant_matrix(angle_min)).invert(potential_gradient(angle_min));
+
       for(int i = 0; i < internal_size(); ++i)
+	//
 	angle_min[i] -= vtemp[i];
       
       dtemp = potential(angle_min) - _pot_global_min;
+
       _pot_global_min += dtemp;
+
       IO::log << IO::log_offset << "potential minimum energy correction [kcal/mol] = "
 	      << dtemp / Phys_const::kcal << "\n";
     }
     catch(Error::General) {
+      //
       IO::log << IO::log_offset << "WARNING: force constant matrix at minimum is not positive definite: "
 	"cannot get potential minimum energy correction\n";
     }
 
     // potential maximum energy correction
+    //
     ivec = _grid_index(gmax);
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       angle_max[r] = double(ivec[r]) * _angle_grid_step[r];
     
     try {
+      //
       Lapack::SymmetricMatrix fcm = force_constant_matrix(angle_max);
+
       fcm *= -1.;
+
       vtemp = Lapack::Cholesky(fcm).invert(potential_gradient(angle_max));
+
       for(int i = 0; i < internal_size(); ++i)
+	//
 	angle_max[i] += vtemp[i];
       
       dtemp = potential(angle_max) - pot_max;
+
       pot_max += dtemp;
+
       IO::log << IO::log_offset << "potential maximum energy correction [kcal/mol] = "
 	      << dtemp / Phys_const::kcal << "\n";
       
     }
     catch(Error::General) {
+      //
       IO::log << IO::log_offset  << "WARNING: force constant matrix at maximum is not negative definite: "
 	"cannot get potential maximum energy correction\n";
     }
 
+    // output: potential minimum and maximum
+    //
     IO::log << IO::log_offset << "potential energy surface, kcal/mol:\n"
 	    << IO::log_offset << std::setw(5) << "" << std::setw(13) << "E, kcal/mol";
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       IO::log << std::setw(12) << "phi_" << r + 1 ;
+
     IO::log << "\n";
+
     IO::log << IO::log_offset << std::setw(5) << "min" << std::setw(13) << _pot_global_min / Phys_const::kcal;
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       IO::log << std::setw(13) << angle_min[r] / M_PI * 180.;
+
     IO::log << "\n";
+
     IO::log << IO::log_offset << std::setw(5) << "max" << std::setw(13) << pot_max / Phys_const::kcal;
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       IO::log << std::setw(13) << angle_max[r] / M_PI * 180.;
+
     IO::log << "\n";
 
     if(_vib_four.size()) {
+      //
       IO::log << IO::log_offset << "vibrational frequencies, 1/cm:\n"
 	      << IO::log_offset 
 	      << std::left << std::setw(2) << "#" << std::right
@@ -8005,7 +9659,9 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	      << std::setw(13) << "max"
 	      << std::setw(13) << "mean"
 	      << "\n";
+
       for(int v = 0; v < _vib_four.size(); ++v)
+	//
 	IO::log << IO::log_offset
 		<< std::left << std::setw(2) << v + 1 << std::right
 		<< std::setw(13) << vib_min[v]     / Phys_const::incm
@@ -8015,59 +9671,96 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     }
 
     // frequencies at minimum
+    //
     Lapack::Vector freq_min = frequencies(angle_min);
+
     IO::log << IO::log_offset << "hindered rotation frequencies f at minimum, 1/cm:\n";
+
     IO::log << IO::log_offset 
 	    << std::left << std::setw(2) << "#" << std::right
 	    << std::setw(12) << "f"
 	    << "\n";
+
     for(int f = 0; f < internal_size(); ++f)
+      //
       IO::log << IO::log_offset 
 	      << std::left << std::setw(2) << f + 1 << std::right
 	      << std::setw(12) << freq_min[f] / Phys_const::incm
 	      << "\n";
 
     // mobility parameter
+    //
     _mobility_parameter.resize(internal_size());
+
     _mobility_min = mass(angle_min).invert();
+
     _mobility_min /= 2.;
+
     if(internal_size() == 1) {
+      //
       _mobility_parameter[0] = _mobility_min(0, 0);
+
       if(_mobility_parameter[0] <= 0.) {
+	//
 	std::cerr << funame << "negative mobility parameter\n";
+
 	throw Error::Range();
       }
     }
     else {
+      //
       Lapack::SymmetricMatrix bmat(internal_size() - 1);
+
       Lapack::Vector          bvec(internal_size() - 1);
+
       for(int r = 0; r < internal_size(); ++r) {
-	for(int i = 0; i < bmat.size(); ++i)
+	//
+	for(int i = 0; i < bmat.size(); ++i) {
+	  //
 	  for(int j = i; j < bmat.size(); ++j) {
+	    //
 	    int im = i < r ? i : i + 1;
+
 	    int jm = j < r ? j : j + 1;
+
 	    bmat(i, j) = _mobility_min(im, jm);
 	  }
+	}
+
 	for(int i = 0; i < bvec.size(); ++i) {
+	  //
 	  int im = i < r ? i : i + 1;
+
 	  bvec[i] = _mobility_min(r, im);
 	}
+
 	_mobility_parameter[r] = (_mobility_min(r, r) - bvec * (bmat.invert() * bvec));
+
 	if(_mobility_parameter[r] <= 0.) {
+	  //
 	  std::cerr << funame << "negative mobility parameter\n";
+
 	  throw Error::Range();
 	}
       }
     }
+
     IO::log << IO::log_offset << "effective one-dimensional internal mobilities[1/cm]:";
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       IO::log << "   " << _mobility_parameter[r] / Phys_const::incm;
+
     IO::log << "\n";
 
-    // classical minimal energy
+    // ground state energy in the harmonic approximation
+    //
     _ground = _pot_global_min;
+
     for(int f = 0; f < internal_size(); ++f)
+      //
       _ground += freq_min[f] / 2.;
+
     IO::log << IO::log_offset << "ground energy in the harmonic oscilator approximation = "
 	    << _ground / Phys_const::kcal << " kcal/mol\n";
 
@@ -8106,35 +9799,54 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
   /********************************* ONE-DIMENSIONAL ROTORS MODEL *****************************************/
 
-  double                                   one_ground;// one-dimensional rotors model ground energy
+  // one-dimensional rotors model ground energy
+  //
+  double one_ground;
+
   std::vector<SharedPointer<HinderedRotor> > one_rotor;
 
   if(_pot_four_index.size() > 1) {
-
+    //
     IO::Marker work_marker("one-dimensional uncoupled rotors model initialization");
-    
-    for(int r = 0; r < internal_size(); ++r) {
+ 
+    typedef std::map<int, double>::const_iterator pit_t;
 
-      // effective one-dimensional rotor potential
+    // effective one-dimensional rotor potential
+    //
+    for(int r = 0; r < internal_size(); ++r) {
+      //
       std::map<int, double> one_pot_four;
+
       std::vector<int> pv(internal_size(), 0);
+
       for(int n = 1; n < _pot_four_index.size(r); ++n) {
+	//
 	pv[r] = n;
+
 	int pl = _pot_four_index(pv);
-	_Pit pit = _pot_four.find(pl);
+
+	pit_t pit = _pot_four.find(pl);
+
 	if(pit != _pot_four.end())
+	  //
 	  one_pot_four[n] = pit->second;
       }
       
       // initializing one-dimensional rotor
-      one_rotor.push_back(SharedPointer<HinderedRotor>(new HinderedRotor(one_pot_four, _imm_four[0](r, r), 
-									 symmetry(r))));
+      //
+      one_rotor.push_back(SharedPointer<HinderedRotor>(new HinderedRotor(one_pot_four, _imm_four[0](r, r), symmetry(r))));
+
       (*one_rotor.rbegin())->set(_extra_ener);
     }
+
     // ground energy for one-dimensional rotors model
+    //
     one_ground = 0.;
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       one_ground += one_rotor[r]->ground() - one_rotor[r]->potential_minimum();
+
     one_ground += _pot_global_min;
 
     IO::log << IO::log_offset << "one-dimensional uncoupled rotors model ground energy [kcal/mol] = "
@@ -8144,54 +9856,89 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   /************************************* INTERPOLATION ********************************************/
 
   Slatec::Spline one_qstates; // one-dimensional rotors model quantum   density/number of states
+
   Slatec::Spline one_cstates; // one_dimensional rotors model classical density/number of states
  
   // quantum correction factor
-  if(_level_ener_max > 0. && mode() != NOSTATES)
+  //
+  if(_level_ener_max > 0. && (mode() != NOSTATES || force_qfactor)) {
+    //
     _set_qfactor();
+  }
+  else {
+    //
+    IO::log << IO::log_offset << "WARNING: harmonic approximation will be used for ground state energy evaluation\n";
+  }
 
   // external rotation quantum treatment
+  //
   if(_amom_max)
+    //
     rotational_energy_levels();
 
   // classical number of states, one-dimensional rotors model
-  if(mode() != NOSTATES) {
+  //
+  if(mode() != NOSTATES || force_qfactor) {
+    //
     IO::Marker interpol_marker("interpolating states number/density");
     
     /************************* CLASSICAL DENSITY/NUMBER OF STATES *****************************/
 
+    typedef std::map<int, double>::const_iterator pit_t;
+
     itemp = (int)std::ceil(_extra_ener / _ener_quant);
+
     Array<double> ener_grid(itemp);
+
     Array<double> stat_base(itemp);
+
     Array<double> stat_grid(itemp, 0.);
 
     // energy grid
+    //
     double ener = 0.;
+
     for(int i = 0; i < ener_grid.size(); ++i, ener += _ener_quant)
+      //
       ener_grid[i] = ener;
 
     // base number of states
+    //
     _set_states_base(stat_base);
 
     //angular integration
+    //
+    IO::log << IO::log_offset << "angular integration ... ";
+
     if(_vib_four.size()) {
 
 #pragma omp parallel for default(shared) private(itemp, dtemp) schedule(dynamic, 1)      
 
       for(int g = 0; g < _grid_index.size(); ++g) {
+	//
 	// local vibrations contribution
+	//
 	Array<double> stat_freq = stat_base;
+
 	for(int v = 0; v < _vib_four.size(); ++v) {
+	  //
 	  itemp = (int)round(_vib_grid[g][v] / _ener_quant);
+
 	  for(int i = itemp; i < ener_grid.size(); ++i)
+	    //
 	    stat_freq[i] += stat_freq[i - itemp];
 	}
 	
 	// potential energy shift and mass factor
+	//
 	itemp = (int)round((_pot_grid[g] - _pot_global_min) / _ener_quant);
+
 	for(int i = itemp; i < ener_grid.size(); ++i) {
-	  dtemp = stat_freq[i - itemp] * _mass_grid[g];
-	  if(_is_ext_rot)
+	  //
+	  dtemp = stat_freq[i - itemp] * _irf_grid[g];
+
+	  if(_with_ext_rot)
+	    //
 	    dtemp *= _erf_grid[g];
 
 #pragma omp atomic
@@ -8200,187 +9947,290 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	}
       }
     }
+    // no vibrations
+    //
     else {
+      //
       // potential energy shift and mass factor
+      //
       std::map<int, double> shift_factor;
+
       for(int g = 0; g < _grid_index.size(); ++g) {
+	//
 	itemp = (int)round((_pot_grid[g] - _pot_global_min) / _ener_quant);
-	dtemp = _mass_grid[g];
-	if(_is_ext_rot)
+
+	dtemp = _irf_grid[g];
+
+	if(_with_ext_rot)
+	  //
 	  dtemp *= _erf_grid[g];
+
 	shift_factor[itemp] += dtemp;
       }
 
 #pragma omp parallel for default(shared) private(itemp, dtemp)  schedule(static)
 
       for(int i = 0; i < ener_grid.size(); ++i) {
+	//
 	dtemp = 0.;
     
-	for(_Pit pit = shift_factor.begin(); pit != shift_factor.end(); ++pit) {
+	for(pit_t pit = shift_factor.begin(); pit != shift_factor.end(); ++pit) {
+	  //
 	  itemp = i - pit->first;
+
 	  if(itemp >= 0)
+	    //
 	    dtemp  += stat_base[itemp] * pit->second;
 	}
+
 	stat_grid[i] = dtemp;
-      }
-    }
-      
+      }//
+      //
+    }// no vibrations
+    
+    // angular integration done
+    //
+    IO::log << "done\n";
+
     // classical density/number of states interpolation
+    //
+    IO::log << IO::log_offset << "classical states interpolation ... ";
+
     _cstates.init(ener_grid, stat_grid, ener_grid.size());
 
     // classical density/number of states extrapolation
+    //
     dtemp = _cstates.arg_max() * (1. - _extra_step);
+
     dtemp = _cstates.fun_max() / _cstates(dtemp);
+
     _cstates_pow = std::log(dtemp) / std::log(1. / (1. - _extra_step));
+
+    IO::log << "done\n";
     
     IO::log << IO::log_offset << "effective power exponent at " 
 	    << _cstates.arg_max() / Phys_const::kcal << " kcal/mol = "<< _cstates_pow << "\n";
 
     /***************** ONE-DIMENSIONAL UNCOUPLED ROTORS MODEL DENSITY/NUMBER OF STATES ********************/
 
-    // one-dimensional rotors quantum density/number of states (relative to the ground state)
-    if(_is_ext_rot) {
-      // rotational density/number of states
+    // rotational density/number of states
+    //
+    if(_with_ext_rot) {
+      //
       dtemp = 4. * M_SQRT2 * _erf_four[0] / external_symmetry();
+
       if(mode() == NUMBER)
+	//
 	dtemp *= 2. / 3.;
+
       ener = 0.;
+
       for(int i = 0; i < ener_grid.size(); ++i, ener += _ener_quant) {
+	//
 	stat_grid[i] = dtemp * std::sqrt(ener);
+
 	if(mode() == NUMBER)
+	  //
 	  stat_grid[i] *= ener;
       }
     }
-    else
+    // no external rotation
+    //
+    else {
+      //
       switch(mode()) {
+	//
       case NUMBER:
+	//
 	stat_grid = 1.;
+
 	break;
-      case DENSITY:
+
+      default:
+	//
 	stat_grid = 0.;
+
 	stat_grid[0] = 1. / _ener_quant;
-	break;
       }
+    }
 
     // convolution with one-dimensional uncoupled rotors
+    //
     for(int r = 0; r < internal_size(); ++r)
+      //
       one_rotor[r]->convolute(stat_grid, _ener_quant);
 
     // convolution with average vibrations
+    //
     for(int v = 0; v < _vib_four.size(); ++v) {
+      //
       itemp = (int)round(_vib_four[v][0] / _ener_quant);
+
       for(int i = itemp; i < ener_grid.size(); ++i)
+	//
 	stat_grid[i] += stat_grid[i - itemp];
     }
 
     // effective one-dimensional rotors quantum density/number of states interpolation
+    //
     one_qstates.init(ener_grid, stat_grid, ener_grid.size());
 
     // one-dimensional rotors model classical density/number of states (relative to potential energy minimum)
+    //
     stat_grid = stat_base;
+
     dtemp = 1.;
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       one_rotor[r]->integrate(stat_grid, _ener_quant);
 
     // normalization
+    //
     dtemp = 1.;
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       dtemp /= 2. * one_rotor[r]->rotational_constant();
+
     dtemp = std::sqrt(dtemp) / _angle_grid_cell;
-    if(_is_ext_rot)
-      dtemp *= _erf_four[0];    
+
+    if(_with_ext_rot)
+      //
+      dtemp *= _erf_four[0];  
+  
     stat_grid *= dtemp;
 
     // convolution with average vibrations
+    //
     for(int v = 0; v < _vib_four.size(); ++v) {
+      //
       itemp = (int)round(_vib_four[v][0] / _ener_quant);
+
       for(int i = itemp; i < ener_grid.size(); ++i)
+	//
 	stat_grid[i] += stat_grid[i - itemp];
     }
 
     // one-dimensional rotors classical density/number of states interpolation
+    //
     one_cstates.init(ener_grid, stat_grid, ener_grid.size());
 
     // density/number of states output
-    IO::log << IO::log_offset;
-    switch(mode()) {
-    case DENSITY:
-      IO::log << "density of states [cm]";
-      break;
-    case NUMBER:
-      IO::log << "number of states";
-      break;
-    default:
-      std::cerr << funame << "wrong case\n";
-      throw Error::Logic();
-    }
-    IO::log << " (E - energy in kcal/mol relative to the ground level):\n";
+    //
+    if(_qfactor.size()) {
+      //
+      IO::log << IO::log_offset;
 
-    IO::log << IO::log_offset << std::setw(5)  << "E" 
-	    << std::setw(13) << "Classical";
-    if(_qfactor.size())
-      IO::log << std::setw(13) << "Q-corrected"
-	      << std::setw(13) << "Q-Factor";
-    IO::log << std::setw(13) << "1D-Classical"
-	    << std::setw(13) << "1D-Quantum"
-	    << std::setw(13) << "1D-Q-Factor"
-	    << "\n";
+      switch(mode()) {
+	//
+      case NUMBER:
+	//
+	IO::log << "number of states";
 
-    double stat_unit = 1.;
-    if(mode() == DENSITY)
-      stat_unit = Phys_const::incm;
+	break;
 
-    double estep = 0.1 * Phys_const::kcal;
+      default:
+	//
+	IO::log << "density of states [cm]";
+      }
 
-    if(_qfactor.size())
-      for(ener = estep; ener < _qfactor.arg_max(); ener += estep) {      
-	if(_qfactor(ener) > 0.9)
-	  break;
+      IO::log << " (E - energy in kcal/mol relative to the ground level):\n";
+
+      IO::log << IO::log_offset << std::setw(5)  << "E" 
+	      << std::setw(13) << "Classical"
+	      << std::setw(13) << "Q-corrected"
+	      << std::setw(13) << "Q-Factor"
+	      << std::setw(13) << "1D-Classical"
+	      << std::setw(13) << "1D-Quantum"
+	      << std::setw(13) << "1D-Q-Factor"
+	      << "\n";
+
+      double stat_unit = 1.;
+
+      if(mode() != NUMBER)
+	//
+	stat_unit = Phys_const::incm;
+
+      double estep = 0.1 * Phys_const::kcal;
+
+      for(ener = estep; ener < _qfactor.arg_max(); ener += estep) {
+	//
 	// classical density/number of states
+	//
 	IO::log << IO::log_offset 
 		<< std::setw(5) << ener / Phys_const::kcal
-		<< std::setw(13) << _cstates(ener + _ground - _pot_global_min) * stat_unit
-	  // quantum-factor-corrected density/number of states
-		<< std::setw(13) << states(ener) * stat_unit
-		<< std::setw(13) << _qfactor(ener)
-	  // one-dimensional rotors model classical density/number of states
-		<< std::setw(13) << one_cstates(ener + _ground - _pot_global_min) * stat_unit;
+		<< std::setw(13) << _cstates(ener + _ground - _pot_global_min) * stat_unit;
+
+	// quantum-factor-corrected density/number of states
+	//
+	IO::log << std::setw(13) << states(ener) * stat_unit
+		<< std::setw(13) << _qfactor(ener);
+
+	// one-dimensional rotors model classical density/number of states
+	//
+	IO::log << std::setw(13) << one_cstates(ener + _ground - _pot_global_min) * stat_unit;
+
 	// one-dimensional rotors model quantum density/number of states
+	//
 	dtemp = ener + _ground - one_ground;
-	if(dtemp > 0.)
+
+	if(dtemp > 0.) {
+	  //
 	  IO::log << std::setw(13) << one_qstates(dtemp) * stat_unit
 		  << std::setw(13) << one_qstates(dtemp) / one_cstates(ener + _ground - _pot_global_min);
-	else
+	}
+	else {
+	  //
 	  IO::log << std::setw(13) << 0
 		  << std::setw(13) << 0;
+	}
+
 	IO::log << "\n";
       }
+    }
   }// number of states output
 
   // statistical weight output
+  //
   IO::log << IO::log_offset << "statistical weight (*** - deep tunneling regime):\n";
+
   IO::log << IO::log_offset 
 	  << std::setw(5) << "T, K" 
 	  << std::setw(13) << "Classical";
-  if(_full_quantum_treatment && _level_ener_max > 0. && mode() != NOSTATES)
+
+  if(_full_quantum_treatment && _level_ener_max > 0. && (mode() != NOSTATES || force_qfactor))
+    //
     IO::log << std::setw(13) << "Quantum";
-  IO::log << std::setw(13) << "PathIntegral"
-	  << "  ***\n";
+
+  IO::log << std::setw(13) << "PathIntegral" << "\n";
+
   for(int t = 50; t <= 1000 ; t+= 50) {
+    //
     double tval = (double)t * Phys_const::kelv;
+
     double cw, sw;
+
     itemp = get_semiclassical_weight(tval, cw, sw);
+
     IO::log << IO::log_offset 
 	    << std::setw(5) << t
 	    << std::setw(13) << cw;
-    if(_full_quantum_treatment && _level_ener_max > 0. && mode() != NOSTATES)
-      IO::log << std::setw(13) << quantum_weight(tval);
-    IO::log << std::setw(13) << sw;
-    if(itemp)
-      IO::log << "  ***";
-    IO::log << "\n";  
-  } // statistical weight output
 
+    if(_full_quantum_treatment && _level_ener_max > 0. && (mode() != NOSTATES || force_qfactor))
+      //
+      IO::log << std::setw(13) << quantum_weight(tval);
+
+    IO::log << std::setw(13) << sw;
+
+    if(itemp)
+      //
+      IO::log << "  ***";
+
+    IO::log << "\n";  
+    //
+  }// temperature cycle
+  //
 }// MultiRotor
 
 Model::MultiRotor::~MultiRotor ()
@@ -8392,7 +10242,11 @@ void Model::MultiRotor::_set_qfactor ()
 {
   const char funame [] = "Model::MultiRotor::_set_qfactor: ";
 
-  IO::Marker funame_marker("Model::MultiRotor::_set_qfactor");
+  IO::Marker funame_marker(funame);
+
+  typedef std::map<int, double>::const_iterator                  pit_t;
+
+  typedef std::map<int, Lapack::SymmetricMatrix>::const_iterator mit_t;
 
   int            itemp;
   double         dtemp;
@@ -8405,49 +10259,82 @@ void Model::MultiRotor::_set_qfactor ()
   std::clock_t  start_time;
 
   IO::log << IO::log_offset << "potential fourier expansion size = " << _pot_four.size()   << "\n";
+
   if(_vib_four.size()) {
+    //
     IO::log << IO::log_offset << "vibrational frequencies fourier expansion sizes:";
+
     for(int v = 0; v < _vib_four.size(); ++v)
+      //
       IO::log << "   " << _vib_four[v].size();
+
     IO::log << "\n";
   }
+
   IO::log << IO::log_offset << "internal mobility matrix fourier expansion size = " 
 	  << _imm_four.size() << "\n";
+
   IO::log << IO::log_offset << "external rotation factor fourier expansion size = " 
 	  << _erf_four.size() << "\n";
 
   // quantum state dimensions
+  //
   ivec.resize(internal_size());
+
   for(int r = 0; r < internal_size(); ++r) {
+    //
     itemp = int(std::sqrt(_level_ener_max / _mobility_parameter[r])) / symmetry(r) * 2 + 1; 
-    if(_internal_rotation[r].quantum_size_max() && itemp > _internal_rotation[r].quantum_size_max())
+
+    if(itemp > _internal_rotation[r].quantum_size_max()) {
+      //
       ivec[r] = _internal_rotation[r].quantum_size_max();
-    else if(itemp < _internal_rotation[r].quantum_size_min())
+    }
+    else if(itemp < _internal_rotation[r].quantum_size_min()) {
+      //
       ivec[r] = _internal_rotation[r].quantum_size_min();
+    }
     else
+      //
       ivec[r] = itemp;
   }
 
   MultiIndexConvert quantum_index(ivec);
 
   IO::log << IO::log_offset << "quantum phase space dimensions:";
+
   for(int i = 0; i < ivec.size(); ++i)
+    //
     IO::log << "   " << ivec[i];
+
   IO::log << "\n";
+
   IO::log << IO::log_offset << "reference hamiltonian size = " << quantum_index.size() << std::endl;
 
   // vibrational population vector
+  //
   std::vector<std::vector<int> > vib_pop;
+
   if(_vib_four.size()) {
+    //
     dvec.resize(_vib_four.size());
-    for(int v = 0; v < _vib_four.size(); ++v)
+
+    for(int v = 0; v < _vib_four.size(); ++v) {
+      //
       dvec[v] = _vib_four[v][0];
+    }
+
     vib_pop = population(_level_ener_max, dvec);
-    for(int v = 0; v < _vib_four.size(); ++v)
+
+    for(int v = 0; v < _vib_four.size(); ++v) {
+      //
       if(vib_pop[0][v] != 0) {
+	//
 	std::cerr << funame << "first population vector should describe the ground vibrational state\n";
+
 	throw Error::Logic();
       }
+    }
+
     IO::log << IO::log_offset << "number of vibrational population states = " << vib_pop.size() << std::endl;
   }
 
@@ -8518,9 +10405,9 @@ void Model::MultiRotor::_set_qfactor ()
   pruned_pot_global_min = _pot_global_min;
   }
 
-  std::vector<double> pruned_mass_grid(_grid_index.size());
+  std::vector<double> pruned_irf_grid(_grid_index.size());
   std::vector<double> pruned_erf_grid;
-  if(_is_ext_rot)
+  if(_with_ext_rot)
   pruned_erf_grid.resize(_grid_index.size());
 
   if(_mtol > 0.) {
@@ -8537,7 +10424,7 @@ void Model::MultiRotor::_set_qfactor ()
 
   // mass factor
   try {
-  pruned_mass_grid[g] =  Lapack::Cholesky(mass(angle)).det_sqrt();
+  pruned_irf_grid[g] =  Lapack::Cholesky(mass(angle)).det_sqrt();
   } 
   catch(Error::General) {
   std::cerr << funame 
@@ -8546,7 +10433,7 @@ void Model::MultiRotor::_set_qfactor ()
   }
 
   // external rotation mass factor correction
-  if(_is_ext_rot) {
+  if(_with_ext_rot) {
   dtemp = external_rotation_factor(angle);
   if(dtemp < 0.) {
   std::cerr << funame << "negative external rotation factor at (";
@@ -8567,24 +10454,30 @@ void Model::MultiRotor::_set_qfactor ()
   #pragma omp parallel for default(shared) schedule(static)
 
   for(int g = 0; g < _grid_index.size(); ++g) {
-  pruned_mass_grid[g] = _mass_grid[g];
-  if(_is_ext_rot)
+  pruned_irf_grid[g] = _irf_grid[g];
+  if(_with_ext_rot)
   pruned_erf_grid[g]  = _erf_grid[g];
   }
   }
   */
 
   // classical number of states without external rotations at maximum energy
+  //
   itemp = (int)std::ceil(_level_ener_max / _ener_quant);
+
   Array<double> stat_base(itemp);
 
   _set_states_base(stat_base, 1);
 
   dtemp = 0.;
+
   for(int g = 0; g < _grid_index.size(); ++g) {
+    //
     itemp = stat_base.size() - 1 - (int)round((_pot_grid[g] - _pot_global_min) / _ener_quant);
+
     if(itemp >= 0)
-      dtemp += stat_base[itemp] * _mass_grid[g];
+      //
+      dtemp += stat_base[itemp] * _irf_grid[g];
   }
 
   const int nos_max = (int)dtemp;
@@ -8592,237 +10485,529 @@ void Model::MultiRotor::_set_qfactor ()
   IO::log << IO::log_offset << "classically estimated number of energy levels = " << nos_max << "\n";
 
   // ground vibrational state hamiltonian
-  Lapack::SymmetricMatrix ham_basic(quantum_index.size());
-  ham_basic = 0.;
+  //
+  Lapack::SymmetricMatrix ham_base(quantum_index.size());
 
-  {
+  if(1) {
+    //
     IO::Marker basic_marker("setting reference hamiltonian", IO::Marker::ONE_LINE);
 
+    if(_with_ctf) {
+      //
+      ham_base = 0.;
+    }
+    else
+      //
+      ham_base = _pot_shift;
+      
+    const std::map<int, double>*                  eff_pot = &_pot_four;
+
+    const std::map<int, Lapack::SymmetricMatrix>* eff_imm = &_imm_four;
+
+    if(_with_ctf) {
+      //
+      eff_pot = &_eff_pot_four;
+      
+      eff_imm = &_eff_imm_four;
+    }
+    
 #pragma omp parallel for default(shared) private(btemp, dtemp, itemp) schedule(dynamic, 1)
 
-    for(int ml = 0; ml < quantum_index.size(); ++ml) {
-      std::vector<int> mv = quantum_index(ml);
-      for(int nl = ml; nl < quantum_index.size(); ++nl) {//quantum state cycle
-	std::vector<int> nv = quantum_index(nl);
+    for(int ml = 0; ml < quantum_index.size(); ++ml) {// left quantum state cycle
+      //
+      const std::vector<int> mv = quantum_index(ml);
+
+      for(int nl = ml; nl < quantum_index.size(); ++nl) {// right quantum state cycle
+	//
+	const std::vector<int> nv = quantum_index(nl);
 
 	// potential contribution
-	for(_Pit pit = _pot_four.begin(); pit != _pot_four.end(); ++pit) {
-	  std::vector<int> pv = _pot_four_index(pit->first);
+	//
+	for(pit_t pit = eff_pot->begin(); pit != eff_pot->end(); ++pit) {// fourier expansion cycle
+	  //
+	  const std::vector<int> pv = _pot_four_index(pit->first);
 
 	  btemp = true;
+	  
 	  dtemp = pit->second;
-	  for(int r = 0; r < internal_size(); ++r)
+
+	  for(int r = 0; r < internal_size(); ++r) {
+	    //
 	    if(rotation_matrix_element(mv[r], nv[r], pv[r], dtemp)) {
+	      //
 	      btemp = false;
+
 	      break;
 	    }
+	  }
 
-	  if(btemp)
-	    ham_basic(ml, nl) +=  dtemp;
-	}// potential fourier expansion cycle
+	  if(btemp) 
+	    //
+	    ham_base(ml, nl) +=  dtemp;
+	  //
+	}// fourier expansion cycle
 
 	//kinetic energy contribution
-	for(int mi = 0; mi < internal_size(); ++mi) 
-	  for(int ni = 0; ni < internal_size(); ++ni)
-	    if(mv[mi] && nv[ni]) {// rotational constant matrix cycle
+	//
+	for(int mi = 0; mi < internal_size(); ++mi) {// mobility matrix first index cycle
+	  //
+	  if(!mv[mi])
+	    //
+	    continue;
 
-	      itemp = ((mv[mi] + 1) / 2) * ((nv[ni] + 1) / 2) * symmetry(mi) * symmetry(ni);
+	  int mfac = (mv[mi] + 1) / 2 * symmetry(mi);
 
-	      std::vector<int> mw = mv;
-	      if(mw[mi] % 2)// sine
-		mw[mi]++;
-	      else {
-		mw[mi]--;
-		itemp = -itemp;
-	      }
+	  std::vector<int> mw = mv;
 
-	      std::vector<int> nw = nv;
-	      if(nw[ni] % 2)
-		nw[ni]++;
-	      else {
-		nw[ni]--;
-		itemp = -itemp;
-	      }
-	      // fourier expansion cycle
-	      for(_Mit mit = _imm_four.begin(); mit != _imm_four.end(); ++mit) {
-		std::vector<int> kv = _mass_index(mit->first);
+	  // sin -> cos
+	  //
+	  if(mw[mi] % 2) {
+	    //
+	    ++mw[mi];
+	  }
+	  // cos -> sin
+	  //
+	  else {
+	    //
+	    --mw[mi];
 
-		btemp = true;
-		dtemp = (double)itemp * mit->second(mi, ni);
-		for(int r = 0; r < internal_size(); ++r)
-		  if(rotation_matrix_element(mw[r], nw[r], kv[r], dtemp)) {// internal rotation cycle
-		    btemp = false;
-		    break;
-		  }
+	    mfac = -mfac;
+	  }
 
-		if(btemp)
-		  ham_basic(ml, nl) += dtemp;
-	      }// fourier expansion cycle      
-	    }// rotational constant matrix cycle
-      }// bra cycle
-    }// ket cycle
-  }
+	  for(int ni = 0; ni < internal_size(); ++ni) {// mobility matrix second index cycle
+	    //
+	    if(!nv[ni])
+	      //
+	      continue;
 
-  // external rotation factor matrix elements
-  Lapack::SymmetricMatrix erf_mat_basic(quantum_index.size());
-  if(_is_ext_rot) {
-    IO::Marker ext_rot_marker("setting external rotation factor matrix elements", IO::Marker::ONE_LINE);
+	    int nfac = (nv[ni] + 1) / 2 * symmetry(ni);
 
-    erf_mat_basic = 0.;
+	    std::vector<int> nw = nv;
+
+	    // sin -> cos
+	    //
+	    if(nw[ni] % 2) {
+	      //
+	      ++nw[ni];
+	    }
+	    // cos -> sin
+	    //
+	    else {
+	      //
+	      --nw[ni];
+
+	      nfac = -nfac;
+	    }
+	     
+	    nfac *= mfac;
+	    
+	    for(mit_t mit = eff_imm->begin(); mit != eff_imm->end(); ++mit) {// fourier expansion cycle
+	      //
+	      std::vector<int> kv = _mass_index(mit->first);
+
+	      btemp = true;
+
+	      dtemp = (double)nfac * mit->second(mi, ni);
+
+	      for(int r = 0; r < internal_size(); ++r) {// internal rotation cycle
+		//
+		if(rotation_matrix_element(mw[r], nw[r], kv[r], dtemp)) {
+		  //
+		  btemp = false;
+
+		  break;
+		  //
+		}//
+		//
+	      }// internal rotation cycle
+
+	      if(btemp)
+		//
+		ham_base(ml, nl) += dtemp;
+	      //
+	    }// fourier expansion cycle      
+	    //
+	  }// mobility matrix second index cycle
+	  //
+	}// mobility matrix first index cycle
+	//
+      }// bra vector cycle
+      //
+    }// ket vector cycle
+    //
+  }// ground vibrational state hamiltonian
+
+  // curvlinear transformation factor matrix
+  //
+  Lapack::SymmetricMatrix ctf_base;
+
+  if(_with_ctf) {
+    //
+    IO::Marker ext_rot_marker("setting curvlinear transformation factor matrix elements", IO::Marker::ONE_LINE);
+
+    ctf_base.resize(quantum_index.size());
+
+    ctf_base = 0.;
 
 #pragma omp parallel for default(shared) private(btemp, dtemp) schedule(dynamic, 1)
 
     for(int ml = 0; ml < quantum_index.size(); ++ml) {// bra cycle
+      //
       std::vector<int> mv = quantum_index(ml);
+
       for(int nl = ml; nl < quantum_index.size(); ++nl) {// ket cycle
+	//
 	std::vector<int> nv = quantum_index(nl);
-	for(_Pit pit = _erf_four.begin(); pit != _erf_four.end(); ++pit) {// fourier expansion cycle
+
+	for(pit_t pit = _ctf_four.begin(); pit != _ctf_four.end(); ++pit) {// fourier expansion cycle
+	  //
 	  std::vector<int> pv = _mass_index(pit->first);
 
 	  btemp = true;
+
 	  dtemp = pit->second;
-	  for(int r = 0; r < internal_size(); ++r)
+
+	  for(int r = 0; r < internal_size(); ++r) {// internal rotation cycle
+	    //
 	    if(rotation_matrix_element(mv[r], nv[r], pv[r], dtemp)) {
+	      //
 	      btemp = false;
+
 	      break;
 	    }
+	    //
+	  }// internal rotation cycle
 
 	  if(btemp)
-	    erf_mat_basic(ml, nl) +=  dtemp;
+	    //
+	    ctf_base(ml, nl) +=  dtemp;
+	  //
 	}// fourier expansion cycle
+	//
       }// ket cycle
+      //
     }// bra cycle
+    //
+  }// internal rotation factor matrix elements
+
+  // external rotation factor matrix
+  //
+  Lapack::SymmetricMatrix erf_base;
+
+  if(_with_ext_rot) {
+    //
+    IO::Marker ext_rot_marker("setting external rotation factor matrix elements", IO::Marker::ONE_LINE);
+
+    erf_base.resize(quantum_index.size());
+
+    erf_base = 0.;
+
+    const std::map<int, double>* eff_erf = &_erf_four;
+
+    if(_with_ctf)
+      //
+      eff_erf = &_eff_erf_four;
+      
+#pragma omp parallel for default(shared) private(btemp, dtemp) schedule(dynamic, 1)
+
+    for(int ml = 0; ml < quantum_index.size(); ++ml) {// bra cycle
+      //
+      std::vector<int> mv = quantum_index(ml);
+
+      for(int nl = ml; nl < quantum_index.size(); ++nl) {// ket cycle
+	//
+	std::vector<int> nv = quantum_index(nl);
+
+	for(pit_t pit = eff_erf->begin(); pit != eff_erf->end(); ++pit) {// fourier expansion cycle
+	  //
+	  std::vector<int> pv = _mass_index(pit->first);
+
+	  btemp = true;
+
+	  dtemp = pit->second;
+
+	  for(int r = 0; r < internal_size(); ++r) {// internal rotation cycle
+	    //
+	    if(rotation_matrix_element(mv[r], nv[r], pv[r], dtemp)) {
+	      //
+	      btemp = false;
+
+	      break;
+	    }
+	    //
+	  }// internal rotation cycle
+
+	  if(btemp)
+	    //
+	    erf_base(ml, nl) +=  dtemp;
+	  //
+	}// fourier expansion cycle
+	//
+      }// ket cycle
+      //
+    }// bra cycle
+    //
   }// external rotation factor matrix elements
 
   // vibrationally shifted energy levels
+  //
   if(_vib_four.size() && _full_quantum_treatment) {
+    //
     _energy_level.resize(vib_pop.size());
+
     _mean_erf.resize(vib_pop.size());
   }
   else {
+    //
     _energy_level.resize(1);
+
     _mean_erf.resize(1);
   }
 
   // setting energy levels
+  //
   for(int vp = 0; vp < _energy_level.size(); ++vp) {// vibrational population cycle
+    //
     if(_vib_four.size() && _full_quantum_treatment) {
+      //
+      // output: vibration population vector
+      //
       IO::log << IO::log_offset << "vibrational population vector = [";
+
       for(int v = 0; v < _vib_four.size(); ++v) { 
+	//
 	if(v)
+	  //
 	  IO::log << ", ";
+
 	IO::log << vib_pop[vp][v];
       }
+
       IO::log << "]\n";
+
       IO::log_offset.increase();
     }
 
     // maximum level energy shifted by vibrational energy
+    //
     dtemp = _level_ener_max;
+
     for(int v = 0; v < _vib_four.size(); ++v)
+      //
       dtemp -= _vib_four[v][0] * double(vib_pop[vp][v]);
 
     const double ener_max = dtemp;
 
     if(ener_max <= 0.)
+      //
       continue;
 
     // stripping high harmonics
+    //
     std::vector<int> s2u;// stripped-to-basic index converter
+
     dvec.resize(internal_size());
+
     for(int ml = 0; ml < quantum_index.size(); ++ml) {
+      //
       ivec = quantum_index(ml);
 
       btemp = false;
-      for(int i = 0; i < internal_size(); ++i) {
+
+      for(int i = 0; i < internal_size(); ++i) {// internal rotation cycle
+	//
 	if(ivec[i] < _internal_rotation[i].quantum_size_min()) {
+	  //
 	  btemp = true;
+
 	  break;
 	}
-	dvec[i] = double((ivec[i] + 1) / 2 * symmetry(i));
-      }
 
-      if(btemp)
+	dvec[i] = double((ivec[i] + 1) / 2 * symmetry(i));
+	//
+      }// internal rotation cycle
+
+      if(btemp) {
+	//
 	s2u.push_back(ml);
-      else {
-	dtemp = 0.;
-	for(int i = 0; i < internal_size(); ++i)
-	  for(int j = i; j < internal_size(); ++j)
-	    if(i == j)
-	      dtemp += _mobility_min(i, i) * dvec[i] * dvec[i];
-	    else
-	      dtemp += 2. * _mobility_min(i, j) * dvec[i] * dvec[j];
-	if(dtemp < ener_max)
-	  s2u.push_back(ml);
       }
-    }
+      else {
+	//
+	dtemp = 0.;
+
+	for(int i = 0; i < internal_size(); ++i) {
+	  //
+	  for(int j = i; j < internal_size(); ++j) {
+	    //
+	    if(i == j) {
+	      //
+	      dtemp += _mobility_min(i, i) * dvec[i] * dvec[i];
+	    }
+	    else
+	      //
+	      dtemp += 2. * _mobility_min(i, j) * dvec[i] * dvec[j];
+	  }
+	}
+
+	if(dtemp < ener_max)
+	  //
+	  s2u.push_back(ml);
+	//
+      }//
+      //
+    }//
     
     IO::log << IO::log_offset << "stripped hamiltonian size = " << s2u.size() << std::endl;
 
     // setting hamiltonian
+    //
     Lapack::SymmetricMatrix ham(s2u.size());
 
 #pragma omp parallel for default(shared) schedule(static)
       
     for(int i = 0; i < s2u.size(); ++i) {
-      for(int j = i; j < s2u.size(); ++j)
-	ham(i, j) = ham_basic(s2u[i], s2u[j]);
-    }
+      //
+      for(int j = i; j < s2u.size(); ++j) {
+	//
+	ham(i, j) = ham_base(s2u[i], s2u[j]);
+	//
+      }//
+      //
+    }//
 
+    // setting scalar product matrix
+    //
+    Lapack::SymmetricMatrix ctf_mat;
+
+    if(_with_ctf) {
+      //
+      ctf_mat.resize(s2u.size());
+
+#pragma omp parallel for default(shared) schedule(static)
+      
+      for(int i = 0; i < s2u.size(); ++i) {
+	//
+	for(int j = i; j < s2u.size(); ++j) {
+	  //
+	  ctf_mat(i, j) = ctf_base(s2u[i], s2u[j]);
+	  //
+	}//
+	//
+      }//
+      //
+    }//
+    
     // excited vibrational states correction
+    //
     if(vp) {
+      //
       IO::Marker ham_marker("setting hamiltonian", IO::Marker::ONE_LINE);
 
+      const std::vector<std::map<int, double> >* eff_vib = &_vib_four;
+
+      if(_with_ctf)
+	//
+	eff_vib = &_eff_vib_four;
+      
 #pragma omp parallel for default(shared) private(btemp, dtemp) schedule(dynamic, 1)
       
       for(int ml = 0; ml < s2u.size(); ++ml) {// ket quantum state cycle
+	//
 	std::vector<int> mv = quantum_index(s2u[ml]);
+	
 	for(int nl = ml; nl < s2u.size(); ++nl) {// bra quantum state cycle
+	  //
 	  std::vector<int> nv = quantum_index(s2u[nl]);
-	  for(int v = 0; v < _vib_four.size(); ++v)
-	    for(_Pit pit = _vib_four[v].begin(); pit != _vib_four[v].end(); ++pit) {// fourier expansion cycle
+
+	  for(int v = 0; v < eff_vib->size(); ++v) {// vibrational frequencies cycle
+	    //
+	    for(pit_t pit = (*eff_vib)[v].begin(); pit != (*eff_vib)[v].end(); ++pit) {// fourier expansion cycle
+	      //
 	      std::vector<int> pv = _pot_four_index(pit->first);
 	      
 	      btemp = true;
+
 	      dtemp =  pit->second * double(vib_pop[vp][v]);
-	      for(int r = 0; r < internal_size(); ++r)
+
+	      for(int r = 0; r < internal_size(); ++r) {
+		//
 		if(rotation_matrix_element(mv[r], nv[r], pv[r], dtemp)) {// internal rotation cycle
+		  //
 		  btemp = false;
+
 		  break;
 		}
+	      }
 
 	      if(btemp)
+		//
 		ham(ml, nl) += dtemp;
+	      //
 	    }// fourier expansion cycle 
-	} // bra quantum state cycle  
+	    //
+	  }// vibration frequencies cycle
+	  //
+	}// bra quantum state cycle  
+	//
       }// ket quantum state cycle
+      //
     }// vibrational excited state correction
 
     // diagonalizing hamiltonian
+    //
     Lapack::Vector eval;
+
     Lapack::Matrix evec;
-    if(1) {
+
+    if(_with_ctf) {
+      //
+      IO::Marker diag_marker("diagonalizing hamiltonian and ctf matrix simultaneously", IO::Marker::ONE_LINE);
+
+      if(_with_ext_rot) {
+	//
+	eval = Lapack::diagonalize(ham, ctf_mat, &evec);
+      }
+      else {
+	//
+	eval = Lapack::diagonalize(ham, ctf_mat);
+      }
+    }
+    else {
+      //
       IO::Marker diag_marker("diagonalizing hamiltonian", IO::Marker::ONE_LINE);
-      if(_is_ext_rot)
+
+      if(_with_ext_rot) {
+	//
 	eval = ham.eigenvalues(&evec);
+      }
       else
+	//
 	eval = ham.eigenvalues();
     }
-      
+    
     // ground energy level
+    //
     if(!vp)
+      //
       _ground = eval[0];
       
     // quantum states initialization
-    for(int l = 0; l < ham.size(); ++l) {//quantum state cycle
+    //
+    for(int l = 0; l < ham.size(); ++l) {
+      //
       if(eval[l] > _level_ener_max + _pot_global_min)
+	//
 	break;
+
       _energy_level[vp].push_back(eval[l] - _ground);
     }
 	
     // external rotation factor quantum state average
+    //
     Lapack::SymmetricMatrix erf_mat;
-    if(_is_ext_rot) {
+
+    if(_with_ext_rot) {
+      //
       IO::Marker erf_marker("averaging external rotation factor over quantum state", IO::Marker::ONE_LINE);
       
       erf_mat.resize(s2u.size());
@@ -8830,42 +11015,59 @@ void Model::MultiRotor::_set_qfactor ()
 #pragma omp parallel for default(shared) schedule(static)
       
       for(int m = 0; m < s2u.size(); ++m) {
+	//
 	for(int n = m; n < s2u.size(); ++n)
-	  erf_mat(m, n) = erf_mat_basic(s2u[m], s2u[n]);
+	  //
+	  erf_mat(m, n) = erf_base(s2u[m], s2u[n]);
       }
 
       _mean_erf[vp].resize(_energy_level[vp].size());
+
       for(int l = 0; l < _mean_erf[vp].size(); ++l) {
+	//
 	vtemp = erf_mat * &evec(0,l);
+
 	_mean_erf[vp][l] = parallel_vdot(vtemp, &evec(0, l), s2u.size());
-      }
-    }
+	//
+      }//
+      //
+    }// external rotation quantum state average
 
     IO::log << IO::log_offset << "quantum states  # = " << _energy_level[vp].size() << std::endl;
 
-    // energy level output
+    // output: energy levels
+    //
     itemp = _energy_level[vp].size() < 10 ? _energy_level[vp].size() : 10;
+
     if(itemp) {
+      //
       IO::log << IO::log_offset << "first " << itemp << " energy levels, kcal/mol:";
 
       for(int i = 0; i < itemp; ++i)
+	//
 	IO::log  << " " << (_ground + _energy_level[vp][i])/ Phys_const::kcal;
 
       IO::log << std::endl;
     }
 
     if(_vib_four.size() && _full_quantum_treatment)
+      //
       IO::log_offset.decrease();
+    //
   }// vibrational population cycle
 
-  IO::log << IO::log_offset << "internal rotation zero-point energy [kcal/mol] = " 
-	  << (_ground - _pot_global_min) / Phys_const::kcal << std::endl;
+  IO::log << IO::log_offset << "ground state energy      [kcal/mol] = " << _ground / Phys_const::kcal << std::endl;
+
+  IO::log << IO::log_offset << "potential energy minimum [kcal/mol] = " << _pot_global_min / Phys_const::kcal << std::endl;
 
   /**************** QUANTUM DENSITY/NUMBER OF STATES ***************/
 
   itemp = stat_base.size() - (int)std::ceil((_ground - _pot_global_min) / _ener_quant);
+
   if(itemp < 3) {
-    IO::log << IO::log_offset << "zero-point energy is bigger than quantum state energy maximum => no quantum correction" << std::endl;
+    //
+    IO::log << IO::log_offset << "WARNING: zero-point energy is bigger than quantum state energy maximum => no quantum correction" << std::endl;
+    
     return;
   }
 
@@ -8874,23 +11076,34 @@ void Model::MultiRotor::_set_qfactor ()
   quantum_states(qstat_grid, _ener_quant, 1);
 
   // convolution with average vibrational frequencies
+  //
   for(int v = 0; v < _vib_four.size(); ++v) {
+    //
     itemp = (int)round(_vib_four[v][0] / _ener_quant);
+
     for(int i = itemp; i < qstat_grid.size(); ++i)
+      //
       qstat_grid[i] += qstat_grid[i - itemp];
   }
 
   /*************** CLASSICAL DENSITY/NUMBER OF STATES *******************/
 
   // reset base number of states
+  //
   _set_states_base(stat_base);
 
   std::map<int, double> shift_factor;
+  //
   for(int g = 0; g < _grid_index.size(); ++g) {
+    //
     itemp = (int)round((_pot_grid[g] - _pot_global_min) / _ener_quant);
-    dtemp = _mass_grid[g];
-    if(_is_ext_rot)
+
+    dtemp = _irf_grid[g];
+
+    if(_with_ext_rot)
+      //
       dtemp *= _erf_grid[g];
+
     shift_factor[itemp] += dtemp;
   }
 
@@ -8899,11 +11112,15 @@ void Model::MultiRotor::_set_qfactor ()
 #pragma omp parallel for default(shared) private(itemp, dtemp)  schedule(static)
 
   for(int i = 0; i < stat_grid.size(); ++i) {
-
+    //
     dtemp = 0.;
-    for(_Pit pit = shift_factor.begin(); pit != shift_factor.end(); ++pit) {
+
+    for(pit_t pit = shift_factor.begin(); pit != shift_factor.end(); ++pit) {
+      //
       itemp = i - pit->first;
+
       if(itemp >= 0)
+	//
 	dtemp  += stat_base[itemp] * pit->second;
     }
 
@@ -8911,33 +11128,49 @@ void Model::MultiRotor::_set_qfactor ()
   }
 
   // convolution with average vibrational frequencies
+  //
   for(int v = 0; v < _vib_four.size(); ++v) {
+    //
     itemp = (int)round(_vib_four[v][0] / _ener_quant);
+
     for(int i = itemp; i < stat_grid.size(); ++i)
+      //
       stat_grid[i] += stat_grid[i - itemp];
   }
 
   // energy grid
+  //
   Array<double> ener_grid(stat_grid.size());
+
   double ener = 0.;
+
   for(int i = 0; i < ener_grid.size(); ++i, ener += _ener_quant)
+    //
     ener_grid[i] = ener;
 
   // classical density/number of states interpolation
+  //
   Slatec::Spline eff_cstates(ener_grid, stat_grid, ener_grid.size());
 
   /**************** QUANTUM CORRECTION FACTOR  ***************/
 
   // quantum correction factor
+  //
   for(int i = 0; i < qstat_grid.size(); ++i) {
+    //
     dtemp = ener_grid[i] + _ground - _pot_global_min;
-    if(dtemp < eff_cstates.arg_max())
+
+    if(dtemp < eff_cstates.arg_max()) {
+      //
       qstat_grid[i] /= eff_cstates(dtemp);
+    }
     else
+      //
       qstat_grid[i] = 1.;
   }
 
   // quantum correction factor interpolation
+  //
   _qfactor.init(ener_grid, qstat_grid, qstat_grid.size());
 }
 
@@ -8945,215 +11178,424 @@ void Model::MultiRotor::_set_states_base (Array<double>& base, int flag) const
 {
   const char funame [] = "Model::MultiRotor::_set_states_base: ";
 
-  bool with_ext_rot = _is_ext_rot;
+  IO::Marker funame_marker(funame, IO::Marker::ONE_LINE);
+
+  bool btemp = _with_ext_rot;
+
   int mm = mode();
 
   if(flag) {
-    with_ext_rot = false;
+    //
+    btemp = false;
+
     mm = NUMBER;
   }
   
   double dim, nfac;
-  if(with_ext_rot)
+
+  if(btemp) {
+    //
     switch(mm) {
+      //
     case NUMBER:
+      //
       dim = double(internal_size() + 3) / 2.;
+
       nfac = 8. * M_PI * M_PI / std::pow(2. * M_PI, dim) 
 	/ tgamma(dim + 1.) / external_symmetry();
+
       break;
-    case DENSITY:
+
+    default:
+      //
       dim = double(internal_size() + 1) / 2.;
+
       nfac = 8. * M_PI * M_PI / std::pow(2. * M_PI, dim + 1.) 
 	/ tgamma(dim + 1.) / external_symmetry();
-      break;
-    default:
-      std::cerr << funame << "wrong case\n";
-      throw Error::Logic();
     }
-  else
+  }
+  else {
+    //
     switch(mm) {
+      //
     case NUMBER:
+      //
       dim = double(internal_size()) / 2.;
+
       nfac = 1. / std::pow(2. * M_PI, dim) / tgamma(dim + 1.);
+
       break;
-    case DENSITY:
-      dim = double(internal_size() - 2) / 2.;
-      nfac = 1. / std::pow(2. * M_PI, dim + 1.) / tgamma(dim + 1.);
-      break;
+
     default:
-      std::cerr << funame << "wrong case\n";
-      throw Error::Logic();
+      //
+      dim = double(internal_size() - 2) / 2.;
+
+      nfac = 1. / std::pow(2. * M_PI, dim + 1.) / tgamma(dim + 1.);
     }
+  }
 
   double ener = _ener_quant;
+
   base[0] = 0.;
+
   for(int i = 1; i < base.size(); ++i, ener += _ener_quant) {
+    //
     base[i] = std::pow(ener, dim) * nfac * _angle_grid_cell;    
   }
 }
 
 // generalized mass matrix
+//
 Lapack::SymmetricMatrix Model::MultiRotor::mass (const std::vector<double>& angle) const
 {
   const char funame [] = "Model::MultiRotor::mass: ";
 
+  typedef std::map<int, Lapack::SymmetricMatrix>::const_iterator mit_t;
+
   if(angle.size() != internal_size()) {
+    //
     std::cerr << funame << "wrong angle size\n";
+
     throw Error::Range();
   }
 
   double dtemp;
 
   Lapack::SymmetricMatrix res(internal_size());
+
   res = 0.;
 
-  for(_Mit mit = _imm_four.begin(); mit != _imm_four.end(); ++mit) {
+  for(mit_t mit = _imm_four.begin(); mit != _imm_four.end(); ++mit) {// fourier expansion cycle
+    //
     std::vector<int> hvec = _mass_index(mit->first);
-    for(int i = 0; i < internal_size(); ++i)
+
+    for(int i = 0; i < internal_size(); ++i) {
+      //
       for(int j = i; j < internal_size(); ++j) {
+	//
 	dtemp = mit->second(i, j);
-	for(int k = 0; k < internal_size(); ++k)
-	  if(hvec[k]) {
-	    if(hvec[k] % 2)
-	      dtemp *= std::sin(double((hvec[k] + 1) / 2 * symmetry(k)) * angle[k]);
-	    else
-	      dtemp *= std::cos(double(hvec[k] / 2 * symmetry(k)) * angle[k]);
+
+	for(int k = 0; k < internal_size(); ++k) {
+	  //
+	  if(!hvec[k])
+	    //
+	    continue;
+
+	  if(hvec[k] % 2) {
+	    //
+	    dtemp *= std::sin(double((hvec[k] + 1) / 2 * symmetry(k)) * angle[k]);
 	  }
+	  else
+	    //
+	    dtemp *= std::cos(double(hvec[k] / 2 * symmetry(k)) * angle[k]);
+	}
+
 	res(i, j) += dtemp;
-      }
-  }
+      }//
+      //
+    }//
+    //
+  }//fourier expansion size
 
   res = res.invert();
+
   res /= 2.;
+
   return res;
 }
 
 // external rotation inertia moments product
+//
 double Model::MultiRotor::external_rotation_factor (const std::vector<double>& angle) const
 {
   const char funame [] = "Model::MultiRotor::external_rotation_factor: ";
 
-  if(angle.size() != internal_size()) {
-    std::cerr << funame << "wrong angle size\n";
-    throw Error::Range();
-  }
+  typedef std::map<int, double>::const_iterator pit_t;
 
-  if(!_is_ext_rot) {
-    std::cerr << funame << "should not be here\n";
-    throw Error::Logic();
+  if(angle.size() != internal_size()) {
+    //
+    std::cerr << funame << "wrong angle size\n";
+
+    throw Error::Range();
   }
 
   double dtemp;
 
   double res = 0.;
 
-  for(_Pit pit = _erf_four.begin(); pit != _erf_four.end(); ++pit) {
+  for(pit_t pit = _erf_four.begin(); pit != _erf_four.end(); ++pit) {
+    //
     std::vector<int> hvec = _mass_index(pit->first);
+
     dtemp = pit->second;
-    for(int k = 0; k < internal_size(); ++k)
-      if(hvec[k]) {
-	if(hvec[k] % 2)
-	  dtemp *= std::sin(double((hvec[k] + 1) / 2 * symmetry(k)) * angle[k]);
-	else
-	  dtemp *= std::cos(double(hvec[k] / 2 * symmetry(k)) * angle[k]);
+
+    for(int k = 0; k < internal_size(); ++k) {
+      //
+      if(!hvec[k])
+	//
+	continue;
+      
+      if(hvec[k] % 2) {
+	//
+	dtemp *= std::sin(double((hvec[k] + 1) / 2 * symmetry(k)) * angle[k]);
       }
+      else
+	//
+	dtemp *= std::cos(double(hvec[k] / 2 * symmetry(k)) * angle[k]);
+    }
+
     res += dtemp;
-  }  
+  }
+  
+  return res;
+}
+
+// internal rotation inertia moments product
+//
+double Model::MultiRotor::internal_rotation_factor (const std::vector<double>& angle) const
+{
+  const char funame [] = "Model::MultiRotor::internal_rotation_factor: ";
+
+  typedef std::map<int, double>::const_iterator pit_t;
+
+  if(angle.size() != internal_size()) {
+    //
+    std::cerr << funame << "wrong angle size\n";
+
+    throw Error::Range();
+  }
+
+  double dtemp;
+
+  double res = 0.;
+
+  for(pit_t pit = _irf_four.begin(); pit != _irf_four.end(); ++pit) {
+    //
+    std::vector<int> hvec = _mass_index(pit->first);
+
+    dtemp = pit->second;
+
+    for(int k = 0; k < internal_size(); ++k) {
+      //
+      if(!hvec[k])
+	//
+	continue;
+      
+      if(hvec[k] % 2) {
+	//
+	dtemp *= std::sin(double((hvec[k] + 1) / 2 * symmetry(k)) * angle[k]);
+      }
+      else
+	//
+	dtemp *= std::cos(double(hvec[k] / 2 * symmetry(k)) * angle[k]);
+    }
+
+    res += dtemp;
+  }
+  
+  return res;
+}
+
+// curvlinear transformation factor (dx/dx' determinant)
+//
+double Model::MultiRotor::curvlinear_factor (const std::vector<double>& angle) const
+{
+  const char funame [] = "Model::MultiRotor::curvlinear_factor: ";
+
+  typedef std::map<int, double>::const_iterator pit_t;
+
+  if(angle.size() != internal_size()) {
+    //
+    std::cerr << funame << "wrong angle size\n";
+
+    throw Error::Range();
+  }
+
+  double dtemp;
+
+  double res = 0.;
+
+  for(pit_t pit = _ctf_four.begin(); pit != _ctf_four.end(); ++pit) {
+    //
+    std::vector<int> hvec = _mass_index(pit->first);
+
+    dtemp = pit->second;
+
+    for(int k = 0; k < internal_size(); ++k) {
+      //
+      if(!hvec[k])
+	//
+	continue;
+      
+      if(hvec[k] % 2) {
+	//
+	dtemp *= std::sin(double((hvec[k] + 1) / 2 * symmetry(k)) * angle[k]);
+      }
+      else
+	//
+	dtemp *= std::cos(double(hvec[k] / 2 * symmetry(k)) * angle[k]);
+    }
+
+    res += dtemp;
+  }
+  
   return res;
 }
 
 // vibrational frequencies
+//
 Lapack::Vector  Model::MultiRotor::vibration (const std::vector<double>& angle) const
 {
   const char funame [] = "Model::MultiRotor::vibration: ";
 
+  typedef std::map<int, double>::const_iterator pit_t;
+
   if(angle.size() != internal_size()) {
+    //
     std::cerr << funame << "wrong angle size\n";
+
     throw Error::Range();
   }
 
   if(!_vib_four.size()) {
+    //
     std::cerr << funame << "no vibrations\n";
+
     throw Error::Logic();
   }
 
   double dtemp;
 
   Lapack::Vector res(_vib_four.size());
+
   res = 0.;
-  for(int v = 0; v < _vib_four.size(); ++v)
-    for(_Pit pit = _vib_four[v].begin(); pit != _vib_four[v].end(); ++pit) {
+
+  for(int v = 0; v < _vib_four.size(); ++v) {// vibrational frequencies cycle
+    //
+    for(pit_t pit = _vib_four[v].begin(); pit != _vib_four[v].end(); ++pit) {// fourier expansion cycle
+      //
       std::vector<int> hvec = _pot_four_index(pit->first);
+
       dtemp = 1.;
-      for(int k = 0; k < internal_size(); ++k)
-	if(hvec[k]) {
-	  if(hvec[k] % 2)
-	    dtemp *= std::sin(double((hvec[k] + 1) / 2 * symmetry(k)) * angle[k]);
-	  else
-	    dtemp *= std::cos(double(hvec[k] / 2 * symmetry(k)) * angle[k]);
+
+      for(int k = 0; k < internal_size(); ++k) {
+	//
+	if(!hvec[k])
+	  //
+	  continue;
+
+	if(hvec[k] % 2) {
+	  //
+	  dtemp *= std::sin(double((hvec[k] + 1) / 2 * symmetry(k)) * angle[k]);
 	}
+	else {
+	  //
+	  dtemp *= std::cos(double(hvec[k] / 2 * symmetry(k)) * angle[k]);
+	}//
+	//
+      }//
+
       res[v] += dtemp * pit->second;
-    }
+      //
+    }// fourier expansion cycle
+    //
+  }// vibrational frequencies cycle
 
   return res;
 }
 
 // derivatives of the potential
+//
 double Model::MultiRotor::potential (const std::vector<double>& angle, const std::map<int, int>& der) const
 {
   const char funame [] = "Model::MultiRotor::potential: ";
 
-  if(angle.size() != internal_size()) {
-    std::cerr << funame << "wrong angle dimension\n";
-    throw Error::Logic();
-  }
-
-  std::map<int, int>::const_iterator der_it;
-  for(der_it = der.begin(); der_it != der.end(); ++der_it)
-    if(der_it->second <= 0) {
-      std::cerr << funame << "negative derivative order\n";
-      throw Error::Range();
-    }
+  typedef std::map<int, double>::const_iterator pit_t;
 
   double dtemp;
 
-  int n, fac;
+  if(angle.size() != internal_size()) {
+    //
+    std::cerr << funame << "wrong angle dimension\n";
+
+    throw Error::Logic();
+  }
+
+  std::map<int, int>::const_iterator dit;
+
+  for(dit = der.begin(); dit != der.end(); ++dit) {
+    //
+    if(dit->second <= 0) {
+      //
+      std::cerr << funame << "derivative order out of range: " << dit->second << "\n";
+
+      throw Error::Range();
+    }
+  }
+
+  if(der.size() && (der.begin()->first < 0 || der.rbegin()->first >= internal_size())) {
+    //
+    std::cerr << funame << "variable index out of range\n";
+
+    throw Error::Range();
+  }
+
   double res = 0.;
-  for(_Pit pit = _pot_four.begin(); pit != _pot_four.end(); ++pit) {
+
+  for(pit_t pit = _pot_four.begin(); pit != _pot_four.end(); ++pit) {
+    //
     std::vector<int> hvec = _pot_four_index(pit->first);
-    dtemp = pit->second;
+
+    double der_value = pit->second;
+
     for(int k = 0; k < internal_size(); ++k) {
-      int der_val = 0;
-      der_it = der.find(k);
-      if(der_it != der.end())
-	der_val = der_it->second;
+      //
+      int der_order = 0;
+
+      dit = der.find(k);
+
+      if(dit != der.end())
+	//
+	der_order = dit->second;
 
       if(hvec[k]) {
-	if(hvec[k] % 2)
-	  n =  (hvec[k] + 1) / 2  * symmetry(k);
-	else
-	  n =  hvec[k] / 2  * symmetry(k);
+	//
+	int n =  (hvec[k] + 1) / 2  * symmetry(k);
 
-	fac = 1;
-	for(int i = 0; i < der_val; ++i)
-	  fac *= n;
+	int ifac = 1;
 
-	if((hvec[k] + der_val) % 2)
-	  dtemp *= (double)fac * std::sin((double)n * angle[k]);
+	for(int i = 0; i < der_order; ++i)
+	  //
+	  ifac *= n;
+
+	if((hvec[k] + der_order) % 2) {
+	  //
+	  der_value *= (double)ifac * std::sin((double)n * angle[k]);
+	}
 	else
-	  dtemp *= (double)fac * std::cos((double)n * angle[k]);
+	  //
+	  der_value *= (double)ifac * std::cos((double)n * angle[k]);
 
     
-	if((der_val + 1 - hvec[k] % 2) / 2 % 2)
-	  dtemp = -dtemp;
+	if((der_order + 1 - hvec[k] % 2) / 2 % 2)
+	  //
+	  der_value = -der_value;
       }
-      else if(der_val) {
-	dtemp = 0.;
+      else if(der_order) {
+	//
+	der_value = 0.;
+
 	break;
       }
     }
-    res += dtemp;
+    
+    res += der_value;
   }
+  
+  if(!der.size())
+    //
+    res += _pot_shift;
+
   return res;
 }
 
@@ -9162,21 +11604,33 @@ Lapack::SymmetricMatrix Model::MultiRotor::force_constant_matrix (const std::vec
   const char funame [] = "Model::MultiRotor::force_constant_matrix: ";
 
   if(angle.size() != internal_size()) {
+    //
     std::cerr << funame << "wrong angle dimension\n";
+
     throw Error::Logic();
   }
 
   Lapack::SymmetricMatrix res(internal_size());
 
-  for(int i = 0; i < internal_size(); ++i)
+  for(int i = 0; i < internal_size(); ++i) {
+    //
     for(int j = i; j < internal_size(); ++j) {
+      //
       std::map<int, int> der;
-      if(i == j)
+
+      if(i == j) {
+	//
 	der[i] = 2;
+      }
       else
+	//
 	der[i] = der[j] = 1;
+
       res(i, j) = potential(angle, der);
-    }
+      //
+    }//
+    //
+  }//
 
   return res;
 }
@@ -9186,16 +11640,22 @@ Lapack::Vector Model::MultiRotor::potential_gradient(const std::vector<double>& 
   const char funame [] = "Model::MultiRotor::potential_gradient: ";
 
   if(angle.size() != internal_size()) {
+    //
     std::cerr << funame << "wrong angle dimension\n";
+
     throw Error::Logic();
   }
 
   // potential gradient
+  //
   Lapack::Vector res(internal_size());
 
   for(int i = 0; i < internal_size(); ++i) {
+    //
     std::map<int, int> der;
+
     der[i] = 1;
+
     res[i] = potential(angle, der);
   }
 
@@ -9203,24 +11663,34 @@ Lapack::Vector Model::MultiRotor::potential_gradient(const std::vector<double>& 
 }
 
 // local frequencies
+//
 Lapack::Vector Model::MultiRotor::frequencies (const std::vector<double>& angle) const
 {
   const char funame [] = "Model::MultiRotor::frequencies: ";
 
   if(angle.size() != internal_size()) {
+    //
     std::cerr << funame << "wrong angle size\n";
+
     throw Error::Range();
   }
 
   double dtemp;
 
   // frequencies
+  //
   Lapack::Vector res = Lapack::diagonalize(force_constant_matrix(angle), mass(angle));
+
   for(int r = 0; r < internal_size(); ++r) {
+    //
     dtemp = res[r];
-    if(dtemp < 0.)
+
+    if(dtemp < 0.) {
+      //
       res[r] = -std::sqrt(-dtemp);
+    }
     else
+      //
       res[r] = std::sqrt(dtemp);
   }
   
@@ -9237,22 +11707,22 @@ double Model::MultiRotor::quantum_weight (double temperature) const
   for(int p = 0; p < _energy_level.size(); ++p)
     for(int l = 0; l < _energy_level[p].size(); ++l) {
       dtemp = std::exp(-_energy_level[p][l] / temperature);
-      if(_is_ext_rot) 
+      if(_with_ext_rot) 
 	res += dtemp * _mean_erf[p][l];
       else 
 	res += dtemp;
     }
 
-  if(_is_ext_rot)
+  if(_with_ext_rot)
     res *=  pi_fac * temperature * std::sqrt(temperature) / external_symmetry();
 
   return res;
 }
 
-int Model::MultiRotor::get_semiclassical_weight 
-(double temperature, double& classical_weight, double& quantum_weight) const
+int Model::MultiRotor::get_semiclassical_weight (double temperature, double& classical_weight, double& quantum_weight) const
 {
   static const double eps = 1.e-5;
+  
   static const double pi_fac = 2. * std::sqrt(2. * M_PI);
 
   int    itemp;
@@ -9264,44 +11734,65 @@ int Model::MultiRotor::get_semiclassical_weight
 
 #pragma omp parallel for default(shared) private(itemp, dtemp) reduction(+: cw, qw) schedule(static)
 
-  for(int g = 0; g < _grid_index.size(); ++g) {
-
+  for(int g = 0; g < _grid_index.size(); ++g) {// grid cycle
+    //
     // quantum correction factor
+    //
     double qfac = 1.;
+    
     for(int r = 0; r < internal_size(); ++r) {
+      //
       dtemp = _freq_grid[g][r] / temperature / 2.;
-      if(dtemp > eps)
+
+      if(dtemp > eps) {
+	//
 	qfac *= dtemp / std::sinh(dtemp);
+      }
       else if(dtemp < eps - M_PI) {
+	//
 	qfac = -1.;
+
 	res = 1;
+
 	break;
       }
       else if(dtemp < -eps)
+	//
 	qfac *= dtemp / std::sin(dtemp);
     }
 
     // classical partition  function (internal rotations & vibrations part)
-    dtemp = std::exp(-_pot_grid[g] / temperature) * _mass_grid[g];
-    if(_is_ext_rot)
+    //
+    dtemp = std::exp(-_pot_grid[g] / temperature) * _irf_grid[g];
+    
+    if(_with_ext_rot)
+      //
       dtemp *= _erf_grid[g];
-    for(int v = 0; v < _vib_four.size(); ++v) {
+
+    for(int v = 0; v < _vib_four.size(); ++v)
+      //
       dtemp /= 1. - std::exp(-_vib_grid[g][v] / temperature);
-    }
    
     cw += dtemp;
-    if(qfac > 0.) {
+    
+    if(qfac > 0.)
+      //
       qw += qfac * dtemp;
-    }
-  }
+    //
+  }// grid cycle
     
   // normalization
+  //
   dtemp = std::pow(temperature / 2. / M_PI, double(internal_size()) / 2.)
+    //
     * _angle_grid_cell * std::exp(_ground / temperature);
-  if(_is_ext_rot)
+
+  if(_with_ext_rot)
+    //
     dtemp *= pi_fac * temperature * std::sqrt(temperature) / external_symmetry();
 
   classical_weight = dtemp * cw;
+  
   quantum_weight   = dtemp * qw;
 
   return res;
@@ -9329,19 +11820,15 @@ void Model::MultiRotor::quantum_states (Array<double>& stat_grid, double ener_st
   for(int i = 0; i < stat_grid.size(); ++i) {
     for(int p = 0; p < pmax; ++p)
       for(int l = 0; l < _energy_level[p].size(); ++l) 
-	if(_is_ext_rot) {
+	if(_with_ext_rot) {
 	  dtemp = (double)i * ener_step - _energy_level[p][l];
 	  if(dtemp > 0.)
 	    switch(mode()) {
 	    case NUMBER:
 	      stat_grid[i] += dtemp * std::sqrt(dtemp) * _mean_erf[p][l];
 	      break;
-	    case DENSITY:
-	      stat_grid[i] += std::sqrt(dtemp) * _mean_erf[p][l];
-	      break;
 	    default:
-	      std::cerr << funame << "wrong mode\n";
-	      throw Error::Logic();
+	      stat_grid[i] += std::sqrt(dtemp) * _mean_erf[p][l];
 	    }
 	}
 	else if(mode() == NUMBER) {
@@ -9352,7 +11839,7 @@ void Model::MultiRotor::quantum_states (Array<double>& stat_grid, double ener_st
   }
 
   // density of states without external rotation
-  if(!_is_ext_rot && mode() == DENSITY) {
+  if(!_with_ext_rot && mode() != NUMBER) {
     for(int p = 0; p < pmax; ++p)
       for(int l = 0; l < _energy_level[p].size(); ++l) {
 	itemp = (int)std::floor(_energy_level[p][l] / ener_step);
@@ -9363,7 +11850,7 @@ void Model::MultiRotor::quantum_states (Array<double>& stat_grid, double ener_st
   }
 
   // normalization
-  if(_is_ext_rot) {
+  if(_with_ext_rot) {
     dtemp = 4. * M_SQRT2 / external_symmetry();
     if(mode() == NUMBER)
       dtemp *= 2. / 3.;
@@ -9409,6 +11896,7 @@ void Model::MultiRotor::rotational_energy_levels () const
   const char funame [] = "Model::MultiRotor::rotational_energy_levels: ";
 
   if(_level_ener_max <= 0.) 
+    //
     return;
 
   IO::Marker funame_marker(funame);
@@ -9422,51 +11910,79 @@ void Model::MultiRotor::rotational_energy_levels () const
   std::vector<int>    ivec(internal_size());
   std::vector<double> dvec(internal_size());
 
-  std::vector<Lapack::Vector> eigenvalue;
+  IO::log << IO::log_offset << "(external) rotational constants for original geometry [1/cm]:";
 
-  itemp = (int)std::sqrt(2. * _level_ener_max * _inertia_moment_max);
+  for(int i = 0; i < _rotational_constant.size(); ++i)
+    //
+    IO::log << "   " << _rotational_constant[i] / Phys_const::incm;
+
+  IO::log << "\n";
+
+  itemp = (int)std::sqrt(_level_ener_max / _rotational_constant.back());
+
   IO::log << IO::log_offset << "estimated maximum angular momentum needed  = " << itemp << "\n";
 
   int amom_max = itemp < _amom_max ? itemp : _amom_max;
 
+  std::vector<Lapack::Vector> eigenvalue(amom_max);
+
+  // angular momentum cycle
+  //
   for(int amom = 0; amom < amom_max; ++amom) {
+    //
     IO::Marker work_marker("fixed angular momentum calculation");
 
-    int ext_size = 2 * amom + 1;
+    const int multiplicity = 2 * amom + 1;
+
     IO::log << IO::log_offset << "J = " << amom << "\n";
 
-    // internal ratation quantum  state dimensions
-    const double ener_max = _level_ener_max - double(amom * amom) / _inertia_moment_max / 2.;
+    // internal rotation quantum  state dimensions
+    //
+    const double ener_max = _level_ener_max - double(amom * amom + amom) * _rotational_constant.back();
     
     for(int r = 0; r < internal_size(); ++r) {
+      //
       itemp = int(std::sqrt(ener_max / _mobility_parameter[r])) / symmetry(r) * 2 + 1; 
+
       IO::log << IO::log_offset << r 
 	      << "-th internal rotation: suggested optimal internal state dimension = " 
 	      <<  itemp << "\n"; 
-      if(_internal_rotation[r].quantum_size_max() && itemp > _internal_rotation[r].quantum_size_max())
+
+      if(itemp > _internal_rotation[r].quantum_size_max()) {
+	//
 	ivec[r] = _internal_rotation[r].quantum_size_max();
-      else if(itemp < _internal_rotation[r].quantum_size_min())
+      }
+      else if(itemp < _internal_rotation[r].quantum_size_min()) {
+	//
 	ivec[r] = _internal_rotation[r].quantum_size_min();
+      }
       else
+	//
 	ivec[r] = itemp;
     }
 
     IO::log << IO::log_offset << "internal phase space dimensions:";
+
     for(int r = 0; r < internal_size(); ++r)
+      //
       IO::log << "  " << ivec[r];
+
     IO::log << "\n";
 
     MultiIndexConvert internal_state_index(ivec);
 
-    IO::log << IO::log_offset << "internal phase space size = " << internal_state_index.size() << std::endl;
+    itemp = multiplicity * internal_state_index.size();
 
-    itemp = ext_size * internal_state_index.size();
-
-    IO::log << IO::log_offset << "hamiltonian size = " << itemp << std::endl;
+    IO::log << IO::log_offset << "internal   size  = " << internal_state_index.size() << "\n"
+	    << IO::log_offset << "multiplicity     = " << multiplicity                << "\n"
+	    << IO::log_offset << "hamiltonian size = " << itemp                       << std::endl;
 
     Lapack::HermitianMatrix ham(itemp);
 
-    { 
+    // setting hamiltonian
+    //
+    if(1) {
+      //
       IO::Marker work_marker("setting hamiltonian", IO::Marker::ONE_LINE);
 
       ham = 0.;
@@ -9474,206 +11990,564 @@ void Model::MultiRotor::rotational_energy_levels () const
 #pragma omp parallel for default(shared) private(itemp, dtemp, btemp) schedule(dynamic, 1)
 
       for(int ml = 0; ml < internal_state_index.size(); ++ml) {
+	//
 	const std::vector<int> mv = internal_state_index(ml);
 
 	std::vector<int> ivec(internal_size());
+
 	for(int i = 0; i < internal_size(); ++i)
+	  //
 	  ivec[i] = (mv[i] - internal_state_index.size(i) / 2) * symmetry(i);
+
 	const std::vector<int> mw = ivec;
 
 	for(int nl = 0; nl < internal_state_index.size(); ++nl) {
+
 	  const std::vector<int> nv = internal_state_index(nl);
 
 	  for(int i = 0; i < internal_size(); ++i)
+	    //
 	    ivec[i] = (nv[i] - internal_state_index.size(i) / 2) * symmetry(i);
+
 	  const std::vector<int> nw = ivec;
 
 	  btemp = false;
+
+	  int ifac = 1;
+
 	  for(int i = 0; i < internal_size(); ++i) {
+	    //
 	    itemp = nv[i] - mv[i];
+
 	    if(itemp > _mass_index.size(i) / 2 || -itemp > _mass_index.size(i) / 2) {
+	      //
 	      btemp = true;
+
 	      break;
 	    }
+
 	    if(itemp < 0)
+	      //
 	      itemp += _mass_index.size(i);
+
 	    ivec[i] = itemp;
+
+	    if(_mass_index.size(i) == 2 * itemp)
+	      //
+	      ifac *= 2;
 	  }
+
 	  if(btemp)
+	    //
 	    continue;
 
 	  itemp = _mass_index(ivec);	  
+
 	  std::map<int, Lapack::ComplexMatrix>::const_iterator imp = _internal_mobility_fourier.find(itemp);
 	  std::map<int, Lapack::ComplexMatrix>::const_iterator emp = _external_mobility_fourier.find(itemp);
 	  std::map<int, Lapack::ComplexMatrix>::const_iterator ccp = _coriolis_coupling_fourier.find(itemp);
 	  
-	  if(imp != _internal_mobility_fourier.end() || 
-	     emp != _external_mobility_fourier.end() || 
-	     ccp != _coriolis_coupling_fourier.end())
-	    for(int mx = 0; mx < ext_size; ++mx) {
-	      itemp = mx + 3;
-	      const int nx_max = itemp < ext_size ? itemp : ext_size;
-	      const int mproj = mx - amom;
+	  for(int mx = 0; mx < multiplicity; ++mx) {
+	    //
+	    itemp = mx + 3;
 
-	      for(int nx = mx; nx < nx_max; ++nx) {
-		const int mtot = ml + mx * internal_state_index.size();
-		const int ntot = nl + nx * internal_state_index.size();
+	    const int nx_max = itemp < multiplicity ? itemp : multiplicity;
+
+	    const int mproj = mx - amom;
+
+	    for(int nx = mx; nx < nx_max; ++nx) {
+	      //
+	      const int mtot = ml + mx * internal_state_index.size();
+
+	      const int ntot = nl + nx * internal_state_index.size();
 	
-		if(ntot < mtot)
-		  continue;
+	      if(ntot < mtot)
+		//
+		continue;
 
-		Lapack::complex matel = 0.;// matrix element
+	      Lapack::complex matel = 0.;// matrix element
 
-		// internal mobility
-		if(imp != _internal_mobility_fourier.end() && nx == mx)
-		  // p_i * p_j term
-		  for(int i = 0; i < internal_size(); ++i)
-		    for(int j = i; j < internal_size(); ++j)
-		      if(i == j)
-			matel += double(mw[i] * nw[i]) 
-			  * imp->second(i, i);
-		      else
-			matel += double(mw[i] * nw[j] + mw[j] * nw[i]) 
-			  * imp->second(i, j);
+	      // internal mobility
+	      //
+	      if(imp != _internal_mobility_fourier.end() && nx == mx) {
+		//
+		// p_i * p_j term
+		//
+		for(int i = 0; i < internal_size(); ++i)
+		  //
+		  for(int j = 0; j < internal_size(); ++j)
+		    //
+		    matel += double(mw[i] * nw[j]) * imp->second(i, j);
+	      }
 
-		// external mobility
-		if(emp != _external_mobility_fourier.end())
+	      if(!amom) {
+		//
+		ham(mtot, ntot) = matel / (double)ifac;
+
+		continue;
+	      }
+
+	      // external mobility
+	      //
+	      if(emp != _external_mobility_fourier.end()) {
+		//
+		switch(nx - mx) {
+		  //
+		case 0:
+		  //
+		  dtemp = double(amom * amom + amom - mproj * mproj) / 2.;
+		  
+		  // M_z * M_z term
+		  //
+		  matel += double(mproj * mproj)
+		    //
+		    * emp->second(2, 2);
+
+		  // M_x * M_x term
+		  //
+		  matel += dtemp 
+		    //
+		    * emp->second(0, 0);
+
+		  // M_y * M_y term
+		  //
+		  matel += dtemp 
+		    //
+		    * emp->second(1, 1);
+
+		  break;
+
+		case 1:
+		  //
+		  dtemp = std::sqrt(double((amom + mproj + 1) * (amom - mproj))) / 2.;
+
+		  // M_x * M_z term
+		  //
+		  matel += dtemp * double(2 * mproj + 1) 
+		    //
+		    * emp->second(0, 2);
+
+		  // M_y * M_z term
+		  //
+		  matel += imaginary_unit * dtemp * double(2 * mproj + 1)
+		    //
+		    * emp->second(1, 2);
+
+		  break;
+
+		case 2:
+		  //
+		  dtemp = std::sqrt(double((amom + mproj + 1) * (amom - mproj) * (amom + mproj + 2) *
+					   //
+					   (amom - mproj - 1))) / 4.;
+
+		  // M_x * M_x term
+		  //
+		  matel += dtemp 
+		    //
+		    * emp->second(0, 0);
+
+		  // M_y * M_y term
+		  //
+		  matel -= dtemp 
+		    //
+		    * emp->second(1,1);
+
+		  // M_x * M_y term
+		  //
+		  matel += imaginary_unit * 2. * dtemp 
+		    //
+		    * emp->second(0, 1);
+
+		  break;
+		    
+		}// external mobility
+		//
+	      }//
+
+	      // coriolis coupling
+	      //
+	      if(ccp != _coriolis_coupling_fourier.end()) {
+		//
+		for(int i = 0; i < internal_size(); ++i) {
+		  //
 		  switch(nx - mx) {
+		    //
 		  case 0:
-		  
-		    dtemp = double(amom * amom + amom - mproj * mproj) / 2.;
-		  
-		    // M_z * M_z term
-		    matel += double(mproj * mproj) 
-		      * emp->second(2, 2);
-
-		    // M_x * M_x term
-		    matel += dtemp 
-		      * emp->second(0, 0);
-
-		    // M_y * M_y term
-		    matel += dtemp 
-		      * emp->second(1, 1);
-
+		    //
+		    // M_z * p_i term
+		    //
+		    matel -= double(mproj * (mw[i] + nw[i])) 
+		      //
+		      * ccp->second(2, i);
+		    
 		    break;
-		  case 1:
 
+		  case 1:
+		    //
 		    dtemp = std::sqrt(double((amom + mproj + 1) * (amom - mproj))) / 2.;
 
-		    // M_x * M_z term
-		    matel += dtemp * double(2 * mproj + 1) 
-		      * emp->second(0, 2);
-
-		    // M_y * M_z term
-		    matel += imaginary_unit * dtemp * double(2 * mproj + 1) 
-					 * emp->second(1, 2);
-
-		    break;
-		  case 2:
-
-		    dtemp = std::sqrt(double((amom + mproj + 1) * (amom - mproj) * (amom + mproj + 2) *
-					     (amom - mproj - 1))) / 4.;
-
-		    // M_x * M_x term
-		    matel += dtemp 
-		      * emp->second(0, 0);
-
-		    // M_y * M_y term
-		    matel -= dtemp 
-		      * emp->second(1,1);
-
-		    // M_x * M_y term
-		    matel += imaginary_unit * 2. * dtemp 
-		      * emp->second(0, 1);
-
-		    break;
-		  }// external mobility
-
-		// coriolis coupling
-		if(ccp != _coriolis_coupling_fourier.end())
-		  for(int i = 0; i < internal_size(); ++i)
-		    switch(nx - mx) {
-		    case 0:
-		    
-		      // M_z * p_i term
-		      matel -= double(mproj * (mw[i] + nw[i])) 
-			* ccp->second(2, i);
-		    
-		      break;
-		    case 1:
-
-		      dtemp = std::sqrt(double((amom + mproj + 1) * (amom - mproj))) / 2.;
-
-		      // M_x * p_i term
-		      matel -= dtemp * double(mw[i] + nw[i]) 
-			* ccp->second(0, i);
+		    // M_x * p_i term
+		    //
+		    matel -= dtemp * double(mw[i] + nw[i])
+		      //
+		      * ccp->second(0, i);
 		  
-		      // M_y * p_i term
-		      matel -= imaginary_unit * dtemp * double(mw[i] + nw[i]) 
-			* ccp->second(1, i);
+		    // M_y * p_i term
+		    //
+		    matel -= imaginary_unit * dtemp * double(mw[i] + nw[i])
+		      //
+		      * ccp->second(1, i);
 
-		      break;
-		    }// coriolis coupling
+		    break;
+		    //
+		  }// coriolis coupling
+		}
+	      }
 
-		ham(mtot, ntot) = matel;
-
-	      }//nx cycle
-	    }//mx cycle
-	}//nl cycle
-      }//ml cycle
+	      ham(mtot, ntot) = matel / (double)ifac;
+	      //
+	    }// nx cycle
+	    //
+	  }// mx cycle
+	  //
+	}// nl cycle
+	//
+      }// ml cycle
 
       // potential contribution
 
 #pragma omp parallel for default(shared) private(itemp, dtemp, btemp) schedule(dynamic, 1)
 
       for(int ml = 0; ml < internal_state_index.size(); ++ml) {
+	//
 	const std::vector<int> mv = internal_state_index(ml);
 
 	std::vector<int> ivec(internal_size());
+	//
 	for(int nl = ml; nl < internal_state_index.size(); ++nl) {
+	  //
 	  const std::vector<int> nv = internal_state_index(nl);
 
+	  int ifac = 1;
+
 	  btemp = false;
+	  //
 	  for(int i = 0; i < internal_size(); ++i) {
+	    //
 	    itemp = nv[i] - mv[i];
+
 	    if(itemp > _pot_index.size(i) / 2 || -itemp > _pot_index.size(i) / 2) {
+	      //
 	      btemp = true;
+
 	      break;
 	    }
 	    if(itemp < 0)
+	      //
 	      itemp += _pot_index.size(i);
+
+	    if(_pot_index.size(i) == 2 * itemp)
+	      //
+	      ifac *= 2;
+
 	    ivec[i] = itemp;
 	  }
+
 	  if(btemp)
 	    continue;
 	    
 	  itemp = _pot_index(ivec);
+
 	  std::map<int, Lapack::complex>::const_iterator pp = _pot_complex_fourier.find(itemp);
 
-	  if(pp != _pot_complex_fourier.end())
-	    for(int mx = 0; mx < ext_size; ++mx) {
+	  if(pp != _pot_complex_fourier.end()) {
+	    //
+	    for(int mx = 0; mx < multiplicity; ++mx) {
+	      //
 	      const int mtot = ml + mx * internal_state_index.size();
+
 	      const int ntot = nl + mx * internal_state_index.size();
-	      ham(mtot, ntot) += pp->second;
-	    }//mx cycle
+
+	      ham(mtot, ntot) += pp->second / (double)ifac;
+	      //
+	    }// mx cycle
+	    //
+	  }//
+	  //
 	}//nl cycle
+	//
       }//ml cycle
+      //
+    }//
+
+    Lapack::HermitianMatrix ctf_mat;
+
+    if(_with_ctf) {// basis scalar product matrix
+      //
+      IO::Marker work_marker("setting orthogonality matrix for basis states", IO::Marker::ONE_LINE);
+
+      ctf_mat.resize(multiplicity * internal_state_index.size());
+
+      ctf_mat = 0.;
+
+      // potential contribution
+
+#pragma omp parallel for default(shared) private(itemp, dtemp, btemp) schedule(dynamic, 1)
+
+      for(int ml = 0; ml < internal_state_index.size(); ++ml) {
+	//
+	const std::vector<int> mv = internal_state_index(ml);
+
+	std::vector<int> ivec(internal_size());
+	//
+	for(int nl = ml; nl < internal_state_index.size(); ++nl) {
+	  //
+	  const std::vector<int> nv = internal_state_index(nl);
+
+	  int ifac = 1;
+
+	  btemp = false;
+	  //
+	  for(int i = 0; i < internal_size(); ++i) {
+	    //
+	    itemp = nv[i] - mv[i];
+
+	    if(itemp > _mass_index.size(i) / 2 || -itemp > _mass_index.size(i) / 2) {
+	      //
+	      btemp = true;
+
+	      break;
+	    }
+	    if(itemp < 0)
+	      //
+	      itemp += _mass_index.size(i);
+
+	    if(_mass_index.size(i) == 2 * itemp)
+	      //
+	      ifac *= 2;
+
+	    ivec[i] = itemp;
+	  }
+
+	  if(btemp)
+	    continue;
+	    
+	  itemp = _mass_index(ivec);
+
+	  std::map<int, Lapack::complex>::const_iterator pp = _ctf_complex_fourier.find(itemp);
+
+	  if(pp != _ctf_complex_fourier.end()) {
+	    //
+	    for(int mx = 0; mx < multiplicity; ++mx) {
+	      //
+	      const int mtot = ml + mx * internal_state_index.size();
+
+	      const int ntot = nl + mx * internal_state_index.size();
+
+	      ctf_mat(mtot, ntot) += pp->second / (double)ifac;
+	      //
+	    }// mx cycle
+	    //
+	  }//
+	  //
+	}// nl cycle
+	//
+      }// ml cycle
+      //
+    }// basis scalar product matrix
+
+    if(_with_ctf) {
+      //
+      IO::Marker work_marker("diagonalizing hamiltonian and ctf matrix simultaneously", IO::Marker::ONE_LINE);
+
+      eigenvalue[amom] = Lapack::diagonalize(ham, ctf_mat);
     }
-    {
+    else {
+      //
       IO::Marker work_marker("diagonalizing hamiltonian", IO::Marker::ONE_LINE);
-      eigenvalue.push_back(ham.eigenvalues());
-    } 
 
-    IO::log << IO::log_offset << "lowest eigenvalues[kcal/mol]: ";
-    itemp = eigenvalue.rbegin()->size();
-    itemp = itemp < 10 ? itemp : 10;
-    for(int i = 0; i < itemp; ++i)
-      IO::log << " " << (*eigenvalue.rbegin())[i] / Phys_const::kcal;
-    IO::log << "\n";
-
-    // ...
-
+      eigenvalue[amom] = ham.eigenvalues();
+    }//
+    //
   }//amom cycle
+
+  // rotational energy levels
+  //
+  std::vector<Lapack::Vector> roten(amom_max);
+
+  roten[0].resize(1);
+  
+  roten[0][0] = 0.;
+  
+  for(int j = 1; j < amom_max; ++j) {
+    //
+    const int multiplicity = 2 * j + 1;
+
+    // setting the hamiltonian
+    //
+    Lapack::SymmetricMatrix ham(multiplicity);
+
+    ham = 0.;
+
+    for(int mi = 0; mi < multiplicity; ++mi) {
+      //
+      const int m = mi - j;
+
+      ham(mi, mi) = _rotational_constant[2] * double(m * m)
+	+ (_rotational_constant[0] + _rotational_constant[1]) * double(j * j + j - m * m) / 2.;
+
+      if(mi > 1)
+	//
+	ham(mi - 2, mi) = (_rotational_constant[0] - _rotational_constant[1])
+	  * std::sqrt((j + m) * (j - m + 1) * (j + m - 1) * (j - m + 2)) / 4.;
+    }
+
+    // diagonalization
+    //
+    roten[j] = ham.eigenvalues();
+  }
+  
+  // output
+  //
+  const int lmax = 2 * amom_max - 1;
+
+  const int nmax = 10.;
+
+  IO::log << "\n" << IO::log_offset << "rotational energy levels [1/cm] for original geometry:\n\n";
+
+  IO::log << IO::log_offset << std::setw(3) << "J";
+
+  IO::log << std::setw(13) << "ref";
+
+  for(int j = 0; j < amom_max; ++j)
+    //
+    IO::log << std::setw(13) << j;
+
+  IO::log << "\n";
+
+  for(int l = 0; l < lmax; ++l) {
+    //
+    IO::log << IO::log_offset << std::setw(3) << " " << std::setw(13);
+
+    if(!l) {
+      //
+      IO::log << "-" << std::setw(13) << "0";
+    }
+    else
+      //
+      IO::log << " " << std::setw(13) << " ";
+    
+    
+    for(int j = 1; j < amom_max; ++j) {
+      //
+      IO::log << std::setw(13);
+      
+      if(l < 2 * j + 1) {
+	//
+	IO::log << roten[j][l] / Phys_const::incm;
+      }
+      else
+	//
+	IO::log << " ";
+    }
+
+    IO::log << "\n";
+  }
+  
+  IO::log << "\n" << IO::log_offset << "rovibrational energy levels [1/cm]:\n\n";
+
+  IO::log << IO::log_offset << std::setw(3) << "N\\J";
+
+  IO::log << std::setw(13) << "ref";
+
+  for(int j = 0; j < amom_max; ++j)
+    //
+    IO::log << std::setw(13) << j;
+
+  IO::log << "\n";
+
+  for(int n = 0; n < nmax; ++n) {
+    //
+    for(int l = 0; l < lmax; ++l) {
+      //
+      IO::log << IO::log_offset << std::setw(3);
+
+      if(!l) {
+	//
+	IO::log << n << std::setw(13);
+
+	if(_energy_level.size()) {
+	  //
+	  if(n < _energy_level[0].size()) {
+	    //
+	    IO::log << _energy_level[0][n] / Phys_const::incm;
+	  }
+	  else
+	    //
+	    IO::log << "***";
+	}
+	else if(n < eigenvalue[0].size()) {
+	  //
+	  IO::log << (eigenvalue[0][n] - _ground) / Phys_const::incm;
+	}
+	else
+	  //
+	  IO::log << "***";
+      }
+      else
+	//
+	IO::log << "" << std::setw(13) << "";
+	
+      for(int j = 0; j < amom_max; ++j) {
+	//
+	const int multiplicity = 2 * j + 1;
+	
+	const int lindex = multiplicity * n + l;
+
+	IO::log << std::setw(13);
+
+	if(l < multiplicity) {
+	  //
+	  if(!j && _energy_level.size()) {
+	    //
+	    if(n < _energy_level[0].size() && lindex < eigenvalue[j].size()) {
+	      //
+	      dtemp = (eigenvalue[j][lindex] - _energy_level[0][n] - _ground) / Phys_const::incm;
+
+	      if(dtemp < 1.e-7 && dtemp > -1.e-7) {
+		//
+		IO::log << "< 1.e-7";
+	      }
+	      else
+		//
+		IO::log << dtemp;
+	    }
+	    else
+	      //
+	      IO::log << "***";
+	  }
+	  else {
+	    //
+	    if(n < eigenvalue[0].size() && lindex < eigenvalue[j].size()) {
+	      //
+	      IO::log << (eigenvalue[j][lindex] - eigenvalue[0][n]) / Phys_const::incm;
+	    }
+	    else
+	      // 
+	      IO::log << "***";
+	  }
+	}
+	else
+	  //
+	  IO::log << "";
+      }
+
+      IO::log << "\n";
+    }
+  }
+
+  IO::log << "\n";
 }
 
 /********************************************************************************************
@@ -10134,7 +13008,7 @@ double Model::ReadSpecies::states (double en) const
   return std::exp(_spline(std::log(en)));
 }
 
-double Model::ReadSpecies::weight (double temperature) const
+double Model::ReadSpecies::weight (double temperature, std::map<int, double>*) const
 {
   const char funame [] = "Model::ReadSpecies::weight: ";
 
@@ -10188,6 +13062,9 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
   Key     extra_key("ExtrapolationStep"               );
   Key      freq_key("Frequencies[1/cm]"               );
   Key    fscale_key("FrequencyScalingFactor"          );
+  Key     degen_key("FrequencyDegeneracies"           );
+  Key      harm_key("AreFrequenciesHarmonic"          );
+  Key    anharm_key("Anharmonicities[1/cm]"           );
   Key      hrot_key("Rotor"                           );
   Key      core_key("Core"                            );
   Key      tunn_key("Tunneling"                       );
@@ -10205,6 +13082,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
 
   bool isener = false;
   bool iszero = false;
+  bool isharm = false;
 
   std::map<double, int> elevel_map;
 
@@ -10216,6 +13094,128 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
     if(IO::end_key() == token) {
       std::getline(from, comment);
       break;
+    }
+    // frequency scaling factor
+    //
+    else if(fscale_key == token) {
+      //
+      if(fscale > 0.) {
+	//
+	ErrOut err_out;
+	
+	err_out << funame << token << ": already initialized";
+      }
+	  
+      if(!(from >> fscale)) {
+	//
+	ErrOut err_out;
+	
+	err_out << funame << token << ": corrupted";
+      }
+      
+      if(fscale <= 0.) {
+	std::cerr << funame << token << ": out of range\n";
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+    }
+    // are frequencies harmonic
+    //
+    else if(harm_key == token) {
+      //
+      std::getline(from, comment);
+      
+      isharm = true;
+    }
+    // frequency degeneracies
+    //
+    else if(degen_key == token) {
+      //
+      if(_fdegen.size()) {
+	//
+	ErrOut err_out;
+	
+	err_out << funame << token << ": already initialized";
+      }
+      
+      // number of degeneracies
+      //
+      if(!(from >> itemp)) {
+	//
+	ErrOut err_out;
+	
+	err_out << funame << token << ": cannot read number of frequency degeneracies";
+      }
+      std::getline(from, comment);
+
+      if(itemp < 1) {
+	//
+	ErrOut err_out;
+	
+	err_out << funame << token << ": number of frequency degeneracies should be positive";
+      }
+      _fdegen.resize(itemp);
+      
+      // read frequency degeneracies
+      //
+      for(int i = 0; i < _fdegen.size(); ++i) {
+	//
+	if(!(from >> itemp)) {
+	  //
+	  ErrOut err_out;
+	  
+	  err_out << funame << token << ": cannot read " << i << "-th degeneracy";
+	}
+	
+	if(itemp <= 0) {
+	  //
+	  ErrOut err_out;
+	  
+	  err_out << funame << token << ": " << i << "-th degeneracy: should be positive";
+	}
+	_fdegen[i] = itemp;
+      }
+
+      if(!from) {
+	//
+	ErrOut err_out;
+	
+	err_out << funame << token << ": corrupted";
+      }
+      
+      std::getline(from, comment);
+    }
+    // anharmonicities
+    //
+    else if(anharm_key == token) {
+      //
+      if(!_frequency.size()) {
+	//
+	ErrOut err_out;
+	
+	err_out << funame << token << ": frequencies should be initialized first";
+      }
+	  
+      std::getline(from, comment);
+      
+      _anharm.resize(_frequency.size());
+      //
+      _anharm = 0.;
+      
+      for(int i = 0; i < _anharm.size(); ++i)
+	//
+	for(int j = 0; j <= i; ++j)
+	  //
+	  if(!(from >> _anharm(i, j))) {
+	    //
+	    ErrOut err_out;
+	    
+	    err_out << funame << token << ": cannot read anharmonicities";
+	  }
+      
+      _anharm *= Phys_const::incm;
+      
     }
     // symmetry number
     //
@@ -10231,6 +13231,8 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
       }
     }
     // graph perturbation theory
+    //
+    // ONLY WORK WITH NO DEGENERACIES
     //
     else if(graph_key == token) {      
       if(!_frequency.size()) {
@@ -10506,9 +13508,36 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
     throw Error::Input();
   }
 
-  if(fscale > 0.)
-    for(int i = 0; i < _frequency.size(); ++i)
-      _frequency[i] *= fscale;
+  if(_frequency.size()) {
+    //
+    if(fscale > 0.)
+      //
+      for(int f = 0; f < _frequency.size(); ++f)
+	//
+	_frequency[f] *= fscale;
+    
+    if(_fdegen.size() > _frequency.size()) {
+      std::cerr << funame << "number of frequency degeneracies exceeds number of frequencies\n";
+      throw Error::Init();
+    }
+
+    for(int i = _fdegen.size(); i < _frequency.size(); ++i)
+      _fdegen.push_back(1);
+
+    if(isharm && _anharm.size()) {
+      for(int i = 0; i < _frequency.size(); ++i)
+	for(int j = 0; j < _frequency.size(); ++j)
+	  if(j != i)
+	    _frequency[i] += double(_fdegen[j]) * _anharm(i, j) / 2.;
+	  else
+	    _frequency[i] += double (_fdegen[i] + 1) * _anharm(i, i);
+
+      IO::log << IO::log_offset << "fundamentals(1/cm):";
+      for(int i = 0; i < _frequency.size(); ++i)
+	IO::log << "   " << _frequency[i] / Phys_const::incm;
+      IO::log << "\n";
+    }
+  }      
   
   /************************************* CHECKING *************************************/ 
 
@@ -10549,8 +13578,9 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
 
   // vibrational zero-point energy correction
   if(!iszero) {
-    for(std::vector<double>::const_iterator f = _frequency.begin(); f != _frequency.end(); ++f)
-      _ground += *f / 2.;  
+    for(int f = 0; f < _frequency.size(); ++f)
+      //
+      _ground += _frequency[f] / 2. * _fdegen[f];  
 
     // core ground energy correction
     if(_core)
@@ -10657,22 +13687,29 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
       //
       IO::Marker vib_marker("vibrational modes contribution", IO::Marker::ONE_LINE);
 
-      for(int f = 0; f < _frequency.size(); ++f) {
-	itemp = (int)round(_frequency[f] / ener_quant);
-	if(itemp < 0) {
-	  std::cerr << funame << "negative frequency\n";
-	  throw Error::Range();
+      for(int f = 0; f < _frequency.size(); ++f)
+	for(int d = 0; d < _fdegen[f]; ++d) {
+	  itemp = (int)round(_frequency[f] / ener_quant);
+	  if(itemp < 0) {
+	    std::cerr << funame << "negative frequency\n";
+	    throw Error::Range();
+	  }
+	  for(int e = itemp; e < ener_grid.size(); ++e)
+	    stat_grid[e] += stat_grid[e - itemp];
 	}
-	for(int e = itemp; e < ener_grid.size(); ++e)
-	  stat_grid[e] += stat_grid[e - itemp];
-      }
     }
+  
 
     // hindered rotor contribution
+    //
     if(_rotor.size()) {
+      //
       IO::Marker rotor_marker("hindered rotors contribution");
+      
       for(int r = 0; r < _rotor.size(); ++r) {// 1D rotor cycle
+	//
 	_rotor[r]->set(energy_limit() - ground());
+	
 	_rotor[r]->convolute(stat_grid, ener_quant);
       }// 1D rotor cycle
     }
@@ -10687,6 +13724,9 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
     }
 
     // occupation numbers for radiative transitions
+    
+    // ONLY WORK WITH NO DEGENERACIES
+    //
     if(_osc_int.size()) {
       _occ_num.resize(_osc_int.size());
       _occ_num_der.resize(_osc_int.size());
@@ -10745,6 +13785,8 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
   
 }// RRHO
 
+// ONLY WORK WITH NO DEGENERACIES
+//
 void Model::RRHO::_init_graphex (std::istream& from)
 {
   const char funame [] = "Model::RRHO::_init_graphex: ";
@@ -10886,21 +13928,21 @@ void Model::RRHO::_init_graphex (std::istream& from)
     //
     else if(scut_key == token) {
       //
-      if(!(from >> dtemp)) {
+      if(!(from >> itemp)) {
 	//
 	ErrOut err_out;
 
 	err_out << funame << token << ": corrupted";
       }
 
-      if(dtemp <= 1.) {
+      if(itemp < 2) {
 	//
 	ErrOut err_out;
 
-	err_out << funame << token << ": out of range: "<< dtemp;
+	err_out << funame << token << ": out of range: "<< itemp;
       }
 
-      Graph::FreqGraph::four_cut = dtemp;
+      Graph::FreqGraph::four_cut = itemp;
 
       std::getline(from, comment);
     }	
@@ -10959,10 +14001,14 @@ double Model::RRHO::states (double ener) const
   return _states(ener);
 }
 
-double Model::RRHO::weight (double temperature) const
+double Model::RRHO::weight (double temperature, std::map<int, double>* pwp) const
 {
   double dtemp;
   int    itemp;
+
+  if(pwp)
+    //
+    pwp->clear();
   
   // electronic level contribution
   double res = 0.;
@@ -10975,11 +14021,144 @@ double Model::RRHO::weight (double temperature) const
   else
     res /= _sym_num;
 
-  // vibrational frequencies contribution
-  for(int f = 0; f < _frequency.size(); ++f) {
-    dtemp = _frequency[f] / temperature;
-    if(dtemp < 50.)
-      res /= 1. - std::exp(-dtemp);
+  // vibrational contribution
+  std::vector<double> rfactor(_frequency.size()), sfactor(_frequency.size());
+  
+  for(int  f = 0; f < _frequency.size(); ++f) {
+    rfactor[f] = std::exp(- _frequency[f] / temperature);
+    sfactor[f] = 1. / (1. - rfactor[f]);
+    for(int i = 0; i < _fdegen[f]; ++i)
+      res *= sfactor[f];
+  }
+
+  double acl;
+  
+  // vibrational anharmonic contributions
+  //
+  if(_anharm.isinit()) {
+    //
+    // first order correction
+    //
+    acl = 0.;
+    for(int i = 0; i < _frequency.size(); ++i) {
+      acl += _anharm(i, i) * double(_fdegen[i] * (_fdegen[i] + 1)) * std::pow(rfactor[i] * sfactor[i], 2.);
+
+      for(int j = 0; j < i; ++j)
+	acl += _anharm(i, j) * double(_fdegen[i] * _fdegen[j]) * rfactor[i] * sfactor[i] * rfactor[j] * sfactor[j];
+    }
+    acl /= temperature;
+    
+    //std::cerr << funame << "temperature = " << temperature / Phys_const::kelv << "   acl1 = " << acl << std::endl;
+
+    res *= std::exp(-acl);
+    
+    // second order correction
+    //
+    acl = 0.;
+    for(int i = 0; i < _frequency.size(); ++i) {
+      acl += 2. * std::pow(_anharm(i, i), 2.) * double(_fdegen[i] * (_fdegen[i] + 1))	* std::pow(rfactor[i], 2.)
+	* (1. + double(2 * (_fdegen[i] + 1)) * rfactor[i]) * std::pow(sfactor[i], 4.);
+    
+      for(int j = 0; j < i; ++j)
+	acl += std::pow(_anharm(i, j), 2.) * double(_fdegen[i] * _fdegen[j]) * rfactor[i] * rfactor[j]
+	  * (1. + (double)_fdegen[i] * rfactor[i] + (double)_fdegen[j] * rfactor[j])
+	  * std::pow(sfactor[i] * sfactor[j], 2.);
+    
+      for(int j = 0; j < _frequency.size(); ++j)
+	for(int k = 0; k < j; ++k)
+	  if(i != j && i != k)
+	    acl += 2. * _anharm(i, j) * _anharm(i, k) * double(_fdegen[i] * _fdegen[j] * _fdegen[k])
+	      * rfactor[i] * rfactor[j] * rfactor[k] * std::pow(sfactor[i], 2.) * sfactor[j] * sfactor[k];
+	
+      for(int j = 0; j < _frequency.size(); ++j)
+	if(i != j)
+	  acl += 4. * _anharm(i, i) * _anharm(i, j) * double(_fdegen[i] * (_fdegen[i] + 1) *_fdegen[j])
+	    * std::pow(rfactor[i], 2.) * rfactor[j] * std::pow(sfactor[i], 3.) * sfactor[j];
+    }
+    acl /= 2. * temperature * temperature;
+
+    //std::cerr << funame << "temperature = " << temperature / Phys_const::kelv << "   acl2 = " << acl << std::endl;
+
+    res *= std::exp(acl);
+    
+    // third order correction
+    //
+    acl = 0.;
+    for(int i = 0; i < _frequency.size(); ++i) {
+      acl += 4. * std::pow(_anharm(i, i), 3.) * double(_fdegen[i] * (_fdegen[i] + 1)) * std::pow(rfactor[i], 2.) *
+	(1. + double(8 * _fdegen[i] + 12) * rfactor[i] + double(8 * _fdegen[i] * _fdegen[i] + 22 * _fdegen[i] + 15) * std::pow(rfactor[i], 2.) +
+	 double(2 * _fdegen[i] * _fdegen[i] + 4 * _fdegen[i] + 2) * std::pow(rfactor[i], 3.)) * std::pow(sfactor[i], 6.);
+
+      for(int j = 0; j < i; ++j)
+	acl += std::pow(_anharm(i, j), 3.) * double(_fdegen[i] * _fdegen[j]) * rfactor[i] * rfactor[j] *
+	  (1. + double(3 * _fdegen[i] + 1) * rfactor[i] + double(3 * _fdegen[j] + 1) * rfactor[j] +
+	   std::pow(double(_fdegen[i]) * rfactor[i], 2.) * (1. + rfactor[j]) +
+	   std::pow(double(_fdegen[j]) * rfactor[j], 2.) * (1. + rfactor[i]) +
+	   double(6 * _fdegen[i] * _fdegen[j] + 3 * _fdegen[i] + 3 * _fdegen[j] + 1) * rfactor[i] * rfactor[j]) *
+	  std::pow(sfactor[i] * sfactor[j], 3.);
+      
+      for(int j = 0; j < _frequency.size(); ++j)
+	if(i != j)
+	  acl += 12. * std::pow(_anharm(i, i), 2.) * _anharm(i, j) * double(_fdegen[i] * (_fdegen[i] + 1) * _fdegen[j]) *
+	    std::pow(rfactor[i], 2.) * rfactor[j] *
+	    (1. + double(3 * _fdegen[i] + 4) * rfactor[i] + double(_fdegen[i] + 1) * std::pow(rfactor[i], 2.)) *
+	    std::pow(sfactor[i], 5.) * sfactor[j]
+	    + 6. * _anharm(i, i) * std::pow(_anharm(i, j), 2.) * double(_fdegen[i] * (_fdegen[i] + 1) * _fdegen[j]) *
+	    std::pow(rfactor[i], 2.) * rfactor[j] *
+	    (2. + double(2 * _fdegen[i] + 1) * rfactor[i] + double(2 * _fdegen[j]) * rfactor[j] + double(_fdegen[j]) * rfactor[i] * rfactor[j]) *
+	    std::pow(sfactor[i], 4.) * std::pow(sfactor[j], 2.);
+
+      for(int j = 0; j < _frequency.size(); ++j)
+	for(int k = 0; k < _frequency.size(); ++k)
+	  if(i != j && i != k && k != j)
+	    acl += 3. * std::pow(_anharm(i, j), 2.) * _anharm(i, k) * double(_fdegen[i] * _fdegen[j] * _fdegen[k]) *
+	      rfactor[i] * rfactor[j] * rfactor[k] *
+	      (1. + double(2 * _fdegen[i] + 1) * rfactor[i] + double(_fdegen[j]) * rfactor[j] * (1. + rfactor[i])) *
+	      std::pow(sfactor[i] * sfactor[j], 2.) * sfactor[k];
+
+      for(int j = 0; j < i; ++j)
+	acl += 24. * _anharm(i, i) * _anharm(j, j) * _anharm(i, j) * double(_fdegen[i] * (_fdegen[i] + 1) * _fdegen[j] * (_fdegen[j] + 1)) *
+	  std::pow(rfactor[i] * rfactor[j], 2.) * std::pow(sfactor[i] * sfactor[j], 3.);
+
+      for(int j = 0; j < _frequency.size(); ++j)
+	for(int k = 0; k < j; ++k)
+	  if(i != j && i != k)
+	    acl += 12. * _anharm(i, i) * _anharm(i, j) * _anharm(i, k) * double(_fdegen[i] * (_fdegen[i] + 1) * _fdegen[j] * _fdegen[k]) *
+	      std::pow(rfactor[i], 2.) * rfactor[j] * rfactor[k] * (2. + rfactor[i]) * std::pow(sfactor[i], 4.) * sfactor[j] * sfactor[k];
+
+      for(int j = 0; j < _frequency.size(); ++j)
+	for(int k = 0; k < _frequency.size(); ++k)
+	  if(i != j && i != k && k != j)
+	    acl += 12. * _anharm(i, i) * _anharm(i, j) * _anharm(j, k) * double(_fdegen[i] * (_fdegen[i] + 1) * _fdegen[j] * _fdegen[k]) *
+	      std::pow(rfactor[i], 2.) * rfactor[j] * rfactor[k] * std::pow(sfactor[i], 3.) * std::pow(sfactor[j], 2.) * sfactor[k];
+
+      for(int j = 0; j < _frequency.size(); ++j)
+	for(int k = 0; k < j; ++k)
+	  for(int l = 0; l < k; ++l)
+	    if(i != j && i != k && i != l)
+	      acl += 6. * _anharm(i, j) * _anharm(i, k) * _anharm(i, l) * double(_fdegen[i] * _fdegen[j] * _fdegen[k] * _fdegen[l]) *
+		rfactor[i] * rfactor[j] * rfactor[k] * rfactor[l] * (1. + rfactor[i]) *
+		std::pow(sfactor[i], 3.) * sfactor[j] * sfactor[k] * sfactor[l];
+
+      // takes into account i->j, k->l symmetry
+      for(int j = 0; j < i; ++j)
+	for(int k = 0; k < _frequency.size(); ++k)
+	  for(int l = 0; l < _frequency.size(); ++l)
+	    if(i != k && i != l && j != k && j != l && k != l)
+	      acl += 6. * _anharm(i, j) * _anharm(i, k) * _anharm(j, l) * double(_fdegen[i] * _fdegen[j] * _fdegen[k] * _fdegen[l]) *
+		rfactor[i] * rfactor[j] * rfactor[k] * rfactor[l] * std::pow(sfactor[i] * sfactor[j], 2.) * sfactor[k] * sfactor[l];
+
+      for(int j = 0; j < i; ++j)
+	for(int k = 0; k < j; ++k)
+	  acl += 6. * _anharm(i, j) * _anharm(i, k) * _anharm(j, k) * double(_fdegen[i] * _fdegen[j] * _fdegen[k]) *
+	    rfactor[i] * rfactor[j] * rfactor[k] * (1. + _fdegen[i] * rfactor[i] + _fdegen[j] * rfactor[j] + _fdegen[k] * rfactor[k]) *
+	    std::pow(sfactor[i] * sfactor[j] * sfactor[k], 2.);
+    }
+    acl /= 6. * std::pow(temperature, 3.);
+
+    //std::cerr << funame << "temperature = " << temperature / Phys_const::kelv << "   acl3 = " << acl << std::endl;
+												       
+    res *= std::exp(-acl);
   }
 
   // hindered 1D rotor contribution
@@ -11117,7 +14296,7 @@ double Model::UnionSpecies::states (double energy) const
   return res;
 }
 
-double Model::UnionSpecies::weight (double temperature) const
+double Model::UnionSpecies::weight (double temperature, std::map<int, double>*) const
 {
   double res = 0.;
   for(_Cit w = _species.begin(); w != _species.end(); ++w)
@@ -11535,7 +14714,7 @@ double Model::VarBarrier::states (double ener) const
   return _states(ener);
 }
 
-double Model::VarBarrier::weight (double temperature) const
+double Model::VarBarrier::weight (double temperature, std::map<int, double>*) const
 {
   const char funame [] = "Model::VarBarrier::weight: ";
 
@@ -11717,10 +14896,12 @@ Model::AtomicSpecies::~AtomicSpecies ()
   //std::cout << "Model::AtomicSpecies destroyed\n";
 }
 
-double Model::AtomicSpecies::weight (double temperature) const
+double Model::AtomicSpecies::weight (double temperature, std::map<int, double>*) const
 {
   double res = 0.;
+  
   for(int l = 0; l < _elevel.size(); ++l)
+    //
     res += std::exp(-_elevel[l] / temperature) * double(_edegen[l]);
 
   return res;

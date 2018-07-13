@@ -1,10 +1,3 @@
-/*
-    Copyright (C) 2018 Yuri Georgievski (ygeorgi@anl.gov), Stephen J.
-    Klippenstein (sjk@anl.gov), and Argonne National Laboratory.
-
-    See https://github.com/PACChem/MESS for copyright and licensing details.
-*/
-
 #include <iostream>
 #include<ios>
 #include <iomanip>
@@ -18,7 +11,12 @@
 #include "key.hh"
 #include "io.hh"
 #include "shared.hh"
+
+#ifdef WITH_MPACK
+
 #include "mpack.hh"
+
+#endif
 
 namespace MasterEquation {
   /*********************************** AUXILIARY OUTPUT *************************************/
@@ -1554,8 +1552,17 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 
   // chemical eigenvalues and eigenvectors
   Lapack::Matrix chem_evec(Model::well_size());
+
+#ifdef WITH_MPACK
+  
   Lapack::Vector chem_eval = Mpack::dd_eigenvalues(k_11, &chem_evec);
 
+#else
+  
+  Lapack::Vector chem_eval = k_11.eigenvalues(&chem_evec);
+
+#endif
+  
   // relaxational projection of the chemical eigenvector
   l_21 = l_21 * chem_evec;
   Lapack::Vector rel_proj(Model::well_size());
@@ -3366,8 +3373,17 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     low_eigenvalue_matrix(k_11, k_33, k_13, l_21);
 
     Lapack::Matrix chem_evec(Model::well_size());
+    
+#ifdef WITH_MPACK
+  
     Lapack::Vector chem_eval = Mpack::dd_eigenvalues(k_11, &chem_evec);
 
+#else
+    
+    Lapack::Vector chem_eval = k_11.eigenvalues(&chem_evec);
+
+#endif
+    
     // low-eigenvalue chemical subspace
     itemp = 1;
     while(eigenval[itemp] / min_relax_eval < min_chem_eval) { ++itemp; }
