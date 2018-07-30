@@ -3,7 +3,7 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include <sys/types.h>
-#include <wait.h>
+#include <sys/wait.h>
 #include <cstdarg>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -143,98 +143,6 @@ System::Pipe::Pipe ()
 {
   pin.precision (14);
   pout.precision(14);
-}
-
-/*********************************************************
- *                   Semaphores 
- *********************************************************/
-
-union semun
-{
-  int val;                          // value for SETVAL
-  struct semid_ds *buf;             // buffer for IPC_STAT & IPC_SET
-  unsigned short int *array;        // array for GETALL & SETALL
-  struct seminfo *__buf;            // buffer for IPC_INFO
-};
-
-System::Semaphore::Semaphore(int n) throw(Error::General)
-   : key(IPC_PRIVATE), num(n), creator(getpid())
-{
-    const char funame [] = "System::Semaphore::Semaphore(int): ";
-
-   // create
-   while((id = semget(++key, num, 0666 | IPC_CREAT | IPC_EXCL)) == -1)
-   {} 
-
-   // initialize
-   semun su;
-   Array<unsigned short> init_val (n);
-   for (int i = 0; i < n; ++i)
-      init_val[i] = 1;
-   su.array = init_val;
-
-   if (semctl(id, 0, SETALL, su) == -1)
-      {
-	 semctl(id, 0, IPC_RMID);
-	 std::cerr << funame << "couldn't initialize\n";
-	 throw Error::Init();
-      }
-}
-
-System::Semaphore::Semaphore(key_t k, int n) throw(Error::General)
-   : key(k), num(n), creator(0)
-{
-    const char funame [] = "System::Semaphore::Semaphore(key_t, int): ";
-    
-    if((id = semget(k, n, 0666)) == -1) {
-       std::cerr << funame << "couldn't open existing semaphore set\n";
-       throw Error::Init();
-    }
-}
-
-System::Semaphore::~Semaphore()
-{
-   if (getpid() == creator)
-      semctl(id, 0, IPC_RMID);
-} 
-
-void System::Semaphore::busy (int n) const throw(Error::General)
-{
-    const char funame [] = "System::Semaphore::busy: ";
-
-    if (n >= num) {
-	std::cerr << funame << "wrong semaphore number\n";
-	throw Error::Range();
-    }
-
-   struct sembuf sb;
-   sb.sem_num = n;
-   sb.sem_op = -1;
-   sb.sem_flg = SEM_UNDO;
-
-   if (semop(id, &sb, 1) == -1) {
-       std::cerr << funame << "failed\n";
-       throw Error::Run();
-   }
-}
-
-void System::Semaphore::free (int n) const throw(Error::General)
-{
-    const char funame [] = "System::Semaphore::free: ";
-    if (n >= num) {
-	std::cerr << funame << "wrong semaphore number\n";
-	throw Error::Range();
-    }
-
-    struct sembuf sb;
-    sb.sem_num = n;
-    sb.sem_op = 1;
-    sb.sem_flg = SEM_UNDO;
-
-    if (semop(id, &sb, 1) == -1) {
-       std::cerr << funame << "failed\n";
-       throw Error::Run();
-    }
 }
 
 /*********************************************************************************************

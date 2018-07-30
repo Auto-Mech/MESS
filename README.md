@@ -2,6 +2,25 @@
 
 [![Build Status](https://travis-ci.com/PACChem/MESS.svg)](https://travis-ci.com/PACChem/MESS)
 
+## Installation
+
+### Linux
+- sudo apt-get install gcc gfortran libopenblas-dev liblapack-dev
+- cmake .
+- sudo make install
+
+### Mac
+
+The AppleClang compiler does not work with OpenMP, so you need to install GCC.
+By default, `g++` will refer to the AppleClang version, so you will need to
+feed the appropriate compiler to `cmake`. The procedure will look something
+like this:
+- brew update
+- brew install gcc libomp
+- cmake . -DCMAKE_CXX_COMPILER=g++-8
+- sudo make install
+
+
 ## Reference
 
 See Y. Georgievskii, J. A. Miller, M. P. Burke, and S. J. Klippenstein,
