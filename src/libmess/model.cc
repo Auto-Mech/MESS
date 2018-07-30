@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include <ios>
 #include <iomanip>
 #include <cmath>
@@ -2367,22 +2382,12 @@ double Model::ReadTunnel::action (double ener, int n) const
     fac = -1.;
   }
   
-  if(ener <= _action.arg_max() && ener >= _action.arg_min())
-    switch(n) {
-    case 0:
-      return fac * _action(ener, 0);
-
-    case 1:
-      return _action(ener, 1);
-
-    default:
-      std::cerr << funame << "wrong case\n";
-      throw Error::Logic();
-    }
-
   if(ener < _action.arg_min()) {
+    //
     dtemp = _action(_action.arg_min(), 1);
+    
     switch(n) {
+      //
     case 0:
       return fac * (_action.fun_min() + (ener - _action.arg_min()) * dtemp);
 
@@ -2394,10 +2399,27 @@ double Model::ReadTunnel::action (double ener, int n) const
       throw Error::Logic();
     }
   }
-
-  if(ener > _action.arg_max()) {
-    dtemp = _action(_action.arg_max(), 1);
+  else if(ener <= _action.arg_max()) {
+    //
     switch(n) {
+      //
+    case 0:
+      return fac * _action(ener, 0);
+
+    case 1:
+      return _action(ener, 1);
+
+    default:
+      std::cerr << funame << "wrong case\n";
+      throw Error::Logic();
+    }
+  }
+  else {
+    //
+    dtemp = _action(_action.arg_max(), 1);
+    
+    switch(n) {
+      //
     case 0:
       return _action.fun_max() + (ener - _action.arg_max()) * dtemp;
 
@@ -2409,7 +2431,6 @@ double Model::ReadTunnel::action (double ener, int n) const
       throw Error::Logic();
     }
   }
-
 }
 
 Model::ReadTunnel::~ReadTunnel ()

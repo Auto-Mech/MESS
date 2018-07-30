@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "io.hh"
 
 #include <sstream>
@@ -58,7 +73,7 @@ void IO::set_loglevel (const std::string& s)
     _loglevel_map["warning"] = WARNING; 
     _loglevel_map["notice" ] = NOTICE; 
     _loglevel_map["info"   ] = INFO; 
-    _loglevel_map["debug"  ] = DEBUG; 
+    _loglevel_map["debug"  ] = DEVEL; 
   }
 
   if(_loglevel_map.find(s) != _loglevel_map.end()) {
