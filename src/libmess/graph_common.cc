@@ -13,10 +13,10 @@ namespace Graph {
 
   // fourier sum graph evaluation cutoff
   //
-  double FreqGraph::four_cut  = 10.;
-
-  int    FreqGraph::four_max  = 10;
+  int    FreqGraph::four_cut  = 10;
   
+  double FreqGraph::four_par  = 10.;
+
   // low temperature / high frequency graph reduction threshold
   //
   double FreqGraph::red_thresh = 10.;
@@ -1495,6 +1495,8 @@ Graph::FreqGraph::_Ring Graph::FreqGraph::_min_ring (const std::set<int>& edge) 
   }
 }
 
+// mulitple bond green function fourier term
+//
 double Graph::FreqGraph::_four_term (int                        mi,
 				     double                     temperature,
 				     const std::vector<double>& rfreq,
@@ -1522,11 +1524,15 @@ double Graph::FreqGraph::_four_term (int                        mi,
       //
       return 0.;
 
+    // includes normalization factor 1/2/omega/sinh(omega/2/temperature)
+    //
     return 0.25 / temperature / mipi2;
   }
 
   double res = 0.;
-  
+
+  // does not include normalization factors
+  //
   if(!rfreq.size() || !ifreq.size()) {
     //
     const std::vector<double>* fp = &rfreq;
@@ -1673,7 +1679,7 @@ double Graph::FreqGraph::_four_term (int                        mi,
 double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double temperature) const
 {
   const char funame [] = "Graph::FreqGraph::fourier_sum: ";
-  
+
   int    itemp;
   double dtemp;
   bool   btemp;
@@ -1688,10 +1694,6 @@ double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double te
 
   const int vsize = vertex_size();
 
-  // frequency map
-  //
-  std::vector<int> freq_map;
-
   // real frequencies
   //
   std::vector<std::vector<double> > rfreq(size());
@@ -1704,26 +1706,24 @@ double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double te
   //
   std::vector<int>                  nfreq(size());
 
-  itemp = 0;
+  bool debug = false;
+
+  int gi = 0;
   //
-  for(const_iterator git = begin(); git != end(); ++git, ++itemp) {
+  for(const_iterator git = begin(); git != end(); ++git, ++gi) {
     //
     if(!git->second.size()) {
       //
       ErrOut err_out;
 
-      err_out << funame << "no frequencies at " << itemp << " edge: ";
-
-      print(err_out);
+      err_out << funame << "no frequencies at " << gi << " edge: " << *this;
     }
     
     for(std::multiset<int>::const_iterator fit = git->second.begin(); fit != git->second.end(); ++fit) {
       //
-      freq_map.push_back(*fit);
-
       if(*fit < 0) {
 	//
-	++nfreq[itemp];
+	++nfreq[gi];
       }
       else {
 	//
@@ -1731,11 +1731,11 @@ double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double te
       
 	if(dtemp > 0.) {
 	  //
-	  rfreq[itemp].push_back(dtemp);
+	  rfreq[gi].push_back(dtemp);
 	}
 	else
 	  //
-	  ifreq[itemp].push_back(-dtemp);
+	  ifreq[gi].push_back(-dtemp);
       }
     }
   }
@@ -1766,6 +1766,19 @@ double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double te
     }
     catch(_NoRing) {
       //
+      const_iterator git = find(*edge_pool.begin());
+
+      if(git == end()) {
+	//
+	ErrOut err_out;
+
+	err_out << funame << "logical error: edge does not exist";
+      }
+
+      if(git->second.size() == 1 && *git->second.begin() < 0)
+	//
+	return 0.;
+
       edge_pool.erase(edge_pool.begin());
     }
   }
@@ -1845,11 +1858,11 @@ double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double te
   }
   else {
     //
-    for(MultiIndex multi(idim, 2 * four_max); !multi.end(); ++multi) {
+    for(MultiIndex multi(idim, 2 * four_cut); !multi.end(); ++multi) {
       //
       double gvalue = 1.;
 
-      int ci = size();
+      int ci = ring_set.size();
 	
       for(int i = 0; i < size(); ++i) {
 	//
@@ -1857,7 +1870,7 @@ double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double te
 	
 	for(std::map<int, int>::const_iterator mit = index_map[i].begin(); mit != index_map[i].end(); ++mit)
 	  //
-	  mindex += mit->second * (multi[mit->first] - four_max);
+	  mindex += mit->second * (multi[mit->first] - four_cut);
 
 	itemp = -1;
 	  
@@ -1871,7 +1884,7 @@ double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double te
 	  
 	for(int j = 0; j < nf; ++j, ++ci) {
 	  //
-	  itemp = multi[ci] - four_max;
+	  itemp = multi[ci] - four_cut;
 	    
 	  mindex -= itemp ;
 
@@ -1898,168 +1911,178 @@ double Graph::FreqGraph::fourier_sum (const std::vector<double>& freq, double te
   }
 
   res /= std::pow(temperature, (double)vsize);
-    
-  // old method
-  //
-  std::vector<int> index_shift(freq_map.size());
-  //
-  std::vector<int> index_range(freq_map.size());
-  //
-  std::vector<double>     xval(freq_map.size());
 
-  for(int i = 0; i < freq_map.size(); ++i) {
+  /*****************************************************************************
+   * OLD WAY TO CALCULATE FOURIER TRANSFORMED GREEN FUNCTIONS SUM BY DIRECTLY  *
+   * SUMMING UP OVER ALL GF INDICES WITHOUT ANALYTHICALLY CONVOLUTING MULTIPLE *
+   * BONDS. USED FOR DEBUGGING PURPOSES ONLY.                                  *
+   *****************************************************************************/
+  
+  if(debug) {
     //
-    itemp = freq_map[i];
+    double old_res = 0.;
 
-    if(itemp >= 0) {
-      //
-      dtemp = freq[itemp] / temperature / 2. / M_PI;
-    }
-    // low frequency
+    // frequency map
     //
-    else {
-      //
-      dtemp = 0.;
-    }
-      
-    if(dtemp <= -1.) {
-      //
-      ErrOut err_out;
-
-      err_out << funame << "deep tunneling regime: "
-	      << "frequency[1/cm] = " << freq[itemp] / Phys_const::incm << ",  "
-	      << "Temperature[K]  = " << temperature / Phys_const::kelv;
-    }
-
-    if(dtemp < 0.) {
-      //
-      xval[i] = -dtemp * dtemp;
-      //
-      dtemp = -dtemp;
-    }
-    else {
-      //
-      xval[i] = dtemp * dtemp;
-    }
-
-    if(dtemp > 1.) {
-      //
-      itemp = (int)std::ceil(four_cut * dtemp);
-    }
-    else {
-      //
-      itemp = (int)std::ceil(four_cut);
-    }
+    std::vector<int> freq_map;
     
-    index_shift[i] = itemp;
-    
-    index_range[i] = 2 * itemp + 1;
-  }
-    
-  double old_res = 0.;
-
-  MultiIndexConvert harmonic_index(index_range);
-
-  for(long ml = 0; ml < harmonic_index.size(); ++ml) {
-    //
-    std::vector<int> mi = harmonic_index(ml);
-
-    for(int i = 0; i < mi.size(); ++i)
+    for(const_iterator git = begin(); git != end(); ++git, ++gi) {
       //
-      mi[i] -= index_shift[i];
-    
-    std::vector<int> constrain(vsize);
-
-    itemp = 0;
-    //
-    for(const_iterator git = begin(); git != end(); ++git) {
-      //
-      for(std::multiset<int>::const_iterator fit = git->second.begin(); fit != git->second.end(); ++fit, ++itemp) {
+      for(std::multiset<int>::const_iterator fit = git->second.begin(); fit != git->second.end(); ++fit) {
 	//
-	int sign = -1;
-	//
-	for(std::set<int>::const_iterator bit = git->first.begin(); bit != git->first.end(); ++bit, sign += 2) {
-	  //
-	  constrain[*bit] += sign * mi[itemp];
-	}
+	freq_map.push_back(*fit);
       }
     }
     
-    int test = 0;
+    std::vector<int> index_shift(freq_map.size());
     //
-    for(std::vector<int>::const_iterator it = constrain.begin(); it != constrain.end(); ++it) {
-      //
-      if(*it) {
-	//
-	test = 1;
-	//
-	break;
-      }
-    }
-    
-    if(test)
-      //
-      continue;
+    std::vector<int> index_range(freq_map.size());
+    //
+    std::vector<double>     xval(freq_map.size());
 
-    dtemp = 1.;
-    //
     for(int i = 0; i < freq_map.size(); ++i) {
       //
-      itemp = mi[i];
+      itemp = freq_map[i];
 
+      if(itemp >= 0) {
+	//
+	dtemp = freq[itemp] / temperature / 2. / M_PI;
+      }
       // low frequency
       //
-      if(freq_map[i] < 0) {
+      else {
 	//
-	if(!itemp) {
+	dtemp = 0.;
+      }
+      
+      if(dtemp <= -1.) {
+	//
+	ErrOut err_out;
+
+	err_out << funame << "deep tunneling regime: "
+		<< "frequency[1/cm] = " << freq[itemp] / Phys_const::incm << ",  "
+		<< "Temperature[K]  = " << temperature / Phys_const::kelv;
+      }
+
+      if(dtemp < 0.) {
+	//
+	xval[i] = -dtemp * dtemp;
+	//
+	dtemp = -dtemp;
+      }
+      else {
+	//
+	xval[i] = dtemp * dtemp;
+      }
+
+      if(dtemp > 1.) {
+	//
+	itemp = (int)std::ceil(four_par * dtemp);
+      }
+      else {
+	//
+	itemp = (int)std::ceil(four_par);
+      }
+    
+      index_shift[i] = itemp;
+    
+      index_range[i] = 2 * itemp + 1;
+    }
+    
+
+    MultiIndexConvert harmonic_index(index_range);
+
+    for(long ml = 0; ml < harmonic_index.size(); ++ml) {
+      //
+      std::vector<int> mi = harmonic_index(ml);
+
+      for(int i = 0; i < mi.size(); ++i)
+	//
+	mi[i] -= index_shift[i];
+    
+      std::vector<int> constrain(vsize);
+
+      itemp = 0;
+      //
+      for(const_iterator git = begin(); git != end(); ++git) {
+	//
+	for(std::multiset<int>::const_iterator fit = git->second.begin(); fit != git->second.end(); ++fit, ++itemp) {
+	  //
+	  int sign = -1;
+	  //
+	  for(std::set<int>::const_iterator bit = git->first.begin(); bit != git->first.end(); ++bit, sign += 2) {
+	    //
+	    constrain[*bit] += sign * mi[itemp];
+	  }
+	}
+      }
+    
+      int test = 0;
+      //
+      for(std::vector<int>::const_iterator it = constrain.begin(); it != constrain.end(); ++it) {
+	//
+	if(*it) {
 	  //
 	  test = 1;
 	  //
 	  break;
 	}
+      }
+    
+      if(test)
+	//
+	continue;
+
+      dtemp = 1.;
+      //
+      for(int i = 0; i < freq_map.size(); ++i) {
+	//
+	itemp = mi[i];
+
+	// low frequency
+	//
+	if(freq_map[i] < 0) {
+	  //
+	  if(!itemp) {
+	    //
+	    test = 1;
+	    //
+	    break;
+	  }
+	  else {
+	    //
+	    dtemp /= double(itemp * itemp);
+	  }
+	}
+	//
 	else {
 	  //
-	  dtemp /= double(itemp * itemp);
+	  dtemp /= xval[i] + double(itemp * itemp);
 	}
       }
-      //
-      else {
-	//
-	dtemp /= xval[i] + double(itemp * itemp);
-      }
-    }
 
-    if(test)
-      //
-      continue;
+      if(test)
+	//
+	continue;
     
-    old_res += dtemp;
+      old_res += dtemp;
+    }
+  
+    old_res /= std::pow(temperature, vsize) * std::pow(4. * M_PI * M_PI * temperature, freq_map.size());
+
+    std::cout << funame << *this << " >>> rings # = " << ring_set.size() << std::endl;
+  
+    std::cout << funame
+	      << "old fourier sum = " << std::left << std::setw(13) << old_res
+	      << "    fourier sum = " << std::setw(13) << res << std::right << std::endl;
   }
   
-  old_res /= std::pow(temperature, vsize) * std::pow(4. * M_PI * M_PI * temperature, freq_map.size());
-
-  if(old_res != 0.) {
-    //
-    dtemp = res / old_res - 1.;
-
-    if(dtemp > 0.1 || dtemp < -0.1) {
-      //
-      std::cerr << funame << "WARNING: Graph = ";
-
-      print(std::cerr);
-
-      std::cerr << "\n"
-		<< funame << "low frequency fourier sum = " << std::left << std::setw(13) << old_res
-		<< "    standard fourier sum = " << std::setw(13) << res << "\n";
-    }
-  }
-    
   return res;
 }
 
 void Graph::read_potex (const std::vector<double>& freq, std::istream& from, std::map<std::multiset<int>, double>& potex)
 {
-  const std::string funame = "Graph::read_potex: ";
+  const char funame [] = "Graph::read_potex: ";
 
   int    itemp;
   double dtemp;
