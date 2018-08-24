@@ -52,31 +52,6 @@ namespace System {
 	Pipe();
     };
 
-    /*************************************************************************************
-     *                                       Semaphores                                  *
-     ************************************************************************************/
-
-    class Semaphore
-    {
-	key_t key;   // semaphore key
-	int   id;    // semaphore id
-	int   num;   // number of semaphores in the set
-	pid_t creator; // creator of semaphore
-
-	Semaphore(const Semaphore&);
-	Semaphore& operator= (const Semaphore&);
-
-    public:
-
-	explicit Semaphore (int) throw(Error::General); // creates set of n semaphores & initilizes them 
-	Semaphore (key_t, int)   throw(Error::General); // initializes existing semaphore set
-	~Semaphore();
-  
-	key_t get_key () const {return key;}
-	void busy (int) const throw(Error::General); // raise n-th semaphore (P, wait)
-	void free (int) const throw(Error::General); // free n-th semaphore  (V, signal)
-    };
-
     /*********************************************************************************************
      *                                     Dynamic Libraries                                     *
      ********************************************************************************************/

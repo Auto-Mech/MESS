@@ -43,3 +43,9 @@ messpf.dat
 build/
 .pytest_cache/
 __pycache__/
+
+# Ignore swap files
+*.swp
+
+# Ignore local CircleCI run build scripts
+local.sh
