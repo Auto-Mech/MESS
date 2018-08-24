@@ -1,8 +1,8 @@
 #include <fstream>
 
-#include "atom.hh"
-#include "key.hh"
-#include "io.hh"
+#include "libmess/atom.hh"
+#include "libmess/key.hh"
+#include "libmess/io.hh"
 
 int main (int argc, char* argv [])
 {

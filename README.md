@@ -1,13 +1,15 @@
 # MESS
 
-[![Build Status](https://travis-ci.com/PACChem/MESS.svg)](https://travis-ci.com/PACChem/MESS)
-
 ## Installation
 
 ### Linux
 - sudo apt-get install gcc gfortran libopenblas-dev liblapack-dev
 - cmake .
 - sudo make install
+
+If the BLAS/LAPACK libraries are not found, add the flags
+`-DBLAS_LIBRARIES=/path/to/libblas.so` and
+`-DLAPACK_LIBRARIES=/path/to/liblapack.so`.
 
 ### Mac
 
@@ -17,8 +19,12 @@ feed the appropriate compiler to `cmake`. The procedure will look something
 like this:
 - brew update
 - brew install gcc libomp
-- cmake . -DCMAKE_CXX_COMPILER=g++-8
+- cmake . -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8
 - sudo make install
+
+If the BLAS/LAPACK libraries are not found, add the flags
+`-DBLAS_LIBRARIES=/path/to/libblas.dylib` and
+`-DLAPACK_LIBRARIES=/path/to/liblapack.dylib`.
 
 
 ## Reference

@@ -1,14 +1,23 @@
-project(MESS CXX Fortran)
-cmake_minimum_required(VERSION 3.0)
+project(MESS C CXX Fortran)
+cmake_minimum_required(VERSION 2.8)
 find_package(OpenMP REQUIRED)
 find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+
+if(BLAS_FOUND)
+    message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
+endif()
+
+if(LAPACK_FOUND)
+    message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
+endif()
 
 option(USE_MPACK "Use MPACK for multi-precision linear algebra" OFF)
 
@@ -107,6 +116,7 @@ add_library(slatec
 add_executable(messdr ${PROJECT_SOURCE_DIR}/src/mess_driver.cc)
 add_executable(messpf ${PROJECT_SOURCE_DIR}/src/partition_function.cc)
 add_executable(messabs ${PROJECT_SOURCE_DIR}/src/abstraction.cc)
+add_executable(messsym ${PROJECT_SOURCE_DIR}/src/symmetry_number.cc)
 set_target_properties(messdr PROPERTIES OUTPUT_NAME "mess")
 
 if(USE_MPACK)
@@ -117,12 +127,16 @@ if(USE_MPACK)
         mess mpack blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
     target_link_libraries(messabs
         mess mpack blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+    target_link_libraries(messsym
+        mess mpack blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
 else()
     target_link_libraries(messdr mess blas lapack slatec dl)
     target_link_libraries(messpf mess blas lapack slatec dl)
     target_link_libraries(messabs mess blas lapack slatec dl)
+    target_link_libraries(messsym mess blas lapack slatec dl)
 endif()
 
 install(TARGETS messdr DESTINATION bin)
 install(TARGETS messpf DESTINATION bin)
 install(TARGETS messabs DESTINATION bin)
+install(TARGETS messsym DESTINATION bin)

@@ -1,33 +1,22 @@
-!TemperatureList[K]                     20.  50.  100.  200.  300. 
-TemperatureList[K]                    10. 20. 35. 50. 75. 100. 150. 200. 250. 300. 400.
-!TemperatureList[K]                    200. 300 400 500 600 700 800 900 1000 1100 1200 1300 1400 1500 1600 1700 1800 1900 2000 2100. 2200. 2300. 2400. 2500.
-!TemperatureList[K]                    200. 300 400 600 800 1000  1250 1500 1750 2000 2250. 2500.
-!PressureList[bar]                      1.
-PressureList[bar]                      1.e-15 1.e-12 1.e-9 1.e-8 1.e-7 1.e-6 1.e-5 1.e-4 1.e-3 1.e-2 1.e-1 1. 10.
-!PressureList[bar]                      1.e-15 1.e-12 1.e-9 
-!PressureList[bar]                      1.e-9 1.e-8 1.e-7 1.e-6 
-!PressureList[bar]                      1.e-6 1e-3  1.  
-EnergyStepOverTemperature             0.2          #Ratio of discretization energy step to T
+TemperatureList[K]                    100. 200.
+PressureList[bar]                     1.e-1 1.
+EnergyStepOverTemperature             0.5          #Ratio of discretization energy step to T
 ExcessEnergyOverTemperature           30
 ModelEnergyLimit[kcal/mol]            400
 WellCutoff                            10
 ChemicalEigenvalueMax                 0.2
 ChemicalEigenvalueMin                 1.e-6          #only for direct diagonalization method
 CalculationMethod                     direct
-EigenvalueOutput                                    eigenvalue.out
-!EigenvectorOutput                                  eigenvector.out
-!EigenvectorNumber                    0
-!ReductionNumber                      5
-!Reactant        #ground energy of bimolecular species will be used as a reference.
-MicroRateOutput                         ke.out
-MicroEnerMin[kcal/mol]                  0.
-MicroEnerMax[kcal/mol]                  20.
-MicroEnerStep[kcal/mol]                 0.1
+EigenvalueOutput                      eigenvalue.out
+MicroRateOutput                       ke.out
+MicroEnerMin[kcal/mol]                0.
+MicroEnerMax[kcal/mol]                20.
+MicroEnerStep[kcal/mol]               0.1
 
 Model
  EnergyRelaxation
    Exponential
-     Factor[1/cm]                   100
+     Factor[1/cm]                     100
      Power                            0.85
      ExponentCutoff                   15
    End
