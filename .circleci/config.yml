@@ -1,45 +1,17 @@
 version: 2
 jobs:
-    build-centos:
-        docker:
-            - image: rpmbuild/centos7:latest
-        steps:
-          - checkout
-          - run:
-              name: Install dependencies
-              command: |
-                  sudo yum install -y gcc-gfortran blas-devel lapack-devel
-          - run:
-              name: Build
-              command: |
-                  cmake .
-                  sudo make install
-          - run:
-              name: Run examples
-              command: |
-                  cd examples/
-                  mess mess.inp
-                  cat mess.out
-                  messpf messpf.inp
-                  cat messpf.dat
-                  messabs messabs.inp
-                  cat messabs.out
-                  messsym messsym.inp
-                  cd ..
     build-ubuntu:
         docker:
             - image: circleci/buildpack-deps:18.04
         steps:
           - checkout
           - run:
-              name: Install dependencies
+              name: Install dependencies and build
               command: |
                   sudo apt-get install gcc gfortran cmake libopenblas-dev
-                  export BLAS=/usr/lib/x86_64-linux-gnu/openblas/libblas.so
-                  export LAPACK=/usr/lib/x86_64-linux-gnu/openblas/liblapack.so
-          - run:
-              name: Build
-              command: |
+                  echo 'export BLAS=/usr/lib/x86_64-linux-gnu/openblas/libblas.so' >> $BASH_ENV
+                  echo 'export LAPACK=/usr/lib/x86_64-linux-gnu/openblas/liblapack.so' >> $BASH_ENV
+                  source $BASH_ENV
                   cmake . -DBLAS_LIBRARIES=${BLAS} -DLAPACK_LIBRARIES=${LAPACK}
                   sudo make install
           - run:
@@ -58,5 +30,4 @@ workflows:
     version: 2
     build-all:
         jobs:
-            - build-centos
             - build-ubuntu
