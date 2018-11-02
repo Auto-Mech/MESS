@@ -8,4 +8,12 @@ source:
 requirements:
     build:
         - cmake
-        - openblas
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('fortran') }}
+    host:
+        - blas
+        - openblas # [linux]
+    run:
+        - blas
+        - openblas # [linux]
