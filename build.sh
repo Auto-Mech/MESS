@@ -11,3 +11,6 @@ fi
 
 make
 make install
+ln -s $PREFIX/bin/messpf $PREFIX/bin/partition_function
+ln -s $PREFIX/bin/messabs $PREFIX/bin/abstraction
+ln -s $PREFIX/bin/messsym $PREFIX/bin/symmetry_number
