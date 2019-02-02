@@ -1,0 +1,13 @@
+name: mess-env
+
+channels:
+    - pacchem
+
+dependencies:
+    - cmake
+    - gcc_linux-64
+    - gxx_linux-64
+    - blas
+    - openblas # [linux]
+    - slatec
+    # - mpack

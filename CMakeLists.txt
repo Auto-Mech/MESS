@@ -1,35 +1,27 @@
-project(MESS C CXX Fortran)
+project(MESS C CXX)
 cmake_minimum_required(VERSION 2.8)
-find_package(BLAS REQUIRED)
-find_package(LAPACK REQUIRED)
-set(CMAKE_C_STANDARD 11)
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
-if(BLAS_FOUND)
-    message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
-endif()
-
-if(LAPACK_FOUND)
-    message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
-endif()
-
-option(USE_MPACK "Use MPACK for multi-precision linear algebra" OFF)
-
-if(USE_MPACK)
+find_package(BLAS REQUIRED)
+find_package(LAPACK REQUIRED)
+find_library(SLATEC REQUIRED NAMES slatec libslatec)
+message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
+message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
+message(STATUS "Found SLATEC: ${SLATEC_LIBRARIES}")
+find_library(MPACK NAMES mpack libmpack)
+if(MPACK)
     message(STATUS "Compiling with MPACK")
     add_definitions(-DWITH_MPACK)
 else()
     message(STATUS "Compiling without MPACK. If you do want MPACK, set -DUSE_MPACK=ON")
 endif()
 
-
-add_library(mess
+add_library(messlibs
     ${PROJECT_SOURCE_DIR}/src/libmess/atom.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/io.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/math.cc
@@ -59,84 +51,37 @@ add_library(mess
     ${PROJECT_SOURCE_DIR}/src/libmess/system.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/trajectory.cc)
 
-add_library(slatec
-    ${PROJECT_SOURCE_DIR}/external/slatec/d1mach.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/d9b0mp.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/d9b1mp.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dasum.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/davint.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/daxpy.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbesi0.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbesj0.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbesj1.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbesk0.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbint4.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbnfac.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbnslv.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbsi0e.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbsk0e.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbspvd.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbspvn.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dbvalu.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dcsevl.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/ddeabm.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dderkf.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/ddes.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/ddot.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dfehl.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dfzero.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dgaus8.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dgeco.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dgefa.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dgefs.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dgesl.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dhstrt.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dhvnrm.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dintp.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dintrv.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/drf.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/drkfs.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dscal.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dsifa.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dsisl.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dsteps.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/dswap.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/fdump.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/i1mach.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/idamax.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/initds.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/j4save.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/xercnt.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/xerhlt.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/xermsg.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/xerprn.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/xersve.f
-    ${PROJECT_SOURCE_DIR}/external/slatec/xgetua.f)
-
-add_executable(messdr ${PROJECT_SOURCE_DIR}/src/mess_driver.cc)
+add_executable(mess ${PROJECT_SOURCE_DIR}/src/mess_driver.cc)
 add_executable(messpf ${PROJECT_SOURCE_DIR}/src/partition_function.cc)
 add_executable(messabs ${PROJECT_SOURCE_DIR}/src/abstraction.cc)
 add_executable(messsym ${PROJECT_SOURCE_DIR}/src/symmetry_number.cc)
-set_target_properties(messdr PROPERTIES OUTPUT_NAME "mess")
 
 if(USE_MPACK)
     add_library(mpack ${PROJECT_SOURCE_DIR}/src/libmess/mpack.cc)
-    target_link_libraries(messdr
-        mess mpack blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+    target_link_libraries(mess
+        messlibs mpack ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} mlapack_qd
+        mlapack_dd mblas_qd mblas_dd qd ${SLATEC} dl)
     target_link_libraries(messpf
-        mess mpack blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+        messlibs mpack ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} mlapack_qd
+        mlapack_dd mblas_qd mblas_dd qd ${SLATEC} dl)
     target_link_libraries(messabs
-        mess mpack blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+        messlibs mpack ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} mlapack_qd
+        mlapack_dd mblas_qd mblas_dd qd ${SLATEC} dl)
     target_link_libraries(messsym
-        mess mpack blas lapack mlapack_qd mlapack_dd mblas_qd mblas_dd qd slatec dl)
+        messlibs mpack ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} mlapack_qd
+        mlapack_dd mblas_qd mblas_dd qd ${SLATEC} dl)
 else()
-    target_link_libraries(messdr mess blas lapack slatec dl)
-    target_link_libraries(messpf mess blas lapack slatec dl)
-    target_link_libraries(messabs mess blas lapack slatec dl)
-    target_link_libraries(messsym mess blas lapack slatec dl)
+    target_link_libraries(mess
+        messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${SLATEC} dl)
+    target_link_libraries(messpf
+        messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${SLATEC} dl)
+    target_link_libraries(messabs
+        messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${SLATEC} dl)
+    target_link_libraries(messsym
+        messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${SLATEC} dl)
 endif()
 
-install(TARGETS messdr DESTINATION bin)
+install(TARGETS mess DESTINATION bin)
 install(TARGETS messpf DESTINATION bin)
 install(TARGETS messabs DESTINATION bin)
 install(TARGETS messsym DESTINATION bin)
