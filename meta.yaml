@@ -1,6 +1,7 @@
+# cmd: conda build . -c pacchem
 package:
     name: mess
-    version: "0.1.1"
+    version: "0.1.2"
 
 source:
     path: .
@@ -10,10 +11,13 @@ requirements:
         - cmake
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
-        - {{ compiler('fortran') }}
-    host:
         - blas
         - openblas # [linux]
+        - slatec
     run:
+        - cmake
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
         - blas
         - openblas # [linux]
+        - slatec

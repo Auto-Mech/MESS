@@ -1,22 +1,26 @@
 version: 2
 jobs:
-    build-ubuntu:
+    build-and-test:
         docker:
-            - image: circleci/buildpack-deps:18.04
+            - image: continuumio/miniconda3
         steps:
           - checkout
           - run:
-              name: Install dependencies and build
+              name: Create conda environment
               command: |
-                  sudo apt-get install gcc gfortran cmake libopenblas-dev
-                  echo 'export BLAS=/usr/lib/x86_64-linux-gnu/openblas/libblas.so' >> $BASH_ENV
-                  echo 'export LAPACK=/usr/lib/x86_64-linux-gnu/openblas/liblapack.so' >> $BASH_ENV
-                  source $BASH_ENV
-                  cmake . -DBLAS_LIBRARIES=${BLAS} -DLAPACK_LIBRARIES=${LAPACK}
-                  sudo make install
+                  apt-get update --yes
+                  apt-get install --yes build-essential
+                  conda env create -f environment.yml
           - run:
-              name: Run examples
+              name: Build the code
               command: |
+                  source activate mess-env
+                  bash debug/build.sh
+          - run:
+              name: Test the code
+              command: |
+                  source activate mess-env
+                  . debug/fake-install.sh
                   cd examples/
                   mess mess.inp
                   cat mess.out
@@ -30,4 +34,4 @@ workflows:
     version: 2
     build-all:
         jobs:
-            - build-ubuntu
+            - build-and-test
