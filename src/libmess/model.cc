@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include <ios>
 #include <iomanip>
 #include <cmath>
@@ -45,8 +60,8 @@ namespace Model {
   bool no_run () { return _no_run; }
 
   // global collision frequency model
-  std::vector<SharedPointer<Collision> > _collision;
-  ConstSharedPointer<Collision> collision (int i) { return _collision[i]; }
+  std::vector<SharedPointer<Collision> > _default_collision;
+  //ConstSharedPointer<Collision> collision (int i) { return _collision[i]; }
 
   // energy transfer kernel
   std::vector<SharedPointer<Kernel> > _default_kernel;
@@ -477,7 +492,7 @@ void Model::init (IO::KeyBufferStream& from) throw(Error::General)
     }
     // collision frequency model
     else if(freq_key == token) {
-      _collision.push_back(new_collision(from));
+      _default_collision.push_back(new_collision(from));
     }
     // energy relaxation kernel
     else if(cer_key == token) {
@@ -614,8 +629,8 @@ void Model::init (IO::KeyBufferStream& from) throw(Error::General)
       throw Error::Input();
     }
 
-    if(!_collision.size()) {
-      std::cerr << funame  << "collision model is not initialized\n";
+    if(!_default_collision.size()) {
+      std::cerr << funame  << "default collision model is not initialized\n";
       throw Error::Init();
     }
 
@@ -624,17 +639,17 @@ void Model::init (IO::KeyBufferStream& from) throw(Error::General)
       throw Error::Init();
     }
 
-    if(_collision.size() != _default_kernel.size()) {
+    if(_default_collision.size() != _default_kernel.size()) {
       std::cerr << funame  << "number of energy transfer kernels and collision frequency models mismatch\n";
       throw Error::Init();
     }
 
-    if(_collision.size() == 1) {
+    if(_default_collision.size() == 1) {
       _buffer_fraction.resize(1);
       _buffer_fraction[0] = 1.;
     }
     
-    if(_collision.size() != _buffer_fraction.size()) {
+    if(_default_collision.size() != _buffer_fraction.size()) {
       std::cerr << funame  << "number of collision frequency models and buffer gas fractions mismatch\n";
       throw Error::Init();
     }
@@ -6189,7 +6204,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m) throw(Error::General)
   typedef std::map<double, double>::const_reverse_iterator It;
   It izero;
   for( izero = read_nos.rbegin(), itemp = 1; izero != read_nos.rend(); ++izero, ++itemp)
-    if(izero->second <= rotd_ntol || izero->first <= 0.)
+    if(izero->second <= rotd_ntol)
       break;
 
   if(itemp < 3) {
@@ -6197,10 +6212,12 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m) throw(Error::General)
     throw Error::Init();
   }
 
-  if(izero != read_nos.rend() && izero->first > 0.)
+  if(izero != read_nos.rend())
     _ground = izero->first;
-  else
-    _ground = 0.;
+  else {
+    std::cerr << funame << "zero flux energy is not reached\n";
+    throw Error::Input();
+  }
 
   _rotd_ener.resize(itemp);
   _rotd_nos.resize(itemp);
@@ -6543,13 +6560,13 @@ Model::InternalRotation::InternalRotation (IO::KeyBufferStream& from) throw(Erro
     throw Error::Init();
   }
 
-  if(!_qmin || !_qmax || _qmin > _qmax) {
-    //
-    std::cerr << funame << "harmonic expansion size limits should be positive, odd, and ordered: " << _qmin << ", " << _qmax << "\n";
-
-    throw Error::Range();
-    //
-  }//
+  //  if(!_qmin || !_qmax || _qmin > _qmax) {
+  //
+  //std::cerr << funame << "harmonic expansion size limits should be positive, odd, and ordered: " << _qmin << ", " << _qmax << "\n";
+  
+  //throw Error::Range();
+  //
+  //}//
   //
 }// InternalRotation
 
@@ -10291,7 +10308,7 @@ void Model::MultiRotor::_set_qfactor ()
     //
     itemp = int(std::sqrt(_level_ener_max / _mobility_parameter[r])) / symmetry(r) * 2 + 1; 
 
-    if(itemp > _internal_rotation[r].quantum_size_max()) {
+    if(_internal_rotation[r].quantum_size_max() && itemp > _internal_rotation[r].quantum_size_max()) {
       //
       ivec[r] = _internal_rotation[r].quantum_size_max();
     }
@@ -11954,7 +11971,7 @@ void Model::MultiRotor::rotational_energy_levels () const
 	      << "-th internal rotation: suggested optimal internal state dimension = " 
 	      <<  itemp << "\n"; 
 
-      if(itemp > _internal_rotation[r].quantum_size_max()) {
+      if(_internal_rotation[r].quantum_size_max() && itemp > _internal_rotation[r].quantum_size_max()) {
 	//
 	ivec[r] = _internal_rotation[r].quantum_size_max();
       }
@@ -15294,6 +15311,7 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) throw(Error::
   Key   spec_key("Species");
   Key escape_key("Escape");
   Key    ext_key("Extension");
+  Key   freq_key("CollisionFrequency");
 
   std::string token, comment;
 
@@ -15306,6 +15324,10 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) throw(Error::
     // collisional energy relaxation kernel
     else if(relax_key == token) {
       _kernel.push_back(new_kernel(from));
+    }
+    // collision frequency model
+    else if(freq_key == token) {
+      _collision.push_back(new_collision(from));
     }
     // species specification
     else if(spec_key == token) {
@@ -15357,7 +15379,20 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) throw(Error::
     _kernel = _default_kernel;
   }
   else if(_kernel.size() != _default_kernel.size()) {
-    std::cerr << funame << "number of kernels mismatch with the default";
+    std::cerr << funame << "number of kernels mismatch with the default\n";
+    throw Error::Init();
+  }
+
+  if(!_default_collision.size()) {
+    std::cerr << funame << "default collision model has not been defined yet\n";
+    throw Error::Init();
+  }
+
+  if(!_collision.size()) {
+    _collision = _default_collision;
+  }
+  else if(_collision.size() != _default_collision.size()) {
+    std::cerr << funame << "number of collision models mismatch with the default\n";
     throw Error::Init();
   }
 
