@@ -2,30 +2,31 @@
 
 ## Installation
 
-### Linux
-- sudo apt-get install gcc gfortran libopenblas-dev liblapack-dev
-- cmake .
-- sudo make install
+The most direct way to install the code is through the conda package manager.
+If you have conda installed, simply run the following command in whichever
+environment you choose:
+```
+conda install -c pacchem mess
+```
+If you do not have conda, it can be installed using the shell script
+`debug/install-conda.sh`.
 
-If the BLAS/LAPACK libraries are not found, add the flags
-`-DBLAS_LIBRARIES=/path/to/libblas.so` and
-`-DLAPACK_LIBRARIES=/path/to/liblapack.so`.
-
-### Mac
-
-The AppleClang compiler does not work with OpenMP, so you need to install GCC.
-By default, `g++` will refer to the AppleClang version, so you will need to
-feed the appropriate compiler to `cmake`. The procedure will look something
-like this:
-- brew update
-- brew install gcc libomp
-- cmake . -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8
-- sudo make install
-
-If the BLAS/LAPACK libraries are not found, add the flags
-`-DBLAS_LIBRARIES=/path/to/libblas.dylib` and
-`-DLAPACK_LIBRARIES=/path/to/liblapack.dylib`.
-
+### Building from source
+To build the code from source for development or debugging purposes, first
+create a conda environment with the necessary dependencies as follows:
+```
+conda env create -f environment.yml
+```
+which will create the `mess-env` environment.
+You can then activate the environment and build the code as follows:
+```
+conda activate mess-env
+bash debug/build.sh
+```
+To put the MESS executables in your path, you can then run
+```
+. debug/fake-install.sh
+```
 
 ## Reference
 

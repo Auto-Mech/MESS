@@ -13,3 +13,6 @@ cd $THIS_DIR/build
 cmake $PROJECT_ROOT -DCMAKE_INSTALL_PREFIX=$THIS_DIR -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_CXX_FLAGS="${CXX_FLAGS}"
 make VERBOSE=1
 make install
+ln -s $THIS_DIR/bin/messpf $THIS_DIR/bin/partition_function
+ln -s $THIS_DIR/bin/messabs $THIS_DIR/bin/abstraction
+ln -s $THIS_DIR/bin/messsym $THIS_DIR/bin/symmetry_number
