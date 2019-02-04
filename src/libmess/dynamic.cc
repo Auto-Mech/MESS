@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "dynamic.hh"
 #include "units.hh"
 
@@ -377,6 +392,10 @@ void Dynamic::Coordinates::write_ang_pos (int frag, const double* pos) throw(Err
 }
 void Dynamic::Coordinates::print_geom (std::ostream& to, const std::string& indent) const
 {
+  double     dtemp;
+  int        itemp;
+  D3::Vector vtemp;
+  
   to << indent << "Geometry, Angstrom:\n";
   for(int frag = 0; frag < 2; ++frag)
     for(int at = 0; at < rel_pos(frag).size(); ++at) {
@@ -389,7 +408,29 @@ void Dynamic::Coordinates::print_geom (std::ostream& to, const std::string& inde
       to << "\n";
     }
 
-  double dist, dtemp;
+  for(int frag = 0; frag < 2; ++frag)
+    //
+    if(Structure::fragment(frag).type() != Molecule::MONOATOMIC) {
+      //
+      lf2mf(frag, orb_pos(), (double*)vtemp);
+      
+      to << indent << "cm position of the " << 1 - frag << "-th fragment in the framework of the " << frag << "-th fragment, Bohr:   ";
+
+      for(int i = 0; i < 3; ++i) {
+	//
+	dtemp = vtemp[i];
+	
+	if(frag)
+	  //
+	  dtemp = -dtemp;
+
+	to << std::setw(13) << dtemp;
+      }
+      
+      to << "\n";
+    }
+
+  double dist;
   to << indent << "Distance matrix, Angstrom:\n";
   to << indent << "   " << std::setw(3) << "0\\1"; 
   for(int at1 = 0; at1 < Structure::fragment(1).size(); ++at1)

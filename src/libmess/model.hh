@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2017, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef MODEL_HH
 #define MODEL_HH
@@ -1043,8 +1056,10 @@ namespace Model {
   };
 
   class Well {
-    SharedPointer<Species>               _species;
-    std::vector<SharedPointer<Kernel> >  _kernel;
+    SharedPointer<Species>                 _species;
+    std::vector<SharedPointer<Kernel> >     _kernel;
+    std::vector<SharedPointer<Collision> >  _collision;
+
     SharedPointer<Escape>                _escape;
     double _extension;
 
@@ -1054,8 +1069,8 @@ namespace Model {
     SharedPointer<Species>      species ()       { return _species; }
     ConstSharedPointer<Species> species () const { return _species; }
 
-    //SharedPointer<Kernel>      kernel (int i)        { return _kernel[i]; }
-    ConstSharedPointer<Kernel> kernel (int i)  const { return _kernel[i]; }
+    ConstSharedPointer<Kernel>    kernel    (int i)  const { return _kernel[i]; }
+    ConstSharedPointer<Collision> collision (int i)  const { return _collision[i]; }
 
     //void             set_name (const std::string&) throw(Error::General);
     const std::string&   name () const             throw(Error::General);

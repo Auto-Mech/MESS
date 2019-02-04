@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef MESS_HH
 #define MESS_HH
@@ -50,7 +63,7 @@ namespace MasterEquation {
   double pressure               ();
   double energy_step            ();
   double energy_reference       ();
-  double collision_frequency    ();
+  //double collision_frequency    ();
 
   void set_temperature      (double);
   void set_pressure         (double);
@@ -81,6 +94,9 @@ namespace MasterEquation {
     Lapack::SymmetricMatrix _crm_kernel;         // kernel in CRM basis
     Lapack::Vector          _escape_rate;        // escape rate;
 
+    double              _collision_factor;
+    std::vector<double> _kernel_fraction;
+    
     // radiational transitions
     Lapack::SymmetricMatrix     _radiation_rate;
     Lapack::SymmetricMatrix _crm_radiation_rate;
@@ -118,6 +134,9 @@ namespace MasterEquation {
     bool       radiation      ()             const { return     _radiation_rate.isinit(); }
     double     radiation_rate (int i, int j) const { return     _radiation_rate(i, j);    }
     double crm_radiation_rate (int i, int j) const { return _crm_radiation_rate(i, j);    }
+
+    double collision_frequency     () const { return _collision_factor * pressure();    }
+    double kernel_fraction    (int i) const { return _kernel_fraction[i];     }
 
     int kernel_bandwidth;
   };
