@@ -10,4 +10,4 @@ dependencies:
     - blas
     - openblas # [linux]
     - slatec
-    # - mpack
+    - mpack
