@@ -1,0 +1,49 @@
+Cgbrfs.cpp:		Cgbtrs((const char *) transt, n, kl, ku, 1, &afb[0], ldafb, &ipiv[1], &work[0], n, info);
+Cgbrfs.cpp:		Cgbtrs((const char *) transn, n, kl, ku, 1, &afb[0], ldafb, &ipiv[1], &work[0], n, info);
+Cgbsvx.cpp:    anorm = Clangb((const char *) norm, n, kl, ku, &AB[0], ldab, &rwork[1]);
+Cgbsvx.cpp:    Cgbcon((const char *) norm, n, kl, ku, &afb[0], ldafb, &ipiv[1], anorm, rcond, &work[0], &rwork[1], info);
+Cgeev.cpp:	Ctrevc((const char *) side, "B", select, n, &A[0], lda, &vl[0], ldvl, &vr[0], ldvr, n, &nout, &work[iwrk], &rwork[irwork], &ierr);
+Cgeevx.cpp:	Chseqr((const char *) job, "N", n, *ilo, *ihi, &A[0], lda, &w[1], &vr[0], ldvr, &work[iwrk], lwork - iwrk + 1, info);
+Cgeevx.cpp:	Ctrevc((const char *) side, "B", &select, n, &A[0], lda, &vl[0], ldvl, &vr[0], ldvr, n, &nout, &work[iwrk], &rwork[1], &ierr);
+Cgegv.cpp:    Chgeqz((const char *) chtemp, jobvl, jobvr, n, ilo, ihi, &A[0], lda, &B[0], ldb, &alpha[1], &beta[1], &vl[0], ldvl, &vr[0],
+Cgegv.cpp:	Ctgevc((const char *) chtemp, "B", &ldumma, n, &A[0], lda, &B[0], ldb, &vl[0], ldvl, &vr[0], ldvr, n, &in, &work[iwork], &rwork[irwork], &iinfo);
+Cgesvx.cpp:    anorm = Clange((const char *) norm, n, n, &A[0], lda, &rwork[1]);
+Cgesvx.cpp:    Cgecon((const char *) norm, n, &af[0], ldaf, anorm, rcond, &work[0], &rwork[1], info);
+Cggev.cpp:    Chgeqz((const char *) chtemp, jobvl, jobvr, n, ilo, ihi, &A[0], lda, &B[0], ldb, &alpha[1], &beta[1], &vl[0], ldvl, &vr[0],
+Cggev.cpp:	Ctgevc((const char *) chtemp, "B", &ldummy, n, &A[0], lda, &B[0], ldb, &vl[0], ldvl, &vr[0], ldvr, n, &in, &work[iwrk], &rwork[irwrk], &ierr);
+Cggevx.cpp:    Chgeqz((const char *) chtemp, jobvl, jobvr, n, *ilo, *ihi, &A[0], lda, &B[0]
+Cggevx.cpp:	    Ctgevc((const char *) chtemp, "B", &ldummy, n, &A[0], lda, &B[0], ldb, &vl[0], ldvl, &vr[0], ldvr, n, &in, &work[iwrk], &rwork[1], &ierr);
+Cgtrfs.cpp:		Cgttrs((const char *) transt, n, 1, &dlf[1], &df[1], &duf[1], &du2[1], &ipiv[1], &work[0], n, info);
+Cgtrfs.cpp:		Cgttrs((const char *) transn, n, 1, &dlf[1], &df[1], &duf[1], &du2[1], &ipiv[1], &work[0], n, info);
+Cgtsvx.cpp:    anorm = Clangt((const char *) norm, n, &dl[1], &d[0], &du[1]);
+Cgtsvx.cpp:    Cgtcon((const char *) norm, n, &dlf[1], &df[1], &duf[1], &du2[1], &ipiv[1], anorm, rcond, &work[0], info);
+Chbevx.cpp:    Rstebz(range, (const char *) order, n, vll, vuu, il, iu, abstll, &rwork[indd], &rwork[inde], m, &nsplit, &w[1], &iwork[indibl],
+Chbgvx.cpp:    Chbtrd((const char *) vect, uplo, n, ka, &ab[0], ldab, &rwork[indd], &rwork[inde], &q[0], ldq, &work[indwrk], &iinfo);
+Chbgvx.cpp:    Rstebz(range, (const char *) order, n, vl, vu, il, iu, abstol, &rwork[indd], &rwork[inde], m, &nsplit, &w[1], &iwork[indibl],
+Cheevr.cpp:    Rstebz(range, (const char *) order, n, vll, vuu, il, iu, abstll, &rwork[indrd], &rwork[indre], m, &nsplit, &w[1],
+Cheevx.cpp:    Rstebz(range, (const char *) order, n, vll, vuu, il, iu, abstll, &rwork[indd], &rwork[inde], m, &nsplit, &w[1], &iwork[indibl],
+Chegvx.cpp:	    Ctrsm("Left", uplo, (const char *) trans, "Non-unit", n, (*m), (COMPLEX) One, &B[0], ldb, &z[0], ldz);
+Chegvx.cpp:	    Ctrmm("Left", uplo, (const char *) trans, "Non-unit", n, (*m), (COMPLEX) One, &B[0], ldb, &z[0], ldz);
+Chpgv.cpp:		Ctpsv(uplo, (const char *) trans, "Non-unit", n, bp, &z[j * ldz + 1], 1);
+Chpgv.cpp:		Ctpmv(uplo, (const char *) trans, "Non-unit", n, bp, &z[j * ldz + 1], 1);
+Ctbrfs.cpp:		Ctbsv(uplo, (const char *) transt, diag, n, kd, &AB[0], ldab, &work[0], 1);
+Ctbrfs.cpp:		Ctbsv(uplo, (const char *) transn, diag, n, kd, &AB[0], ldab, &work[0], 1);
+Ctprfs.cpp:		Ctpsv(uplo, (const char *) transt, diag, n, &ap[1], &work[0], 1);
+Ctprfs.cpp:		Ctpsv(uplo, (const char *) transn, diag, n, &ap[1], &work[0], 1);
+Ctrrfs.cpp:		Ctrsv(uplo, (const char *) transt, diag, n, &A[0], lda, &work[0], 1);
+Ctrrfs.cpp:		Ctrsv(uplo, (const char *) transn, diag, n, &A[0], lda, &work[0], 1);
+Ctrsna.cpp:		    Clatrs("Upper", "Conjugate transpose", "Nonunit", (const char *) normin, n - 1, &work[(ldwork << 1) + 2], ldwork, &work[0], &scale, &rwork[1], &ierr);
+Ctrsna.cpp:		    Clatrs("Upper", "No transpose", "Nonunit", (const char *) normin, n - 1, &work[(ldwork << 1) + 2], ldwork, &work[0], &scale, &rwork[1], &ierr);
+Rgbsvx.cpp:    anorm = Rlangb((const char *) norm, n, kl, ku, &AB[0], ldab, &work[0]);
+Rgbsvx.cpp:    Rgbcon((const char *) norm, n, kl, ku, &afb[0], ldafb, &ipiv[1], anorm, rcond, &work[0], &iwork[1], info);
+Rgeevx.cpp:	Rhseqr((const char *) job, "N", n, *ilo, *ihi, &A[0], lda, &wr[1], &wi[1], &vr[0], ldvr, &work[iwrk], lwork - iwrk + 1, info);
+Rgeevx.cpp:	Rtrevc((const char *) side, "B", &select, n, &A[0], lda, &vl[0], ldvl, &vr[0], ldvr, n, &nout, &work[iwrk], &ierr);
+Rgegv.cpp:    Rhgeqz((const char *) chtemp, jobvl, jobvr, n, ilo, ihi, &A[0], lda, &B[0], ldb, &alphar[1], &alphai[1], &beta[1], &vl[0], ldvl,
+Rgegv.cpp:	Rtgevc((const char *) chtemp, "B", &ldumma, n, &A[0], lda, &B[0], ldb, &vl[0], ldvl, &vr[0], ldvr, n, &in, &work[iwork], &iinfo);
+Rggevx.cpp:    Rhgeqz((const char *) chtemp, jobvl, jobvr, n, *ilo, *ihi, &A[0], lda, &B[0]
+Rggevx.cpp:	    Rtgevc((const char *) chtemp, "B", &ldummy, n, &A[0], lda, &B[0], ldb, &vl[0], ldvl, &vr[0], ldvr, n, &in, &work[0], &ierr);
+Rlarzb.cpp:	Rtrmm("Right", "Lower", (const char *) transt, "Non-unit", n, k, One, &t[0], ldt, &work[0], ldwork);
+Rormlq.cpp:	    Rlarfb(side, (const char *) transt, "Forward", "Rowwise", mi, ni, ib, &A[i + i * lda], lda, t, 65, &c[ic + jc * ldc], ldc, work, ldwork);
+Rsbevx.cpp:    Rstebz(range, (const char *) order, n, vll, vuu, il, iu, abstll, &work[indd], &work[inde], m, &nsplit, &w[1], &iwork[indibl],
+Rstevr.cpp:    Rstebz(range, (const char *) order, n, vll, vuu, il, iu, abstol, &d[0], &e[0], m, &nsplit, &w[1], &iwork[indibl], &iwork[indisp], &work[0], &iwork[indiwo], info);
+Rsyevr.cpp:    Rstebz(range, (const char *) order, n, vll, vuu, il, iu, abstll, &work[indd], &work[inde], m, &nsplit, &w[1], &iwork[indibl],

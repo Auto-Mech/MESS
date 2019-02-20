@@ -1,0 +1,15 @@
+# cmd: conda build .
+package:
+    name: slatec
+    version: "4.1.0"
+
+source:
+    path: .
+
+requirements:
+    build:
+        - cmake
+        - {{ compiler('fortran') }}
+    run:
+        - cmake
+        - {{ compiler('fortran') }}

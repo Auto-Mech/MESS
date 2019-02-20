@@ -1,0 +1,11 @@
+--- src/fpu.cpp~	2010-05-19 20:03:03.621121676 +0900
++++ src/fpu.cpp	2010-05-19 20:20:01.941746517 +0900
+@@ -16,7 +16,7 @@
+ 
+ #ifdef X86
+ #ifdef  _WIN32
+-#include <float.h>
++#include <float__.h>
+ #else
+ 
+ #ifdef HAVE_FPU_CONTROL_H
