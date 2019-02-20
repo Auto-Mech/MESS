@@ -1,0 +1,290 @@
+------------------------------------------------------------------------
+| QUAD-DOUBLE/DOUBLE-DOUBLE COMPUTATION PACKAGE                        |
+|                                                                      |
+| Yozo Hida        U.C. Berkeley               yozo@cs.berkeley.edu    |
+| Xiaoye S. Li     Lawrence Berkeley Natl Lab  xiaoye@nersc.gov        |
+| David H. Bailey  Lawrence Berkeley Natl Lab  dhbailey@lbl.gov        |
+|                                                                      |
+| Revised  2007-01-10  Copyright (c) 2005-2007                         |
+------------------------------------------------------------------------
+
+This work was supported by the Director, Office of Science, Division
+of Mathematical, Information, and Computational Sciences of the
+U.S. Department of Energy under contract number DE-AC02-05CH11231.
+
+See the file COPYING for license information.
+See the file INSTALL for installation instructions.
+See the file NEWS for recent revisions.
+
+
+I.   Introduction
+II.  Directories and Files
+III. C++ Usage
+IV.  Fortran Usage
+V.   Note on systems with Intel x86-based processors.
+
+Introduction
+------------
+
+This package provides numeric types of twice the precision of IEEE
+double (106 mantissa bits, or approximately 32 decimal digits) and
+four times the precision of IEEE double (212 mantissa bits, or
+approximately 64 decimal digits).  Due to features such as operator
+and function overloading, these facilities can be utilized
+with only minor modifications to conventional C++ and Fortran-90
+programs.
+
+In addition to the basic arithmetic operations (add, subtract,
+multiply, divide, square root), common transcendental functions such
+as the exponential, logarithm, trigonometric and hyperbolic functions
+are also included.  A detailed description of the algorithms used is
+available in the docs subdirectory (see docs/qd.ps).  An abridged
+version of this paper, which was presented at the ARITH-15 conference,
+is also available in this same directory (see docs/arith15.ps).
+
+Directories
+-----------
+
+There are six directories and several files in the main directory of this
+distribution, described below
+
+src      This contains the source code of the quad-double and double-double
+         library.  This source code does not include inline functions,
+         which are found in the header files in the include directory.
+
+include  This directory contains the header files.
+
+fortran  This directory contains Fortran-90 files.
+
+tests    This directory contains some simple (not comprehensive) tests.
+
+docs     This directory contains two papers describing the algorithms.
+
+config   This directory contains various scripts used by the configure
+         script and the Makefile.
+
+C++ Usage
+---------
+
+Here is a sample C++ calling program:
+
+    #include <iostream>
+    #include <qd/qd_real.h>
+    using namespace std;
+
+    int main() {
+      qd_real a, b, c;
+
+      cout << "Enter a:";
+      cin >> a;
+      cout << "Enter b:";
+      cin >> b;
+      c = a + b;
+      cout << "a + b = " << c << endl;
+      cout << "sin(c) = " << sin(c) << endl;
+
+      return 0;
+    }
+
+Note that one could replace `qd_real' with `double', and the same
+program will run using IEEE double instead of quad-double numbers.
+One could equally well specify `dd_real' instead of `qd_real' for
+double-double precision computation.  Furthermore, many mixed mode
+operations are also supported.  For example, following the
+declarations
+
+    double d;
+    dd_real dd;
+    qd_real qd;
+
+all of the expressions d + dd, dd * qd, qd / d, etc, are legal, and
+call routines optimized for speed in each case.
+
+In all C++ files that use double-double precision, include the header
+file <qd/dd_real.h>.  In all C++ files that use quad-double precision, 
+include the header file "<qd/qd_real.h>".  
+
+Writing C++ programs that utilize these routines is straightforward.
+In many cases, it is only necessary to change the type statements for
+variables that one wishes to define as quad-double or double-double.
+Most operators, including the input-output operators << and >>, are
+"overloaded", meaning that they are defined for the double-double and
+quad-double data types, as well as combinations with type double.
+Quad-double and double-double constants may be specified by means of
+assignment statements, as in
+
+  qd_real pi;
+  ...
+  pi = "3.14159265358979323846264338327950288419716939937510582097494459230";
+
+Note that without the quotes, the constant on the right would be
+truncated, and the assignment would not be fully precise.  A sample
+test program that demonstrates many of these facilities is available
+in the test suite.
+
+Fortran-90 Usage
+----------------
+
+NEW (2007-01-10): The Fortran translation modules now support the
+complex datatypes "dd_complex" and "qd_complex".
+
+Since the quad-double library is written in C++, it must be linked
+in with a C++ compiler (so that C++ specific things such as
+static initializations are correctly handled).  Thus the main program
+must be written in C/C++ and call the Fortran 90 subroutine.
+The Fortran 90 subroutine should be called f_main.
+
+Here is a sample Fortran-90 program, equivalent to the above C++
+program:
+
+  subroutine f_main
+    use qdmodule 
+    implicit none
+    type (qd_real) a, b
+    a = 1.d0
+    b = cos(a)**2 + sin(a)**2 - 1.d0
+    call qdwrite(6, b)
+    stop
+  end subroutine
+
+This verifies that cos^2(1) + sin^2(1) = 1 to 64 digit accuracy.
+you are using a system with an Intel x86-based processor, three
+additional lines are required -- see Section V.
+
+Most operators and generic function references, including many
+mixed-mode type combinations with double-precision (ie real*8), have
+been overloaded (extended) to work with double-double and quad-double
+data.  It is important, however, that users keep in mind the fact that
+expressions are evaluated strictly according to conventional Fortran
+operator precedence rules.  Thus some subexpressions may be evaluated
+only to 15-digit accuracy. For example, with the code
+
+   real*8 d1
+   type (dd_real) t1, t2
+   ...
+   t1 = cos (t2) + d1/3.d0
+
+the expression d1/3.d0 is computed to real*8 accuracy only (about 15
+digits), since both d1 and 3.d0 have type real*8.  This result is then
+converted to mp_real by zero extension before being added to cos(t2).
+So, for example, if d1 held the value 1.d0, then the quotient d1/3.d0
+would only be accurate to 15 digits.  If a fully accurate
+double-double quotient is required, this should be written:
+
+  real*8 d1
+  type (dd_real) t1, t2
+   ...
+  t1 = cos (t2) + ddreal (d1) / 3.d0
+
+which forces all operations to be performed with double-double
+arithmetic.
+
+Along this line, a constant such as 1.1 appearing in an expression is
+evaluated only to real*4 accuracy, and a constant such as 1.1d0 is
+evaluated only to real*8 accuracy (this is according to standard
+Fortran conventions).  If full quad-double accuracy is required,
+for instance, one should write
+
+   type (qd_real) t1
+   ...
+   t1 = '1.1'
+
+The quotes enclosing 1.1 specify to the compiler that the constant is
+to be converted to binary using quad-double arithmetic, before
+assignment to t1.  Quoted constants may only appear in assignment
+statements such as this.
+
+To link a Fortran-90 program with the C++ qd library, it is 
+recommended to link with the C++ compiler used to generate the library.  
+The Fortran 90 interface (along with a C-style main function calling 
+f_main) is found in qdmod library.  The qd-config script installed
+during "make install" can be used to determine which flags to pass
+to compile and link your programs:
+
+  "qd-config --fcflags"  displays compiler flags needed to compile 
+                         your Fortran files.
+  "qd-config --fclibs"   displays linker flags needed by the C++ linker
+                         to link in all the necessary libraries.
+
+A sample Makefile that can be used as a template for compiling Fortran
+programs using quad-double library is found in fortran/Makefile.sample.
+
+F90 functions defined with dd_real arguments:
+  Arithmetic:  + - * / **
+  Comparison tests:  == < > <= >= /=
+  Others: abs, acos, aint, anint, asin, atan, atan2, cos, cosh, dble, erf,
+  erfc, exp, int, log, log10, max, min, mod, ddcsshf (cosh and sinh),
+  ddcssnf (cos and sin), ddranf (random number generator in (0,1)), 
+  ddnrtf (n-th root), sign, sin, sinh, sqr, sqrt, tan, tanh
+Similar functions are provided for qd_real arguments (with function
+  names qdcsshf, qdcssnf, qdranf and qdnrtf instead of the names in
+  the list above).
+
+Input and output of double-double and quad-double data is done using
+the special subroutines ddread, ddwrite, qdread and qdwrite.  The
+first argument of these subroutines is the Fortran I/O unit number,
+while additional arguments (as many as needed, up to 9 arguments) are
+scalar variables or array elements of the appropriate type.  Example:
+
+   integer n
+   type (qd_real) qda, qdb, qdc(n)
+   ...
+   call qdwrite (6, qda, qdb)
+   do j = 1, n
+     call qdwrite (6, qdc(j))
+   enddo
+
+Each input values must be on a separate line, and may include D or E
+exponents.  Double-double and quad-double constants may also be
+specified in assignment statements by enclosing them in quotes, as in
+
+  ...
+  type (qd_real) pi
+  ...
+  pi = "3.14159265358979323846264338327950288419716939937510582097494459230"
+  ...
+
+Sample Fortran-90 programs illustrating some of these features are
+provided in the f90 subdirectory.
+
+
+Note on Intel x86 Processors
+----------------------------
+
+The algorithms in this library assume IEEE double precision floating
+point arithmetic.  Since Intel x86 processors have extended (80-bit)
+floating point registers, the round-to-double flag must be enabled in
+the control word of the FPU for this library to function properly
+under x86 processors.  The following functions contains appropriate
+code to facilitate manipulation of this flag.  For non-x86 systems
+these functions do nothing (but still exist).
+
+fpu_fix_start    This turns on the round-to-double bit in the 
+                 control word.
+fpu_fix_end      This restores the control flag.
+
+These functions must be called by the main program, as follows:
+
+    int main() {
+      unsigned int old_cw;
+      fpu_fix_start(&old_cw);
+
+      ... user code using quad-double library ...
+
+      fpu_fix_end(&old_cw);
+    }
+
+A Fortran-90 example is the following:
+
+    subroutine f_main
+    use qdmodule
+    implicit none
+    integer*4 old_cw
+
+    call f_fpu_fix_start(old_cw)
+
+      ... user code using quad-double library ...
+
+    call f_fpu_fix_end(old_cw)
+    end subroutine
+

@@ -1,0 +1,328 @@
+dnl
+dnl Configure for MPACK
+dnl
+
+AC_INIT(mpack, 0.6.7)
+AC_CONFIG_HEADER(include/config.h) 
+AM_INIT_AUTOMAKE
+AC_PROG_CC
+AC_HEADER_STDC
+AC_PROG_CXX
+AC_CANONICAL_HOST
+AC_SUBST(LIBTOOL_DEPS)
+AC_OPENMP
+AC_LANG_PUSH([C++])
+AC_OPENMP
+AC_LANG_POP
+AC_CONFIG_MACRO_DIR([m4])
+AC_PROG_LIBTOOL
+
+IS_MINGW=0
+case "$host" in
+        *-mingw32*) # mingw
+	  IS_MINGW=1
+        ;;
+        *)
+esac
+AM_CONDITIONAL(IS_MINGW, test x$IS_MINGW = x1)
+
+IS_MACOSX=0
+case "$host" in
+         *apple-darwin*) # MacOSX
+	  IS_MACOSX=1
+        ;;
+        *)
+esac
+AM_CONDITIONAL(IS_MACOSX, test x$IS_MACOSX = x1)
+
+AC_ARG_ENABLE(double,
+[  --enable-double    Enable double version],
+[case "${enableval}" in
+  yes) with_double=yes ;;
+  no)  with_double=no  ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-double) ;;
+esac],[with_double=yes])
+AM_CONDITIONAL(ENABLE_DOUBLE, test x$with_double = xyes)
+
+AC_ARG_ENABLE(testing,
+[  --enable-testing    Enable testing with BLAS and LAPACK],
+[case "${enableval}" in
+  yes) with_testing=yes ;;
+  no)  with_testing=no  ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-testing) ;;
+esac],[with_testing=yes])
+if test x"$IS_MACOSX" = x"1"; then
+  echo "On MacOSX, testing disabled"
+  with_testing=no;	
+fi
+if test x"$IS_MINGW" = x"1"; then
+  echo "On Windows, testing disabled"
+  with_testing=no;	
+fi
+AM_CONDITIONAL(ENABLE_TESTING, test x$with_testing = xyes)
+
+AC_ARG_ENABLE(benchmark,
+[  --enable-benchmark    Enable benchmark with BLAS and LAPACK],
+[case "${enableval}" in
+  yes) with_benchmark=yes ;;
+  no)  with_benchmark=no  ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-benchmark) ;;
+esac],[with_benchmark=yes])
+AM_CONDITIONAL(ENABLE_BENCHMARK, test x$with_benchmark = xyes)
+
+ENABLE_DOUBLE=0
+if test x"$with_double" = x"yes"; then
+  echo "Using double for debugging purpose"
+  ENABLE_DOUBLE=1
+fi
+
+case "$host" in
+        *apple-darwin*) # MacOSX
+          BLAS_LIBS="-framework vecLib"
+          LAPACK_LIBS=""
+          FLIBS=""
+          AC_SUBST(BLAS_LIBS)
+          AC_SUBST(LAPACK_LIBS)
+          AC_SUBST(FLIBS)
+        ;;
+        *mingw*) # Windows
+        ;; 
+        *)
+dnl check F77/BLAS/LAPACK
+    if  test x"$with_testing" = x"yes" -o x"$with_benchmark" = x"yes" ; then
+        AC_PROG_F77
+        AC_F77_LIBRARY_LDFLAGS
+        AC_F77_WRAPPERS
+        AC_SUBST(FLIBS)
+        HAVE_BLAS=""
+        dnl default blas name is libblas, thus we pass -lblas.
+        if test x"$BLAS_LIBS" = x; then
+          BLAS_LIBS="-lblas"
+        fi
+        save_LIBS="$LIBS"
+        AC_F77_FUNC(dgemm)
+        LIBS="$LIBS $BLAS_LIBS $FLIBS"
+        AC_CHECK_FUNC($dgemm, [HAVE_BLAS=yes])
+        LIBS="$save_LIBS"
+        AC_SUBST(BLAS_LIBS)
+          
+        if test x"$HAVE_BLAS" != xyes; then
+          if test x"$with_testing" = xyes; then
+            echo "Please install one of your favorate BLAS"
+            echo "BLAS:      http://www.netlib.org/blas/"
+            echo "ATLAS:     http://math-atlas.sourceforge.net/"
+            echo "GotoBLAS:  http://www.tacc.utexas.edu/resources/software/"
+            AC_MSG_ERROR([No BLAS found])
+	  fi
+        fi
+        dnl Check whether we can call LAPACK subroutines
+        HAVE_LAPACK=""
+        dnl default lapack name is liblapack, thus we pass -llapack.
+        if test x"$LAPACK_LIBS" = x; then
+          LAPACK_LIBS="-llapack"
+        fi
+        save_LIBS="$LIBS"
+        AC_F77_FUNC(dsyev)
+        LIBS="$LIBS $LAPACK_LIBS $BLAS_LIBS $FLIBS"
+        AC_CHECK_FUNC($dsyev, [HAVE_LAPACK=yes])
+        LIBS="$save_LIBS"
+        AC_SUBST(LAPACK_LIBS)
+          
+        if test x"$HAVE_LAPACK" != xyes; then
+          echo "Please install one of your favorate LAPACK"
+          echo "LAPACK:   http://www.netlib.org/lapack/"
+          AC_MSG_ERROR([No LAPACK found])
+        fi
+    fi
+      ;;
+esac
+
+dnl BLAS/LAPACK wrapper (xBLAS approach)
+if test x"$with_wrapper" = xyes; then
+  echo "Enable BLAS/LAPACK wrapper"
+  ENABLE_WRAPPER=1
+else
+  echo "DISABLE WRAPPER"
+  ENABLE_WRAPPER=0
+fi
+AM_CONDITIONAL(ENABLE_WRAPPER, test x$ENABLE_WRAPPER = 1)
+
+##GMP start
+AC_ARG_WITH(system-gmp,
+[  --with-system-gmp      Use GMP library already on system
+],,with_system_gmp="no")
+GMP_INCLUDEDIR=external/i/GMP/include/
+GMP_LIBDIR=external/i/GMP/lib/
+
+if test x$with_system_gmp = x"yes"; then
+        HAVE_GMP=""
+        AC_CHECK_HEADER(gmp.h, HAVE_GMP_HEADER=yes)
+        if test x$HAVE_GMP_HEADER = xyes; then
+            save_LDFLAGS="$LDFLAGS"
+            LDFLAGS="$LDFLAGS -L$GMP_LIBDIR"
+            AC_CHECK_LIB(gmp, __gmpz_init, [GMP_LIBS="-lgmpxx -lgmp"; HAVE_GMP=yes])
+            LDFLAGS=$save_LDFLAGS
+        fi
+        if test x$HAVE_GMP != xyes; then
+              echo "No GMP with C++ wrapper found; using internal one instead"
+        else
+              echo "GMP Found: using GMP comes with the system"
+              SYSTEM_GMP=yes
+	      GMP_INCLUDEDIR=.
+    	      GMP_LIBDIR=.
+        fi
+else
+	echo "Using GMP comes with MPACK"
+fi
+AM_CONDITIONAL(SYSTEM_GMP, test x$SYSTEM_GMP = xyes)
+AC_SUBST(GMP_INCLUDEDIR)
+AC_SUBST(GMP_LIBDIR)
+##GMP end
+
+##MPFR start
+AC_ARG_WITH(system-mpfr,
+[  --with-system-mpfr      Use MPFR library already on system
+],,with_system_mpfr="no")
+MPFR_INCLUDEDIR=external/i/MPFR/include/
+MPFR_LIBDIR=external/i/MPFR/lib/
+
+if test x$with_system_mpfr = x"yes"; then
+        HAVE_MPFR=""
+        AC_CHECK_HEADER(mpfr.h, HAVE_MPFR_HEADER=yes)
+        if test x$HAVE_MPFR_HEADER = xyes; then
+            save_LDFLAGS="$LDFLAGS"
+            LDFLAGS="$LDFLAGS -L$MPFR_LIBDIR"
+            AC_CHECK_LIB(mpfr, mpfr_init, [MPFR_LIBS="-lmpfr -lgmp"; HAVE_MPFR=yes])
+            LDFLAGS=$save_LDFLAGS
+        fi
+        if test x$HAVE_MPFR != xyes; then
+              echo "No MPFR found; using internal one instead"
+        else
+              echo "MPFR found: using MPFR comes with the system"
+              SYSTEM_MPFR=yes
+	      MPFR_INCLUDEDIR=.
+	      MPFR_LIBDIR=.
+        fi
+else
+	echo "Using MPFR comes with MPACK"
+fi
+AM_CONDITIONAL(SYSTEM_MPFR, test x$SYSTEM_MPFR = xyes)
+AC_SUBST(MPFR_INCLUDEDIR)
+AC_SUBST(MPFR_LIBDIR)
+##MPFR end
+
+##MPC start
+AC_ARG_WITH(system-mpc,
+[  --with-system-mpc      Use MPC library already on system
+],,with_system_mpc="no")
+MPC_INCLUDEDIR=external/i/MPC/include/
+MPC_LIBDIR=external/i/MPC/lib/
+
+if test x$with_system_mpc = x"yes"; then
+        HAVE_MPC=""
+        AC_CHECK_HEADER(mpc.h, HAVE_MPC_HEADER=yes)
+        if test x$HAVE_MPC_HEADER = xyes; then
+            save_LDFLAGS="$LDFLAGS"
+            LDFLAGS="$LDFLAGS -L$MPC_LIBDIR"
+            AC_CHECK_LIB(mpc, mpc_init2, [MPC_LIBS="-lmpc -lmpfr -lgmp"; HAVE_MPC=yes])
+            LDFLAGS=$save_LDFLAGS
+        fi
+        if test x$HAVE_MPC != xyes; then
+              echo "No MPC found; using internal one instead"
+        else
+              echo "MPC found: using MPC comes with the system"
+              SYSTEM_MPC=yes
+	      MPC_INCLUDEDIR=.
+	      MPC_LIBDIR=.
+        fi
+else
+	echo "Using MPC comes with MPACK"
+fi
+AM_CONDITIONAL(SYSTEM_MPC, test x$SYSTEM_MPC = xyes)
+AC_SUBST(MPC_INCLUDEDIR)
+AC_SUBST(MPC_LIBDIR)
+##MPC end
+
+
+##QD start
+AC_ARG_WITH(system-qd,
+[  --with-system-qd      Use QD library already on system
+],,with_system_qd="no")
+QD_INCLUDEDIR=external/i/QD/include/
+QD_LIBDIR=external/i/QD/lib/
+
+if test x$with_system_qd = x"yes"; then
+        HAVE_QD=""
+        AC_LANG_PUSH([C++])
+        AC_CHECK_HEADER(qd/qd_real.h, HAVE_QD_HEADER=yes)
+        if test x$HAVE_QD_HEADER = xyes; then
+            save_LDFLAGS="$LDFLAGS"
+            LDFLAGS="$LDFLAGS -L$QD_LIBDIR"
+            AC_CHECK_LIB(qd, c_qd_sqrt, [QD_LIBS="-lqd"; HAVE_QD=yes])
+            LDFLAGS=$save_LDFLAGS
+        fi
+        if test x$HAVE_QD != xyes; then
+              echo "No QD found; using internal one instead"
+        else
+              echo "QD found: using QD comes with the system"
+              SYSTEM_QD=yes
+	      QD_INCLUDEDIR=.
+	      QD_LIBDIR=.
+        fi
+else
+	echo "Using QD comes with MPACK"
+fi
+AM_CONDITIONAL(SYSTEM_QD, test x$SYSTEM_QD = xyes)
+AC_SUBST(QD_INCLUDEDIR)
+AC_SUBST(QD_LIBDIR)
+##QD end
+
+AC_CONFIG_FILES([
+mpfrc++/Makefile
+mblas/reference/Makefile
+mblas/optimized/Makefile
+mblas/optimized/gmp/Makefile
+mblas/optimized/mpfr/Makefile
+mblas/optimized/qd/Makefile
+mblas/optimized/dd/Makefile
+mblas/optimized/double/Makefile
+mblas/blaswrapper/Makefile
+mblas/testing/Makefile
+mblas/testing/gmp/Makefile
+mblas/testing/mpfr/Makefile
+mblas/testing/qd/Makefile
+mblas/testing/dd/Makefile
+mblas/testing/double/Makefile
+mblas/benchmark/Makefile
+mblas/benchmark/Raxpy/Makefile
+mblas/benchmark/Rcopy/Makefile
+mblas/benchmark/Rdot/Makefile
+mblas/benchmark/Rgemv/Makefile
+mblas/benchmark/Rgemm/Makefile
+mblas/Makefile
+mlapack/library/Makefile
+mlapack/testing/Makefile
+mlapack/testing/gmp/Makefile
+mlapack/testing/mpfr/Makefile
+mlapack/testing/qd/Makefile
+mlapack/testing/dd/Makefile
+mlapack/testing/double/Makefile
+mlapack/optimized/Makefile
+mlapack/optimized/gmp/Makefile
+mlapack/optimized/mpfr/Makefile
+mlapack/optimized/qd/Makefile
+mlapack/optimized/dd/Makefile
+mlapack/optimized/double/Makefile
+mlapack/Makefile
+external/Makefile
+external/dummy/Makefile
+external/gmp/Makefile
+external/mpfr/Makefile
+external/mpc/Makefile
+external/qd/Makefile
+examples/Makefile
+examples/mblas/Makefile
+examples/mlapack/Makefile
+])
+
+AC_OUTPUT(Makefile)

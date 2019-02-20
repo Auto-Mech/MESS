@@ -1,0 +1,27 @@
+# cmd: conda build .
+package:
+    name: mpack
+    version: "0.6.7"
+
+source:
+    path: .
+
+requirements:
+    build:
+        - autoconf
+        - automake
+        - libtool
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('fortran') }}
+        - blas
+        - openblas # [linux]
+    run:
+        - autoconf
+        - automake
+        - libtool
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('fortran') }}
+        - blas
+        - openblas # [linux]
