@@ -119,7 +119,7 @@ namespace Model {
   void set_energy_limit (double e) { _is_energy_limit = true; _energy_limit = e; }
   bool is_energy_limit () { return _is_energy_limit; }
 
-  double  energy_limit () throw(Error::General) 
+  double  energy_limit ()  
   {
     const char funame [] = "Model::energy_limit: ";
 
@@ -140,7 +140,7 @@ namespace Model {
   int rotation_matrix_element (int m, int n, int k, double& fac); // <m|f(k)|n>, f(k)=sin, cos
 }
 
-Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from) throw(Error::General)
+Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from) 
   : _start(-1.), _finish(-1.), _size(-1), _reactant(-1), _excess(-1.), _temperature(-1.)
 {
   const char funame [] = "Model::TimeEvolution::TimeEvolution: ";
@@ -347,7 +347,7 @@ void Model::TimeEvolution::set_reactant () const
  ******************************** MODEL INITIALIZATION **************************************
  ********************************************************************************************/
 
-void Model::init (IO::KeyBufferStream& from) throw(Error::General)
+void Model::init (IO::KeyBufferStream& from) 
 {
   const char funame [] = "Model::init: ";
 
@@ -1679,59 +1679,110 @@ SharedPointer<Model::Species> Model::new_species(IO::KeyBufferStream& from, cons
   Key   var_key("Variational");
   Key  read_key("Read"       );
   Key  atom_key("Atom"       );
+  Key   mc_key("MonteCarlo"  );
+  Key  mcd_key("MonteCarloWithDummyAtoms");
   
   std::string token, comment;
-  while(from >> token) {
+
+  while(from >> token)
+    //
+    if(IO::skip_comment(token, from))
+      //
+      break;
+  
+  if(!from) {
+    //
+    std::cerr << funame << "end of file\n";
+    
+    throw Error::Input();
+  }
+  
   // rigid-rotor-harmonic-oscillator model
-    if(rrho_key == token) {
-      std::getline(from, comment);
-      return SharedPointer<Species>(new RRHO(from, name, mode));
-    }
-    // read states from file
-    if(read_key == token) {
-      std::getline(from, comment);
-      return SharedPointer<Species>(new ReadSpecies(from, name, mode));
-    }
-    // union of species
-    if(union_key == token) {
-      std::getline(from, comment);
-      return SharedPointer<Species>(new UnionSpecies(from, name, mode));
-    }
-    // variational barrier model
-    if(var_key == token) {
-      if(mode == DENSITY) {
-	std::cerr << funame << token << ": wrong mode\n";
-	throw Error::Init();
-      }
-      std::getline(from, comment);
-      return SharedPointer<Species>(new VarBarrier(from, name));
-    }
-    // atomic fragment
-    if(atom_key == token) {
-      if(mode != NOSTATES) {
-	std::cerr << funame << token << ": wrong mode\n";
-	throw Error::Init();
-      }
-      std::getline(from, comment);
-      return SharedPointer<Species>(new AtomicSpecies(from, name));
-    }
-    // no species
-    if(IO::end_key() == token) {
-      std::getline(from, comment);
-      return SharedPointer<Species>(0);
-    }
-    // unknown keyword
-    if(IO::skip_comment(token, from)) {
-      std::cerr << funame << "unknown keyword " << token << "\n";
-      Key::show_all(std::cerr);
-      std::cerr << "\n";
-      IO::log << std::flush;
+  //
+  if(rrho_key == token) {
+    std::getline(from, comment);
+    return SharedPointer<Species>(new RRHO(from, name, mode));
+  }
+  // read states from file
+  //
+  if(read_key == token) {
+    std::getline(from, comment);
+    return SharedPointer<Species>(new ReadSpecies(from, name, mode));
+  }
+  // union of species
+  //
+  if(union_key == token) {
+    std::getline(from, comment);
+    return SharedPointer<Species>(new UnionSpecies(from, name, mode));
+  }
+  // variational barrier model
+  //
+  if(var_key == token) {
+    if(mode == DENSITY) {
+      std::cerr << funame << token << ": wrong mode\n";
       throw Error::Init();
     }
+    std::getline(from, comment);
+    return SharedPointer<Species>(new VarBarrier(from, name));
   }
-    std::cerr << funame << "corrupted\n";
-    IO::log << std::flush;
-    throw Error::Input();
+  // atomic fragment
+  //
+  if(atom_key == token) {
+    if(mode != NOSTATES) {
+      std::cerr << funame << token << ": wrong mode\n";
+      throw Error::Init();
+    }
+    std::getline(from, comment);
+    return SharedPointer<Species>(new AtomicSpecies(from, name));
+  }
+  // crude Monte Carlo
+  //
+  if(mc_key == token) {
+    //
+    if(mode != NOSTATES) {
+      //
+      std::cerr << funame << token << ": wrong mode\n";
+      
+      throw Error::Init();
+    }
+    
+    std::getline(from, comment);
+    
+    return SharedPointer<Species>(new MonteCarlo(from, name, mode));
+  }
+  // crude Monte Carlo with Dummy atoms
+  //
+  if(mcd_key == token) {
+    //
+    if(mode != NOSTATES) {
+      //
+      std::cerr << funame << token << ": wrong mode\n";
+      
+      throw Error::Init();
+    }
+    
+    std::getline(from, comment);
+    
+    return SharedPointer<Species>(new MonteCarloWithDummy(from, name, mode));
+  }
+  // no species
+  //
+  if(IO::end_key() == token) {
+    std::getline(from, comment);
+    return SharedPointer<Species>(0);
+  }
+  
+  // unknown keyword
+  //
+  std::cerr << funame << "unknown keyword " << token << "\n";
+  
+  Key::show_all(std::cerr);
+
+  std::cerr << "\n";
+  
+  IO::log << std::flush;
+  
+  throw Error::Init();
 }
 
 SharedPointer<Model::Bimolecular> Model::new_bimolecular(IO::KeyBufferStream& from, const std::string& name)
@@ -1753,7 +1804,7 @@ Model::Collision::~Collision ()
  **************************** LENNARD-JONES COLLISION MODEL *********************************
  ********************************************************************************************/
 
-Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from) throw(Error::General)
+Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from) 
   : _epsilon(-1.)
 {
   const char funame [] = "Model::LennardJonesCollision::LennardJonesCollision: ";
@@ -1906,7 +1957,7 @@ Model::Kernel::~Kernel ()
  *********************************** EXPONENTIAL KERNEL *************************************
  ********************************************************************************************/
 
-Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from) throw(Error::General)
+Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from) 
   : _cutoff(10.)
 {
   const char funame [] = "Model::ExponentialKernel::ExponentialKernel: ";
@@ -2080,7 +2131,7 @@ double Model::ExponentialKernel::cutoff_energy (double temperature) const
  ***************************************** TUNNELING ****************************************
  ********************************************************************************************/
 
-Model::Tunnel::Tunnel (IO::KeyBufferStream& from) throw(Error::General)
+Model::Tunnel::Tunnel (IO::KeyBufferStream& from) 
   : _cutoff(-1.), _wtol(1.e-2), _freq(-1.)
 {
   const char funame [] = "Model::Tunnel::Tunnel : ";
@@ -2269,7 +2320,7 @@ double Model::Tunnel::factor (double ener) const
  ****************************** READ BARRIER TUNNELING ********************************
  **************************************************************************************/
 
-Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from) throw(Error::General)
+Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from) 
   : Tunnel(from)
 {
   const char funame [] = "Model::ReadTunnel::ReadTunnel: ";
@@ -2441,7 +2492,7 @@ Model::ReadTunnel::~ReadTunnel ()
  ******************************** PARABOLIC BARRIER TUNNELING *******************************
  ********************************************************************************************/
 
-Model::HarmonicTunnel::HarmonicTunnel (IO::KeyBufferStream& from) throw(Error::General)
+Model::HarmonicTunnel::HarmonicTunnel (IO::KeyBufferStream& from) 
   : Tunnel(from)
 {
   const char funame [] = "Model::HarmonicTunnel::HarmonicTunnel: ";
@@ -2508,7 +2559,7 @@ double Model::HarmonicTunnel::action (double ener, int n) const
  **************************************** ECKART BARRIER ************************************
  ********************************************************************************************/
 
-Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from) throw(Error::General)
+Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from) 
   : Tunnel(from)
 {
   const char funame [] = "Model::EckartTunnel::EckartTunnel: ";
@@ -2684,7 +2735,7 @@ double Model::QuarticTunnel::XratioSearch::operator() (double x, int n) const
   }
 }
 
-Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from) throw(Error::General)
+Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from) 
   : Tunnel(from)
 {
   const char funame [] = "Model::QuarticTunnel::QuarticTunnel: ";
@@ -2945,7 +2996,7 @@ double Model::QuarticTunnel::action (double ener, int der) const
  ******************************** INTERNAL ROTATION DEFINITION ******************************
  ********************************************************************************************/
 
-Model::InternalRotationBase::InternalRotationBase (IO::KeyBufferStream& from) throw(Error::General)
+Model::InternalRotationBase::InternalRotationBase (IO::KeyBufferStream& from) 
   : _axis(-1, -1), _symmetry(1), _isinit(true)
 {
   const char funame [] = "Model::InternalRotationBase::InternalRotationBase: ";
@@ -3159,7 +3210,7 @@ std::vector<D3::Vector> Model::InternalRotationBase::normal_mode
 
 Model::Rotor::Rotor () :_ham_size_min(99), _ham_size_max(999), _grid_size(1000), _therm_pow_max(10.) {}
 
-Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) throw(Error::General)
+Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
   :_ham_size_min(99), _ham_size_max(999), _grid_size(1000), _therm_pow_max(10.), _atom(atom)
 {
   const char funame [] = "Model::Rotor::Rotor: ";
@@ -3326,7 +3377,7 @@ void Model::Rotor::convolute(Array<double>& stat_grid, double ener_quant) const
  ********************************* 1-D HINDERED ROTOR MODEL *********************************
  ********************************************************************************************/
 
-Model::RotorBase::RotorBase (IO::KeyBufferStream& from, const std::vector<Atom>& atom) throw(Error::General)
+Model::RotorBase::RotorBase (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
   :  Rotor(from, atom), InternalRotationBase(from)
 {
   const char funame [] = "Model::RotorBase::RotorBase: ";
@@ -3353,7 +3404,7 @@ Model::RotorBase::~RotorBase ()
  **************************************** FREE ROTOR ****************************************
  ********************************************************************************************/
 
-Model::FreeRotor::FreeRotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) throw(Error::General)
+Model::FreeRotor::FreeRotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
   : RotorBase(from, atom), _level_size(1)
 {
   const char funame [] = "Model::FreeRotor::FreeRotor: ";
@@ -4010,7 +4061,7 @@ double Model::HinderedRotor::potential (double angle, int der) const
   return res;
 }
 
-void Model::HinderedRotor::_set_energy_levels (int hsize) throw(Error::General)
+void Model::HinderedRotor::_set_energy_levels (int hsize) 
 {
   const char funame [] = "Model::HinderedRotor::_set_energy_levels: ";
 
@@ -4243,7 +4294,7 @@ void Model::HinderedRotor::integrate (Array<double>& states, double ener_step) c
  ***************************************** UMBRELLA MODE ************************************
  ********************************************************************************************/
 
-Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& atom) throw(Error::General)
+Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
   : Rotor(from, atom)
 {
   const char funame [] = "Model::Umbrella::Umbrella: ";
@@ -4663,7 +4714,7 @@ void Model::Umbrella::set (double ener_max)
 }
 
 
-void Model::Umbrella::_set_energy_levels (int hsize) throw(Error::General)
+void Model::Umbrella::_set_energy_levels (int hsize) 
 {
   const char funame [] = "Model::Umbrella::_set_energy_levels: ";
 
@@ -4701,7 +4752,7 @@ void Model::Umbrella::_set_energy_levels (int hsize) throw(Error::General)
   }
 }
 
-double Model::Umbrella::potential(double x, int der) const throw(Error::General)
+double Model::Umbrella::potential(double x, int der) const 
 {
   const char funame [] = "Model::Umbrella::potential: ";
 
@@ -4839,7 +4890,7 @@ Model::Core::~Core ()
  *************************** PHASE SPACE THEORY NUMBER OF STATES ****************************
  ********************************************************************************************/
 
-Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from) throw(Error::General)
+Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from) 
   : Core(NUMBER), _states_factor(1.)
 {
   const char funame [] = "Model::PhaseSpaceTheory::PhaseSpaceTheory: ";
@@ -5088,7 +5139,7 @@ double Model::PhaseSpaceTheory::states (double ener) const
  ********************************************************************************************/
 
 Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>& atom,  int m)
-  throw(Error::General) : Core(m), _factor(1.), _rdim(0), _rofactor(0.), _ground(0.), _emax(-1.) 
+   : Core(m), _factor(1.), _rdim(0), _rofactor(0.), _ground(0.), _emax(-1.) 
 {
   const char funame [] = "Model::RigidRotor::RigidRotor: ";
 
@@ -6098,7 +6149,7 @@ double Model::RigidRotor::_core_states (double ener) const
  *************************** TRANSITIONAL MODES NUMBER OF STATES  **************************
  *******************************************************************************************/
   
-Model::Rotd::Rotd(IO::KeyBufferStream& from, int m) throw(Error::General)
+Model::Rotd::Rotd(IO::KeyBufferStream& from, int m) 
   : Core(m)
 {
   const char funame [] = "Model::Rotd::Rotd : ";
@@ -6343,7 +6394,7 @@ double Model::Rotd::weight (double temperature) const
  ******************************* INTERNAL ROTATION FOR MULTIROTOR ***************************
  ********************************************************************************************/
 
-Model::InternalRotation::InternalRotation (IO::KeyBufferStream& from) throw(Error::General)
+Model::InternalRotation::InternalRotation (IO::KeyBufferStream& from) 
   : InternalRotationBase(from), _msize(0), _wsize(0), _psize(0), _qmin(0), _qmax(0)
 {
   const char funame [] = "Model::InternalRotation::InternalRotation: ";
@@ -6579,7 +6630,7 @@ Model::InternalRotation::~InternalRotation ()
  ***************************** MULTIPLE COUPLED ROTORS MODEL ********************************
  ********************************************************************************************/
 
-Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>& atom, int mm)  throw(Error::General)
+Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>& atom, int mm)  
 
   : Core(mm), _extra_ener(-1.), _extra_step(0.1), _ener_quant(Phys_const::incm), _level_ener_max(-1.),
 
@@ -12577,8 +12628,8 @@ void Model::MultiRotor::rotational_energy_levels () const
  *********** ABSTRACT CLASS REPRESENTING WELL, BARRIER, AND BIMOLECULAR FRAGMENT ************
  ********************************************************************************************/
 
-Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m) throw(Error::General)
-  : _name(n), _mode(m), _mass(-1.), _print_step(-1.)
+Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m) 
+  : _name(n), _mode(m), _mass(-1.), _print_step(-1.), _ground(0.)
 {
   const char funame [] = "Model::Species::Species: ";
 
@@ -12695,6 +12746,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
       _mass += AtomBase(name).mass() * double(itemp);	
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
       //
       from.put_back(token);
@@ -12753,7 +12805,7 @@ void Model::Species::_print () const
   }
 }
 
-double Model::Species::mass () const throw(Error::General)
+double Model::Species::mass () const 
 {
   const char funame [] = "Model::Species::mass: ";
 
@@ -12793,7 +12845,7 @@ int Model::Species::oscillator_size () const
  ************************* READ STATES FROM THE FILE AND INTERPOLATE ***********************
  *******************************************************************************************/
   
-Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m) throw(Error::General)
+Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m) 
   : Species(n, m), _etol(1.e-10), _dtol(1.)
 {
   const char funame [] = "Model::ReadSpecies::ReadSpecies:";
@@ -13054,9 +13106,2667 @@ double Model::ReadSpecies::weight (double temperature, std::map<int, double>*) c
   return res;
 }
 
+/***********************************************************************************************************
+ ************************************* CRUDE MONTE-CARLO SAMPLING ******************************************
+ ***********************************************************************************************************/
+
+double Model::IntMod::increment = 1.e-2;
+
+Model::IntMod::IntMod (int molec_size, IO::KeyBufferStream& from)
+{
+  const char funame [] = "Model::IntMod::IntMod: ";
+
+  IO::Marker funame_marker(funame);
+  
+  int    itemp;
+  double dtemp;
+
+  if(molec_size < 2) {
+    //
+    std::cerr << funame << "molecule size is out of range: " << molec_size << "\n";
+
+    throw Error::Range();
+  }
+  
+  KeyGroup InternalModeDefinition;
+
+  Key  atom_key("AtomIndices");
+  
+  std::string token, comment, stemp;
+
+  while(from >> token) {
+    //
+    // atomic indices
+    //
+    if(atom_key == token) {
+      //
+      if(_atoms.size()) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+
+	throw Error::Input();
+      }
+      
+      // indices should be on the same line with the keyword, start from 1 (not from 0)
+      //      
+      IO::LineInput lin(from);
+
+      while(lin >> itemp) {
+	//
+	if(itemp < 1 || itemp > molec_size) {
+	  //
+	  std::cerr << funame << token << ": atomic index is out of range: " << itemp << "\n";
+
+	  throw Error::Range();
+	}
+
+	if(!_pool.insert(--itemp).second) {
+	  //
+	  std::cerr << funame << token << ": identical atomic indices: " << itemp + 1 << "\n";
+
+	  throw Error::Input();
+	}
+
+	_atoms.push_back(itemp);
+      }
+
+      if(_atoms.size() < 2 || _atoms.size() > 4) {
+	//
+	std::cerr << funame << token << ": number of atomic indices is out of range: " << _atoms.size() << "\n";
+
+	throw Error::Range();
+      }
+    }
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      from.put_back(token);
+
+      break;
+    }
+  }
+
+  // checking
+  //
+  if(!_atoms.size()) {
+    //
+    std::cerr << funame << "not defined\n";
+
+    throw Error::Init();
+  }
+}
+
+double Model::IntMod::evaluate (Lapack::Vector          cart_pos, // atomic cartesian coordinates
+				const std::vector<int>& sign      // derivative signature
+				) const
+{
+  const char funame [] = "Model::IntMod::evaluate: ";
+  
+  double dtemp;
+  
+  int    itemp;
+  
+  // check if there are atoms in the derivative signature absent in the definition
+  //
+ for(int i = 0; i < sign.size(); ++i)
+    //
+    if(_pool.find(sign[i] / 3) == _pool.end())
+      //
+      return 0.;
+      
+  if(sign.size()) {
+    //
+    std::vector<int> new_sign = sign;
+
+    new_sign.pop_back();
+
+    Lapack::Vector new_pos = cart_pos.copy();
+
+    new_pos[sign.back()] -= increment;
+
+    double v1 = evaluate(new_pos, new_sign);
+
+    new_pos[sign.back()] += 2. * increment;
+
+    double v2 = evaluate(new_pos, new_sign);
+
+    return (v2 - v1) / 2. / increment;
+  }
+
+  std::vector<D3::Vector> atom_pos(_atoms.size());
+
+  for(int a = 0; a < _atoms.size(); ++a)
+    //
+    for(int ai = 0; ai < 3; ++ai)
+      //
+      atom_pos[a][ai] = cart_pos[_atoms[a] * 3 + ai];
+
+  D3::Vector v1, v2, n;
+  
+  switch(type()) {
+    //
+    // interatomic distance in angstrom
+    //
+  case DISTANCE:
+    //
+    return (atom_pos[1] - atom_pos[0]).vlength() / Phys_const::angstrom;
+
+    // plane angle in degrees
+    //
+  case ANGLE:
+    //
+    v1 = atom_pos[0] - atom_pos[1];
+    
+    v2 = atom_pos[2] - atom_pos[1];
+    
+    dtemp = vdot(v1, v2) / v1.vlength() / v2.vlength();
+    
+    if(dtemp < -1.)
+      //
+      dtemp = -1.;
+    
+    if(dtemp > 1.)
+      //
+      dtemp = 1.;
+
+    return std::acos(dtemp) * 180. / M_PI;
+
+    // dihedral angle in degrees
+    //
+  case DIHEDRAL:
+    //
+    n  = atom_pos[2] - atom_pos[1];
+    
+    v1 = atom_pos[0] - atom_pos[1];
+    
+    v2 = atom_pos[3] - atom_pos[2];
+
+    v1.orthogonalize(n);
+    
+    v2.orthogonalize(n);
+    
+    dtemp = v1.vlength() * v2.vlength();
+    
+    if(dtemp < 1.e-8)
+      //
+      return 0.;
+
+    dtemp = vdot(v1, v2) / dtemp;
+    
+    if(dtemp < -1.)
+      //
+      dtemp = -1.;
+  
+    if(dtemp > 1.)
+      //
+      dtemp = 1.;
+
+    dtemp = std::acos(dtemp) * 180. / M_PI;
+
+    if(volume(n, v1, v2) > 0.) {
+      //
+      return dtemp;
+    }
+    else
+      //
+      return 360. - dtemp;
+
+    // wrong case
+    //
+  default:
+
+    std::cerr << funame << "should not be here\n";
+
+    throw Error::Logic();
+  }
+}
+
+Model::Fluxional::Fluxional (int molec_size, IO::KeyBufferStream& from) : IntMod(molec_size, from), _span(-1.)
+{
+  const char funame [] = "Model::Fluxional::Fluxional: ";
+
+  IO::Marker funame_marker(funame);
+  
+  int    itemp;
+  double dtemp;
+
+  KeyGroup FluxionalModeDefinition;
+
+  Key  span_key("Span");
+  
+  std::string token, comment, stemp;
+
+  while(from >> token) {
+    //
+    // end input
+    //
+    if(IO::end_key() == token) {
+      //
+      std::getline(from, comment);
+      
+      break;
+    }
+    // span
+    //
+    else if(span_key == token) {
+      //
+      if(_span > 0.) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+	
+	throw Error::Init();
+      }
+
+      IO::LineInput lin(from);
+
+      if(!(lin >> _span)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+      
+      if(_span <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range: " << _span << "\n";
+	
+	throw Error::Range();
+      }
+    }
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      Key::show_all(std::cerr);
+      
+      std::cerr << "\n";
+      
+      throw Error::Init();
+    }
+  }
+
+  if(_span < 0.) {
+    //
+    switch(type()) {
+      //
+    case DISTANCE:
+      //
+      IO::log << IO::log_offset << "ERROR: for interatomic distances span should be explicitely defined\n";
+
+      std::cerr << funame << "for interatomic distances span should be explicitely defined\n";
+
+      throw Error::Init();
+
+    case ANGLE:
+      //
+      IO::log << IO::log_offset << "WARNING: span is not defined, default span of 180 for plane angle is assumed" << std::endl;
+
+      _span = 180.;
+
+      break;
+
+    case DIHEDRAL:
+      //
+      IO::log << IO::log_offset << "WARNING: span is not defined, default span of 360 for dihedral angle is assumed" << std::endl;
+
+      _span = 360.;
+
+      break;
+
+    default:
+
+      std::cerr << funame << "should not be here\n";
+
+      throw Error::Logic();
+    }
+  }
+}
+
+Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod(molec_size, from), _value(-1.)
+{
+  const char funame [] = "Model::Constrain::Constrain: ";
+
+  IO::Marker funame_marker(funame);
+  
+  int    itemp;
+  double dtemp;
+
+  KeyGroup ConstrainDefinition;
+
+  Key  val_key("Value");
+  
+  std::string token, comment, stemp;
+
+  while(from >> token) {
+    //
+    // end input
+    //
+    if(IO::end_key() == token) {
+      //
+      std::getline(from, comment);
+      
+      break;
+    }
+    // value
+    //
+    else if(val_key == token) {
+      //
+      if(_value >= 0.) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+	
+	throw Error::Init();
+      }
+
+      IO::LineInput lin(from);
+
+      if(!(lin >> _value)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+
+      switch(type()) {
+	//
+	// bond distance
+	//
+      case DISTANCE:
+	//
+	if(_value <= 0.) {
+	  //
+	  std::cerr << funame << token << ": out of range: " << _value << "\n";
+	
+	  throw Error::Range();
+	}
+
+	break;
+	
+	// bond angle
+	//
+      case ANGLE:
+	//
+	if(_value < 0. || _value > 180.) {
+	  //
+	  std::cerr << funame << token << ": out of range: " << _value << "\n";
+	
+	  throw Error::Range();
+	}
+	  
+	break;
+
+	// dihedral angle
+	//
+      case DIHEDRAL:
+	//
+	if(_value < 0. || _value > 360.) {
+	  //
+	  std::cerr << funame << token << ": out of range: " << _value << "\n";
+	
+	  throw Error::Range();
+	}
+
+	break;
+
+	// wrong case
+	//
+      default:
+	//
+	std::cerr << funame << "should not be here\n";
+
+	throw Error::Logic();
+      }
+    }
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      Key::show_all(std::cerr);
+      
+      std::cerr << "\n";
+      
+      throw Error::Init();
+    }
+  }
+
+  if(_value < 0.) { 
+    //
+    std::cerr << funame << "value not defined\n";
+
+    throw Error::Init();
+  }      
+}
+
+double Model::MonteCarlo::_RefPot::operator() (const double* pos) const
+{
+  const char funame [] = "Model::MonteCarlo::_RefPot::operator(): ";
+
+  if(!_pot) {
+    //
+    std::cerr << funame << "Potential not initialized\n";
+
+    throw Error::Init();
+  }
+
+  double ener;
+  
+  int ifail;
+  
+  _pot(ifail, ener, pos);
+
+  if(ifail) {
+    //
+    std::cerr << funame << "reference potential failed with the code: " << ifail << "\n";
+
+    throw PotFail();
+  }
+
+  return ener;
+}
+void Model::MonteCarlo::_RefPot::init(std::istream& from)
+{
+  const char funame [] = "Model::MonteCarlo::_RefPot::init: ";
+
+  int    itemp;
+  double dtemp;
+
+  std::string token, comment, stemp;
+
+  KeyGroup ReferencePotentialModel;
+
+  Key  lib_key("Library"  );
+  Key  pot_key("Potential");
+  
+  while(from >> token) {
+    //
+    // end input
+    //
+    if(IO::end_key() == token) {
+      //
+      std::getline(from, comment);
+      
+      break;
+    }
+    // library
+    //
+    else if(lib_key == token) {
+      //
+      if(_lib.isopen()) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      IO::LineInput lin(from);
+
+      if(!(lin >> stemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      _lib.open(stemp);
+    }
+    // potential symbol
+    //
+    else if(pot_key == token) {
+      //
+      //
+      if(_pot) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      if(!_lib.isopen()) {
+	//
+	std::cerr << funame << token << ": library should be initialized first\n";
+
+	throw Error::Init();
+      }
+	
+      IO::LineInput lin(from);
+
+      if(!(lin >> stemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      _pot = (refpot_t)_lib.member(stemp);
+    }
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      Key::show_all(std::cerr);
+      
+      std::cerr << "\n";
+      
+      throw Error::Init();
+    }
+  }
+  // some checking
+  //
+  if(!from) {
+    //
+    std::cerr << funame << "input stream is currupted\n";
+
+    throw Error::Input();
+  }
+
+  if(!_pot) {
+    //
+    std::cerr << funame << "potential not initialized\n";
+
+    throw Error::Init();
+  }
+}
+
+Model::MonteCarlo::~MonteCarlo() {}
+
+Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, int m)
+  : Species(from, n, m), _symm_fac(1.), _noqf(false), _nohess(false)
+{
+  const char funame [] = "Model::MonteCarlo::MonteCarlo: ";
+
+  IO::Marker funame_marker(funame);
+
+  int    itemp;
+  
+  double dtemp;
+
+  std::string token, comment, stemp;
+
+  KeyGroup MonteCarloModel;
+
+  Key    atom_key("MoleculeSpecification"        );
+  Key    flux_key("FluxionalMode"                );
+  Key    incr_key("NumericIncrement[Bohr]"       );
+  Key    symm_key("SymmetryFactor"               );
+  Key    data_key("DataFile"                     );
+  Key    rpot_key("ReferencePotential"           );
+  Key    noqf_key("NoQauntumCorrection"          );
+  Key  nohess_key("NoHessian"                    );
+  Key    freq_key("NonFluxionalFrequencies[1/cm]");
+  
+  Key incm_refen_key("ReferenceEnergy[1/cm]"          );
+  Key kcal_refen_key("ReferenceEnergy[kcal/mol]"      );
+  Key   kj_refen_key("ReferenceEnergy[kJ/mol]"        );
+  Key   ev_refen_key("ReferenceEnergy[eV]"            );
+  Key   au_refen_key("ReferenceEnergy[au]"            );
+
+  Key incm_ground_key("GroundEnergy[1/cm]"          );
+  Key kcal_ground_key("GroundEnergy[kcal/mol]"      );
+  Key   kj_ground_key("GroundEnergy[kJ/mol]"        );
+  Key   ev_ground_key("GroundEnergy[eV]"            );
+  Key   au_ground_key("GroundEnergy[au]"            );
+
+  bool isrefen = false;
+
+  bool isground = false;
+  
+  
+  while(from >> token) {
+    //
+    // end input
+    //
+    if(IO::end_key() == token) {
+      //
+      std::getline(from, comment);
+      
+      break;
+    }
+    // exclude quantum correction
+    //
+    else if(noqf_key == token) {
+      //
+      std::getline(from, comment);
+
+      _noqf = true;
+    }
+    // no hessian data
+    //
+    else if(nohess_key == token) {
+      //
+      std::getline(from, comment);
+
+      _nohess = true;
+    }
+    // non-fluxional modes frequencies
+    //
+    else if(freq_key == token) {
+      //
+      if(_nm_freq.size()) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      if(!(from >> itemp)) {
+	//
+	std::cerr << funame << token << ": cannot read frequencies #\n";
+
+	throw Error::Input();
+      }
+
+      if(itemp < 1) {
+	//
+	std::cerr << funame << token << ": frequencies # out of range: " << itemp << "\n";
+
+	throw Error::Range();
+      }
+
+      _nm_freq.resize(itemp);
+
+      for(int f = 0; f < _nm_freq.size(); ++f) {
+	//
+	if(!(from >> dtemp)) {
+	  //
+	  std::cerr << funame << token << ": cannot read " << f + 1 << "-th frequency\n";
+
+	  throw Error::Input();
+	}
+
+	if(dtemp < nm_freq_min) {
+	  //
+	  std::cerr << funame << token << ": " << f + 1 << "-th non-fluxional mode frequency is below the threshold ("
+		    << nm_freq_min << "): " << dtemp << "\n";
+
+	  throw Error::Range();
+	}
+
+	_nm_freq[f] = dtemp * Phys_const::incm;
+      }
+    }
+    //  reference energy
+    //
+    else if(token == incm_refen_key ||
+	    token == kcal_refen_key ||
+	    token ==   kj_refen_key || 
+	    token ==   au_refen_key ||
+	    token ==   ev_refen_key) {
+      //
+      if(isrefen) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+	
+	throw Error::Init();
+      }
+      
+      isrefen = true;
+      
+      if(!(from >> _refen)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+      
+      std::getline(from, comment);
+
+      if(incm_refen_key == token) {
+	//
+	_refen *= Phys_const::incm;
+      }
+      if(kcal_refen_key == token) {
+	//
+	_refen *= Phys_const::kcal;
+      }
+      if(kj_refen_key == token) {
+	//
+	_refen *= Phys_const::kjoul;
+      }
+      if(ev_refen_key == token) {
+	//
+	_refen *= Phys_const::ev;
+      }
+    }
+    //  ground energy
+    //
+    else if(token == incm_ground_key ||
+	    token == kcal_ground_key ||
+	    token ==   kj_ground_key || 
+	    token ==   au_ground_key ||
+	    token ==   ev_ground_key) {
+      //
+      if(isground) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+	
+	throw Error::Init();
+      }
+      
+      isground = true;
+      
+      if(!(from >> _ground)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+      
+      std::getline(from, comment);
+
+      if(incm_ground_key == token) {
+	//
+	_ground *= Phys_const::incm;
+      }
+      if(kcal_ground_key == token) {
+	//
+	_ground *= Phys_const::kcal;
+      }
+      if(kj_ground_key == token) {
+	//
+	_ground *= Phys_const::kjoul;
+      }
+      if(ev_ground_key == token) {
+	//
+	_ground *= Phys_const::ev;
+      }
+    }
+    // atomic masses
+    //
+    else if(atom_key == token) {
+      //
+      if(_mass_sqrt.size()) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+
+	throw Error::Init();
+      }
+
+      IO::LineInput lin(from);
+
+      int na;
+      
+      if(!(lin >> na)) {
+	//
+	std::cerr << funame << token << ": cannot read number of atoms\n";
+
+	throw Error::Input();
+      }
+
+      if(na <= 0) {
+	//
+	std::cerr << funame << token << ": number of atoms out of range: " << na << "\n";
+
+	throw Error::Range();
+      }
+
+      _mass_sqrt.resize(na);
+
+      _total_mass_sqrt = 0.;
+
+      _mass = 0.;
+      
+      for(int a = 0; a < na; ++a) {
+	//
+	dtemp = Atom(from).mass();
+
+	_mass += dtemp;
+	
+	_mass_sqrt[a] = std::sqrt(dtemp);
+
+	_total_mass_sqrt += dtemp;
+      }
+
+      _total_mass_sqrt = std::sqrt(_total_mass_sqrt);
+    }
+    // fluxional mode definition
+    //
+    else if(flux_key == token) {
+      //
+      std::getline(from, comment);
+
+      if(!atom_size()) {
+	//
+	std::cerr << funame << token << ": molecular specification should go first\n";
+
+	throw Error::Init();
+      }
+
+      _fluxional.push_back(Fluxional(atom_size(), from));
+    }
+    // numerical differentiation increment
+    //
+    else if(incr_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> dtemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(dtemp <= 0. || dtemp >= 1.) {
+	//
+	std::cerr << funame << token << ": out of range: " << dtemp << "\n";
+
+	throw Error::Range();
+      }
+
+      IntMod::increment = dtemp;
+    }
+    // reference potential
+    //
+    else if(rpot_key == token) {
+      //
+      std::getline(from, comment);
+
+      if(_ref_pot) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      _ref_pot.init(from);
+    }
+    // symmetry factor
+    //
+    else if(symm_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> dtemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(dtemp <= 0) {
+	//
+	std::cerr << funame << token << ": out of range: " << dtemp << "\n";
+
+	throw Error::Range();
+      }
+
+      _symm_fac = dtemp;
+    }
+    // data file
+    //
+    else if(data_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(_data_file.size()) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+      
+      if(!(lin >> _data_file)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+    }
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      Key::show_all(std::cerr);
+      
+      std::cerr << "\n";
+      
+      throw Error::Init();
+    }
+  }
+
+  // some checking
+  //
+  if(!from) {
+    //
+    std::cerr << funame << "input stream is currupted\n";
+
+    throw Error::Input();
+  }
+
+  if(!atom_size()) {
+    //
+    std::cerr << funame << "no atoms specified\n";
+
+    throw Error::Init();
+  }
+
+  if(!_fluxional.size()) {
+    //
+    std::cerr << funame << "no fluxional modes specified\n";
+
+    throw Error::Init();
+  }
+
+  if(_fluxional.size() + 6 > atom_size() * 3) {
+    //
+    std::cerr << funame << "number of fluxional modes (" << _fluxional.size()
+	      << ") is inconsistent with the number of atoms, " << atom_size() << "\n";
+
+    throw Error::Range();
+  }
+
+  if(_nohess && _nm_freq.size() + _fluxional.size() + 6 != atom_size() * 3) {
+    //
+    std::cerr << funame << "non-fluxional modes # (" << _nm_freq.size() << ") and fluxional modes # (" << _fluxional.size()
+	      << ") mismatch with the atoms #: " << atom_size() << "\n";
+
+    throw Error::Range();
+  }
+  
+  if(!_data_file.size()) {
+    //
+    std::cerr << funame << "no data file is provided\n";
+
+    throw Error::Init();
+  }
+
+  if(!isrefen && isground) {
+    //
+    IO::log << IO::log_offset << "WARNING: the reference energy set to the ground state energy: " << _ground  / Phys_const::kcal << " kcal/mol\n";
+
+    _refen = _ground;
+  }
+  
+  if(isrefen && !isground) {
+    //
+    IO::log << IO::log_offset << "WARNING: the ground state energy set to the reference energy: " << _refen  / Phys_const::kcal << " kcal/mol\n";
+
+    _ground = _refen;
+  }
+  
+  if(!isground && !isrefen) {
+    //
+    _set_reference_energy();
+
+    _ground = _refen;
+    
+    IO::log << IO::log_offset << "WARNING: ground and reference energies initialized to the minimal sampling energy (with ZPE): "
+	    << _refen / Phys_const::kcal << " kcal/mol\n";
+  }
+
+}
+
+double Model::MonteCarlo::states (double ener) const
+{
+  const char funame [] = "Model::MonteCarlo::states: ";
+
+  std::cerr << funame << "not implemented yet, sorry\n";
+
+  throw Error::General();
+
+  return 0.;
+}
+
+double Model::MonteCarlo::weight (double temperature, std::map<int, double>*) const
+{
+  const char funame [] = "Model::MonteCarlo::weight: ";
+
+  int    itemp;
+  
+  double dtemp;
+
+  IO::Marker funame_marker(funame);
+  
+  std::ifstream from(_data_file);
+
+  if(!from) {
+    //
+    std::cerr << funame << "cannot open data file " << _data_file << "\n";
+
+    throw Error::File();
+  }
+
+  std::string comment;
+
+  std::getline(from, comment);
+  
+  double res = 0.;
+
+  double variance = 0.;
+
+  double ener;
+
+  // cartesian coordinates
+  //
+  Lapack::Vector          cart_pos(atom_size() * 3);
+
+  // cartesian gradient
+  //
+  Lapack::Vector          cart_grad(atom_size() * 3);
+
+  // cartesian force constant matrix
+  //
+  Lapack::SymmetricMatrix cart_fc(atom_size() * 3);
+
+  int count = 0;
+  
+  while(_read(from, ener, cart_pos, cart_grad, cart_fc)) {
+    //
+    ++count;
+
+    dtemp = _local_weight(ener, cart_pos, cart_grad, cart_fc, temperature);
+    
+    res += dtemp;
+
+    variance += dtemp * dtemp;
+  }
+
+  if(!count) {
+    //
+    std::cerr << funame << "no data\n";
+
+    throw Error::Input();
+  }
+  
+  // normalize
+  //
+  res /= (double)count;
+
+  variance /= (double)count * res * res;
+
+  variance -= 1.;
+
+  variance /= (double)count;
+
+  if(variance < 0.)
+    //
+    variance = 0.;
+
+  // span factor
+  //
+  for(int f = 0; f < _fluxional.size(); ++f)
+    //
+    res *= _fluxional[f].span();
+
+  // pi factors for fluxional and external rotation modes
+  //
+  res *= 2. / std::pow(2. * M_PI, double(_fluxional.size() - 1) / 2.);
+  
+  // fluxional and external rotation temperature factor
+  //
+  res *= std::pow(temperature, double(_fluxional.size() + 3) / 2.);
+
+  // non-fluxional modes temperature factor
+  //
+  res *= std::pow(temperature, double(atom_size() * 3 - _fluxional.size() - 6));
+
+  // symmetry factor
+  //
+  res /= _symm_fac;
+
+  // non-fluxional mode frequencies factor
+  //
+  if(_nohess)
+    //
+    for(int f = 0; f < _nm_freq.size(); ++f)
+      //
+      res /= _nm_freq[f];
+  
+  
+  IO::log << IO::log_offset
+	  << std::setw(7)  << "T, K"
+	  << std::setw(13) << "Z"
+	  << std::setw(13) << "Error, %"
+	  << "\n"
+	  << std::setw(7)  << temperature / Phys_const::kelv
+	  << std::setw(13) << res
+	  << std::setw(13) << std::sqrt(variance) * 100.
+	  << "\n";
+  
+  return res;
+}
+
+// read data from file
+//
+bool Model::MonteCarlo::_read (std::istream&           from,       // data stream
+			       double&                 ener,       // energy
+			       Lapack::Vector          cart_pos,   // cartesian coordinates    
+			       Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
+			       Lapack::SymmetricMatrix cart_fc     // cartesian force constant matrix
+			       ) const
+{
+  const char funame [] = "Model::MonteCarlo::_read: ";
+
+  int itemp;
+
+  double dtemp;
+
+  std::string stemp, token, comment;
+
+  // sampling point label
+  //
+  if(!std::getline(from, comment)) {
+    //
+    // end of file
+    //
+    if(from.eof())
+      //
+      return false;
+
+    std::cerr << funame << "corrupted\n";
+
+    throw Error::Input();
+  }
+
+  // energy label
+  //
+  token = "";
+  
+  if(!(from >> token) || token != "Energy") {
+    //
+    std::cerr << funame << "cannot read energy label: " << token << "\n";
+
+    throw Error::Input();
+  }
+
+  // energy value in kcal/mol
+  //
+  if(!(from >> ener)) {
+    //
+    std::cerr << funame << "cannot read energy\n";
+
+    throw Error::Input();
+  }
+
+  ener *= Phys_const::kcal;
+
+  // geometry label
+  //
+  token = "";
+  
+  if(!(from >> token) || token != "Geometry") {
+    //
+    std::cerr << funame << "cannot read geometry label: " << token << "\n";
+
+    throw Error::Input();
+  }
+
+  // # of atoms
+  //
+  itemp = 0;
+  
+  if(!(from >> itemp) || itemp != atom_size()) {
+    //
+    std::cerr << funame << "wrong atoms #: " << itemp << "\n";
+
+    throw Error::Input();
+  }
+
+  // atom specification
+  //
+  for(int a = 0; a < atom_size(); ++a) {
+    //
+    // atom name
+    //
+    if(!(from >> stemp)) {
+      //
+      std::cerr << funame << "cannot read " << a + 1 << "-th atom name\n";
+
+      throw Error::Input();
+    }
+
+    // atom cartesian coordinates in angstrom
+    //
+    for(int i = 0; i < 3; ++i) {
+      //
+      if(!(from >> dtemp)) {
+	//
+	std::cerr << funame << "cannot read " << a + 1 << "-th atom " << i + 1 << "-th coordinate\n";
+
+	throw Error::Input();
+      }
+
+      cart_pos[3 * a + i] = dtemp * Phys_const::angstrom;
+    }
+  }
+
+  if(_nohess) {
+    //
+    std::getline(from, comment);
+
+    // uncomment the next line if there is an empty line before next sampling point
+    //
+    //std::getline(from, comment);
+    
+    return true;
+  }
+  // gradient label
+  //
+  token = "";
+  
+  if(!(from >> token) || token != "Gradient") {
+    //
+    std::cerr << funame << "cannot read energy gradient label: " << token << "\n";
+
+    throw Error::Input();
+  }
+
+  // gradient components
+  //
+  for(int i = 0; i < cart_grad.size(); ++i)
+    //
+    if(!(from >> cart_grad[i])) {
+      //
+      std::cerr << funame << "cannot read " << i + 1 << "-th energy gradient component\n";
+
+      throw Error::Input();
+    }
+
+  // hessian label
+  //
+  token = "";
+  
+  if(!(from >> token) || token != "Hessian") {
+    //
+    std::cerr << funame << "cannot read hessian label: " << token << "\n";
+
+    throw Error::Input();
+  }
+
+  // hessian components
+  //
+  for(int i = 0; i < cart_fc.size(); ++i)
+    //
+    for(int j = 0; j < cart_fc.size(); ++j) {
+      //
+      if(!(from >> dtemp)) {
+      //
+	std::cerr << funame << "cannot read (" << i + 1 << ", " << j + 1 << ")-th hessian component\n";
+
+	throw Error::Input();
+      }
+
+      if(i < j)
+	//
+	continue;
+
+      cart_fc(i, j) = dtemp;
+    }
+  
+  std::getline(from, comment);
+  
+  // empty line
+  //
+  std::getline(from, comment);
+    
+  return true;
+}
+
+void Model::MonteCarlo::_set_reference_energy ()
+{
+  const char funame [] = "Model::MonteCarlo::_set_reference_energy: ";
+
+  int    itemp;
+  
+  double dtemp;
+
+  if(!_data_file.size()) {
+    //
+    std::cerr << funame << "no data file\n";
+
+    throw Error::Init();
+  }
+  
+  std::ifstream from(_data_file);
+
+  if(!from) {
+    //
+    std::cerr << funame << "cannot open data file " << _data_file << "\n";
+
+    throw Error::File();
+  }
+
+  std::string comment;
+
+  std::getline(from, comment);
+  
+  double res = 0.;
+
+  double ener;
+
+  const int cart_size = atom_size() * 3;
+  
+  // cartesian coordinates
+  //
+  Lapack::Vector          cart_pos(cart_size);
+
+  // cartesian gradient
+  //
+  Lapack::Vector          cart_grad(cart_size);
+
+  // cartesian force constant matrix
+  //
+  Lapack::SymmetricMatrix cart_fc(cart_size);
+
+  int count = 0;
+  
+  while(_read(from, ener, cart_pos, cart_grad, cart_fc)) {
+    //
+    if(!_noqf && !_nohess) {
+      //
+      for(int c = 0; c < cart_size; ++c)
+	//
+	for(int d = c; d < cart_size; ++d)
+	  //
+	  cart_fc(c, d) /= _mass_sqrt[c / 3] * _mass_sqrt[d / 3];
+      
+    
+      Lapack::Vector eval = cart_fc.eigenvalues();
+
+      dtemp = 0.;
+    
+      for(int c = 0; c < cart_size; ++c)
+	//
+	if(eval[c] > 0.)
+	  //
+	  dtemp += std::sqrt(eval[c]);
+
+      // zero-point energy correction
+      //
+      ener += dtemp / 2.;
+    }
+
+    if(!count++ || ener < _refen)
+      //
+      _refen = ener;
+  }
+
+  // non-fluxional modes zero-point energy correction
+  //
+  if(_nohess && !_noqf)
+    //
+    for(int f = 0; f < _nm_freq.size(); ++f)
+      //
+      _refen += _nm_freq[f] / 2.;
+
+  // rounding for better output
+  //
+  _refen = std::floor(_refen * 10. / Phys_const::kcal) / 10. * Phys_const::kcal;
+}
+
+// non-fluxional mode minimal frequency in 1/cm
+//
+double Model::MonteCarlo::nm_freq_min = 10.;
+
+double Model::MonteCarlo::_local_weight (double                  ener,       // energy of the sampling 
+					 Lapack::Vector          cart_pos,   // cartesian coordinates    
+					 Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
+					 Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
+					 double                  temperature // temprature
+					 ) const
+{
+  const char funame [] = "Model::MonteCarlo::_local_weight: ";
+
+  // high frequency threshold x = freq / 2 / T.
+  //
+  static const double high_freq_thres = 5.;
+
+  // maximal exponent argument
+  //
+  static const double exp_arg_max = 50.;
+  
+  /*****************************************************************************
+   **************************** CALCULATION BEGINS *****************************
+   *****************************************************************************/
+  
+  int    itemp;
+  
+  double dtemp;
+
+  IO::Marker funame_marker(funame);
+  
+  // fluxional modes values output
+  //
+  IO::log << IO::log_offset << "fluxional modes values:";
+  
+  for(int f = 0; f < _fluxional.size(); ++f)
+    //
+    IO::log << std::setw(15) << _fluxional[f].evaluate(cart_pos);
+
+  IO::log << "\n";
+  
+  // fluxional modes first derivatives
+  //
+  const int cart_size = _mass_sqrt.size() * 3;
+
+  Lapack::Matrix fmfd(cart_size, _fluxional.size());
+
+  for(int c = 0; c < cart_size; ++c) {
+    //
+    // first derivative signature
+    //
+    std::vector<int> sign(1);
+
+    sign[0] = c;
+    
+    for(int f = 0; f < _fluxional.size(); ++f)
+      //
+      fmfd(c, f) = _fluxional[f].evaluate(cart_pos, sign);
+  }
+
+  // curvlinear force constant correction
+  //
+  if(!_nohess) {
+    //
+    // potential energy gradient over fluxional modes coordinates
+    //
+    double residue;
+  
+    Lapack::Vector flux_grad = Lapack::svd_solve(fmfd, cart_grad, &residue);
+
+    IO::log << IO::log_offset << "energy, kcal/mol, over fluxional modes coordinates gradient:";
+
+    for(int f = 0; f < _fluxional.size(); ++f)
+      //
+      IO::log << std::setw(15) << flux_grad[f] / Phys_const::kcal;
+
+    IO::log << "\n";
+  
+    IO::log << IO::log_offset << "cartesian gradient length,  kcal/mol/Bohr: " << std::setw(15)
+	    << std::sqrt(cart_grad.vdot()) / Phys_const::kcal << "\n";
+  
+    IO::log << IO::log_offset << "cartesian gradient residue, kcal/mol/Bohr: " << std::setw(15)
+	    << residue / Phys_const::kcal << "\n";
+
+    // check residue: => OK
+    //
+    /*
+      Lapack::Vector appr_grad = fmfd * flux_grad;
+
+      appr_grad -= cart_grad;
+
+      IO::log << IO::log_offset << "test residue,               kcal/mol/Bohr: " << std::setw(15)
+      << std::sqrt(appr_grad.vdot()) / Phys_const::kcal << "\n";
+    */
+    
+    // modified cartesian force constant matrix
+    //
+    cart_fc = cart_fc.copy();
+
+    for(int c = 0; c < cart_size; ++c) {
+      //
+      for(int d = c; d < cart_size; ++d) {
+	//
+	std::vector<int> sign(2);
+
+	sign[0] = c;
+	sign[1] = d;
+
+	for(int i = 0; i < _fluxional.size(); ++i)
+	  //
+	  cart_fc(c, d) -= flux_grad[i] * _fluxional[i].evaluate(cart_pos, sign);
+
+
+	cart_fc(c, d) /= _mass_sqrt[c / 3] * _mass_sqrt[d / 3];
+      }
+    }
+  }
+  
+  // orthogonal basis for non-fluxional modes
+  //
+  Lapack::Matrix basis(cart_size);
+
+  for(int c = 0; c < cart_size; ++c) {
+    //
+    // atomic index
+    //
+    const int a = c / 3;
+
+    const int b = c % 3;
+    
+    // current mode index
+    //
+    int m = 0;
+    
+    // overall rotations
+    //
+    for(int i = 0; i < 3; ++i, ++m) {
+      //
+      const int i1 = (i + 1) % 3;
+
+      const int i2 = (i + 2) % 3;
+
+      if(b == i1) {
+	//
+	basis(c, m) =  _mass_sqrt[a] * cart_pos[a * 3 + i2];
+      }
+      else if(b == i2) {
+	//
+	basis(c, m) = -_mass_sqrt[a] * cart_pos[a * 3 + i1];
+      }
+      else
+	//
+	basis(c, m) = 0.;
+    }
+  
+    // overall translations (normalized)
+    //
+    for(int i = 0; i < 3; ++i, ++m) {
+      //
+      if(b == i) {
+	//
+	basis(c, m) = _mass_sqrt[a] / _total_mass_sqrt;
+      }
+      else
+	//
+	basis(c, m) = 0.;
+      //      
+    }//
+
+    // fluxional modes
+    //
+    for(int i = 0; i < _fluxional.size(); ++i, ++m)
+      //
+      basis(c, m) = fmfd(c, i) / _mass_sqrt[a];
+  }
+
+  // square root of inertia moments
+  //
+  dtemp = Lapack::orthogonalize(basis.copy(), 3);
+
+  double wfac = dtemp;
+  
+  // square root of fluxional modes masses 
+  //
+  wfac /= Lapack::orthogonalize(basis, _fluxional.size() + 6) / dtemp;
+
+  // overall rotations and translations projected out
+  //
+  const int in_size = cart_size - 6;
+
+  Lapack::SymmetricMatrix in_fc(in_size);
+
+  if(!_nohess)
+    //
+    for(int i = 0; i < in_size; ++i)
+      //
+      for(int j = i; j < in_size; ++j)
+	//
+	in_fc(i, j) = cart_fc * &basis(0, i + 6) * &basis(0, j + 6);
+
+  // quantum correction factor
+  //
+  if(!_noqf && !_nohess) {
+    //
+    Lapack::Vector eval = in_fc.eigenvalues();
+
+    bool deep_tunnel_regime = false;
+  
+    for(int f = 0; f < in_size; ++f) {
+      //
+      if(eval[f] < 0.) {
+	//
+	dtemp = std::sqrt(-eval[f]) / temperature / 2.;
+
+	if(dtemp < 0.9 * M_PI) {
+	  //
+	  wfac *= dtemp / std::sin(dtemp);
+	}
+	else if(!deep_tunnel_regime) {
+	  //
+	  deep_tunnel_regime = true;
+	
+	  std::cerr << funame << "WARNING: the system is in the deep tunneling regime, check the log file\n";
+
+	  IO::log << IO::log_offset << "WARNING: the system is in the deep tunneling regime" << std::endl;
+	}
+      }
+      else if(eval[f] > 0.) {
+	//
+	dtemp = std::sqrt(eval[f]) / temperature / 2.;
+      
+	if(dtemp > high_freq_thres) {
+	  //
+	  ener += dtemp * temperature;
+	
+	  wfac *= 2. * dtemp;
+	}
+	else
+	  //
+	  wfac *= dtemp / std::sinh(dtemp);
+      }
+    }
+
+    // deep tunneling regime output
+    //
+    if(deep_tunnel_regime) {
+      //
+      IO::log << IO::log_offset << "energy (including zero-point energy correction), kcal/mol = "
+	      << (ener - _refen) / Phys_const::kcal << std::endl;
+
+      IO::log << IO::log_offset << "internal modes (" << in_size << ") frequencies, 1/cm:";
+
+      for(int f = 0; f < in_size; ++f) {
+	//
+	IO::log << "   ";
+    
+	if(eval[f] < 0.) {
+	  //
+	  IO::log << -std::sqrt(-eval[f]) / Phys_const::incm;
+	}
+	else
+	  //
+	  IO::log << std::sqrt(eval[f]) / Phys_const::incm;
+      }
+
+      IO::log << std::endl;
+      //
+    }//
+    //
+  }// quantum correction factor
+  
+  const int nm_size = in_size - _fluxional.size();
+
+  // non-fluxional modes frequency factor
+  //
+  if(!_nohess) {
+    //
+    Lapack::SymmetricMatrix nm_fc(nm_size);
+
+    for(int i = 0; i < nm_size; ++i)
+      //
+      for(int j = i; j < nm_size; ++j)
+	//
+	nm_fc(i, j) = in_fc(i + _fluxional.size(), j + _fluxional.size());
+
+
+    Lapack::Vector eval = nm_fc.eigenvalues();
+
+    // after testing uncomment next clause
+    //
+    // if(deep_tunnel_regime) {
+    //
+    IO::log << IO::log_offset << "non-fluxional modes (" << nm_size << ") frequencies, 1/cm:";
+
+    for(int f = 0; f < nm_size; ++f) {
+      //
+      IO::log << "   ";
+    
+      if(eval[f] < 0.) {
+	//
+	IO::log << -std::sqrt(-eval[f]) / Phys_const::incm;
+      }
+      else
+	//
+	IO::log << std::sqrt(eval[f]) / Phys_const::incm;
+    }
+
+    IO::log << std::endl;
+    //
+    // }
+  
+    // check for soft non-fluxional modes
+    //
+    if(eval[0] < 0.) {
+      //
+      dtemp = -std::sqrt(-eval[0]);
+    }
+    else
+      //
+      dtemp = std::sqrt(eval[0]);
+
+    dtemp /= Phys_const::incm;
+    
+    if(dtemp < nm_freq_min) {
+      //
+      std::cerr << funame << "non-fluxional mode frequency is too low: " << dtemp  << " 1/cm \n";
+
+      throw Error::Range();
+    }
+  
+    // classical weight factor for non-fluxional modes
+    //
+    for(int f = 0; f < nm_size; ++f) {
+      //
+      wfac /= std::sqrt(eval[f]);
+    }
+  }
+
+  if(_nohess && !_noqf) {
+    //
+    for(int f = 0; f < _nm_freq.size(); ++f) {
+      //
+      dtemp = _nm_freq[f] / temperature / 2.;
+      
+      if(dtemp > high_freq_thres) {
+	//
+	ener += dtemp * temperature;
+	
+	wfac *= 2. * dtemp;
+      }
+      else
+	//
+	wfac *= dtemp / std::sinh(dtemp);
+    }
+  }
+  // Boltzmann factor, including zero-point energy of high-frequency modes relative to the reference energy
+  //  
+  dtemp = ener - _refen;
+
+  // reference potential correction
+  //
+  if(_ref_pot) {
+    //
+    Lapack::Vector flux_pos(_fluxional.size());
+
+    for(int f = 0; f < _fluxional.size(); ++f)
+      //
+      flux_pos[f] = _fluxional[f].evaluate(cart_pos);
+  
+    dtemp -= _ref_pot(flux_pos);
+  }
+
+  dtemp /= temperature;
+  
+  if(dtemp > exp_arg_max)
+    //
+    return 0.;
+
+  if(dtemp < -exp_arg_max) {
+    //
+    std::cerr << funame << "energy (relative to the reference energy) is too low: "
+	      << (ener - _refen) / Phys_const::kcal
+	      << " kcal/mol. Check the reference energy\n";
+
+    throw Error::Range();
+  }
+  
+  return wfac * std::exp(-dtemp);
+}
+
+/***********************************************************************************************************
+ ****************************** CRUDE MONTE-CARLO SAMPLING WITH DUMMY ATOMS ********************************
+ ***********************************************************************************************************/
+
+Model::MonteCarloWithDummy::~MonteCarloWithDummy() {}
+
+Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const std::string& n, int m) : Species(from, n, m)
+{
+  const char funame [] = "Model::MonteCarloWithDummy::MonteCarloWithDummy: ";
+
+  IO::Marker funame_marker(funame);
+
+  int    itemp;
+  
+  double dtemp;
+
+  std::string token, comment, stemp;
+
+  KeyGroup MonteCarloWithDummyModel;
+
+  Key  atom_key("MoleculeSpecification" );
+  Key  flux_key("FluxionalMode"         );
+  Key   con_key("Constrain"             );
+  Key  incr_key("NumericIncrement[Bohr]");
+  Key  data_key("DataFile"              );
+  
+  while(from >> token) {
+    //
+    // end input
+    //
+    if(IO::end_key() == token) {
+      //
+      std::getline(from, comment);
+      
+      break;
+    }
+    // molecule specification
+    //
+    else if(atom_key == token) {
+      //
+      if(_atom_array.size()) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+
+	throw Error::Init();
+      }
+
+      IO::LineInput lin(from);
+
+      int na;
+      
+      if(!(lin >> na)) {
+	//
+	std::cerr << funame << token << ": cannot read number of atoms\n";
+
+	throw Error::Input();
+      }
+
+      if(na <= 0) {
+	//
+	std::cerr << funame << token << ": number of atoms out of range: " << na << "\n";
+
+	throw Error::Range();
+      }
+
+      for(int a = 0; a < na; ++a) {
+	//
+	_atom_array.push_back(Atom(from));
+
+	if(_atom_array.back().number()) {
+	  //
+	  _real_atom.push_back(a);
+	}
+	else
+	  //
+	  _dummy_atom.push_back(a);
+      }
+    }
+    // fluxional mode specification
+    //
+    else if(flux_key == token) {
+      //
+      std::getline(from, comment);
+
+      if(!_atom_array.size()) {
+	//
+	std::cerr << funame << token << ": molecule specification should go first\n";
+
+	throw Error::Init();
+      }
+
+      _fluxional.push_back(Fluxional(_atom_array.size(), from));
+    }
+    // dummy constrain specification
+    //
+    else if(con_key == token) {
+      //
+      std::getline(from, comment);
+
+      if(!_atom_array.size()) {
+	//
+	std::cerr << funame << token << ": molecule specification should go first\n";
+
+	throw Error::Init();
+      }
+
+      _constrain.push_back(Constrain(_atom_array.size(), from));
+    }
+    // numerical differentiation increment
+    //
+    else if(incr_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> dtemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(dtemp <= 0. || dtemp >= 1.) {
+	//
+	std::cerr << funame << token << ": out of range: " << dtemp << "\n";
+
+	throw Error::Range();
+      }
+
+      IntMod::increment = dtemp;
+    }
+    // data file
+    //
+    else if(data_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(_data_file.size()) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+      
+      if(!(lin >> _data_file)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+    }
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      Key::show_all(std::cerr);
+      
+      std::cerr << "\n";
+      
+      throw Error::Init();
+    }
+  }
+
+  // some checking
+  //
+  if(!from) {
+    //
+    std::cerr << funame << "input stream is currupted\n";
+
+    throw Error::Input();
+  }
+
+  if(!_atom_array.size()) {
+    //
+    std::cerr << funame << "no molecule specification\n";
+
+    throw Error::Init();
+  }
+
+  if(!_fluxional.size()) {
+    //
+    std::cerr << funame << "no fluxional modes specified\n";
+
+    throw Error::Init();
+  }
+
+  if(_fluxional.size() + 6 > _real_atom.size() * 3) {
+    //
+    std::cerr << funame << "number of fluxional modes, " << _fluxional.size()
+	      << ", is inconsistent with the number of real atoms, " << _real_atom.size() << "\n";
+
+    throw Error::Init();
+  }
+
+  if(_constrain.size() != _dummy_atom.size() * 3) {
+    //
+    std::cerr << funame << "number of dummy constrains, " << _constrain.size() << ", is inconsistent with the number of dummy atoms, "
+	      << _dummy_atom.size() << "\n";
+
+    throw Error::Init();
+  }
+
+  if(!_data_file.size()) {
+    //
+    std::cerr << funame << "no data file is provided\n";
+
+    throw Error::Init();
+  }
+}
+
+void Model::MonteCarloWithDummy::_assert(ConstSlice<double> v) const
+{
+  const char funame [] = "Model::MonteCarloWithDummy::_assert: ";
+
+  if(v.size() == _atom_array.size() * 3)
+    //
+    return;
+
+  std::cerr << funame << "vector size out of range: " << v.size();
+  
+  throw Error::Range();
+}
+
+double Model::MonteCarloWithDummy::_vdot(ConstSlice<double> v1, ConstSlice<double> v2) const
+{
+  const char funame [] = "Model::MonteCarloWithDummy::_vdot: ";
+
+  double dtemp;
+  
+  int    itemp;
+
+  _assert(v1);
+
+  _assert(v2);
+
+  double res = 0.;
+
+  for(int r = 0; r < _real_atom.size(); ++r) {
+    //
+    const int a = _real_atom[r];
+
+    dtemp = 0.;
+
+    itemp = a * 3;
+    
+    for(int i = 0; i < 3; ++i)
+      //
+      dtemp += v1[itemp + i] * v2[itemp + i];
+
+    res += dtemp * _atom_array[a].mass();
+  }
+
+  return res;
+}
+
+double Model::MonteCarloWithDummy::_normalize(Slice<double> a) const
+{
+  const char funame [] = "Model::MonteCarloWithDummy::_normalize: ";
+
+  static const double eps = 1.e-20;
+  
+  double aa = _vdot(a, a);
+
+  if(aa < eps) {
+    //
+    std::cerr << funame << "vector has zero length\n";
+
+    throw Error::Range();
+  }
+
+  aa = std::sqrt(aa);
+  
+  for(Slice<double>::iterator it = a.begin(); it != a.end(); ++it)
+    //
+    *it /= aa;
+
+  return aa;
+}
+    
+void Model::MonteCarloWithDummy::_orthogonalize (Slice<double> a, ConstSlice<double> b) const
+{
+  double ab = _vdot(a, b);
+  
+  double bb = -vdot(b, b);
+
+  for(int i = 0; i < a.size(); ++i)
+    //
+    a[i] -= b[i] * ab / bb;
+}
+    
+void Model::MonteCarloWithDummy::_orthogonalize (Lapack::Matrix m) const
+{
+  for(int c = 0; c < m.size2(); ++c) {
+    //
+    for(int d  = 0; d < c; ++d)
+      //
+      _orthogonalize(m.column(c), m.column(d));
+
+    _normalize(m.column(c));
+  }
+}
+    
+double Model::MonteCarloWithDummy::_local_weight (double                  ener,           // energy of the sampling 
+						  Lapack::Vector          cart_pos,       // cartesian coordinates of all atoms (real and dummy ones)   
+						  Lapack::Vector          real_cart_grad, // energy gradient in cartesian coordinates
+						  Lapack::SymmetricMatrix real_cart_fc,   // cartesian force constant matrix
+						  double                  temperature     // temprature
+						  ) const
+{
+  const char funame [] = "Model::MonteCarloWithDummy::_local_weight: ";
+
+  // non-fluxional mode minimal frequency in 1/cm
+  //
+  static const double nm_freq_min = 10.;
+
+  // high frequency threshold x = freq / 2 / T.
+  //
+  static const double high_freq_thres = 5.;
+
+  // maximal exponent argument
+  //
+  static const double exp_arg_max = 50.;
+  
+  /*****************************************************************************
+   **************************** CALCULATION BEGINS *****************************
+   *****************************************************************************/
+  
+  int    itemp;
+  
+  double dtemp;
+
+  IO::Marker funame_marker(funame);
+
+  // full cartesian size including dummy atoms
+  //
+  const int cart_size = _atom_array.size() * 3;
+
+  // number of curvlinear modes, fluxional ones and constrains
+  //
+  const int curv_size = _fluxional.size() + _constrain.size();
+  
+  // internal (fluxional and constrain) modes first derivatives
+  //
+  Lapack::Matrix imfd(cart_size, curv_size);
+
+  for(int c = 0; c < cart_size; ++c) {
+    //
+    // first derivative signature
+    //
+    std::vector<int> sign(1, c);
+
+    itemp = 0;
+    
+    for(int i = 0; i < _constrain.size(); ++i, ++itemp)
+      //
+      imfd(c, itemp) = _constrain[i].evaluate(cart_pos, sign);
+
+    for(int i = 0; i < _fluxional.size(); ++i, ++itemp)
+      //
+      imfd(c, itemp) = _fluxional[i].evaluate(cart_pos, sign);
+  }
+
+  // potential energy gradient over all cartesian coordinates (real and dummy ones)
+  //
+  Lapack::Vector cart_grad(cart_size);
+
+  cart_grad = 0.;
+
+  for(int r = 0; r < _real_atom.size(); ++r)
+    //
+    for(int ri = 0; ri < 3; ++ri)
+      //
+      cart_grad[_real_atom[r] * 3 + ri] = real_cart_grad[r * 3 + ri];
+
+  // energy gradient over internal coordinates (fluxional and constrained ones)
+  //
+  double residue;
+  
+  Lapack::Vector curv_grad = Lapack::svd_solve(imfd, cart_grad, &residue);
+  
+  // force constant matrix over all cartesian coordinates (real and dummy ones)
+  //
+  Lapack::SymmetricMatrix cart_fc(cart_size);
+
+  cart_fc = 0.;
+
+  for(int r = 0; r < _real_atom.size(); ++r) {
+    //
+    for(int ri = 0; ri < 3; ++ri) {
+      //
+      for(int s = r; s < _real_atom.size(); ++s) {
+	//
+	for(int si = 0; si < 3; ++si) {
+	  //
+	  if(s == r && si < ri)
+	    //
+	    continue;
+
+	  cart_fc(_real_atom[r] * 3 + ri, _real_atom[s] * 3 + si) = real_cart_fc(r * 3 + ri, s * 3 + si);
+	}
+      }
+    }
+  }
+
+  // modified cartesian force constant matrix
+  //
+  for(int c = 0; c < cart_size; ++c)
+    //
+    for(int d = c; d < cart_size; ++d) {
+      //
+      std::vector<int> sign(2);
+
+      sign[0] = c;
+      
+      sign[1] = d;
+
+      itemp = 0;
+      
+      for(int i = 0; i < _constrain.size(); ++i, ++itemp)
+	//
+	cart_fc(c, d) -= curv_grad[itemp] * _constrain[i].evaluate(cart_pos, sign);
+
+      for(int i = 0; i < _fluxional.size(); ++i, ++itemp)
+	//
+	cart_fc(c, d) -= curv_grad[itemp] * _fluxional[i].evaluate(cart_pos, sign);
+    }
+  
+  /****************** FLUXIONAL MODES MASS FACTOR ************************/
+  //
+
+  // derivatives of dummy constrain over dummy cartesian coordinates
+  //
+  Lapack::Matrix dqdx(_constrain.size());
+
+  for(int d = 0; d < _dummy_atom.size(); ++d)
+    //
+    for(int di = 0; di < 3; ++di)
+      //
+      for(int c = 0; c < _constrain.size(); ++c)
+	//
+	dqdx(c, d * 3 + di) = imfd(_dummy_atom[d] * 3 + di, c);
+
+  // mass-weighted fluxional modes constrained derivatives
+  //
+  Lapack::Matrix fmcd(_real_atom.size() * 3, _fluxional.size());
+
+  for(int r = 0; r < _real_atom.size(); ++r) {
+    //
+    double mass_sqrt = std::sqrt(_atom_array[_real_atom[r]].mass());
+    //
+    for(int ri = 0; ri < 3; ++ri) {
+
+      // dummy constrain derivative over real atom cartesian coordinate
+      //
+      Lapack::Vector dqdr(_constrain.size());
+
+      for(int c = 0; c < _constrain.size(); ++c)
+	//
+	dqdr[c] = imfd(_real_atom[r] * 3 + ri, c);
+
+      // dummy atom cartesian coordinate constrained derivative over real atom cartesian coordinate
+      //
+      Lapack::Vector dxdr = Lapack::svd_solve(dqdx, dqdr);
+
+      for(int f = 0; f < _fluxional.size(); ++f) {
+	//
+	// fluxional mode first derivative over real atom cartesian coordinate
+	//
+	dtemp = imfd(_real_atom[r] * 3 + ri, _constrain.size() + f);
+
+	for(int d = 0; d < _dummy_atom.size(); ++d)
+	  //
+	  for(int di = 0; di < 3; ++di)
+	    //
+	    dtemp -= imfd(_dummy_atom[d] * 3 + di, _constrain.size() + f) * dxdr[d * 3 + di];
+
+	fmcd(r * 3 + ri, f) = dtemp / mass_sqrt;
+      }
+    }
+  }
+  
+  // orthogonalize mass-weighted fluxional modes constrained cartesian derivatives
+  //
+  double wfac = 1. / fmcd.orthogonalize();
+
+  // dummy constrain matrix for full frequency calculations
+  //
+  Lapack::Matrix dcm(_constrain.size() + 6, cart_size);
+
+  dcm = 0.;
+
+  // translation
+  //
+  for(int i = 0; i < 3; ++i) {
+    //
+    for(int r = 0; r < _real_atom.size(); ++r) {
+      //
+      const int a = _real_atom[r];
+      
+      dcm(i, a * 3 + i) = _atom_array[a].mass();
+    }
+  }
+  
+  // overall rotations
+  //
+  for(int i = 0; i < 3; ++i) {
+    //
+    const int i1 = (i + 1) % 3;
+
+    const int i2 = (i + 2) % 3;
+
+    for(int r = 0; r < _real_atom.size(); ++r) {
+      //
+      const int a = _real_atom[r];
+      
+      dcm(i + 3, a * 3 + i1) =  _atom_array[a].mass() * cart_pos[a * 3 + i2];
+
+      dcm(i + 3, a * 3 + i2) = -_atom_array[a].mass() * cart_pos[a * 3 + i1];
+    }
+  }
+
+  // constrain modes
+  //
+  for(int i = 0; i < _constrain.size(); ++i)
+    //
+    for(int c = 0; c < cart_size; ++c)
+      //
+      dcm(i + 6, c) = imfd(c, i);
+
+  // constrained subspace basis
+  //
+  Lapack::Matrix basis = dcm.kernel();
+
+  _orthogonalize(basis);
+
+  // internal (fluxional and non-fluxional) modes frequencies
+  //
+  const int in_size = basis.size2(); // should be 3 * "real atom #" - 6
+  
+  Lapack::SymmetricMatrix in_fc(in_size);
+
+  for(int i = 0; i < in_size; ++i)
+    //
+    for(int j = i; j < in_size; ++j)
+      //
+      in_fc(i, j) = cart_fc * basis.column(i) * basis.column(j);
+  
+  // eigenvalues
+  //
+  Lapack::Vector eval = in_fc.eigenvalues();
+
+  // quantum correction factor
+  //
+  bool deep_tunnel_regime = false;
+  
+  for(int f = 0; f < in_size; ++f) {
+    //
+    if(eval[f] < 0.) {
+      //
+      dtemp = std::sqrt(-eval[f]) / temperature / 2.;
+
+      if(dtemp > 0.9 * M_PI && !deep_tunnel_regime) {
+	//
+	deep_tunnel_regime = true;
+	
+	std::cerr << funame << "WARNING: the system is in the deep tunneling regime, check the log file\n";
+
+	IO::log << IO::log_offset << "WARNING: the system is in the deep tunneling regime" << std::endl;
+      }
+      else {
+	//
+	wfac *= dtemp / std::sin(dtemp);
+      }
+    }
+    else if(eval[f] > 0.) {
+      //
+      dtemp = std::sqrt(eval[f]) / temperature / 2.;
+      
+      if(dtemp > high_freq_thres) {
+	//
+	ener += dtemp * temperature;
+	
+	wfac *= 2. * dtemp;
+      }
+      else
+	//
+	wfac *= dtemp / std::sinh(dtemp);
+    }
+  }
+
+  // internal mode frequencies output
+  
+  // after testing uncomment next clause
+  //
+  // if(deep_tunnel_regime) {
+  //
+  IO::log << IO::log_offset << "internal modes (" << in_size << ") frequencies, 1/cm:";
+
+  for(int f = 0; f < in_size; ++f) {
+    //
+    IO::log << "   ";
+    
+    if(eval[f] < 0.) {
+      //
+      IO::log << -std::sqrt(-eval[f]) / Phys_const::incm;
+    }
+    else
+      //
+      IO::log << std::sqrt(eval[f]) / Phys_const::incm;
+  }
+
+  IO::log << std::endl;
+
+  // }
+  
+  // non-fluxional modes frequencies
+  //
+  const int nm_size = in_size - _fluxional.size();
+
+  // full constrain matrix, with both dummy and fluxional constrains
+  //
+  Lapack::Matrix fcm(_constrain.size() + _fluxional.size() + 6, cart_size);
+
+  for(int c = 0; c < cart_size; ++c) {
+    //
+    for(int i = 0; i < dcm.size1(); ++i)
+      //
+      fcm(i, c) = dcm(i, c);
+
+    for(int i = 0; i < _fluxional.size(); ++i)
+      //
+      fcm(i + dcm.size1(), c) = imfd(c, i + _constrain.size());
+  }
+  
+  basis = fcm.kernel();
+
+  _orthogonalize(basis);
+  
+  // non-fluxional modes force constant matrix
+  //
+  Lapack::SymmetricMatrix nm_fc(nm_size);
+
+  for(int i = 0; i < nm_size; ++i)
+    //
+    for(int j = i; j < nm_size; ++j)
+      //
+      nm_fc(i, j) = cart_fc * basis.column(i) * basis.column(j);
+
+  // eigenvalues
+  //
+  eval = nm_fc.eigenvalues();
+
+  // after testing uncomment next clause
+  //
+  // if(deep_tunnel_regime) {
+  //
+  IO::log << IO::log_offset << "non-fluxional modes (" << nm_size << ") frequencies, 1/cm:";
+
+  for(int f = 0; f < nm_size; ++f) {
+    //
+    IO::log << "   ";
+    
+    if(eval[f] < 0.) {
+      //
+      IO::log << -std::sqrt(-eval[f]) / Phys_const::incm;
+    }
+    else
+      //
+      IO::log << std::sqrt(eval[f]) / Phys_const::incm;
+  }
+
+  IO::log << std::endl;
+  //
+  // }
+  
+  // check for soft non-fluxional modes
+  //
+  if(eval[0] < 0.) {
+    //
+    dtemp = -std::sqrt(-eval[0]);
+  }
+  else
+    //
+    dtemp = std::sqrt(eval[0]);
+
+  dtemp /= Phys_const::incm;
+    
+  if(dtemp < nm_freq_min) {
+    //
+    std::cerr << funame << "non-fluxional mode frequency is too low: " << dtemp  << " 1/cm \n";
+
+    throw Error::Range();
+  }
+  
+  // classical weight factor for non-fluxional modes
+  //
+  for(int f = 0; f < nm_size; ++f) {
+    //
+    wfac /= std::sqrt(eval[f]);
+  }
+
+  // deep tunneling regime energy output
+  if(deep_tunnel_regime) {
+    //
+    IO::log << IO::log_offset << "energy (including zero-point energy correction), kcal/mol = "
+	    << (ener - ground()) / Phys_const::kcal << std::endl;
+  }
+  
+  // Boltzmann factor, including zero-point energy of high-frequency modes
+  //
+  dtemp = (ener - ground()) / temperature;
+
+  if(dtemp > exp_arg_max)
+    //
+    return 0.;
+
+  if(dtemp < -exp_arg_max) {
+    //
+    std::cerr << funame << "energy is too low: " << (ener - ground()) / Phys_const::kcal << " kcal/mol. Check the ground energy\n";
+
+    throw Error::Range();
+  }
+  
+  return wfac * std::exp(-dtemp);
+}
+
+double Model::MonteCarloWithDummy::states (double ener) const
+{
+  const char funame [] = "Model::MonteCarloWithDummy::states: ";
+
+  std::cerr << funame << "not implemented yet, sorry\n";
+
+  throw Error::General();
+
+  return 0.;
+}
+
+double Model::MonteCarloWithDummy::weight (double temperature, std::map<int, double>*) const
+{
+  const char funame [] = "Model::MonteCarloWithDummy::weight: ";
+
+  static bool first_time = true;
+
+  int    itemp;
+  
+  double dtemp;
+  
+  std::ifstream from(_data_file);
+
+  if(!from) {
+    //
+    std::cerr << funame << "cannot open data file " << _data_file << "\n";
+
+    throw Error::File();
+  }
+
+  double res = 0.;
+
+  Lapack::Vector          cart_pos(_atom_array.size() * 3);
+    
+  Lapack::Vector          cart_grad(_real_atom.size() * 3);
+    
+  Lapack::SymmetricMatrix cart_fc  (_real_atom.size() * 3);
+
+  double ener;
+
+  int count = 0;
+
+  std::vector<std::pair<double, double> > flimits(_fluxional.size());
+
+  std::vector<double> con_rms(_constrain.size());
+  
+  while(from >> ener) {
+    //
+    // read energies, atom cartesian positions, gradients, and force constants
+    // ...
+
+    if(!from) {
+      //
+      std::cerr << funame << "data file " << _data_file << " is corrupted\n";
+
+      throw Error::Input();
+    }
+    
+    res += _local_weight(ener, cart_pos, cart_grad, cart_fc, temperature);
+
+    if(first_time) {
+      //
+      for(int f = 0; f < _fluxional.size(); ++f) {
+	//
+	dtemp = _fluxional[f].evaluate(cart_pos);
+
+	if(!count || dtemp < flimits[f].first)
+	  //
+	  flimits[f].first = dtemp;
+
+	if(!count || dtemp > flimits[f].second)
+	  //
+	  flimits[f].second = dtemp;
+      }
+
+      for(int c = 0; c < _constrain.size(); ++c) {
+	//
+	dtemp = _constrain[c].evaluate(cart_pos) - _constrain[c].value();
+
+	con_rms[c] += dtemp * dtemp;
+      }
+    }
+    
+    ++count;
+  }
+
+  if(!count) {
+    //
+    std::cerr << funame << "no data\n";
+
+    throw Error::Input();
+  }
+
+  if(first_time) {
+    //
+    IO::log << IO::log_offset << funame << "\n";
+    
+    IO::log << IO::log_offset << "Constrain rms deviation:\n";
+    
+    for(int c = 0; c < _constrain.size(); ++c)
+      //
+      IO::log << IO::log_offset
+	      << std::setw(3) << c
+	      << std::setw(15) << std::sqrt(con_rms[c] / (double)count)
+	      << "\n";
+
+    IO::log << IO::log_offset << "Fluxional modes real span versus assumed one:\n";
+    
+    for(int f = 0; f < _fluxional.size(); ++f)
+      //
+      IO::log << IO::log_offset
+	      << std::setw(3) << f
+	      << std::setw(15) << flimits[f].second - flimits[f].first
+	      << std::setw(15) << _fluxional[f].span()
+	      << "\n";
+
+    first_time = false;
+  }
+  
+  // normalize
+  //
+  res /= double(count);
+
+  // span factor
+  //
+  for(int f = 0; f < _fluxional.size(); ++f)
+    //
+    res *= _fluxional[f].span();
+
+  // pi factors for fluxional and external rotation modes
+  //
+  res *= 2. / std::pow(2. * M_PI, double(_fluxional.size() - 1) / 2.);
+  
+  // fluxional and external rotation temperature factor
+  //
+  res *= std::pow(temperature, double(_fluxional.size() + 3) / 2.);
+
+  // non-fluxional modes temperature factor
+  //
+  res *= std::pow(temperature, double(_real_atom.size() * 3 - _fluxional.size() - 6));
+  
+  return res;
+}
+
 /************************* RIGID ROTOR HARMONIC OSCILLATOR MODEL **************************/
 
-Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(Error::General)
+Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) 
   :Species(from, n, m),  _emax(-1.), _sym_num(1.)
 {
   const char funame [] = "Model::RRHO::RRHO: ";
@@ -13616,6 +16326,9 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m) throw(
 
   _real_ground = _ground;
 
+  IO::log << IO::log_offset << "ground state energy, kcal/mol:   "
+	  << _real_ground / Phys_const::kcal << "\n";
+  
   // tunneling correction
   //
   if(_tunnel)
@@ -14257,7 +16970,7 @@ double Model::RRHO::infrared_intensity (double ener, int f) const
  *********************************** UNION OF WELLS **********************************
  *************************************************************************************/
 
-Model::UnionSpecies::UnionSpecies (IO::KeyBufferStream& from, const std::string& n, int m) throw(Error::General)
+Model::UnionSpecies::UnionSpecies (IO::KeyBufferStream& from, const std::string& n, int m) 
   : Species(n, m)
 {
   const char funame [] = "Model::UnionSpecies::UnionSpecies: ";
@@ -14378,7 +17091,7 @@ int Model::UnionSpecies::oscillator_size () const
  ********************************* VARIATIONAL BARRIER MODEL ***********************************
  ***********************************************************************************************/
 
-Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n) throw(Error::General)
+Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n) 
   : Species(n, NUMBER), _tunnel(0), _ener_quant(Phys_const::incm), _emax(-1.), _tts_method(STATISTICAL)
 {
   const char funame [] = "Model::VarBarrier::VarBarrier: ";
@@ -14777,7 +17490,7 @@ double Model::VarBarrier::tunnel_weight (double temperature) const
  ************************************* ATOMIC FRAGMENT **************************************
  ********************************************************************************************/
 
-Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::string& n) throw(Error::General)
+Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::string& n) 
   : Species(n, NOSTATES)
 {
   const char funame [] = "Model::AtomicFragment::AtomicFragment: ";
@@ -14948,7 +17661,7 @@ void Model::AtomicSpecies::shift_ground (double e)
  ************************************ BIMOLECULAR MODEL *************************************
  ********************************************************************************************/
 
-Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n) throw(Error::General)
+Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n) 
   : _name(n), _dummy(false)
 {
   const char funame [] = "Model::Bimolecular::Bimolecular: ";
@@ -15112,7 +17825,7 @@ void Model::Bimolecular::shift_ground (double e)
  ************************************** ESCAPE MODEL ****************************************
  ********************************************************************************************/
 
-Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from) throw(Error::General)
+Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from) 
   : _rate(-1.)
 {
   const char funame [] = "Model::ConstEscape::ConstEscape: ";
@@ -15171,7 +17884,7 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from) throw(Error::General)
   }
 }
 
-Model::FitEscape::FitEscape(IO::KeyBufferStream& from) throw(Error::General)
+Model::FitEscape::FitEscape(IO::KeyBufferStream& from) 
   : _ground(0.)
 {
   const char funame [] = "Model::FitEscape::FitEscape: ";
@@ -15281,17 +17994,21 @@ double Model::FitEscape::rate (double ener) const
 
   double dtemp;
   
-  if(ener >= _rate.arg_max())
+  if(ener >= _rate.arg_max()) {
     //
     dtemp = _rate.fun_max();
-  else if(ener <= _rate.arg_min())
+  }
+  else if(ener <= _rate.arg_min()) {
     //
     dtemp = _rate.fun_min();
-  else
+  }
+  else {
     //
     dtemp = _rate(ener);
+  }
 
   if(dtemp < 0.)
+    //
     return 0.;
 
   return dtemp;
@@ -15301,7 +18018,7 @@ double Model::FitEscape::rate (double ener) const
  **************************************** WELL MODEL ****************************************
  ********************************************************************************************/
 
-Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) throw(Error::General)
+Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) 
   : _extension(-1.)
 {
   const char funame [] = "Model::Well::Well: ";
@@ -15338,6 +18055,7 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) throw(Error::
       _species = new_species(from, n, DENSITY);
     }
     // escape specification
+    //
     else if(escape_key == token) {
       if(_escape) {
 	std::cerr << funame << token << ": already defined\n";
@@ -15345,7 +18063,8 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) throw(Error::
       }
       _escape = new_escape(from);
     }
-    // well extension 
+    // well extension
+    //
     else if(ext_key == token) {
       if(_extension > 0.) {
 	std::cerr << funame << token << ": already defined\n";

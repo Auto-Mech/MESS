@@ -29,6 +29,7 @@
 #include "atom.hh"
 #include "math.hh"
 #include "io.hh"
+#include "system.hh"
 
 namespace Model {
 
@@ -39,7 +40,7 @@ namespace Model {
   extern double atom_dist_min;
 
   // maximum energy to be used
-  double  energy_limit () throw(Error::General);
+  double  energy_limit () ;
   void set_energy_limit (double);
   bool is_energy_limit ();
 
@@ -89,7 +90,7 @@ namespace Model {
 
     double _omega_22_star (double) const;
   public:
-    LennardJonesCollision (IO::KeyBufferStream&) throw(Error::General);
+    LennardJonesCollision (IO::KeyBufferStream&) ;
     ~LennardJonesCollision ();
 
     double operator () (double) const;
@@ -132,7 +133,7 @@ namespace Model {
     double _energy_down (int, double) const;
   public:
 
-    ExponentialKernel (IO::KeyBufferStream&) throw(Error::General);
+    ExponentialKernel (IO::KeyBufferStream&) ;
     ~ExponentialKernel ();
 
     double operator () (double, double) const;
@@ -151,7 +152,7 @@ namespace Model {
     double _cutoff;// cutoff energy
     double   _freq;// imaginary frequency
 
-    Tunnel(IO::KeyBufferStream&) throw(Error::General);
+    Tunnel(IO::KeyBufferStream&) ;
     
   public:
     virtual ~Tunnel ();
@@ -177,7 +178,7 @@ namespace Model {
     Slatec::Spline _action;
 
   public:
-    ReadTunnel(IO::KeyBufferStream&) throw(Error::General);
+    ReadTunnel(IO::KeyBufferStream&) ;
     ~ReadTunnel ();
 
     double action (double, int =0) const; // semiclassical action
@@ -189,7 +190,7 @@ namespace Model {
 
   class HarmonicTunnel: public Tunnel {
   public:
-    HarmonicTunnel(IO::KeyBufferStream&) throw(Error::General);
+    HarmonicTunnel(IO::KeyBufferStream&) ;
     ~HarmonicTunnel ();
 
     double action (double, int =0) const; // semiclassical action
@@ -204,7 +205,7 @@ namespace Model {
     double             _factor;
 
   public:
-    EckartTunnel(IO::KeyBufferStream&) throw(Error::General);
+    EckartTunnel(IO::KeyBufferStream&) ;
     ~EckartTunnel ();
 
     double action (double, int =0) const; // semiclassical action
@@ -232,7 +233,7 @@ namespace Model {
     };
 
   public:
-    QuarticTunnel(IO::KeyBufferStream&) throw(Error::General);
+    QuarticTunnel(IO::KeyBufferStream&) ;
     ~QuarticTunnel ();
 
     double action (double, int =0) const; // semiclassical action
@@ -252,7 +253,7 @@ namespace Model {
 
   protected:
     explicit InternalRotationBase (int s) : _isinit(false), _symmetry(s) {}
-    InternalRotationBase (IO::KeyBufferStream&) throw (Error::General);
+    InternalRotationBase (IO::KeyBufferStream&) ;
     virtual ~InternalRotationBase ();
 
   public:
@@ -278,7 +279,7 @@ namespace Model {
     std::vector<Atom> _atom; // 3D structure
 
     Rotor ();
-    Rotor (IO::KeyBufferStream&, const std::vector<Atom>&) throw(Error::General);
+    Rotor (IO::KeyBufferStream&, const std::vector<Atom>&) ;
 
   public:
     virtual ~Rotor();
@@ -299,7 +300,7 @@ namespace Model {
 
   protected:
     RotorBase (double r, int s) : InternalRotationBase(s), _rotational_constant(r) {} 
-    RotorBase (IO::KeyBufferStream&, const std::vector<Atom>&) throw(Error::General);
+    RotorBase (IO::KeyBufferStream&, const std::vector<Atom>&) ;
     virtual ~RotorBase ();
 
   public:
@@ -315,7 +316,7 @@ namespace Model {
     int _level_size;
 
   public:
-    FreeRotor (IO::KeyBufferStream&, const std::vector<Atom>&) throw(Error::General);
+    FreeRotor (IO::KeyBufferStream&, const std::vector<Atom>&) ;
     ~FreeRotor ();
 
     void set (double);
@@ -349,7 +350,7 @@ namespace Model {
     int _weight_output_temperature_max;  // temperature maximum for statistical weight output
     int _weight_output_temperature_min;  // temperature maximum for statistical weight output
  
-    void _set_energy_levels (int) throw(Error::General);
+    void _set_energy_levels (int) ;
     void _read (IO::KeyBufferStream&);
     void _init ();
 
@@ -398,15 +399,15 @@ namespace Model {
     double                _pot_min; // global potential energy minimum
     
     static double _integral(int p, int n);// \int_0^1 dx x^p cos(n\pi x)
-    void _set_energy_levels(int) throw(Error::General);
+    void _set_energy_levels(int) ;
 
   public:
-    Umbrella (IO::KeyBufferStream&, const std::vector<Atom>&) throw(Error::General);
+    Umbrella (IO::KeyBufferStream&, const std::vector<Atom>&) ;
     ~Umbrella ();
 
     double quantum_weight (double) const;
     int get_semiclassical_weight (double, double&, double&) const;
-    double potential(double x, int der =0) const throw(Error::General);
+    double potential(double x, int der =0) const ;
 
     // virtual functions
     void set (double ener_max);
@@ -458,7 +459,7 @@ namespace Model {
     double _power;
 
   public:
-    PhaseSpaceTheory (IO::KeyBufferStream& from) throw(Error::General);
+    PhaseSpaceTheory (IO::KeyBufferStream& from) ;
     ~PhaseSpaceTheory ();
 
     double ground       () const;
@@ -500,7 +501,7 @@ namespace Model {
     double _core_weight (double) const;
     
   public:
-    RigidRotor (IO::KeyBufferStream&, const std::vector<Atom>&, int) throw(Error::General);
+    RigidRotor (IO::KeyBufferStream&, const std::vector<Atom>&, int) ;
     ~RigidRotor ();
 
     double ground ()       const;
@@ -524,7 +525,7 @@ namespace Model {
     double              _rotd_nmax, _rotd_amax;
 
   public:
-    Rotd (IO::KeyBufferStream&, int) throw(Error::General);
+    Rotd (IO::KeyBufferStream&, int) ;
     ~Rotd ();
 
     double ground       () const;
@@ -544,7 +545,7 @@ namespace Model {
     int                 _qmax; // maximum quantum state size
 
   public:
-    InternalRotation (IO::KeyBufferStream&) throw (Error::General);
+    InternalRotation (IO::KeyBufferStream&) ;
     ~InternalRotation ();
 
     int      mass_fourier_size () const { return    _msize; }
@@ -695,7 +696,7 @@ namespace Model {
     
   public:
     
-    MultiRotor(IO::KeyBufferStream&, const std::vector<Atom>&,  int = DENSITY) throw(Error::General);
+    MultiRotor(IO::KeyBufferStream&, const std::vector<Atom>&,  int = DENSITY) ;
 
     ~MultiRotor();
 
@@ -746,7 +747,7 @@ namespace Model {
 
     void _print () const;
 
-    Species (IO::KeyBufferStream&, const std::string&, int) throw(Error::General);
+    Species (IO::KeyBufferStream&, const std::string&, int) ;
     Species (const std::string&, int);
     
   public:
@@ -768,7 +769,7 @@ namespace Model {
     virtual double real_ground () const { return _ground; }
     virtual void init () {}
     
-    double   mass () const throw(Error::General);
+    double   mass () const ;
 
     const std::vector<Atom>& geometry () const { return _atom; }
 
@@ -785,7 +786,7 @@ namespace Model {
     virtual int         oscillator_size ()            const;
   };
 
-  inline Species::Species (const std::string& n, int m) : _name(n), _mode(m), _mass(-1.), _print_step(-1.)
+  inline Species::Species (const std::string& n, int m) : _name(n), _mode(m), _mass(-1.), _print_step(-1.), _ground(0.)
   {
     const char funame [] = "Model::Species::Species: ";
     
@@ -794,6 +795,224 @@ namespace Model {
       throw Error::Logic();
     }
   }
+  
+  /***********************************************************************************************************
+   ************************************* CRUDE MONTE-CARLO SAMPLING ******************************************
+   ***********************************************************************************************************/
+
+    // internal mode definition: bond distance, bond angle, or dihedral bond angle
+    //
+  class IntMod {
+    //
+    // atomic indices
+    //
+    std::vector<int> _atoms;
+
+    std::set<int>     _pool;
+
+    // no default constructor
+    //
+    IntMod ();
+      
+  public:
+    //
+    enum {
+      DISTANCE = 2,
+      ANGLE    = 3,
+      DIHEDRAL = 4
+    };
+
+    IntMod (int molec_size, IO::KeyBufferStream&);
+      
+    double evaluate (Lapack::Vector          cart_pos,                 // cartesian coordinates of all atoms
+		     const std::vector<int>& sign = std::vector<int>() // derivative signature
+		     ) const;
+
+    int type () const { return _atoms.size(); }
+    
+    static double increment;      
+  };
+
+  // explicitely sampled fluxional mode definition
+  //
+  class Fluxional : public IntMod {
+    //
+    double _span;
+
+  public:
+
+    Fluxional (int molec_size, IO::KeyBufferStream&);
+
+    double span () const { return _span; }
+  };
+
+  class Constrain : public IntMod {
+    //
+    double _value;
+
+  public:
+
+    Constrain (int molec_size, IO::KeyBufferStream&);
+
+    double value () const { return _value; }
+  };
+    
+  extern "C" typedef void (*refpot_t) (int& ifail, double& ener, const double* pos);
+      
+  class MonteCarlo : public Species {
+
+    // atom mass square roots
+    //
+    std::vector<double> _mass_sqrt;
+
+    double _total_mass_sqrt;
+    
+    // explicitly sampled fluxional modes
+    //
+    std::vector<Fluxional> _fluxional;
+
+    std::string _data_file;
+
+    // reference energy
+    //
+    double _refen;
+
+    // symmetry factor
+    //
+    double _symm_fac;
+
+    // no quantum correction factor
+    //
+    bool _noqf;
+
+    // no hessian data
+    //
+    bool _nohess;
+
+    // non-fluxional modes frequencies
+    //
+    std::vector<double> _nm_freq;
+
+    // minimal non-fluxional modes frequency 
+    //
+    static double nm_freq_min;
+    
+    // statistical weight prefactor including mass factors and quantum prefactor in local harmonic approximation
+    //
+    double _local_weight (double                  ener,       // energy
+			  Lapack::Vector          cart_pos,   // cartesian coordinates    
+			  Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
+			  Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
+			  double                  temperature // temprature
+			  ) const;
+
+    // read data from the file
+    //
+    bool _read (std::istream&           from,       // data stream
+	        double&                 ener,       // energy
+		Lapack::Vector          cart_pos,   // cartesian coordinates    
+		Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
+		Lapack::SymmetricMatrix cart_fc     // cartesian force constant matrix
+		) const;
+
+    // set reference energy to the minimal total energy including zero-point energy
+    //
+    void _set_reference_energy ();
+
+    // reference potential
+    //
+    class _RefPot {
+
+      System::DynLib _lib;
+
+      refpot_t _pot;
+      
+    public:
+
+      _RefPot () : _pot(0) {}
+
+      void init (std::istream&);
+      
+      double operator() (const double*) const;
+
+      operator bool () const { return _pot; }
+
+      class PotFail {};
+    };
+
+    _RefPot _ref_pot;
+    
+  public:
+    //
+    MonteCarlo (IO::KeyBufferStream&, const std::string&, int);
+    
+    ~MonteCarlo ();
+    
+    double states (double) const;
+    
+    double weight (double, std::map<int, double>* =0) const;
+
+    int atom_size () const { return _mass_sqrt.size(); }
+  };
+  
+  /***********************************************************************************************************
+   ****************************** CRUDE MONTE-CARLO SAMPLING WITH DUMMY ATOMS ********************************
+   ***********************************************************************************************************/
+
+  class MonteCarloWithDummy : public Species {
+
+    void _assert(ConstSlice<double> v) const;
+
+    // dummy atoms indices
+    //
+    std::vector<int> _dummy_atom;
+
+    // real atoms indices
+    //
+    std::vector<int> _real_atom;
+
+    // atom sequence
+    //
+    std::vector<Atom> _atom_array;
+
+    // vector operations with mass weighting
+    //
+    double _vdot(ConstSlice<double>, ConstSlice<double>) const;
+
+    double _normalize(Slice<double>) const;
+    
+    void _orthogonalize (Slice<double>, ConstSlice<double>) const;
+    
+    void _orthogonalize (Lapack::Matrix m) const;
+
+    // explicitly sampled fluxional modes
+    //
+    std::vector<Fluxional> _fluxional;
+
+    std::vector<Constrain> _constrain;
+    
+    std::string _data_file;
+
+    
+    // statistical weight prefactor including mass factors and quantum prefactor in local harmonic approximation
+    //
+    double _local_weight (double                  ener,       // energy
+			  Lapack::Vector          cart_pos,   // cartesian coordinates    
+			  Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
+			  Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
+			  double                  temperature // temprature
+			  ) const;
+
+  public:
+    //
+    MonteCarloWithDummy (IO::KeyBufferStream&, const std::string&, int);
+    
+    ~MonteCarloWithDummy ();
+    
+    double states (double) const;
+    
+    double weight (double, std::map<int, double>* =0) const;
+  };
   
   /************************* RIGID ROTOR HARMONIC OSCILATOR MODEL ************************/
 
@@ -834,7 +1053,7 @@ namespace Model {
     void _init_graphex (std::istream&);
 
   public:
-    RRHO (IO::KeyBufferStream&, const std::string&, int) throw(Error::General);
+    RRHO (IO::KeyBufferStream&, const std::string&, int) ;
     ~RRHO ();
 
     double states (double) const; // density or number of states of absolute energy
@@ -868,7 +1087,7 @@ namespace Model {
     double _dtol; // absolute DoS    tolerance
     
   public:
-    ReadSpecies (std::istream&, const std::string&, int) throw(Error::General);
+    ReadSpecies (std::istream&, const std::string&, int) ;
     ~ReadSpecies ();
 
     double states (double) const;
@@ -890,7 +1109,7 @@ namespace Model {
 
   public:
 
-    UnionSpecies  (IO::KeyBufferStream&, const std::string&, int) throw(Error::General);
+    UnionSpecies  (IO::KeyBufferStream&, const std::string&, int) ;
     ~UnionSpecies ();
 
     double states (double) const;
@@ -926,7 +1145,7 @@ namespace Model {
     int _tts_method;
 
   public:
-    VarBarrier (IO::KeyBufferStream& from, const std::string&) throw(Error::General);
+    VarBarrier (IO::KeyBufferStream& from, const std::string&) ;
     ~VarBarrier ();
 
     double states (double) const;
@@ -947,7 +1166,7 @@ namespace Model {
     std::vector<int>                      _edegen; // electronic level degeneracies
 
   public:
-    AtomicSpecies(IO::KeyBufferStream& from, const std::string&) throw(Error::General);
+    AtomicSpecies(IO::KeyBufferStream& from, const std::string&) ;
     ~AtomicSpecies ();
 
     double weight (double, std::map<int, double>* = 0) const;
@@ -973,7 +1192,7 @@ namespace Model {
     Slatec::Spline _states;
 
   public:
-    Arrhenius(IO::KeyBufferStream& from, const std::string&) throw(Error::General);
+    Arrhenius(IO::KeyBufferStream& from, const std::string&) ;
     ~Arrhenius ();
 
     double weight (double, std::map<int, double>* = 0) const;
@@ -998,7 +1217,7 @@ namespace Model {
     std::string _name;
 
   public:
-    Bimolecular (IO::KeyBufferStream&, const std::string&) throw(Error::General);
+    Bimolecular (IO::KeyBufferStream&, const std::string&) ;
     ~Bimolecular ();
 
     bool     dummy       () const { return _dummy; }
@@ -1027,7 +1246,7 @@ namespace Model {
   class ConstEscape : public Escape {
     double _rate;
   public:
-    ConstEscape(IO::KeyBufferStream&) throw(Error::General);
+    ConstEscape(IO::KeyBufferStream&) ;
 
     double rate (double) const {return _rate; }
     void shift_ground (double) {}
@@ -1038,33 +1257,32 @@ namespace Model {
     Slatec::Spline _rate;
 
   public:
-    FitEscape(IO::KeyBufferStream&) throw(Error::General);
+    FitEscape(IO::KeyBufferStream&) ;
 
     double rate (double) const;
     void shift_ground(double e) { _ground += e; }
   };
 
   /********************************************************************************************
-   ********************************* WELL = SPECIES + KERNEL + Escape *************************
+   *********************** WELL = SPECIES + KERNEL + COLLISION + ESCAPE ***********************
    ********************************************************************************************/
 
   class ThermoChemistry {
   public:
-    ThermoChemistry(std::istream&) throw(Error::General);
+    ThermoChemistry(std::istream&) ;
 
     void print (std::ostream&);
   };
 
   class Well {
-    SharedPointer<Species>                 _species;
+    SharedPointer<Species>                  _species;
     std::vector<SharedPointer<Kernel> >     _kernel;
     std::vector<SharedPointer<Collision> >  _collision;
-
-    SharedPointer<Escape>                _escape;
-    double _extension;
+    SharedPointer<Escape>                   _escape;
+    double                                  _extension;
 
   public:
-    Well (IO::KeyBufferStream&, const std::string&) throw(Error::General);
+    Well (IO::KeyBufferStream&, const std::string&) ;
 
     SharedPointer<Species>      species ()       { return _species; }
     ConstSharedPointer<Species> species () const { return _species; }
@@ -1072,17 +1290,17 @@ namespace Model {
     ConstSharedPointer<Kernel>    kernel    (int i)  const { return _kernel[i]; }
     ConstSharedPointer<Collision> collision (int i)  const { return _collision[i]; }
 
-    //void             set_name (const std::string&) throw(Error::General);
-    const std::string&   name () const             throw(Error::General);
-    double             ground () const             throw(Error::General);
-    double             weight (double) const       throw(Error::General);
-    double             states (double) const       throw(Error::General);
-    double               mass () const             throw(Error::General);
+    //void             set_name (const std::string&) ;
+    const std::string&   name () const             ;
+    double             ground () const             ;
+    double             weight (double) const       ;
+    double             states (double) const       ;
+    double               mass () const             ;
 
     double        escape_rate (double ener) const { if(_escape) return _escape->rate(ener); else return 0.; }
     bool               escape () const { return (bool)_escape; } 
 
-    void shift_ground (double) throw(Error::General);
+    void shift_ground (double) ;
 
     // radiation transitions
     double oscillator_frequency (int num) const;
@@ -1092,7 +1310,7 @@ namespace Model {
     double transition_probability (double ener, double temperature, int num) const;
 
     double dissociation_limit;
-    double extension () const { return _extension; };
+    double extension () const { return _extension; }
   }; // Well
 
   inline double Well::oscillator_frequency (int num) const 
@@ -1119,7 +1337,7 @@ namespace Model {
     return _species->oscillator_size();
   }
 
-  inline void Well::shift_ground (double e) throw(Error::General)
+  inline void Well::shift_ground (double e) 
   {
     const char funame [] = "Model::Well::shift_ground: ";
 
@@ -1134,7 +1352,7 @@ namespace Model {
       _escape->shift_ground(e);
   }
 
-  inline const std::string& Well::name () const throw(Error::General)
+  inline const std::string& Well::name () const 
   {
     const char funame [] = "Model::Well::name: ";
 
@@ -1146,7 +1364,7 @@ namespace Model {
     return _species->name();
   }
 
-  inline double Well::ground () const throw(Error::General)
+  inline double Well::ground () const 
   {
     const char funame [] = "Model::Well::ground: ";
 
@@ -1158,7 +1376,7 @@ namespace Model {
     return _species->ground();
   }
 
-  inline double Well::mass () const throw(Error::General)
+  inline double Well::mass () const 
   {
     const char funame [] = "Model::Well::mass: ";
 
@@ -1170,7 +1388,7 @@ namespace Model {
     return _species->mass();
   }
 
-  inline double Model::Well::weight (double t) const throw(Error::General)
+  inline double Model::Well::weight (double t) const 
   {
     const char funame [] = "Model::Well::weight: ";
 
@@ -1182,7 +1400,7 @@ namespace Model {
     return _species->weight(t);
   }
 
-  inline double Well::states (double e) const throw(Error::General)
+  inline double Well::states (double e) const 
   {
     const char funame [] = "Model::Well::states: ";
 
@@ -1197,7 +1415,7 @@ namespace Model {
   /********************************************************************************************
    **************************************** GLOBAL OBJECTS ************************************
    ********************************************************************************************/
-  void init (IO::KeyBufferStream& from) throw(Error::General);
+  void init (IO::KeyBufferStream& from) ;
   bool isinit ();
 
   bool no_run ();
@@ -1241,7 +1459,7 @@ namespace Model {
     std::string    _reactant_name;
 
   public:
-    TimeEvolution (IO::KeyBufferStream&) throw(Error::General);
+    TimeEvolution (IO::KeyBufferStream&) ;
     ~TimeEvolution () { out.close(); }
 
     void set_reactant () const;

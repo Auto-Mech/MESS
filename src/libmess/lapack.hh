@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #ifndef LAPACK_HH
 #define LAPACK_HH
 
@@ -30,11 +45,11 @@ namespace Lapack {
     typedef       double      value_type;
 
     Vector () {}
-    explicit Vector (int_t s)           throw(Error::General) : RefArr<double>(s)    {}
-    Vector          (int_t s, double p) throw(Error::General) : RefArr<double>(s, p) {}
+    explicit Vector (int_t s)            : RefArr<double>(s)    {}
+    Vector          (int_t s, double p)  : RefArr<double>(s, p) {}
 
     bool isinit () const                       { return RefArr<double>::isinit(); }
-    int_t  size   () const throw(Error::General) { return RefArr<double>::size(); }
+    int_t  size   () const  { return RefArr<double>::size(); }
 
     double*       begin ()       { return  RefArr<double>::begin(); }
     double*         end ()       { return  RefArr<double>::end(); }
@@ -58,18 +73,21 @@ namespace Lapack {
     Vector copy () const {return Vector(RefArr<double>::copy()); }
 
     // scalar product
-    double operator* (const Vector&) const throw(Error::General);
-    double vdot      ()              const;
-
+    //
+    double operator* (const Vector&)      const;
+    double operator* (const double*)      const;
+    double operator* (ConstSlice<double>) const;
+    double vdot      ()                   const;
+    
     // block operations
-    Vector operator* (const Matrix&) const throw(Error::General);
-    Vector operator* (const SymmetricMatrix&) const throw(Error::General);
+    Vector operator* (const Matrix&) const ;
+    Vector operator* (const SymmetricMatrix&) const ;
 
-    Vector operator+ (const Vector&) const throw(Error::General);
-    Vector operator- (const Vector&) const throw(Error::General);
+    Vector operator+ (const Vector&) const ;
+    Vector operator- (const Vector&) const ;
 
-    const Vector& operator+= (const Vector&) throw(Error::General);
-    const Vector& operator-= (const Vector&) throw(Error::General);
+    const Vector& operator+= (const Vector&) ;
+    const Vector& operator-= (const Vector&) ;
 
     const Vector& operator-        ();
     const Vector& operator=  (double);
@@ -77,23 +95,27 @@ namespace Lapack {
     const Vector& operator/= (double);
   };
 
-  inline Vector Vector::operator+ (const Vector& v) const throw(Error::General)
+  inline double operator* (const double* p, Vector v) { return v * p; }
+  
+  inline double operator* (ConstSlice<double> p, Vector v) { return v * p; }
+  
+  inline Vector Vector::operator+ (const Vector& v) const 
   {
     return Vector(RefArr<double>::operator+(v));
   }
 
-  inline Vector Vector::operator- (const Vector& v) const throw(Error::General)
+  inline Vector Vector::operator- (const Vector& v) const 
   {
     return Vector(RefArr<double>::operator-(v));
   }
 
-  inline const Vector& Vector::operator+= (const Vector& m) throw(Error::General)
+  inline const Vector& Vector::operator+= (const Vector& m) 
   {
     RefArr<double>::operator+=(m);
     return *this;
   }
 
-  inline const Vector& Vector::operator-= (const Vector& m) throw(Error::General)
+  inline const Vector& Vector::operator-= (const Vector& m) 
   {
     RefArr<double>::operator-=(m);
     return *this;
@@ -133,71 +155,79 @@ namespace Lapack {
     SharedPointer<int_t> _size1;
     SharedPointer<int_t> _size2;
 
-    void _check_dim   (const Matrix&) const throw(Error::General);
-    void _check_index (int_t, int_t)  const throw(Error::General);
+    void _check_dim   (const Matrix&) const ;
+    void _check_index (int_t, int_t)  const ;
 
   protected:
     Matrix (const Matrix&, int_t);// copy constructor by value
 
   public:
-    void resize (int_t, int_t) throw(Error::General);
-    void resize (int_t s)      throw(Error::General) { resize(s, s); }
+    void resize (int_t, int_t) ;
+    void resize (int_t s)       { resize(s, s); }
 
     bool isinit () const { return _size1; }
 
     Matrix () {}
-    explicit Matrix  (int_t s1) throw(Error::General) { resize(s1);     }
-    Matrix (int_t s1, int_t s2) throw(Error::General) { resize(s1, s2); }
+    explicit Matrix  (int_t s1)  { resize(s1);     }
+    Matrix (int_t s1, int_t s2)  { resize(s1, s2); }
 
     operator       double* ()       { return RefArr<double>::operator       double*(); }
     operator const double* () const { return RefArr<double>::operator const double*(); }
 
     Matrix copy () const { return Matrix(*this, 0); }
 
-    const double&  operator() (int_t, int_t) const throw(Error::General);
-    double&        operator() (int_t, int_t)       throw(Error::General);
+    const double&  operator() (int_t, int_t) const ;
+    double&        operator() (int_t, int_t)       ;
 
-    int_t size1 () const throw(Error::General);
-    int_t size2 () const throw(Error::General);
-    int_t size  () const throw(Error::General); // square matrix size
+    int_t size1 () const ;
+    int_t size2 () const ;
+    int_t size  () const ; // square matrix size
 
     // matrix-matrix multiplication
-    Matrix operator* (const Matrix&)          const throw(Error::General);
-    Matrix operator* (const SymmetricMatrix&) const throw(Error::General);
+    Matrix operator* (const Matrix&)          const ;
+    Matrix operator* (const SymmetricMatrix&) const ;
 
     // matrix-vector multiplication
-    Vector operator* (const Vector&) const throw(Error::General);
-    Vector operator* (const double*) const throw(Error::General);
+    Vector operator* (const Vector&) const ;
+    Vector operator* (const double*) const ;
 
-    Matrix operator+ (const Matrix&) const throw(Error::General);
-    Matrix operator- (const Matrix&) const throw(Error::General);
+    Matrix operator+ (const Matrix&) const ;
+    Matrix operator- (const Matrix&) const ;
 
-    Matrix& operator+= (const Matrix&) throw(Error::General);
-    Matrix& operator-= (const Matrix&) throw(Error::General);
+    Matrix& operator+= (const Matrix&) ;
+    Matrix& operator-= (const Matrix&) ;
 
     Matrix& operator-        ();
     Matrix& operator=  (double);
     Matrix& operator*= (double);
     Matrix& operator/= (double);
 
-    Slice<double> row      (int_t)    throw(Error::General);
-    Slice<double> column   (int_t)    throw(Error::General);
-    Slice<double> diagonal (int_t =0) throw(Error::General);
+    Slice<double> row      (int_t)    ;
+    Slice<double> column   (int_t)    ;
+    Slice<double> diagonal (int_t =0) ;
 
-    ConstSlice<double> row      (int_t)    const throw(Error::General);
-    ConstSlice<double> column   (int_t)    const throw(Error::General);
-    ConstSlice<double> diagonal (int_t =0) const throw(Error::General);
+    ConstSlice<double> row      (int_t)    const ;
+    ConstSlice<double> column   (int_t)    const ;
+    ConstSlice<double> diagonal (int_t =0) const ;
 
     Matrix transpose () const;
 
-    Matrix  invert ()              const throw(Error::General);
-    Vector  invert (const Vector&) const throw(Error::General);
-    Matrix  invert (const Matrix&) const throw(Error::General);
+    Matrix  invert ()              const;
+    Vector  invert (const Vector&) const;
+    Matrix  invert (const Matrix&) const;
+
+    // orthogonalize column-wise
+    //
+    double orthogonalize (double = -1.);
+
+    // null space of the matrix
+    //
+    Matrix kernel () const;
   };
   
-  Vector operator* (const double*, const Matrix&) throw(Error::General);
+  Vector operator* (const double*, const Matrix&) ;
 
-  inline int_t Matrix::size1 () const throw(Error::General)
+  inline int_t Matrix::size1 () const 
   { 
     const char funame [] = "Lapack::Matrix::size1: ";
 
@@ -209,7 +239,7 @@ namespace Lapack {
 
   }
 
-  inline int_t Matrix::size2 () const throw(Error::General)
+  inline int_t Matrix::size2 () const 
   { 
     const char funame [] = "Lapack::Matrix::size2: ";
 
@@ -220,7 +250,7 @@ namespace Lapack {
     throw Error::Init();
   }
 
-  inline int_t Matrix::size () const throw(Error::General) 
+  inline int_t Matrix::size () const  
   {
     const char funame [] = "Lapack::Matrix::size: ";
 
@@ -232,7 +262,7 @@ namespace Lapack {
     return size1();
   }
 
-  inline void Matrix::resize(int_t s1, int_t s2) throw(Error::General)
+  inline void Matrix::resize(int_t s1, int_t s2) 
   {
     const char funame [] = "Lapack::Matrix::resize: ";
 
@@ -266,7 +296,7 @@ namespace Lapack {
     }
   }
 
-  inline void Matrix::_check_index (int_t i1, int_t i2) const throw(Error::General)
+  inline void Matrix::_check_index (int_t i1, int_t i2) const 
   {
     const char funame [] = "Lapack::Matrix::_check_index: ";
 
@@ -281,19 +311,19 @@ namespace Lapack {
     }
   }
 
-  inline const double& Matrix::operator() (int_t i1, int_t i2) const throw(Error::General)
+  inline const double& Matrix::operator() (int_t i1, int_t i2) const 
   {
     _check_index(i1, i2);
     return RefArr<double>::operator[](i1 + size1() * i2);
   }
 
-  inline double& Matrix::operator() (int_t i1, int_t i2) throw(Error::General)
+  inline double& Matrix::operator() (int_t i1, int_t i2) 
   {
     _check_index(i1, i2);
     return RefArr<double>::operator[](i1 + size1() * i2);
   }
 
-  inline void Matrix::_check_dim (const Matrix& m) const throw(Error::General)
+  inline void Matrix::_check_dim (const Matrix& m) const 
   {
     const char funame [] = "Lapack::Matrix::_check_dim: ";
     
@@ -313,28 +343,28 @@ namespace Lapack {
     }
   }
 
-  inline Matrix Matrix::operator+ (const Matrix& m) const throw(Error::General)
+  inline Matrix Matrix::operator+ (const Matrix& m) const 
   {
     Matrix res(*this, 0);
     res += m;
     return res;
   }
 
-  inline Matrix Matrix::operator- (const Matrix& m) const throw(Error::General)
+  inline Matrix Matrix::operator- (const Matrix& m) const 
   {
     Matrix res(*this, 0);
     res -= m;
     return res;
   }
 
-  inline Matrix& Matrix::operator+= (const Matrix& m) throw(Error::General)
+  inline Matrix& Matrix::operator+= (const Matrix& m) 
   {
     _check_dim(m);
     RefArr<double>::operator+=(m);
     return *this;
   }
 
-  inline Matrix& Matrix::operator-= (const Matrix& m) throw(Error::General)
+  inline Matrix& Matrix::operator-= (const Matrix& m) 
   {
     _check_dim(m);
     RefArr<double>::operator-=(m);
@@ -342,7 +372,7 @@ namespace Lapack {
   }
 
   // matrix-vector product
-  inline Vector Matrix::operator* (const Vector& v) const throw(Error::General)
+  inline Vector Matrix::operator* (const Vector& v) const 
   {
     const char funame [] = "Lapack::Matrix::operator*: ";
 
@@ -422,36 +452,37 @@ namespace Lapack {
     explicit SymmetricMatrix (const SymmetricMatrix&, int_t); // copy constructor by value
 
   public:
-    void resize (int_t) throw(Error::General);
+    void resize (int_t) ;
 
     bool isinit () const { return _size; }
 
     SymmetricMatrix () {}
-    explicit SymmetricMatrix (int_t s) throw(Error::General) { resize(s); }
-    explicit SymmetricMatrix (const Matrix&, char ='U')       throw(Error::General);
+    explicit SymmetricMatrix (int_t s)  { resize(s); }
+    explicit SymmetricMatrix (const Matrix&, char ='U')       ;
 
     operator       double* ()       { return RefArr<double>::operator       double*(); }
     operator const double* () const { return RefArr<double>::operator const double*(); }
 
     SymmetricMatrix copy () const { return SymmetricMatrix(*this, 0); }
 
-    int_t size () const throw(Error::General);
+    int_t size () const ;
 
     // referencing as an upper triangle column-wise
-    const double& operator() (int_t, int_t) const throw(Error::General);
-    double&       operator() (int_t, int_t)       throw(Error::General);
+    const double& operator() (int_t, int_t) const ;
+    double&       operator() (int_t, int_t)       ;
 
-    Vector operator* (const Vector&) const throw(Error::General);
-    Vector operator* (const double*) const;
+    Vector operator* (const Vector&)      const;
+    Vector operator* (const double*)      const;
+    Vector operator* (ConstSlice<double>) const;
 
-    Matrix operator* (const Matrix&)          const throw(Error::General);
-    Matrix operator* (const SymmetricMatrix&) const throw(Error::General);
+    Matrix operator* (const Matrix&)          const ;
+    Matrix operator* (const SymmetricMatrix&) const ;
     
-    SymmetricMatrix operator+ (const SymmetricMatrix&) const throw(Error::General);
-    SymmetricMatrix operator- (const SymmetricMatrix&) const throw(Error::General);
+    SymmetricMatrix operator+ (const SymmetricMatrix&) const ;
+    SymmetricMatrix operator- (const SymmetricMatrix&) const ;
 
-    SymmetricMatrix operator+= (const SymmetricMatrix&) throw(Error::General);
-    SymmetricMatrix operator-= (const SymmetricMatrix&) throw(Error::General);
+    SymmetricMatrix operator+= (const SymmetricMatrix&) ;
+    SymmetricMatrix operator-= (const SymmetricMatrix&) ;
 
     SymmetricMatrix operator-  ()      ;
     SymmetricMatrix operator=  (double);
@@ -460,13 +491,17 @@ namespace Lapack {
     SymmetricMatrix operator*= (double);
     SymmetricMatrix operator/= (double);
 
-    Vector    eigenvalues (Matrix* =0) const throw(Error::General);
+    Vector    eigenvalues (Matrix* =0) const ;
 
-    SymmetricMatrix invert ()             const throw(Error::General);
-    SymmetricMatrix positive_invert ()    const throw(Error::General);
+    SymmetricMatrix invert ()             const ;
+    SymmetricMatrix positive_invert ()    const ;
   };
 
-  inline void SymmetricMatrix::resize(int_t s) throw(Error::General)
+  inline Vector operator* (ConstSlice<double> v, SymmetricMatrix m) { return m * v; }
+  
+  inline Vector operator* (const double* v, SymmetricMatrix m) { return m * v; }
+  
+  inline void SymmetricMatrix::resize(int_t s) 
   {
     const char funame [] = "Lapack::SymmetricMatrix::resize: ";
 
@@ -484,7 +519,7 @@ namespace Lapack {
     RefArr<double>::resize(s*(s+1)/2);
   }
 
-  inline int_t SymmetricMatrix::size () const throw(Error::General)
+  inline int_t SymmetricMatrix::size () const 
   { 
     const char funame [] = "Lapack::SymmetricMatrix::size: ";
 
@@ -504,7 +539,7 @@ namespace Lapack {
     }
   }
 
-  inline double& SymmetricMatrix::operator() (int_t i1, int_t i2) throw(Error::General)
+  inline double& SymmetricMatrix::operator() (int_t i1, int_t i2) 
   {
     const char funame [] = "Lapack::SymmetricMatrix::operator(): ";
 
@@ -525,7 +560,7 @@ namespace Lapack {
     return RefArr<double>::operator[](i1 + i2 * (i2 + 1) / 2);
   }
 
-  inline const double& SymmetricMatrix::operator() (int_t i1, int_t i2) const throw(Error::General)
+  inline const double& SymmetricMatrix::operator() (int_t i1, int_t i2) const 
   {
     const char funame [] = "Lapack::SymmetricMatrix::operator(): ";
 
@@ -547,7 +582,7 @@ namespace Lapack {
   }
 
   inline SymmetricMatrix SymmetricMatrix::operator+ (const SymmetricMatrix& m)
-    const throw(Error::General)
+    const 
   {
     const char funame [] = "Lapack::SymmetricMatrix::operator+: ";
 
@@ -562,7 +597,7 @@ namespace Lapack {
   }
 
   inline SymmetricMatrix SymmetricMatrix::operator- (const SymmetricMatrix& m)
-    const throw(Error::General)
+    const 
   {
     const char funame [] = "Lapack::SymmetricMatrix::operator-: ";
 
@@ -576,7 +611,7 @@ namespace Lapack {
     return res;
   }
 
-  inline SymmetricMatrix SymmetricMatrix::operator+= (const SymmetricMatrix& m) throw(Error::General)
+  inline SymmetricMatrix SymmetricMatrix::operator+= (const SymmetricMatrix& m) 
   {
     const char funame [] = "Lapack::SymmetricMatrix::operator+=: ";
 
@@ -589,7 +624,7 @@ namespace Lapack {
     return *this;
   }
 
-  inline SymmetricMatrix SymmetricMatrix::operator-= (const SymmetricMatrix& m) throw(Error::General)
+  inline SymmetricMatrix SymmetricMatrix::operator-= (const SymmetricMatrix& m) 
   {
     const char funame [] = "Lapack::SymmetricMatrix::operator-=: ";
 
@@ -698,38 +733,38 @@ namespace Lapack {
 
   // Generalized eigenvalue problem
   //
-  Vector diagonalize(SymmetricMatrix, SymmetricMatrix, Matrix* = 0) throw(Error::General);
+  Vector diagonalize(SymmetricMatrix, SymmetricMatrix, Matrix* = 0) ;
 
   /****************************************************************
    ******************* Band Symmetric Matrix **********************
    ****************************************************************/
 
   class BandMatrix : private Matrix {
-    void _check_size () const throw(Error::General);
+    void _check_size () const ;
 
     BandMatrix (const BandMatrix& m, int_t) : Matrix(m, 0) { } // copy construction by value
 
   public:
     BandMatrix () {}
-    BandMatrix   (int_t s, int_t b) throw(Error::General) : Matrix(b, s) { _check_size(); }
+    BandMatrix   (int_t s, int_t b)  : Matrix(b, s) { _check_size(); }
     void  resize (int_t s, int_t b) { Matrix::resize(b, s); _check_size(); }
 
     bool isinit () const { return Matrix::isinit(); }
 
     BandMatrix copy () const { return BandMatrix(*this, 0); }
 
-    int_t size      () const throw(Error::General) { return size2(); }
-    int_t band_size () const throw(Error::General) { return size1(); }
+    int_t size      () const  { return size2(); }
+    int_t band_size () const  { return size1(); }
 
     double  operator() (int_t, int_t) const;
-    double& operator() (int_t, int_t) throw(Error::General);
+    double& operator() (int_t, int_t) ;
 
     BandMatrix& operator= (double d) { Matrix::operator=(d); return *this; }
 
-    Vector eigenvalues (Matrix* =0) const throw(Error::General);
+    Vector eigenvalues (Matrix* =0) const ;
   };
 
-  inline void BandMatrix::_check_size () const throw(Error::General)
+  inline void BandMatrix::_check_size () const 
   {
     const char funame [] = "Lapack::BandMatrix::_check_size(): ";
     
@@ -750,15 +785,15 @@ namespace Lapack {
     RefArr<int_t> _ipiv;
 
   public:
-    explicit LU (const Matrix&) throw(Error::General);
+    explicit LU (const Matrix&) ;
     
     int_t size ()            const { return Matrix::size1(); }
     RefArr<int_t> ipiv ()  const { return _ipiv.copy(); }
     double det ()          const;
 
-    Matrix invert ()              const throw(Error::General); // inverse matrix
-    Vector invert (const Vector&) const throw(Error::General); // solve linear equations
-    Matrix invert (const Matrix&) const throw(Error::General); // solve linear equations
+    Matrix invert ()              const ; // inverse matrix
+    Vector invert (const Vector&) const ; // solve linear equations
+    Matrix invert (const Matrix&) const ; // solve linear equations
   };
 
   /****************************************************************
@@ -768,13 +803,13 @@ namespace Lapack {
     RefArr<int_t> _ipiv;
 
   public:
-    explicit SymLU (const SymmetricMatrix&) throw(Error::General);
+    explicit SymLU (const SymmetricMatrix&) ;
     int_t size () const { return SymmetricMatrix::size(); }
     double det () const;
 
-    SymmetricMatrix invert ()              const throw(Error::General); // inverse matrix
-    Vector          invert (const Vector&) const throw(Error::General); // solve linear equations
-    Matrix          invert (const Matrix&) const throw(Error::General); // solve linear equations
+    SymmetricMatrix invert ()              const ; // inverse matrix
+    Vector          invert (const Vector&) const ; // solve linear equations
+    Matrix          invert (const Matrix&) const ; // solve linear equations
   };
 
   /****************************************************************
@@ -785,12 +820,12 @@ namespace Lapack {
   class Cholesky : private SymmetricMatrix {
 
   public:
-    explicit Cholesky (const SymmetricMatrix&) throw(Error::General);
+    explicit Cholesky (const SymmetricMatrix&) ;
     int_t size () const { return SymmetricMatrix::size(); }
 
-    SymmetricMatrix invert () const throw(Error::General); // inverse matrix
-    Vector invert (const Vector&) const throw(Error::General); // solve linear equations
-    Matrix invert (const Matrix&) const throw(Error::General); // solve linear equations
+    SymmetricMatrix invert () const ; // inverse matrix
+    Vector invert (const Vector&) const ; // solve linear equations
+    Matrix invert (const Matrix&) const ; // solve linear equations
     double det_sqrt ();
   };
 
@@ -802,28 +837,28 @@ namespace Lapack {
     int_t _size1;
     int_t _size2;
 
-    void _index_check (int_t, int_t) const throw(Error::General);
+    void _index_check (int_t, int_t) const ;
 
   public:
-    void resize (int_t, int_t) throw(Error::General);
-    void resize (int_t s)      throw(Error::General) { resize(s, s); }
+    void resize (int_t, int_t) ;
+    void resize (int_t s)       { resize(s, s); }
 
     ComplexMatrix () : _size1(0), _size2(0) {}
-    explicit ComplexMatrix  (int_t s1) throw(Error::General) : _size1(0), _size2(0) { resize(s1);     }
-    ComplexMatrix (int_t s1, int_t s2) throw(Error::General) : _size1(0), _size2(0) { resize(s1, s2); }
+    explicit ComplexMatrix  (int_t s1)  : _size1(0), _size2(0) { resize(s1);     }
+    ComplexMatrix (int_t s1, int_t s2)  : _size1(0), _size2(0) { resize(s1, s2); }
 
-    const complex&  operator() (int_t, int_t) const throw(Error::General);
-    complex&        operator() (int_t, int_t)       throw(Error::General);
+    const complex&  operator() (int_t, int_t) const ;
+    complex&        operator() (int_t, int_t)       ;
 
     int_t size1 () const { return _size1; }
     int_t size2 () const { return _size2; }
-    int_t size  () const throw(Error::General);
+    int_t size  () const ;
 
     // matrix-matrix multiplication
-    ComplexMatrix operator* (const ComplexMatrix&) const throw(Error::General);
+    ComplexMatrix operator* (const ComplexMatrix&) const ;
   };
 
-  inline void ComplexMatrix::resize(int_t s1, int_t s2) throw(Error::General)
+  inline void ComplexMatrix::resize(int_t s1, int_t s2) 
   {
     const char funame [] = "Lapack::ComplexMatrix::resize: ";
 
@@ -838,7 +873,7 @@ namespace Lapack {
     Array<complex>::resize(s1*s2);
   }
 
-  inline int_t ComplexMatrix::size () const throw(Error::General) 
+  inline int_t ComplexMatrix::size () const  
   {
     const char funame [] = "Lapack::ComplexMatrix::size: ";
 
@@ -850,7 +885,7 @@ namespace Lapack {
     return size1();
   }
 
-  inline void ComplexMatrix::_index_check (int_t i1, int_t i2) const throw(Error::General)
+  inline void ComplexMatrix::_index_check (int_t i1, int_t i2) const 
   {
     const char funame [] = "Lapack::ComplexMatrix::_index_check: ";
 
@@ -860,13 +895,13 @@ namespace Lapack {
     }
   }
 
-  inline const complex& ComplexMatrix::operator() (int_t i1, int_t i2) const throw(Error::General)
+  inline const complex& ComplexMatrix::operator() (int_t i1, int_t i2) const 
   {
     _index_check(i1, i2);
     return Array<complex>::operator[](i1 + size1() * i2);
   }
 
-  inline complex& ComplexMatrix::operator() (int_t i1, int_t i2) throw(Error::General)
+  inline complex& ComplexMatrix::operator() (int_t i1, int_t i2) 
   {
     _index_check(i1, i2);
     return Array<complex>::operator[](i1 + size1() * i2);
@@ -880,22 +915,22 @@ namespace Lapack {
     int_t _size;
     
   public:
-    void resize (int_t) throw(Error::General);
+    void resize (int_t) ;
 
     HermitianMatrix () : _size(0) {}
-    explicit HermitianMatrix (int_t s1) throw(Error::General) : _size(0) { resize(s1); } 
-    explicit HermitianMatrix (const ComplexMatrix&, char = 'U') throw(Error::General); 
+    explicit HermitianMatrix (int_t s1)  : _size(0) { resize(s1); } 
+    explicit HermitianMatrix (const ComplexMatrix&, char = 'U') ; 
 
-    const complex&  operator() (int_t, int_t) const throw(Error::General);
-    complex&        operator() (int_t, int_t)       throw(Error::General);
+    const complex&  operator() (int_t, int_t) const ;
+    complex&        operator() (int_t, int_t)       ;
 
     void operator= (complex v) { Array<complex>::operator=(v); }
 
     int_t size () const { return _size; }
-    Vector eigenvalues (ComplexMatrix* =0) const throw(Error::General);
+    Vector eigenvalues (ComplexMatrix* =0) const ;
   };
 
-  inline void HermitianMatrix::resize(int_t s) throw(Error::General)
+  inline void HermitianMatrix::resize(int_t s) 
   {
     const char funame [] = "Lapack::HermitianMatrix::resize: ";
 
@@ -910,7 +945,7 @@ namespace Lapack {
     Array<complex>::resize(s * (s + 1) / 2);
   }
 
-  inline complex& HermitianMatrix::operator() (int_t i1, int_t i2) throw(Error::General)
+  inline complex& HermitianMatrix::operator() (int_t i1, int_t i2) 
   {
     const char funame [] = "Lapack::HermitianMatrix::operator(): ";
 
@@ -926,7 +961,7 @@ namespace Lapack {
     return Array<complex>::operator[](i1 + i2 * (i2 + 1) / 2);
   }
 
-  inline const complex& HermitianMatrix::operator() (int_t i1, int_t i2) const throw(Error::General)
+  inline const complex& HermitianMatrix::operator() (int_t i1, int_t i2) const 
   {
     const char funame [] = "Lapack::HermitianMatrix::operator(): ";
 
@@ -944,7 +979,7 @@ namespace Lapack {
 
   // Generalized eigenvalue problem
   //
-  Vector diagonalize(const HermitianMatrix&, const HermitianMatrix&, ComplexMatrix* = 0) throw(Error::General);
+  Vector diagonalize(const HermitianMatrix&, const HermitianMatrix&, ComplexMatrix* = 0) ;
 
   /************************************************************************
    ************************** COMPLEX VECTOR ******************************
@@ -960,6 +995,18 @@ namespace Lapack {
   ComplexVector fourier_transform (const ComplexVector&,                  const MultiIndexConvert&);
   ComplexVector fourier_transform (const std::map<int, Lapack::complex>&, const MultiIndexConvert&);
 
+  // find a complimentary orthogonal basis set to the non-orthogonal vector set
+  //
+  double orthogonalize (Matrix basis, int vsize);
+
+  // solve linear equations by svd-decomposition
+  //
+  Vector svd_solve (Matrix a, Vector b, double* residue = 0,double pres = -1., double (*weight)(double) = 0);
+
+  // singular value decomposition, A = U * S * V**T
+  //
+  void svd (Matrix a, Vector s, Matrix u, Matrix v);
+  //
 }// namespace Lapack
 
 #endif
