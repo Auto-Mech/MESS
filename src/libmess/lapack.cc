@@ -1,8 +1,24 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "lapack.hh"
 #include "error.hh"
 #include "io.hh"
 #include "blas.h"
 #include "lapack.h"
+#include "linpack.hh"
 
 #include <iostream>
 
@@ -10,7 +26,7 @@
  ************************** Vector ******************************
  ****************************************************************/
 
-double Lapack::Vector::operator* (const Vector& v) const throw(Error::General)
+double Lapack::Vector::operator* (const Vector& v) const 
 {
   const char funame [] = "Lapack::Vector::operator*: ";
 
@@ -35,6 +51,56 @@ double Lapack::Vector::operator* (const Vector& v) const throw(Error::General)
   return res;
 }
 
+double Lapack::Vector::operator* (ConstSlice<double> v) const 
+{
+  const char funame [] = "Lapack::Vector::operator*: ";
+
+  if(!isinit()) {
+    std::cerr << funame << "not initialized\n";
+    throw Error::Init();
+  }
+
+  if(v.size() != size()) {
+    std::cerr << funame << "the dimensions are different:"
+	      << " size1 = " << size()
+	      << " size2 = " << v.size()
+	      << std::endl;
+    throw Error::Range();
+  }
+  
+  const double* p  = *this;
+  
+  ConstSlice<double>::const_iterator p1 = v.begin();
+  
+  double res = 0.;
+  
+  for(int_t i = 0; i < size(); ++i)
+    //
+    res += *p++ * *p1++;
+  
+  return res;
+}
+
+double Lapack::Vector::operator* (const double* v) const 
+{
+  const char funame [] = "Lapack::Vector::operator*: ";
+
+  if(!isinit()) {
+    std::cerr << funame << "not initialized\n";
+    throw Error::Init();
+  }
+
+  const double* p  = *this;
+
+  double res = 0.;
+  //
+  for(int_t i = 0; i < size(); ++i)
+    //
+    res += *p++ * *v++;
+  
+  return res;
+}
+
 double Lapack::Vector::vdot () const
 {
   const char funame [] = "Lapack::Vector::vdot: ";
@@ -50,7 +116,7 @@ double Lapack::Vector::vdot () const
   return res;
 }
 
-Lapack::Vector Lapack::Vector::operator* (const Matrix& m) const throw(Error::General)
+Lapack::Vector Lapack::Vector::operator* (const Matrix& m) const 
 {
   const char funame [] = "Lapack::Vector::operator*: ";
 
@@ -70,7 +136,7 @@ Lapack::Vector Lapack::Vector::operator* (const Matrix& m) const throw(Error::Ge
 }
 
 Lapack::Vector Lapack::Vector::operator* (const SymmetricMatrix& m)
-  const throw(Error::General)
+  const 
 {
   const char funame [] = "Lapack::Vector::operator*: ";
 
@@ -112,7 +178,7 @@ Lapack::Matrix Lapack::Matrix::transpose () const
   return res;
 }
 
-Lapack::Matrix Lapack::Matrix::operator* (const Matrix& m) const throw(Error::General)
+Lapack::Matrix Lapack::Matrix::operator* (const Matrix& m) const 
 {
   const char funame [] = "Lapack::Matrix::operator*: ";
 
@@ -134,7 +200,7 @@ Lapack::Matrix Lapack::Matrix::operator* (const Matrix& m) const throw(Error::Ge
 }
 
 Lapack::Matrix Lapack::Matrix::operator* (const SymmetricMatrix& m)
-  const throw(Error::General)
+  const 
 {
   const char funame [] = "Lapack::Matrix::operator*: ";
 
@@ -157,7 +223,7 @@ Lapack::Matrix Lapack::Matrix::operator* (const SymmetricMatrix& m)
   return res;
 }
 
-Lapack::Vector Lapack::Matrix::operator* (const double* v) const throw(Error::General)
+Lapack::Vector Lapack::Matrix::operator* (const double* v) const 
 {
   const char funame [] = "Lapack::Matrix::operator*: ";
 
@@ -171,7 +237,7 @@ Lapack::Vector Lapack::Matrix::operator* (const double* v) const throw(Error::Ge
   return res;
 }
 
-Lapack::Vector Lapack::operator* (const double* v, const Matrix& m) throw(Error::General)
+Lapack::Vector Lapack::operator* (const double* v, const Matrix& m) 
 {
   const char funame [] = "Lapack::operator*: ";
 
@@ -188,7 +254,7 @@ Lapack::Vector Lapack::operator* (const double* v, const Matrix& m) throw(Error:
 }
 
 // inverse matrix
-Lapack::Matrix Lapack::Matrix::invert () const throw(Error::General)
+Lapack::Matrix Lapack::Matrix::invert () const 
 {
   const char funame [] = "Lapack::Matrix::invert: ";
 
@@ -250,7 +316,7 @@ Lapack::Matrix Lapack::Matrix::invert () const throw(Error::General)
 }
 
 // solve linear equations
-Lapack::Vector Lapack::Matrix::invert (const Vector& v) const throw(Error::General)
+Lapack::Vector Lapack::Matrix::invert (const Vector& v) const 
 {
   const char funame [] = "Lapack::Matrix::invert: ";
 
@@ -293,7 +359,7 @@ Lapack::Vector Lapack::Matrix::invert (const Vector& v) const throw(Error::Gener
 }
 
 // solve linear equations
-Lapack::Matrix Lapack::Matrix::invert (const Matrix& m) const throw(Error::General)
+Lapack::Matrix Lapack::Matrix::invert (const Matrix& m) const 
 {
   const char funame [] = "Lapack::Matrix::invert: ";
 
@@ -336,7 +402,7 @@ Lapack::Matrix Lapack::Matrix::invert (const Matrix& m) const throw(Error::Gener
 }
 
   // matrix row
-Slice<double> Lapack::Matrix::row (int_t i) throw(Error::General)
+Slice<double> Lapack::Matrix::row (int_t i) 
 {
   const char funame [] = "Lapack::Matrix::row: ";
 
@@ -353,7 +419,7 @@ Slice<double> Lapack::Matrix::row (int_t i) throw(Error::General)
   return Slice<double>(*this + i, size2(), size1());
 }
 
-ConstSlice<double> Lapack::Matrix::row (int_t i) const throw(Error::General)
+ConstSlice<double> Lapack::Matrix::row (int_t i) const 
 {
   const char funame [] = "Lapack::Matrix::row: ";
 
@@ -371,7 +437,7 @@ ConstSlice<double> Lapack::Matrix::row (int_t i) const throw(Error::General)
 }
 
   // matrix column
-Slice<double> Lapack::Matrix::column (int_t i) throw(Error::General)
+Slice<double> Lapack::Matrix::column (int_t i) 
 {
   const char funame [] = "Lapack::Matrix::column: ";
 
@@ -388,7 +454,7 @@ Slice<double> Lapack::Matrix::column (int_t i) throw(Error::General)
   return Slice<double>(*this + i * size1(), size1());
 }
 
-ConstSlice<double> Lapack::Matrix::column (int_t i) const throw(Error::General)
+ConstSlice<double> Lapack::Matrix::column (int_t i) const 
 {
   const char funame [] = "Lapack::Matrix::column: ";
 
@@ -406,7 +472,7 @@ ConstSlice<double> Lapack::Matrix::column (int_t i) const throw(Error::General)
 }
 
   // matrix diagonal
-Slice<double> Lapack::Matrix::diagonal (int_t i) throw(Error::General)
+Slice<double> Lapack::Matrix::diagonal (int_t i) 
 {
   const char funame [] = "Lapack::Matrix::diagonal: ";
 
@@ -431,7 +497,7 @@ Slice<double> Lapack::Matrix::diagonal (int_t i) throw(Error::General)
   }
 }
 
-ConstSlice<double> Lapack::Matrix::diagonal (int_t i) const throw(Error::General)
+ConstSlice<double> Lapack::Matrix::diagonal (int_t i) const 
 {
   const char funame [] = "Lapack::Matrix::diagonal: ";
 
@@ -478,7 +544,7 @@ double  Lapack::BandMatrix::operator() (int_t i, int_t j) const
   return 0.;
 }
 
-double& Lapack::BandMatrix::operator() (int_t i, int_t j) throw(Error::General)
+double& Lapack::BandMatrix::operator() (int_t i, int_t j) 
 {
   const char funame [] = "Lapack::BandMatrix::operator(): ";
 
@@ -499,7 +565,7 @@ double& Lapack::BandMatrix::operator() (int_t i, int_t j) throw(Error::General)
 }
 
 Lapack::Vector Lapack::BandMatrix::eigenvalues (Matrix* evec)
-  const throw(Error::General)
+  const 
 {
   const char funame [] = "Lapack::BandMatrix::eigenvalues: ";
 
@@ -556,7 +622,7 @@ Lapack::Vector Lapack::BandMatrix::eigenvalues (Matrix* evec)
  ****************************************************************/
 
 Lapack::SymmetricMatrix::SymmetricMatrix 
-(const Lapack::Matrix& m, char uplo) throw(Error::General)
+(const Lapack::Matrix& m, char uplo) 
   : RefArr<double>(m.size1() * (m.size1() + 1) / 2), _size(new int_t(m.size1()))
 {
   const char funame [] = "Lapack::SymmetricMatrix::SymmetricMatrix: ";
@@ -596,7 +662,7 @@ Lapack::SymmetricMatrix::SymmetricMatrix
   }
 }
 
-Lapack::Vector Lapack::SymmetricMatrix::operator* (const Vector& v) const throw(Error::General)
+Lapack::Vector Lapack::SymmetricMatrix::operator* (const Vector& v) const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
@@ -618,6 +684,30 @@ Lapack::Vector Lapack::SymmetricMatrix::operator* (const Vector& v) const throw(
   return res;
 }
 
+Lapack::Vector Lapack::SymmetricMatrix::operator* (ConstSlice<double> v) const 
+{
+  const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
+
+  if(!isinit()) {
+    std::cerr << funame << "not initialized\n";
+    throw Error::Init();
+  }
+
+  if(size() != v.size()) {
+    std::cerr << funame << "the dimensions are different:"
+	      << " vector_size = " << v.size()
+	      << " matrix_size = " << size()
+	      << "\n";
+    throw Error::Range();
+  }
+  
+  Vector res(size());
+  
+  dspmv_('U', size(),  1.,  *this, v.begin(), v.stride(), 0., res, 1);
+  
+  return res;
+}
+
 Lapack::Vector Lapack::SymmetricMatrix::operator* (const double* v) const
 {
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
@@ -633,7 +723,7 @@ Lapack::Vector Lapack::SymmetricMatrix::operator* (const double* v) const
 }
 
 Lapack::Matrix Lapack::SymmetricMatrix::operator* (const Matrix& m)
-  const throw(Error::General)
+  const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
@@ -656,7 +746,7 @@ Lapack::Matrix Lapack::SymmetricMatrix::operator* (const Matrix& m)
   return res;
 }
 
-Lapack::Matrix Lapack::SymmetricMatrix::operator* (const SymmetricMatrix& m) const throw(Error::General)
+Lapack::Matrix Lapack::SymmetricMatrix::operator* (const SymmetricMatrix& m) const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
@@ -699,7 +789,7 @@ Lapack::Matrix Lapack::SymmetricMatrix::operator* (const SymmetricMatrix& m) con
 }
 
 Lapack::Vector Lapack::SymmetricMatrix::eigenvalues (Matrix* evec)
-  const throw(Error::General)
+  const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::eigenvalues: ";
 
@@ -734,7 +824,7 @@ Lapack::Vector Lapack::SymmetricMatrix::eigenvalues (Matrix* evec)
   }
 }
 
-Lapack::SymmetricMatrix Lapack::SymmetricMatrix::invert () const throw(Error::General)
+Lapack::SymmetricMatrix Lapack::SymmetricMatrix::invert () const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::invert: ";
 
@@ -770,7 +860,7 @@ Lapack::SymmetricMatrix Lapack::SymmetricMatrix::invert () const throw(Error::Ge
 }
 
 Lapack::SymmetricMatrix Lapack::SymmetricMatrix::positive_invert ()
-  const throw(Error::General)
+  const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::positive_invert: ";
 
@@ -804,7 +894,7 @@ Lapack::SymmetricMatrix Lapack::SymmetricMatrix::positive_invert ()
   }
 }
 
-Lapack::Vector Lapack::diagonalize(SymmetricMatrix a0, SymmetricMatrix b0, Matrix* evec) throw(Error::General)
+Lapack::Vector Lapack::diagonalize(SymmetricMatrix a0, SymmetricMatrix b0, Matrix* evec) 
 {
   const char funame [] = "Lapack::diagonalize: ";
   const char lapack_funame [] = "DSPGVD: ";
@@ -866,7 +956,7 @@ Lapack::Vector Lapack::diagonalize(SymmetricMatrix a0, SymmetricMatrix b0, Matri
   throw Error::Run();
 }
 
-Lapack::Vector Lapack::diagonalize (const HermitianMatrix& a0, const HermitianMatrix& b0, ComplexMatrix* evec) throw(Error::General)
+Lapack::Vector Lapack::diagonalize (const HermitianMatrix& a0, const HermitianMatrix& b0, ComplexMatrix* evec) 
 {
   const char funame [] = "Lapack::diagonalize: ";
 
@@ -1031,7 +1121,7 @@ double Lapack::LU::det () const
     return -res;
 }
 
-Lapack::LU::LU (const Matrix& m) throw(Error::General)
+Lapack::LU::LU (const Matrix& m) 
   : Matrix(m.copy())
 {
   const char funame [] = "Lapack::LU::LU: ";
@@ -1068,7 +1158,7 @@ Lapack::LU::LU (const Matrix& m) throw(Error::General)
   }
 }
 
-Lapack::Matrix Lapack::LU::invert() const throw(Error::General)
+Lapack::Matrix Lapack::LU::invert() const 
 {
   const char funame [] = "Lapack::LU::invert: ";
 
@@ -1094,7 +1184,7 @@ Lapack::Matrix Lapack::LU::invert() const throw(Error::General)
   }
 }
 
-Lapack::Vector Lapack::LU::invert(const Vector& v) const throw(Error::General)
+Lapack::Vector Lapack::LU::invert(const Vector& v) const 
 {
   const char funame [] = "Lapack::LU::invert: ";
 
@@ -1130,7 +1220,7 @@ Lapack::Vector Lapack::LU::invert(const Vector& v) const throw(Error::General)
   }
 }
 
-Lapack::Matrix Lapack::LU::invert(const Matrix& m) const throw(Error::General)
+Lapack::Matrix Lapack::LU::invert(const Matrix& m) const 
 {
   const char funame [] = "Lapack::LU::invert: ";
 
@@ -1170,7 +1260,7 @@ Lapack::Matrix Lapack::LU::invert(const Matrix& m) const throw(Error::General)
  ******** LU factorization for symmetric packed matrix **********
  ****************************************************************/
 
-Lapack::SymLU::SymLU (const SymmetricMatrix& m) throw(Error::General)
+Lapack::SymLU::SymLU (const SymmetricMatrix& m) 
   : SymmetricMatrix(m.copy())
 {
   const char funame [] = "Lapack::SymLU::SymLU: ";
@@ -1202,7 +1292,7 @@ Lapack::SymLU::SymLU (const SymmetricMatrix& m) throw(Error::General)
   }
 }
 
-Lapack::SymmetricMatrix Lapack::SymLU::invert() const throw(Error::General)
+Lapack::SymmetricMatrix Lapack::SymLU::invert() const 
 {
   const char funame [] = "Lapack::SymLU::invert: ";
 
@@ -1228,7 +1318,7 @@ Lapack::SymmetricMatrix Lapack::SymLU::invert() const throw(Error::General)
   }
 }
 
-Lapack::Vector Lapack::SymLU::invert(const Vector& v) const throw(Error::General)
+Lapack::Vector Lapack::SymLU::invert(const Vector& v) const 
 {
   const char funame [] = "Lapack::SymLU::invert: ";
 
@@ -1264,7 +1354,7 @@ Lapack::Vector Lapack::SymLU::invert(const Vector& v) const throw(Error::General
   }
 }
 
-Lapack::Matrix Lapack::SymLU::invert(const Matrix& m) const throw(Error::General)
+Lapack::Matrix Lapack::SymLU::invert(const Matrix& m) const 
 {
   const char funame [] = "Lapack::SymLU::invert: ";
 
@@ -1304,7 +1394,7 @@ Lapack::Matrix Lapack::SymLU::invert(const Matrix& m) const throw(Error::General
  ******************* Cholesky Factorization *********************
  ****************************************************************/
 
-Lapack::Cholesky::Cholesky (const SymmetricMatrix& m) throw(Error::General)
+Lapack::Cholesky::Cholesky (const SymmetricMatrix& m) 
   : SymmetricMatrix(m.copy())
 {
   const char funame [] = "Lapack::Cholesky::Cholesky: ";
@@ -1332,7 +1422,7 @@ Lapack::Cholesky::Cholesky (const SymmetricMatrix& m) throw(Error::General)
   }
 }
 
-Lapack::SymmetricMatrix Lapack::Cholesky::invert() const throw(Error::General)
+Lapack::SymmetricMatrix Lapack::Cholesky::invert() const 
 {
   const char funame [] = "Lapack::Cholesky::invert: ";
 
@@ -1357,7 +1447,7 @@ Lapack::SymmetricMatrix Lapack::Cholesky::invert() const throw(Error::General)
   }
 }
 
-Lapack::Vector Lapack::Cholesky::invert(const Vector& v) const throw(Error::General)
+Lapack::Vector Lapack::Cholesky::invert(const Vector& v) const 
 {
   const char funame [] = "Lapack::Cholesky::invert: ";
 
@@ -1393,7 +1483,7 @@ Lapack::Vector Lapack::Cholesky::invert(const Vector& v) const throw(Error::Gene
   }
 }
 
-Lapack::Matrix Lapack::Cholesky::invert(const Matrix& m) const throw(Error::General)
+Lapack::Matrix Lapack::Cholesky::invert(const Matrix& m) const 
 {
   const char funame [] = "Lapack::Cholesky::invert: ";
 
@@ -1448,7 +1538,7 @@ double Lapack::Cholesky::det_sqrt ()
  *********************** Complex Matrix *************************
  ****************************************************************/
 
-Lapack::ComplexMatrix Lapack::ComplexMatrix::operator* (const ComplexMatrix& m) const throw(Error::General)
+Lapack::ComplexMatrix Lapack::ComplexMatrix::operator* (const ComplexMatrix& m) const 
 {
   const char funame [] = "Lapack::Matrix::operator*: ";
 
@@ -1471,7 +1561,7 @@ Lapack::ComplexMatrix Lapack::ComplexMatrix::operator* (const ComplexMatrix& m) 
  ****************************************************************/
 
 Lapack::HermitianMatrix::HermitianMatrix 
-(const Lapack::ComplexMatrix& m, char uplo) throw(Error::General)
+(const Lapack::ComplexMatrix& m, char uplo) 
   : Array<complex>(m.size1() * (m.size1() + 1) / 2), _size(m.size1())
 {
   const char funame [] = "Lapack::HermitianMatrix::HermitianMatrix: ";
@@ -1512,7 +1602,7 @@ Lapack::HermitianMatrix::HermitianMatrix
 }
 
 Lapack::Vector Lapack::HermitianMatrix::eigenvalues (ComplexMatrix* evec)
-  const throw(Error::General)
+  const 
 {
   const char funame [] = "Lapack::HermitianMatrix::eigenvalues: ";
 
@@ -1687,4 +1777,386 @@ Lapack::ComplexVector Lapack::fourier_transform (const std::map<int, complex>& f
   }
 
   return res;
+}
+
+// orthogonalize matrix column-wise
+//
+// find complimentary basis to the non-orthogonal vector set
+//
+double Lapack::Matrix::orthogonalize (double tol)
+{
+  const char funame [] = "Lapack::Matrix::orthogonalize: ";
+
+  static const double default_tolerance = 1.e-10;
+
+  double dtemp;
+  
+  int    itemp;
+
+  if(!isinit()) {
+    //
+    std::cerr << funame << "not initialized\n";
+
+    throw Error::Init();
+  }
+
+  
+    
+  if(size2()  > size1()) {
+    //
+    std::cerr << funame << "number of vectors, " << size2() << ", exceeds the space dimensionality, " << size1() << std::endl;
+
+    throw Error::Range();
+  }
+
+  if(tol < 0.)
+    //
+    tol = default_tolerance;
+  
+  // normalize and orthogonalize the original vector set
+  //
+  double res = 1.;
+
+  for(int v = 0; v < size2(); ++v) {
+    //
+    Slice<double> col = column(v);
+    
+    dtemp = ::normalize(col);
+
+    if(dtemp == 0.) {
+      //
+      std::cerr << funame << "zero vector\n";
+
+      throw Error::Range();
+
+      res *= dtemp;
+    }
+    
+    for(int u = 0; u < v; ++u)
+      //
+      ::orthogonalize(col, column(u));
+
+    dtemp = ::normalize(col);
+
+    if(dtemp < tol) {
+      //
+      std::cerr << funame << "it seems that the vectors are not linearly independent\n";
+
+      throw Error::Range();
+    }
+
+    res *= dtemp;
+  }
+
+  return res;
+}
+
+// find complimentary basis to the non-orthogonal vector set
+//
+double Lapack::orthogonalize (Matrix basis, int vsize)
+{
+  const char funame [] = "Lapack::orthogonalize: ";
+
+  double dtemp;
+  
+  int    itemp;
+
+  if(vsize <= 0 || vsize > basis.size()) {
+    //
+    std::cerr << funame << "non-orthogonal vector set size out of range: " << vsize << std::endl;
+
+    throw Error::Range();
+  }
+  
+  // orthogonalize and normalize the original vector set
+  //
+  double res = 1.;
+
+  for(int u = 0; u < vsize; ++u) {
+    //
+    for(int v = 0; v < u; ++v)
+      //
+      ::orthogonalize(&basis(0, u), &basis(0, v), basis.size());
+
+    res *= ::normalize(&basis(0, u), basis.size());
+  }
+  
+  // build complimentary basis set
+  //
+  for(int u = vsize; u < basis.size(); ++u) {
+    //
+    // find the basis unity vector with minimal projection on the orthogonalized vector set
+    //
+    double pmin;
+    
+    int    imin;
+
+    for(int i = 0; i < basis.size(); ++i) {
+      //
+      dtemp = 0.;
+	
+      for(int v = 0;  v < u; ++v)
+	//
+	dtemp += basis(i, v) * basis(i, v);
+	    
+      if(!i || dtemp < pmin) {
+	//
+	imin = i;
+
+	pmin = dtemp;
+      }
+    }
+
+    // new vector with the smallest projection
+    //
+    for(int i = 0; i < basis.size(); ++i)
+      //
+      basis(i, u) = i != imin ? 0. : 1.;
+
+    // orthogonalize and normalize new vector
+    //
+    for(int v = 0; v < u; ++v)
+      //
+      ::orthogonalize(&basis(0, u), &basis(0, v), basis.size());
+    
+    ::normalize(&basis(0, u), basis.size());
+  }
+
+  return res;
+}
+
+// solve linear equations by singular value decomposition
+//
+Lapack::Vector Lapack::svd_solve(Matrix a, Vector b, double* residue, double prec, double (*weight)(double))
+{
+  const char funame [] = "Lapack::svd_solve: ";
+
+  static const double default_prec = 1.e-12;
+
+  int    itemp;
+  double dtemp;
+
+  if(a.size1() < a.size2()) {
+    //
+    std::cerr << funame << "number of equations, " << a.size1() << ", should be no less than the number of variables, " << a.size2() << "\n";
+
+    throw Error::Range();
+  }
+  
+  if(b.size() != a.size1()) {
+    //
+    std::cerr << funame << "right-hand side vector size, " << b.size()
+	      << ", differs from the number of equations, " << a.size1() << "\n";
+
+    throw Error::Range();
+  }
+
+  if(prec < 0.)
+    //
+    prec = default_prec;
+  
+  // make a copy
+  //
+  a = a.copy();
+  
+  b = b.copy();
+
+  // weighting
+  //
+  if(weight) {
+    //
+    for(int i = 0; i < a.size1(); ++i) {
+      //
+      dtemp = weight(b[i]);
+
+      b[i]     *= dtemp;
+      a.row(i) *= dtemp;
+    }
+  }
+  
+  Vector sv(a.size2());
+  int_t rank, lwork, info;
+
+  lwork = -1;
+  Array<double> work(1);
+  Array<int_t> iwork(1);
+
+  dgelsd_(a.size1(), a.size2(), 1, a, a.size1(), b, b.size(), sv, prec, rank, work, lwork, iwork, info);        
+
+  if(info) {
+    //
+    std::cerr << funame << "dgelsd(lwork=-1) failed with info = " << info;
+
+    throw Error::Run();
+  }
+  
+  int_t liwork = iwork[0];
+  
+  if(liwork <= 0) {
+    //
+    std::cerr << funame << "dgelsd(lwork=-1) failed: liwork = " << liwork << "\n";
+
+    throw Error::Run();
+  }
+  
+  lwork = (int_t)work[0];
+
+  if(lwork <= 0) {
+    //
+    std::cerr << funame << "dgelsd(lwork=-1) failed: new lwork = " << lwork << "\n";
+
+    throw Error::Run();
+  }
+  
+  work.resize(lwork);
+  iwork.resize(liwork);
+
+  dgelsd_(a.size1(), a.size2(), 1, a, a.size1(), b, b.size(), sv, prec, rank, work, lwork, iwork, info);        
+
+  if(info) {
+    //
+    std::cerr << funame << "dgelsd failed with info = " << info;
+
+    throw Error::Run();
+  }
+
+  if(rank < a.size2()) {
+    //
+    std::cerr << funame << "matrix rank, " << rank << ", is less than the number of coefficients, " << a.size2() << "\n";
+
+    throw Error::Run();
+  }
+
+  /*
+  if(IO::loglevel() >= IO::DEBUG) {
+    IO::log << IO::log_offset << "diagonal SVD values:";
+      
+    int old_prec = IO::log.precision(3);
+
+    for(int i = 0; i < sv.size(); ++i) {
+      if(!(i % 10))
+        IO::log << "\n" << IO::log_offset;
+      IO::log << std::setw(10) << sv[i];
+    }
+
+    IO::log << std::setprecision(old_prec) << std::endl;
+  }
+  */
+
+  // residual solution
+  //
+  if(residue) {
+    //
+    dtemp = 0.;
+
+    for(int i = a.size2(); i < a.size1(); ++i)
+      //
+      dtemp += b[i] * b[i];
+
+    dtemp = std::sqrt(dtemp);
+
+    *residue = dtemp;
+  }
+
+  b.resize(a.size2());
+  
+  return b;
+}
+
+// null space of a non-degenerate matrix
+//
+Lapack::Matrix Lapack::Matrix::kernel () const
+{
+  const char funame [] = "Lapack::Matrix::kernel:";
+
+  
+  int    itemp;
+  
+  double dtemp;
+
+  if(size1() >= size2()) {
+    //
+    std::cerr << funame << "wrong dimensions: " << size1() << ", " << size2() << "\n";
+      
+    throw Error::Init();
+  }
+  
+
+  Matrix u, v;
+
+  Vector s;
+
+  svd(*this, s, u, v);
+
+  Matrix res(size2(), size2() - size1());
+
+  for(int i = size1(); i < size2(); ++i)
+    //
+    res.column(i - size1()) = v.column(i);
+
+  return res;
+}
+
+// matrix singular value decomposition by divide-and-conquer method
+//
+void Lapack::svd (Matrix a, Vector s, Matrix u, Matrix v)
+{
+  const char funame [] = "Lapack::svd: ";
+
+  int    itemp;
+  double dtemp;
+
+  if(!a.isinit()) {
+    //
+    std::cerr << funame << "not initialized\n";
+      
+    throw Error::Init();
+  }
+
+  u.resize(a.size1());
+
+  v.resize(a.size2());
+
+  int rank = std::min(a.size1(), a.size2());
+  
+  s.resize(rank);
+  
+  int_t lwork, info;
+
+  lwork = -1;
+  
+  Array<double> work(1);
+  
+  Array<int_t> iwork(8 * rank);
+
+  dgesdd_('A', a.size1(), a.size2(), a, a.size1(), s, u, u.size(), v, v.size(), work, lwork, iwork, info);        
+
+  if(info) {
+    //
+    std::cerr << funame << "dgesdd(lwork=-1) failed with info = " << info;
+
+    throw Error::Run();
+  }
+  
+  lwork = (int_t)work[0];
+
+  if(lwork <= 0) {
+    //
+    std::cerr << funame << "dgesdd(lwork=-1) failed: new lwork out of range: " << lwork << "\n";
+
+    throw Error::Range();
+  }
+  
+  work.resize(lwork);
+
+  dgesdd_('A', a.size1(), a.size2(), a, a.size1(), s, u, u.size(), v, v.size(), work, lwork, iwork, info);        
+
+  if(info) {
+    //
+    std::cerr << funame << "dgesdd failed with info = " << info;
+
+    throw Error::Run();
+  }
+
+  v = v.transpose();
 }

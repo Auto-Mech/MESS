@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef LINPACK_HH
 #define LINPACK_HH
@@ -9,14 +22,14 @@
 
 /********************** General Vector Operations ***************************/
 
-double normalize (double*, int, int =1) throw(Error::General);
-double orthogonalize (double*, const double*, int, int =1, int =1) throw(Error::General);
-double parallel_orthogonalize (double*, const double*, int, int =1, int =1) throw(Error::General);
-double vdot      (const double*, int, int =1) throw(Error::General);
-double vlength   (const double*, int, int =1) throw(Error::General);
-double vdot      (const double*, const double*, int, int =1, int =1) throw(Error::General);
-double parallel_vdot  (const double*, const double*, int, int =1, int =1) throw(Error::General);
-double vdistance (const double*, const double*, int, int =1, int =1) throw(Error::General);
+double normalize (double*, int, int =1) ;
+double orthogonalize (double*, const double*, int, int =1, int =1) ;
+double parallel_orthogonalize (double*, const double*, int, int =1, int =1) ;
+double vdot      (const double*, int, int =1) ;
+double vlength   (const double*, int, int =1) ;
+double vdot      (const double*, const double*, int, int =1, int =1) ;
+double parallel_vdot  (const double*, const double*, int, int =1, int =1) ;
+double vdistance (const double*, const double*, int, int =1, int =1) ;
 
 void multiply (double*, double, int, int= 1);
 
@@ -31,7 +44,7 @@ typename V::value_type vdot (const V& v)
 }
 
 template <typename V>
-typename V::value_type vdot (const V& v1, const V& v2) throw(Error::General)
+typename V::value_type vdot (const V& v1, const V& v2) 
 {
   const char funame [] = "vdot: ";
   
@@ -91,7 +104,37 @@ typename V::value_type normalize (V& v)
 }
 
 template <typename V>
-typename V::value_type vdistance (const V& v1, const V& v2) throw(Error::General)
+void orthogonalize (V& v, const V& u)
+{
+  const char funame [] = "orthogonalize: ";
+
+  if(v.size() != u.size()) {
+    //
+    std::cerr << funame << "dimensions mismatch: " << v.size() << ", " << u.size() << "\n";
+
+    throw Error::Range();
+  }
+  
+  typename V::value_type vu = vdot(v, u);
+
+  typename V::value_type uu = vdot(u);
+  
+  if (uu == 0) {
+    //
+    std::cerr << funame << "null vector\n";
+
+    throw Error::Range();
+  }
+
+  typename V::const_iterator uit = u.begin();
+
+  for (typename V::iterator vit = v.begin(); vit != v.end(); ++vit)
+    //
+    *vit -= *uit++ * vu / uu;
+}
+
+template <typename V>
+typename V::value_type vdistance (const V& v1, const V& v2) 
 {
   const char funame [] = "vdistance: ";
   
