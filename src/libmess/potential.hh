@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef POTENTIAL_HH
 #define POTENTIAL_HH
@@ -40,18 +53,18 @@ namespace Potential {
     Wrap (ConstSharedPointer<Base> pf) : _fun(pf) {}
     ~Wrap () {}
 
-    void read (std::istream&) throw(Error::General);
+    void read (std::istream&) ;
 
     operator  bool () const { return  _fun; }
     bool operator! () const { return !_fun; }
 
-    void   isinit () const throw(Error::General);
+    void   isinit () const ;
 
-    double operator() (const Dynamic::Coordinates&, D3::Vector* =0) const throw(Error::General);
-    int    type       ()                                            const throw(Error::General);
+    double operator() (const Dynamic::Coordinates&, D3::Vector* =0) const ;
+    int    type       ()                                            const ;
   };
 
-  inline void Wrap::isinit () const throw(Error::General)
+  inline void Wrap::isinit () const 
   {
     const char funame [] = "Potential::wrap::isinit: ";
 
@@ -61,13 +74,13 @@ namespace Potential {
     }
   }
 
-  inline double Wrap::operator() (const Dynamic::Coordinates& dc, D3::Vector* force) const throw(Error::General)
+  inline double Wrap::operator() (const Dynamic::Coordinates& dc, D3::Vector* force) const 
   {
     isinit();
     return (*_fun)(dc, force);
   }
 
-  inline int Wrap::type () const throw(Error::General)
+  inline int Wrap::type () const 
   {
     isinit();
     return _fun->type();
@@ -80,13 +93,13 @@ namespace Potential {
     double _emin;
 
   public:
-    Condition (Potential::Wrap pot, double e) throw(Error::General);
+    Condition (Potential::Wrap pot, double e) ;
     bool test (const Dynamic::Coordinates&) const;
 
     ~Condition () {}
   };
 
-  inline Condition::Condition (Potential::Wrap pot, double e) throw(Error::General)
+  inline Condition::Condition (Potential::Wrap pot, double e) 
     : _pot(pot), _emin(e)
   {
     const char funame [] = "Potential::Condition::Condition: ";
@@ -116,9 +129,9 @@ namespace Potential {
     double _dist_incr, _angl_incr;
 
   public:
-    Harmonic (std::istream&) throw(Error::General);
+    Harmonic (std::istream&) ;
 
-    double operator() (const Dynamic::Coordinates&, D3::Vector*) const throw(Error::General);
+    double operator() (const Dynamic::Coordinates&, D3::Vector*) const ;
     int type () const { return HARMONIC; }
   };
 */
@@ -146,17 +159,17 @@ namespace Potential {
 
     static void _dc2cart (const Dynamic::Coordinates&, Array_2<double>&); // convert dc (my) to cartesian
 
-    double _tot_ener (const double* coord) const throw(Error::General);
+    double _tot_ener (const double* coord) const ;
 
     // no copies
     Analytic (const Analytic&);
     Analytic& operator= (const Analytic&);
     
   public:
-    Analytic (std::istream&) throw(Error::General);
+    Analytic (std::istream&) ;
     ~Analytic () {}
 
-    double operator() (const Dynamic::Coordinates&, D3::Vector*) const throw(Error::General);
+    double operator() (const Dynamic::Coordinates&, D3::Vector*) const ;
     int type () const { return ANALYTIC; }
   };
 
@@ -170,16 +183,16 @@ namespace Potential {
     double _anisotropic_polarizability;
 
     enum _mode_t {POT_VALUE, DIST_DERIV, ANGLE_DERIV};
-    double _pot (double dist, double cos_theta, _mode_t mode) const throw(Error::General);
+    double _pot (double dist, double cos_theta, _mode_t mode) const ;
 
     ChargeLinear (const ChargeLinear&); // no copies
     ChargeLinear& operator= (const ChargeLinear&);
 
   public:
-    ChargeLinear (std::istream&) throw(Error::General);
+    ChargeLinear (std::istream&) ;
     ~ChargeLinear () {}
 
-    double operator() (const Dynamic::Coordinates&, D3::Vector*) const throw(Error::General);
+    double operator() (const Dynamic::Coordinates&, D3::Vector*) const ;
     int type () const { return CL; }
   };
 
@@ -195,10 +208,10 @@ namespace Potential {
     ChargeNonlinear& operator= (const ChargeNonlinear&);
 
   public:
-    ChargeNonlinear (std::istream&) throw(Error::General);
+    ChargeNonlinear (std::istream&) ;
     ~ChargeNonlinear () {}
 
-    double operator() (const Dynamic::Coordinates&, D3::Vector*) const throw(Error::General);
+    double operator() (const Dynamic::Coordinates&, D3::Vector*) const ;
     int type () const { return CN; }
   };
 
@@ -214,10 +227,10 @@ namespace Potential {
     DipoleDipole& operator= (const DipoleDipole&);
 
   public:
-    DipoleDipole (std::istream&) throw(Error::General);
+    DipoleDipole (std::istream&) ;
     ~DipoleDipole () {}
 
-    double operator() (const Dynamic::Coordinates& dc, D3::Vector*) const throw(Error::General);
+    double operator() (const Dynamic::Coordinates& dc, D3::Vector*) const ;
     int type () const { return DD; }
   };
 
@@ -231,10 +244,10 @@ namespace Potential {
     Multipole& operator= (const Multipole&);
 
   public:
-    Multipole (std::istream&) throw(Error::General);
+    Multipole (std::istream&) ;
     ~Multipole () {}
 
-    double operator() (const Dynamic::Coordinates& dc, D3::Vector*) const throw(Error::General);
+    double operator() (const Dynamic::Coordinates& dc, D3::Vector*) const ;
     int type () const { return MULTIPOLE; }
   };
 

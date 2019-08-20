@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef DIVSUR_HH
 #define DIVSUR_HH
@@ -37,7 +50,7 @@ namespace DivSur {
     std::string name;
     std::map<std::string, ConstSharedPointer<GeomObject> >  data;
 
-    void read (int frag, std::istream&) throw(Error::General);
+    void read (int frag, std::istream&) ;
   };
 
 
@@ -116,7 +129,7 @@ namespace DivSur {
     double _set_rc (const Dynamic::Coordinates& dv, Dynamic::Momenta& rc_vec) const; 
 
   public:
-    Sphere (ConstSharedPointer<GeomObject>*, double) throw(Error::General);
+    Sphere (ConstSharedPointer<GeomObject>*, double) ;
 
     double distance  (const Dynamic::Coordinates& dv) const
     { return _dist - _lf_pp_12(dv).vlength(); } 
@@ -132,7 +145,7 @@ namespace DivSur {
 
   };
 
-  inline Sphere::Sphere (ConstSharedPointer<GeomObject>* gop, double d) throw(Error::General)
+  inline Sphere::Sphere (ConstSharedPointer<GeomObject>* gop, double d) 
   {
     const char funame [] = "DivSur::Sphere::Sphere (ConstSharedPointer<GeomObject>*, double): "; 
 
@@ -164,7 +177,7 @@ namespace DivSur {
     double _set_rc (const Dynamic::Coordinates& dv, Dynamic::Momenta& rc_vec) const; 
 
   public:
-    Plane (ConstSharedPointer<GeomObject>*) throw(Error::General);
+    Plane (ConstSharedPointer<GeomObject>*) ;
   
     double distance  (const Dynamic::Coordinates& dv) const;
     void   random_orient   (Dynamic::Coordinates& dv) const;
@@ -177,7 +190,7 @@ namespace DivSur {
     void set_circle (double r) {_radius = r + _pivot.vlength() ; }
   };
 
-  inline Plane::Plane (ConstSharedPointer<GeomObject>* gop) throw(Error::General)
+  inline Plane::Plane (ConstSharedPointer<GeomObject>* gop) 
   {
     const char funame [] = "DivSur::Plane::Plane (ConstSharedPointer<GeomObject>*): "; 
 
@@ -227,7 +240,7 @@ namespace DivSur {
 
     int size () const { return _sur.size(); }
 
-    void read (std::istream&) throw(Error::General);
+    void read (std::istream&) ;
 
     void print (std::ostream&, const std::string&) const;
 
@@ -261,16 +274,16 @@ namespace DivSur {
       Stat stat;
     };
   
-    SmpRes facet_test (int face, const Dynamic::Coordinates&) const throw(Error::General);
+    SmpRes facet_test (int face, const Dynamic::Coordinates&) const ;
 
     // is the configuration in the products state
-    bool test (const Dynamic::Coordinates&) const throw(Error::General);
+    bool test (const Dynamic::Coordinates&) const ;
 
     // which surface did the trajectory crossed
-    int  classify (const Dynamic::Coordinates& dv) const throw(Error::General);
+    int  classify (const Dynamic::Coordinates& dv) const ;
 
     // read surface definition from the stream
-    void read (std::istream&) throw(Error::General);
+    void read (std::istream&) ;
 
     void print (std::ostream&, const std::string&) const;
   }; // OneSur
@@ -306,16 +319,16 @@ namespace DivSur {
     int species_size () const { return _species.size() + 1; }
 
     // which species the configuration belongs to
-    int classify (const Dynamic::Coordinates&) const throw(Error::General);
+    int classify (const Dynamic::Coordinates&) const ;
 
     // does the configuration belong to a given species region
-    bool species_test (int spec, const Dynamic::Coordinates&) const throw(Error::General);
+    bool species_test (int spec, const Dynamic::Coordinates&) const ;
 
     // number of primitives
     int primitive_size () const { return   PrimSet::size(); }
 
     // find the facet, if any, for a given configuration
-    SmpRes facet_test (int sur, const Dynamic::Coordinates&) const throw(Error::General);
+    SmpRes facet_test (int sur, const Dynamic::Coordinates&) const ;
 
     // random configuration on the primitive surface
     void random_orient (int sur, Dynamic::Coordinates& dc)  const { PrimSet::random_orient(sur, dc); }
@@ -342,7 +355,7 @@ namespace DivSur {
     double primitive_distance (int sur, const Dynamic::Coordinates& dc) const { return PrimSet::distance(sur, dc); }
 
     // read the surface from the input stream
-    void read (std::istream&) throw(Error::General);
+    void read (std::istream&) ;
 
     void print (std::ostream&, const std::string&) const;
   }; // MultiSur

@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #ifndef D3_HH
 #define D3_HH
 
@@ -30,7 +45,7 @@ namespace D3 {
     explicit Vector (double);
     explicit Vector (const double*);
     template <typename V>
-    explicit Vector (const V&) throw(Error::General);
+    explicit Vector (const V&) ;
 
     double& operator [] (int i)       { return _begin[i]; }
     double  operator [] (int i) const { return _begin[i]; }
@@ -46,9 +61,9 @@ namespace D3 {
     int size () const { return 3; }
 
     // block operations
-    template <typename V> Vector& operator=  (const V&) throw(Error::General);
-    template <typename V> Vector& operator+= (const V&) throw(Error::General);
-    template <typename V> Vector& operator-= (const V&) throw(Error::General);
+    template <typename V> Vector& operator=  (const V&) ;
+    template <typename V> Vector& operator+= (const V&) ;
+    template <typename V> Vector& operator-= (const V&) ;
 
     Vector& operator=  (const double*);
     Vector& operator+= (const double*);
@@ -70,11 +85,11 @@ namespace D3 {
     double vlength () const;
 
     double normalize ();
-    double orthogonalize (const double*) throw(Error::General);
+    double orthogonalize (const double*) ;
   };
 
   template <typename V>
-  Vector::Vector (const V& v) throw(Error::General)
+  Vector::Vector (const V& v) 
   {
     const char funame [] = "D3::Vector::Vector: ";
 
@@ -91,7 +106,7 @@ namespace D3 {
   }
 
   template <typename V>
-  Vector& Vector::operator= (const V& v) throw(Error::General)
+  Vector& Vector::operator= (const V& v) 
   {
     const char funame [] = "D3::Vector::operator=: ";
 
@@ -108,7 +123,7 @@ namespace D3 {
   }
 
   template <typename V>
-  Vector& Vector::operator+= (const V& v) throw(Error::General)
+  Vector& Vector::operator+= (const V& v) 
   {
     const char funame [] = "D3::Vector::operator+=: ";
 
@@ -125,7 +140,7 @@ namespace D3 {
   }
 
   template <typename V>
-  Vector& Vector::operator-= (const V& v) throw(Error::General)
+  Vector& Vector::operator-= (const V& v) 
   {
     const char funame [] = "D3::Vector::operator-=: ";
 
@@ -172,7 +187,7 @@ namespace D3 {
     return ::normalize(_begin, 3);
   }
 
-  inline double Vector::orthogonalize (const double* n) throw(Error::General)
+  inline double Vector::orthogonalize (const double* n) 
   {
     return ::orthogonalize(_begin, n, 3);
   }
@@ -204,20 +219,20 @@ namespace D3 {
   public:
     Matrix () { _init(); }
     explicit Matrix (double a) { _init(); diagonal() = a; }
-    Matrix (Vector, Vector) throw(Error::General);               // standard orientation
-    explicit Matrix (const Quaternion&) throw(Error::General);
+    Matrix (Vector, Vector) ;               // standard orientation
+    explicit Matrix (const Quaternion&) ;
 
-    double&        operator() (int, int)       throw(Error::General);   // C style indexing
-    const double&  operator() (int, int) const throw(Error::General);   
+    double&        operator() (int, int)       ;   // C style indexing
+    const double&  operator() (int, int) const ;   
 
-    operator Quaternion () const throw(Error::General);
+    operator Quaternion () const ;
 
     Matrix& operator= (double a) { _init(); diagonal() = a; return *this; }
 
-    Slice<double>      column (int i)       throw(Error::General);
-    ConstSlice<double> column (int i) const throw(Error::General);
-    Slice<double>      row    (int i)       throw(Error::General);
-    ConstSlice<double> row    (int i) const throw(Error::General);
+    Slice<double>      column (int i)       ;
+    ConstSlice<double> column (int i) const ;
+    Slice<double>      row    (int i)       ;
+    ConstSlice<double> row    (int i) const ;
 
     Slice<double>          diagonal ();
     ConstSlice<double>     diagonal () const;
@@ -234,10 +249,10 @@ namespace D3 {
     Vector operator* (const Vector& v) const { return *this * (const double*)v; }
 
     void orthogonalize ();
-    void orthogonality_check (double = -1.) const throw(Error::General);
+    void orthogonality_check (double = -1.) const ;
 
     int inversion () const;
-    void     chirality_check () const throw(Error::General);
+    void     chirality_check () const ;
   };
 
   inline Slice<double> Matrix::diagonal () 
@@ -312,17 +327,17 @@ public:
 
   explicit Quaternion (double d)        : Array<double>(4, 0.) { *begin() = d; }
   explicit Quaternion (const double* p) : Array<double>(4) { Array<double>::operator=(p); }
-  explicit Quaternion (const D3::Matrix&, int =0) throw(Error::General);
+  explicit Quaternion (const D3::Matrix&, int =0) ;
 
   template<class V>
-  explicit Quaternion (const V&) throw(Error::General);
+  explicit Quaternion (const V&) ;
 
   int size () const { return Array<double>::size(); }
 
   operator       double* ()       { return Array<double>::begin(); }
   operator const double* () const { return Array<double>::begin(); }
 
-  operator D3::Matrix () const throw(Error::General);
+  operator D3::Matrix () const ;
 
   double*       begin ()       { return Array<double>::begin(); }
   const double* begin () const { return Array<double>::begin(); }
@@ -333,7 +348,7 @@ public:
   const double& operator[] (int i) const { return Array<double>::operator[](i); }
 
   //vector operations
-  template<class V> Quaternion& operator=  (const V&) throw(Error::General);
+  template<class V> Quaternion& operator=  (const V&) ;
   template<class V> Quaternion& operator+= (const V& v) { Array<double>::operator+=(v); return *this; }
   template<class V> Quaternion& operator-= (const V& v) { Array<double>::operator-=(v); return *this; }
   
@@ -357,12 +372,12 @@ public:
 };
 
 // quaternion-to-matrix transformation
-void quat2mat (const double* q, D3::Matrix& m) throw(Error::General);
+void quat2mat (const double* q, D3::Matrix& m) ;
 
 // (orthogonal) matrix-to-quaternion transformation
-void mat2quat (const D3::Matrix& mat, double* q, int =0) throw(Error::General);
+void mat2quat (const D3::Matrix& mat, double* q, int =0) ;
 
-inline D3::Matrix::operator Quaternion () const throw(Error::General)
+inline D3::Matrix::operator Quaternion () const 
 {
   Quaternion res;
   mat2quat(*this, res);
@@ -370,19 +385,19 @@ inline D3::Matrix::operator Quaternion () const throw(Error::General)
   return res;
 }
 
-inline D3::Matrix::Matrix (const Quaternion& q) throw(Error::General)
+inline D3::Matrix::Matrix (const Quaternion& q) 
 {
   quat2mat(q, *this);
 }
 
-inline Quaternion::operator D3::Matrix () const throw(Error::General) 
+inline Quaternion::operator D3::Matrix () const  
 {
   D3::Matrix res;
   quat2mat(*this, res);
   return res;
 }
 
-inline Quaternion::Quaternion (const D3::Matrix& m, int flags) throw(Error::General)
+inline Quaternion::Quaternion (const D3::Matrix& m, int flags) 
   : Array<double>(4)
 { 
   mat2quat(m, *this, flags);
@@ -411,7 +426,7 @@ inline Quaternion Quaternion::operator/ (const double* q) const
 }
 
 template<class V>
-Quaternion::Quaternion (const V& v) throw(Error::General) : Array<double>(v)
+Quaternion::Quaternion (const V& v)  : Array<double>(v)
 {
   const char funame [] = "Quaternion::Quaternion: ";
 
@@ -422,7 +437,7 @@ Quaternion::Quaternion (const V& v) throw(Error::General) : Array<double>(v)
 }
 
 template<class V>
-Quaternion& Quaternion::operator= (const V& v) throw(Error::General)
+Quaternion& Quaternion::operator= (const V& v) 
 {
   const char funame [] = "Quaternion::operator=: ";
 

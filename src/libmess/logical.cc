@@ -19,7 +19,7 @@
 #include <list>
 #include <cctype>
 
-bool Logical::BinExpr::evaluate (const std::vector<bool>& l) const  throw(Error::General)
+bool Logical::BinExpr::evaluate (const std::vector<bool>& l) const  
 {
   const char funame [] = "Logical::BinExpr::evaluate: ";
     
@@ -34,7 +34,7 @@ bool Logical::BinExpr::evaluate (const std::vector<bool>& l) const  throw(Error:
   }
 }
 
-void Logical::VarExpr::init (const std::map<std::string, int>& l) throw(Error::General)
+void Logical::VarExpr::init (const std::map<std::string, int>& l) 
 {
   const char funame [] = "Logical::VarExpr::init: ";
 
@@ -57,7 +57,7 @@ void Logical::VarExpr::init (const std::map<std::string, int>& l) throw(Error::G
   }
 }
 
-SharedPointer<Logical::Expr> Logical::read_expr (std::istream& from) throw(Error::General)
+SharedPointer<Logical::Expr> Logical::read_expr (std::istream& from) 
 {
     char next;
     
@@ -101,7 +101,7 @@ SharedPointer<Logical::Expr> Logical::read_expr (std::istream& from) throw(Error
 }
 
 
-SharedPointer<Logical::Expr> Logical::read_term (std::istream& from) throw(Error::General)
+SharedPointer<Logical::Expr> Logical::read_term (std::istream& from) 
 {
   const char funame [] = "Logical::read_term: ";
 
@@ -131,7 +131,7 @@ SharedPointer<Logical::Expr> Logical::read_term (std::istream& from) throw(Error
   }
 }
 
-SharedPointer<Logical::Expr> Logical::read_name (std::istream& from) throw(Error::General)
+SharedPointer<Logical::Expr> Logical::read_name (std::istream& from) 
 {
   const char funame [] = "Logical::read_name: ";
 

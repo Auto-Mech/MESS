@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef SYMMETRY_HH
 #define SYMMETRY_HH
@@ -17,10 +30,10 @@ namespace Symmetry {
     bool                _init;
     std::vector<int> _inverse;
 
-    void _isinit () const throw(Error::General);
+    void _isinit () const ;
 
   public:
-    void init (const std::vector<Permutation>&) throw(Error::General);
+    void init (const std::vector<Permutation>&) ;
 
     GroupBase () : _init(false) {}
     GroupBase (const std::vector<Permutation>& p) { init(p); }
@@ -49,9 +62,9 @@ namespace Symmetry {
   public:
     SpaceElement () : Quaternion(1.), _inversion(false), _rmatrix(1.) {}
 
-    SpaceElement (const Quaternion& q, bool i, int = 0) throw(Error::General);
+    SpaceElement (const Quaternion& q, bool i, int = 0) ;
 
-    SpaceElement (const D3::Matrix& m, int = 0)          throw(Error::General);
+    SpaceElement (const D3::Matrix& m, int = 0)          ;
 
     operator const Quaternion& () const { return *this; }
 
@@ -72,11 +85,11 @@ namespace Symmetry {
 
     // symmetry application to the molecule
     template <typename V>
-    void apply(const std::vector<V>&, std::vector<V>&) const throw(Error::General);
+    void apply(const std::vector<V>&, std::vector<V>&) const ;
   };
 
   template <typename V>
-  void SpaceElement::apply(const std::vector<V>& m1, std::vector<V>& m2) const throw(Error::General)
+  void SpaceElement::apply(const std::vector<V>& m1, std::vector<V>& m2) const 
   {
     const char funame [] = "Symmetry::SpaceElement::apply: ";
 
@@ -219,7 +232,7 @@ namespace Symmetry {
     const_iterator   end () const { return std::vector<SpaceElement>::end();   }
 
   public:
-    SpaceGroup (const std::string&, const std::vector<SpaceElement>&, int =0) throw(Error::General);
+    SpaceGroup (const std::string&, const std::vector<SpaceElement>&, int =0) ;
 
     const std::string& name () const { return _name; }
 

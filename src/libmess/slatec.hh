@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef SLATEC_HH
 #define SLATEC_HH
@@ -38,8 +51,8 @@ namespace Slatec {
     Array<double> rel_tol;
     Array<double> abs_tol;
 
-    AdamSolver(int, dde_f, double = -1., double = -1.) throw(Error::General);
-    void run(double& x, double* y, double xout, void* param = 0, Mode mode =CONTINUE) throw(Error::General); 
+    AdamSolver(int, dde_f, double = -1., double = -1.) ;
+    void run(double& x, double* y, double xout, void* param = 0, Mode mode =CONTINUE) ; 
   };
 
   /********************************************************************************
@@ -66,8 +79,8 @@ namespace Slatec {
   public:
 
     Spline () : _size(0) {}
-    void init (const double*, const double*, int_t) throw(Error::General);
-    Spline (const double* x, const double* y, int_t n) throw(Error::General) : _size(0) { init(x, y, n); }
+    void init (const double*, const double*, int_t) ;
+    Spline (const double* x, const double* y, int_t n)  : _size(0) { init(x, y, n); }
 
     int_t size () const { return _size; }
 
@@ -79,7 +92,7 @@ namespace Slatec {
     ~Spline () {}
 
     // evaluate i-th derivative at x
-    double operator() (double, int_t =0) const throw(Error::General); 
+    double operator() (double, int_t =0) const ; 
   };
 
 } // Slatec

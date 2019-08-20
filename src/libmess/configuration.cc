@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "configuration.hh"
 #include "random.hh"
 #include "lapack.hh"
@@ -20,7 +35,7 @@ namespace Configuration {
 // first size describes the linear subspace dimension;
 // other sizes correspond to 3- and 4-dimensional spheres
 
-void Configuration::Layout::set (const std::vector<int>& lt) throw(Error::General)
+void Configuration::Layout::set (const std::vector<int>& lt) 
 {
   const char funame [] = "Configuration::Layout::Layout: ";
 
@@ -60,7 +75,7 @@ void Configuration::Layout::set (const std::vector<int>& lt) throw(Error::Genera
  ***************************************************************************************************************************/
 
 Configuration::SpaceGroup::SpaceGroup (const Symmetry::SpaceGroup& sg, int symmetric)
- throw(Error::General)
+ 
   : _base(sg.base()), _symmetric(symmetric)
 {
   const char funame [] = "Configuration::SpaceGroup::SpaceGroup: ";
@@ -97,7 +112,7 @@ Configuration::SpaceGroup::SpaceGroup (const Symmetry::SpaceGroup& sg, int symme
     init(sg.multiplication_table());
 }
     
-void Configuration::SpaceGroup::apply (int g, const State& v, State& res) const throw(Error::General)
+void Configuration::SpaceGroup::apply (int g, const State& v, State& res) const 
 {
   const char funame [] = "Configuration::SpaceGroup::apply: ";
 
@@ -152,7 +167,7 @@ void Configuration::SpaceGroup::apply (int g, const State& v, State& res) const 
  ***************************************************************************************************************************/
 
 Configuration::DoubleSpaceGroup::DoubleSpaceGroup (const std::vector<Symmetry::SpaceGroup>& sg, int identical)
- throw(Error::General) : _identical(identical)
+  : _identical(identical)
 {
   const char funame [] = "Configuration::DoubleSpaceGroup::DoubleSpaceGroup: ";
 
@@ -355,7 +370,7 @@ Configuration::DoubleSpaceGroup::DoubleSpaceGroup (const std::vector<Symmetry::S
   */
 }
 
-void Configuration::DoubleSpaceGroup::apply (int g, const State& v, State& res) const throw(Error::General)
+void Configuration::DoubleSpaceGroup::apply (int g, const State& v, State& res) const 
 {
   const char funame [] = "Configuration::DoubleSpaceGroup::apply: ";
 
@@ -437,7 +452,7 @@ void Configuration::DoubleSpaceGroup::apply (int g, const State& v, State& res) 
 }
 
 // radius-vector transformation matrix
-Lapack::Matrix Configuration::DoubleSpaceGroup::rmatrix (int g) const throw(Error::General)
+Lapack::Matrix Configuration::DoubleSpaceGroup::rmatrix (int g) const 
 {
   const char funame [] = "Configuration::DoubleSpaceGroup::rmatrix: ";
 
@@ -460,7 +475,7 @@ Lapack::Matrix Configuration::DoubleSpaceGroup::rmatrix (int g) const throw(Erro
 }
 
 // quaternion orientation transformation matrix
-Lapack::Matrix Configuration::DoubleSpaceGroup::qmatrix (int g) const throw(Error::General)
+Lapack::Matrix Configuration::DoubleSpaceGroup::qmatrix (int g) const 
 {
   const char funame [] = "Configuration::DoubleSpaceGroup::qmatrix: ";
 
@@ -652,7 +667,7 @@ int Configuration::Simplexation::_iterate_simplex_center (const std::set<int>& s
   return 0;
 }
 
-void Configuration::Simplexation::random_init (double dist_min, double rmax, double rmin) throw(Error::General)
+void Configuration::Simplexation::random_init (double dist_min, double rmax, double rmin) 
 {
   const char funame [] = "Configuration::Simplexation::random_init: ";
 

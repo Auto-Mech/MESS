@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef DYNAMIC_HH
 #define DYNAMIC_HH
@@ -42,13 +55,13 @@ namespace Dynamic {
     CartData (const CartData& c) { _copy(c); }
     CartData& operator= (const CartData& c) { _delete(); _copy(c); return *this; }
 
-    void mf2lf (const double* mf, double* lf) const throw(Error::General);
-    void lf2mf (const double* lf, double* mf) const throw(Error::General);
+    void mf2lf (const double* mf, double* lf) const ;
+    void lf2mf (const double* lf, double* mf) const ;
 
     const std::vector<D3::Vector>& rel_pos () const { return _rel_pos; }
 
-    void update_mfo(const double* ang) throw(Error::General);
-    void update_rel()  throw(Error::General);
+    void update_mfo(const double* ang) ;
+    void update_rel()  ;
 
     // inertia moments matrix element
     double imm (int i, int j) const;
@@ -109,13 +122,13 @@ namespace Dynamic {
     double interfragment_distance () const { return vlength(_orb_pos, 3); }
 
     // orientational variables
-    void    write_ang_pos (int frag, const double* pos) throw(Error::General);
+    void    write_ang_pos (int frag, const double* pos) ;
 
-    const double* ang_pos (int frag)              const throw(Error::General);
-    double*       ang_pos (int frag)                    throw(Error::General);
+    const double* ang_pos (int frag)              const ;
+    double*       ang_pos (int frag)                    ;
 
-    double        ang_pos (int frag, int i)       const throw(Error::General);
-    double&       ang_pos (int frag, int i)             throw(Error::General);
+    double        ang_pos (int frag, int i)       const ;
+    double&       ang_pos (int frag, int i)             ;
 
     const std::vector<D3::Vector>& rel_pos (int frag)    const;
     void mf2lf (int frag, const double* mf, double* lf)  const;
@@ -127,9 +140,9 @@ namespace Dynamic {
 
     void print_geom (std::ostream&, const std::string&) const;
 
-    void                        dipole (int frag,                  double* d) const throw(Error::General);
-    void     quadrupole_vector_product (int frag, const double* v, double* q) const throw(Error::General);
-    void polarizability_vector_product (int frag, const double* v, double* p) const throw(Error::General);
+    void                        dipole (int frag,                  double* d) const ;
+    void     quadrupole_vector_product (int frag, const double* v, double* q) const ;
+    void polarizability_vector_product (int frag, const double* v, double* p) const ;
 
   };
 
@@ -145,7 +158,7 @@ namespace Dynamic {
     _init_update();
   }
 
-  inline const double* Coordinates::ang_pos  (int frag) const throw(Error::General)
+  inline const double* Coordinates::ang_pos  (int frag) const 
   {
     const char funame [] = "Dynamic::Coordinates::ang_pos: ";
     
@@ -161,7 +174,7 @@ namespace Dynamic {
     return _ang_pos[frag]; 
   }
 
-  inline double* Coordinates::ang_pos  (int frag) throw(Error::General)
+  inline double* Coordinates::ang_pos  (int frag) 
   {
     const char funame [] = "Dynamic::Coordinates::ang_pos: ";
     
@@ -177,7 +190,7 @@ namespace Dynamic {
     return _ang_pos[frag]; 
   }
 
-  inline double Coordinates::ang_pos  (int frag, int i) const throw(Error::General)
+  inline double Coordinates::ang_pos  (int frag, int i) const 
   {
     const char funame [] = "Dynamic::Coordinates::ang_pos: ";
     
@@ -193,7 +206,7 @@ namespace Dynamic {
     return _ang_pos[frag][i]; 
   }
 
-  inline double& Coordinates::ang_pos  (int frag, int i) throw(Error::General)
+  inline double& Coordinates::ang_pos  (int frag, int i) 
   {
     const char funame [] = "Dynamic::Coordinates::ang_pos: ";
     
@@ -272,10 +285,10 @@ namespace Dynamic {
     Momenta& operator/= (double d) { Array<double>::operator/=(d); return *this; }
 
     // rotational frequencies
-    double*       ang_vel (int frag)            throw(Error::General);
-    const double* ang_vel (int frag)      const throw(Error::General);
-    double        ang_vel (int frag, int) const throw(Error::General);
-    double&       ang_vel (int frag, int)       throw(Error::General);
+    double*       ang_vel (int frag)            ;
+    const double* ang_vel (int frag)      const ;
+    double        ang_vel (int frag, int) const ;
+    double&       ang_vel (int frag, int)       ;
 
     // cm-to-cm velocity
     double*       orb_vel ()            { return _orb_vel; }
@@ -296,7 +309,7 @@ namespace Dynamic {
     double fragment_rotational_energy (int) const;
   };
 
-  inline const double* Momenta::ang_vel (int frag) const throw(Error::General)
+  inline const double* Momenta::ang_vel (int frag) const 
   { 
 
 #ifdef DEBUG
@@ -313,7 +326,7 @@ namespace Dynamic {
     return _ang_vel[frag];
   }
 
-  inline double* Momenta::ang_vel (int frag) throw(Error::General)
+  inline double* Momenta::ang_vel (int frag) 
   { 
 #ifdef DEBUG
     const char funame [] = "Dynamic::Momenta::ang_vel (int): ";
@@ -327,7 +340,7 @@ namespace Dynamic {
     return _ang_vel[frag];
   }
 
-  inline double Momenta::ang_vel (int frag, int i) const throw(Error::General)
+  inline double Momenta::ang_vel (int frag, int i) const 
   { 
 
 #ifdef DEBUG
@@ -344,7 +357,7 @@ namespace Dynamic {
     return _ang_vel[frag][i];
   }
 
-  inline double& Momenta::ang_vel (int frag, int i)  throw(Error::General)
+  inline double& Momenta::ang_vel (int frag, int i)  
   { 
 
 #ifdef DEBUG
@@ -391,7 +404,7 @@ namespace Dynamic {
     double radial_kinetic_energy         ()    const;
     double total_angular_momentum_length ()    const;
     double angular_momentum_k_projection (int) const;
-    double angular_momentum_m_projection (int) const throw(Error::General);
+    double angular_momentum_m_projection (int) const ;
   };
 
   inline D3::Vector Vars::total_angular_momentum () const 

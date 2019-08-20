@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef MULTINDEX_HH
 #define MULTINDEX_HH
@@ -24,7 +37,7 @@ class MultiIndex : private std::vector<int> {
   std::vector<int> _group_map;    
 
   template <typename V>
-  int _compare (const V&) const throw(Error::General);
+  int _compare (const V&) const ;
 
   void _clear () { clear(); _group_rank.clear(); _group_size.clear(); 
     _group_end.clear(); _group_map.clear(); _end = true; }
@@ -34,7 +47,7 @@ public:
     ORDERED = 1
   };
 
-  void set (const std::vector<int>&, const std::vector<int>&) throw(Error::General);
+  void set (const std::vector<int>&, const std::vector<int>&) ;
 
   MultiIndex () : _end(true) {}
 
@@ -90,7 +103,7 @@ inline MultiIndex::MultiIndex (const std::vector<int>& g, const std::vector<int>
 }
 
 template<class T>
-int MultiIndex::_compare (const T& m) const throw(Error::General)
+int MultiIndex::_compare (const T& m) const 
 {
   const char funame [] = "MultiIndex::_compare: ";
     
@@ -140,7 +153,7 @@ class MultiIndexConvert : private std::vector<int> {
   long _linear_size;
 
 public:
-  void resize (const std::vector<int>&) throw(Error::General);
+  void resize (const std::vector<int>&) ;
   void resize (int d, int s) { std::vector<int> m(d, s); resize(m); }
 
   MultiIndexConvert          () : _linear_size(0)       {}
@@ -151,8 +164,8 @@ public:
   int  rank ()      const { return std::vector<int>::size(); }
   long size ()      const { return _linear_size; }
 
-  std::vector<int> operator() (long)                     const throw(Error::General);
-  long             operator() (const std::vector<int>&) const throw(Error::General);
+  std::vector<int> operator() (long)                     const ;
+  long             operator() (const std::vector<int>&) const ;
   
   long  conjugate (long) const;
 };

@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "math.hh"
 #include <vector>
 #include <set>
@@ -73,7 +88,7 @@ void Math::BisectionSearch::find (double& xmin, double& xmax) const
   }
 }
 
-double Math::ZeroSearch::find (double x1, double x2) const throw(Error::General, Math::Exception)
+double Math::ZeroSearch::find (double x1, double x2) const 
 {
   static const char funame [] = " Math::ZeroSearch::find: ";
 
@@ -141,7 +156,7 @@ double Math::ZeroSearch::find (double x1, double x2) const throw(Error::General,
   }
 }
 
-double Math::GradientSearch::find (double x) const throw(Error::General, Math::Exception)
+double Math::GradientSearch::find (double x) const 
 {
   static const char funame [] = "Math::GradientSearch::find: ";
 
@@ -164,7 +179,7 @@ double Math::GradientSearch::find (double x) const throw(Error::General, Math::E
 }
 
 double Math::parabola_minimum (double x1, double y1, double x2, double y2, double x3, double y3, double* yp)
-  throw(Error::General)
+  
 {
   static const char funame [] = "Math::find_parabola_minimum: ";
 
@@ -198,7 +213,7 @@ double Math::parabola_minimum (double x1, double y1, double x2, double y2, doubl
 
 }
 
-double Math::MinimumSearch::find (double x1, double step, double* xp) throw(Math::MinimumSearch::Exception)
+double Math::MinimumSearch::find (double x1, double step, double* xp) 
 {
   static const char funame [] = "Math::MinimumSearch::find: ";
   static const double eps = 1. + 1.e-10;

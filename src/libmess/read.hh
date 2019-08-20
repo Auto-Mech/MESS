@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef READ_HH
 #define READ_HH
@@ -29,8 +42,8 @@ public:
   ReadBase (int) : _state(DEFAULT) {}
 
   State state () const { return _state; }
-  virtual void operator() (std::istream&)       throw(Error::General) =0;
-  virtual void operator() (std::ostream&) const throw(Error::General) =0;
+  virtual void operator() (std::istream&)        =0;
+  virtual void operator() (std::ostream&) const  =0;
   virtual ~ReadBase () {}
 };
 
@@ -45,12 +58,12 @@ class ReadInt : public ReadBase
 public:
   explicit ReadInt (int& v) : _data(v) {}
   ReadInt (int& v, int s) : ReadBase(s), _data(v) {}
-  void operator() (std::istream&) throw(Error::General);
-  void operator() (std::ostream& to) const throw(Error::General);
+  void operator() (std::istream&) ;
+  void operator() (std::ostream& to) const ;
   ~ReadInt () {}
 };
 
-inline void ReadInt::operator() (std::ostream& to) const throw(Error::General)
+inline void ReadInt::operator() (std::ostream& to) const 
 {
   const char funame [] =  "ReadInt::operator() (std::ostream&): ";
 
@@ -71,12 +84,12 @@ class ReadLong : public ReadBase
 public:
   explicit ReadLong (long& v) : _data(v) {}
   ReadLong (long& v, long s) : ReadBase(s), _data(v) {}
-  void operator() (std::istream&) throw(Error::General);
-  void operator() (std::ostream& to) const throw(Error::General);
+  void operator() (std::istream&) ;
+  void operator() (std::ostream& to) const ;
   ~ReadLong () {}
 };
 
-inline void ReadLong::operator() (std::ostream& to) const throw(Error::General)
+inline void ReadLong::operator() (std::ostream& to) const 
 {
   const char funame [] =  "ReadInt::operator() (std::ostream&): ";
 
@@ -97,12 +110,12 @@ class ReadDouble : public ReadBase
 public:
   explicit ReadDouble (double& v) : _data(v) {}
   ReadDouble (double& v, int s) : ReadBase(s), _data(v) {}
-  void operator() (std::istream&) throw(Error::General);    
-  void operator() (std::ostream&) const throw(Error::General);
+  void operator() (std::istream&) ;    
+  void operator() (std::ostream&) const ;
   ~ReadDouble () {}
 };
 
-inline void ReadDouble::operator() (std::ostream& to) const throw(Error::General)
+inline void ReadDouble::operator() (std::ostream& to) const 
 {
   const char funame [] =  "ReadDouble::operator() (std::ostream&): ";
 
@@ -123,12 +136,12 @@ class ReadString : public ReadBase
 public:
   explicit ReadString (std::string& v) : _data(v) {}
   ReadString (std::string& v, int s) : ReadBase(s), _data(v) {}
-  void operator() (std::istream&) throw(Error::General);    
-  void operator() (std::ostream&) const throw(Error::General);
+  void operator() (std::istream&) ;    
+  void operator() (std::ostream&) const ;
   ~ReadString () {}
 };
 
-inline void ReadString::operator() (std::ostream& to) const throw(Error::General)
+inline void ReadString::operator() (std::ostream& to) const 
 {
   const char funame [] =  "ReadString::operator() (std::ostream&): ";
 
@@ -149,12 +162,12 @@ class ReadIarr : public ReadBase
 public:
   explicit ReadIarr (std::vector<int>& v) : _data(v) {}
   ReadIarr (std::vector<int>& v, int s) : ReadBase(s), _data(v) {}
-  void operator() (std::istream&) throw(Error::General);    
-  void operator() (std::ostream&) const throw(Error::General);
+  void operator() (std::istream&) ;    
+  void operator() (std::ostream&) const ;
   ~ReadIarr () {}
 };
 
-inline void ReadIarr::operator () (std::ostream& to) const throw(Error::General)
+inline void ReadIarr::operator () (std::ostream& to) const 
 {
   const char funame [] =  "ReadIarr::operator() (std::ostream&): ";
 
@@ -177,12 +190,12 @@ class ReadDarr : public ReadBase
 public:
   explicit ReadDarr (std::vector<double>& v) : _data(v) {}
   ReadDarr (std::vector<double>& v, int s) : ReadBase(s), _data(v) {}
-  void operator() (std::istream&) throw(Error::General);    
-  void operator() (std::ostream&) const throw(Error::General);
+  void operator() (std::istream&) ;    
+  void operator() (std::ostream&) const ;
   ~ReadDarr () {}
 };
 
-inline void ReadDarr::operator () (std::ostream& to) const throw(Error::General)
+inline void ReadDarr::operator () (std::ostream& to) const 
 {
   const char funame [] =  "ReadDarr::operator() (std::ostream&): ";
 
@@ -209,13 +222,13 @@ private:
 public:
   explicit ReadFun (fun_t v) : _data(v) {}
   ReadFun (fun_t v, int s) : ReadBase(s), _data(v) {}
-  void operator () (std::istream& from) throw(Error::General)
+  void operator () (std::istream& from) 
   { _state = READ; _data(from); }    
-  void operator () (std::ostream&) const throw(Error::General);
+  void operator () (std::ostream&) const ;
   ~ReadFun () {}
 };
 
-inline void ReadFun::operator () (std::ostream& to) const throw(Error::General) 
+inline void ReadFun::operator () (std::ostream& to) const  
 {
     if(_state == READ)
 	to << "has been processed";
@@ -234,13 +247,13 @@ class ReadRead : public ReadBase
 public:
   explicit ReadRead (IO::Read& v) : _data(&v) {}
   ReadRead (IO::Read& v, int s) : ReadBase(s), _data(&v) {}
-  void operator () (std::istream& from) throw(Error::General)
+  void operator () (std::istream& from) 
   { _state = READ; _data->read(from); }    
-  void operator () (std::ostream&) const throw(Error::General);
+  void operator () (std::ostream&) const ;
   ~ReadRead () {}
 };
 
-inline void ReadRead::operator () (std::ostream& to) const throw(Error::General) 
+inline void ReadRead::operator () (std::ostream& to) const  
 {
     if(_state == READ)
 	to << "has been read";
@@ -257,7 +270,7 @@ class Read
   SharedPointer<ReadBase> _read;
 
   // check if the pointer has been initialized
-  void _check () const throw(Error::General);
+  void _check () const ;
 
 public:
   Read () {}
@@ -303,17 +316,17 @@ public:
     : _read(new ReadRead(var, 0)) {} 
 
   void operator () (std::ostream& o) const
-    throw(Error::General) { _check(); (*_read)(o); }
+     { _check(); (*_read)(o); }
   void operator () (std::istream& i)
-    throw(Error::General) { _check(); (*_read)(i); }
+     { _check(); (*_read)(i); }
 
-  bool is_read    () const throw(Error::General);
-  bool is_init    () const throw(Error::General);
-  bool is_default () const throw(Error::General);
+  bool is_read    () const ;
+  bool is_init    () const ;
+  bool is_default () const ;
 
 };
 
-inline void Read::_check () const throw(Error::General)
+inline void Read::_check () const 
 {
   const char funame []  = "Read::_check: ";
 
@@ -324,10 +337,10 @@ inline void Read::_check () const throw(Error::General)
 
 }
 
-inline std::ostream& operator<< (std::ostream& s, const Read& r) throw(Error::General) { r(s); return s; }
-inline std::istream& operator>> (std::istream& s,       Read& r) throw(Error::General) { r(s); return s; }
+inline std::ostream& operator<< (std::ostream& s, const Read& r)  { r(s); return s; }
+inline std::istream& operator>> (std::istream& s,       Read& r)  { r(s); return s; }
 
-inline bool Read::is_read () const throw(Error::General)
+inline bool Read::is_read () const 
 {
   _check();
 
@@ -337,7 +350,7 @@ inline bool Read::is_read () const throw(Error::General)
     return false;
 }
 
-inline bool Read::is_init () const throw(Error::General)
+inline bool Read::is_init () const 
 {
   _check();
 
@@ -347,7 +360,7 @@ inline bool Read::is_init () const throw(Error::General)
     return true;
 }
 
-inline bool Read::is_default () const throw(Error::General)
+inline bool Read::is_default () const 
 {
   _check();
 

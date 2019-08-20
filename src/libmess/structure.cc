@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "structure.hh"
 #include "units.hh"
 #include "key.hh"
@@ -32,7 +47,7 @@ namespace Structure {
 
 }
 
-const Molecule& Structure::fragment (int frag) throw(Error::General)
+const Molecule& Structure::fragment (int frag) 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -45,7 +60,7 @@ const Molecule& Structure::fragment (int frag) throw(Error::General)
 int Structure::type (int frag) { return fragment(frag).type(); }
 int Structure::top  (int frag) { return fragment(frag).top();  }
 
-int Structure::size    () throw(Error::General)
+int Structure::size    () 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -55,7 +70,7 @@ int Structure::size    () throw(Error::General)
   return _size;
 }
 
-double Structure::mass () throw(Error::General)
+double Structure::mass () 
 { 
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -65,7 +80,7 @@ double Structure::mass () throw(Error::General)
   return _mass; 
 }
 
-double Structure::mass_sqrt () throw(Error::General)
+double Structure::mass_sqrt () 
 { 
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -75,7 +90,7 @@ double Structure::mass_sqrt () throw(Error::General)
   return _mass_sqrt; 
 }
 
-int Structure::orb_pos () throw(Error::General)
+int Structure::orb_pos () 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -84,7 +99,7 @@ int Structure::orb_pos () throw(Error::General)
 
   return 0;
 }
-int Structure::ang_pos (int frag) throw(Error::General)
+int Structure::ang_pos (int frag) 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -94,7 +109,7 @@ int Structure::ang_pos (int frag) throw(Error::General)
   return _ang_pos[frag];
 }
 
-int Structure::orb_vel () throw(Error::General)
+int Structure::orb_vel () 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -103,7 +118,7 @@ int Structure::orb_vel () throw(Error::General)
 
   return 0;
 }
-int Structure::ang_vel (int frag) throw(Error::General)
+int Structure::ang_vel (int frag) 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -113,7 +128,7 @@ int Structure::ang_vel (int frag) throw(Error::General)
   return _ang_vel[frag]; 
 }
 
-int Structure::pos_size () throw(Error::General)
+int Structure::pos_size () 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -122,7 +137,7 @@ int Structure::pos_size () throw(Error::General)
 
   return _pos_size;
 }
-int Structure::vel_size () throw(Error::General)
+int Structure::vel_size () 
 { 
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -142,7 +157,7 @@ int Structure::vel_size (int frag)
   return fragment(frag).vel_size(); 
 }
 
-int Structure::dv_size () throw(Error::General)
+int Structure::dv_size () 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -156,7 +171,7 @@ int Structure::tm_dof(int frag) {
   return fragment(frag).tm_dof();
 }
 
-int Structure::tm_dof () throw(Error::General)
+int Structure::tm_dof () 
 {
   if(!isinit()) {
     std::cerr << "Structure::*(*): was not initialized\n";
@@ -166,7 +181,7 @@ int Structure::tm_dof () throw(Error::General)
   return _tm_dof;
 }
 
-void Structure::init (std::istream& from) throw(Error::General)
+void Structure::init (std::istream& from) 
 {
   const char funame [] = "Structure::init: ";
 
@@ -247,7 +262,7 @@ void Structure::init (std::istream& from) throw(Error::General)
     IO::log << frag << "-th fragment: " << fragment(frag) << "\n";      
 }
 
-double Molecule::imom (int i) const throw(Error::General)
+double Molecule::imom (int i) const 
 {
     const char funame [] = "Molecule::imom: ";
 
@@ -265,7 +280,7 @@ double Molecule::imom (int i) const throw(Error::General)
     }
 }
 
-double Molecule::imom_sqrt (int i) const throw(Error::General)
+double Molecule::imom_sqrt (int i) const 
 {
     const char funame [] = "Molecule::imom_sqrt: ";
 
@@ -284,7 +299,7 @@ double Molecule::imom_sqrt (int i) const throw(Error::General)
 }
 
 void Molecule::set_dvd (const D3::Vector& torque, const double* pos, const double* vel,
-			double* pos_drv, double* vel_drv) const throw(Error::General)
+			double* pos_drv, double* vel_drv) const 
 {
   const char funame [] = "Molecule::set_dvd: ";
 
@@ -346,7 +361,7 @@ void Molecule::set_dvd (const D3::Vector& torque, const double* pos, const doubl
 
 // reads molecular geometry from the input stream and uniquely 
 // orients the molecular structure to the principal axes 
-void Molecule::read(std::istream& from) throw(Error::General)
+void Molecule::read(std::istream& from) 
 {
   const char funame [] = "Molecule::read: ";
 
@@ -1331,7 +1346,7 @@ bool Molecule::is_equal (std::vector<Atom> mol, D3::Vector& shift, Quaternion& o
   return true;  
 }
 
-void Molecule::print (std::ostream& to) const throw(Error::General)
+void Molecule::print (std::ostream& to) const 
 {
   const char funame [] = "Molecule::print: ";
 

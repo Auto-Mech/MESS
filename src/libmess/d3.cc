@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "d3.hh"
 #include <iostream>
 #include <cmath>
@@ -57,7 +72,7 @@ D3::Matrix D3::Matrix::transpose () const
   return res;
 }
 
-D3::Matrix::Matrix (Vector n1, Vector n2) throw(Error::General) 
+D3::Matrix::Matrix (Vector n1, Vector n2)  
 {
   n1.normalize();
   row(0) = n1;
@@ -100,7 +115,7 @@ D3::Matrix D3::Matrix::operator- () const
   return res;
 }
 
-double& D3::Matrix::operator() (int i, int j) throw(Error::General)
+double& D3::Matrix::operator() (int i, int j) 
 {
   const char funame [] = "D3::Matrix::operator() (int, int):";
 
@@ -116,7 +131,7 @@ double& D3::Matrix::operator() (int i, int j) throw(Error::General)
   return *(_begin + (i * 3 +  j));
 }
 
-const double& D3::Matrix::operator() (int i, int j) const throw(Error::General)
+const double& D3::Matrix::operator() (int i, int j) const 
 {
   const char funame [] = "D3::Matrix::operator() (int, int) const:";
 
@@ -132,7 +147,7 @@ const double& D3::Matrix::operator() (int i, int j) const throw(Error::General)
   return *(_begin + (i * 3 +  j));
 }
 
-Slice<double> D3::Matrix::column (int i) throw(Error::General) 
+Slice<double> D3::Matrix::column (int i)  
 {
   const char funame [] = "D3::Matrix::column (int):";
 
@@ -148,7 +163,7 @@ Slice<double> D3::Matrix::column (int i) throw(Error::General)
   return Slice<double>(_begin + i, 3, 3);
 }
 
-ConstSlice<double> D3::Matrix::column (int i) const throw(Error::General)
+ConstSlice<double> D3::Matrix::column (int i) const 
 {
   const char funame [] = "D3::Matrix::column (int) const:";
 
@@ -164,7 +179,7 @@ ConstSlice<double> D3::Matrix::column (int i) const throw(Error::General)
   return ConstSlice<double>(_begin + i, 3, 3);
 }
 
-Slice<double> D3::Matrix::row (int i) throw(Error::General)
+Slice<double> D3::Matrix::row (int i) 
 {
   const char funame [] = "D3::Matrix::row (int):";
 
@@ -181,7 +196,7 @@ Slice<double> D3::Matrix::row (int i) throw(Error::General)
 
 }
 
-ConstSlice<double> D3::Matrix::row (int i) const throw(Error::General)
+ConstSlice<double> D3::Matrix::row (int i) const 
 {
   const char funame [] = "D3::Matrix::row (int) const:";
 
@@ -216,7 +231,7 @@ D3::Vector D3::Matrix::operator* (const double* v) const
   return res;
 }
 
-void D3::Matrix::orthogonality_check (double toll) const throw(Error::General)
+void D3::Matrix::orthogonality_check (double toll) const 
 {
   const char funame [] = "D3::Matrix::orthogonality_check: ";
 
@@ -263,7 +278,7 @@ int D3::Matrix::inversion () const
   return 0;
 }
 
-void D3::Matrix::chirality_check () const throw(Error::General)
+void D3::Matrix::chirality_check () const 
 {
   const char funame [] = "D3::Matrix::chirality_check: ";
 
@@ -522,7 +537,7 @@ void quat2mat (const double* quat, T& mat)
 
 
 // quaternion-to-matrix transformation
-void quat2mat (const double* q, D3::Matrix& m) throw(Error::General)
+void quat2mat (const double* q, D3::Matrix& m) 
 {
   const char funame [] = "quat2mat: ";
 
@@ -574,7 +589,7 @@ void quat2mat (const double* q, D3::Matrix& m) throw(Error::General)
 }
 
 // (orthogonal) matrix-to-quaternion transformation
-void mat2quat (const D3::Matrix& mat, double* quat, int flags) throw(Error::General)
+void mat2quat (const D3::Matrix& mat, double* quat, int flags) 
 {
   const char funame [] = "mat2quat: ";
 

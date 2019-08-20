@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef CONFIGURATION_HH
 #define CONFIGURATION_HH
@@ -34,15 +47,15 @@ namespace Configuration {
     int  _simplex_size;
     int _fragment_type;
 
-    void _isinit () const throw(Error::General);
+    void _isinit () const ;
 
   public:
     enum {ATOMIC, LINEAR, NONLINEAR};
 
-    void set (const std::vector<int>&) throw(Error::General);
+    void set (const std::vector<int>&) ;
 
     Layout () {}
-    Layout (const std::vector<int>& l) throw(Error::General) { set(l); }
+    Layout (const std::vector<int>& l)  { set(l); }
 
     int simplex_size ()      const { _isinit(); return _simplex_size;   }    
     int  linear_size ()      const { _isinit(); return  _linear_size;   }
@@ -60,7 +73,7 @@ namespace Configuration {
     int second_fragment () const { _isinit(); return _fragment_type; }
   };
 
-  inline void Layout::_isinit () const throw(Error::General)
+  inline void Layout::_isinit () const 
   {
     const char funame [] = "Configuration::Layout::_isinit: ";
 
@@ -150,9 +163,9 @@ namespace Configuration {
     std::vector<Symmetry::SpaceElement> _base;
 
   public:
-    SpaceGroup (const Symmetry::SpaceGroup&, int =0) throw(Error::General);
+    SpaceGroup (const Symmetry::SpaceGroup&, int =0) ;
 
-    void apply (int, const State&, State&) const throw(Error::General);
+    void apply (int, const State&, State&) const ;
   };
 
 /*******************************************************************************************
@@ -185,12 +198,12 @@ namespace Configuration {
    };
 
   public:
-    DoubleSpaceGroup (const std::vector<Symmetry::SpaceGroup>&, int =0) throw(Error::General);
+    DoubleSpaceGroup (const std::vector<Symmetry::SpaceGroup>&, int =0) ;
 
-    void apply (int, const State&, State&) const throw(Error::General);
+    void apply (int, const State&, State&) const ;
 
-    Lapack::Matrix qmatrix (int) const throw(Error::General);
-    Lapack::Matrix rmatrix (int) const throw(Error::General);
+    Lapack::Matrix qmatrix (int) const ;
+    Lapack::Matrix rmatrix (int) const ;
   };
 
 /*******************************************************************************************
@@ -249,7 +262,7 @@ namespace Configuration {
   public:
     explicit Simplexation (ConstSharedPointer<GroupBase> sg) : _symm_group(sg) {}
 
-    void random_init (double, double = -1., double = -1.) throw(Error::General);
+    void random_init (double, double = -1., double = -1.) ;
 
     // ...
   };

@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "linpack.hh"
 #include <iostream>
 #include <cmath>
@@ -10,7 +25,7 @@ void multiply (double* v, double val, int size, int step)
     *v *= val;
 }
 
-double normalize (double* v, int size, int step) throw(Error::General)
+double normalize (double* v, int size, int step) 
 {
   const char funame [] = "normalize: ";
 
@@ -29,7 +44,7 @@ double normalize (double* v, int size, int step) throw(Error::General)
   return norm;
 }
 
-double orthogonalize (double* vstart, const double* nstart, int size, int vstep, int nstep) throw(Error::General)
+double orthogonalize (double* vstart, const double* nstart, int size, int vstep, int nstep) 
 {
   const char funame [] = "orthogonalize: ";
   
@@ -79,7 +94,7 @@ double orthogonalize (double* vstart, const double* nstart, int size, int vstep,
 }
 
 double parallel_orthogonalize (double* v, const double* n, int size, int vstep, int nstep)
-  throw(Error::General)
+  
 {
   const char funame [] = "parallel_orthogonalize: ";
   
@@ -144,7 +159,7 @@ double parallel_orthogonalize (double* v, const double* n, int size, int vstep, 
   return cos2;
 }
 
-double vdistance (const double* v1, const double* v2, int size, int step1, int step2) throw(Error::General)
+double vdistance (const double* v1, const double* v2, int size, int step1, int step2) 
 {
   const char funame [] = "vdistance: ";
 
@@ -170,7 +185,7 @@ double vdistance (const double* v1, const double* v2, int size, int step1, int s
   return std::sqrt(res);
 }
 
-double vdot (const double* v1, const double* v2, int size, int step1, int step2) throw(Error::General)
+double vdot (const double* v1, const double* v2, int size, int step1, int step2) 
 {
   const char funame [] = "vdot: ";
 
@@ -193,7 +208,7 @@ double vdot (const double* v1, const double* v2, int size, int step1, int step2)
   return res;
 }
 
-double parallel_vdot (const double* v1, const double* v2, int size, int step1, int step2) throw(Error::General)
+double parallel_vdot (const double* v1, const double* v2, int size, int step1, int step2) 
 {
   const char funame [] = "vdot: ";
 
@@ -218,7 +233,7 @@ double parallel_vdot (const double* v1, const double* v2, int size, int step1, i
   return res;
 }
 
-double vdot (const double* v, int size, int step) throw(Error::General)
+double vdot (const double* v, int size, int step) 
 {
   const char funame [] = "vdot: ";
 
@@ -240,7 +255,7 @@ double vdot (const double* v, int size, int step) throw(Error::General)
   return res;
 }
 
-double vlength (const double* v, int size, int step) throw(Error::General)
+double vlength (const double* v, int size, int step) 
 {
   return std::sqrt(vdot(v, size, step));
 }

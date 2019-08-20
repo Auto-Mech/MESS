@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "units.hh"
 #include <iostream>
 
@@ -22,7 +37,7 @@ const double Phys_const::tor  = 4.5313e-12;     // pressure,  torr
 const double Phys_const::avogadro = 6.02252e+23; // avogadro number
 const double Phys_const::light_speed = 137.0388; // speed of light in atomic units (inverse fine-structure unit)
 
-double Phys_const::str2fac(const std::string& unit) throw(Error::General) 
+double Phys_const::str2fac(const std::string& unit)  
 {
   const char funame [] = "Phys_const::str2fac: ";
 

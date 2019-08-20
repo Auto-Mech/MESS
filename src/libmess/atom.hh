@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef ATOM_HH
 #define ATOM_HH
@@ -35,11 +48,11 @@ class AtomBase
   public:
     DataBase ();
 
-    int              number (const std::string&) const throw(Error::General);
-    const std::string& name (int)                const throw(Error::General);
-    int     default_isotope (int)                const throw(Error::General);
-    int             valence (int)                const throw(Error::General);
-    double             mass (int, int)           const throw(Error::General);
+    int              number (const std::string&) const ;
+    const std::string& name (int)                const ;
+    int     default_isotope (int)                const ;
+    int             valence (int)                const ;
+    double             mass (int, int)           const ;
   };
 
   static DataBase _data;
@@ -64,15 +77,15 @@ public:
     BROMINE    = 35
   };
 
-  void set         (int)                     throw(Error::General);
-  void set         (int, int)                throw(Error::General);
-  void set         (const std::string&)      throw(Error::General);
-  void set         (const std::string&, int) throw(Error::General);
-  void set_isotope (int)                     throw(Error::General);
+  void set         (int)                     ;
+  void set         (int, int)                ;
+  void set         (const std::string&)      ;
+  void set         (const std::string&, int) ;
+  void set_isotope (int)                     ;
 
   AtomBase () : _num(DUMMY), _isot(0), _mass(0.) {}
-  explicit AtomBase (const std::string& s)        throw(Error::General) { set(s);    }
-  AtomBase          (const std::string& s, int i) throw(Error::General) { set(s, i); }
+  explicit AtomBase (const std::string& s)         { set(s);    }
+  AtomBase          (const std::string& s, int i)  { set(s, i); }
     
   int       number () const { return _num; }
   int      isotope () const { return _isot; }
@@ -81,7 +94,7 @@ public:
   int      valence () const { return _data.valence(_num); }
 };
 
-inline void AtomBase::set (int n)  throw(Error::General)
+inline void AtomBase::set (int n)  
 {
   _num  = n; 
   _isot = _data.default_isotope(_num);
@@ -89,7 +102,7 @@ inline void AtomBase::set (int n)  throw(Error::General)
   _set();
 }
 
-inline void AtomBase::set (int n, int i)  throw(Error::General)
+inline void AtomBase::set (int n, int i)  
 {
   _num  = n; 
   _isot = i;
@@ -97,7 +110,7 @@ inline void AtomBase::set (int n, int i)  throw(Error::General)
   _set();
 }
 
-inline void AtomBase::set (const std::string& s)  throw(Error::General)
+inline void AtomBase::set (const std::string& s)  
 {
   _num  = _data.number(s); 
   _isot = _data.default_isotope(_num);
@@ -105,7 +118,7 @@ inline void AtomBase::set (const std::string& s)  throw(Error::General)
   _set();
 }
 
-inline void AtomBase::set (const std::string& s, int i) throw(Error::General)
+inline void AtomBase::set (const std::string& s, int i) 
 {
   _num  = _data.number(s);
   _isot = i;
@@ -113,7 +126,7 @@ inline void AtomBase::set (const std::string& s, int i) throw(Error::General)
   _set();
 }
 
-inline void AtomBase::set_isotope (int i) throw(Error::General)
+inline void AtomBase::set_isotope (int i) 
 {
   _isot = i; 
 
@@ -152,22 +165,22 @@ inline bool operator>= (const AtomBase& a, const AtomBase& b)
 
 class Atom : public AtomBase, public D3::Vector
 {
-  void _read(std::istream&) throw(Error::General);
+  void _read(std::istream&) ;
 
 public:
   Atom () {}
   Atom          (const std::string& s, int i) : AtomBase(s, i) {}
   explicit Atom (const std::string& s)        : AtomBase(s)    {}
-  explicit Atom (std::istream& from) throw(Error::General) { _read(from); }
+  explicit Atom (std::istream& from)  { _read(from); }
 
   Atom& operator= (const D3::Vector& v) { D3::Vector::operator=(v); return *this; }
   
-  friend std::istream& operator>> (std::istream&, Atom&) throw(Error::General);
+  friend std::istream& operator>> (std::istream&, Atom&) ;
 };
 
 std::ostream& operator<< (std::ostream& out , const Atom& a);
 
-inline std::istream& operator>> (std::istream& from, Atom& a) throw(Error::General) 
+inline std::istream& operator>> (std::istream& from, Atom& a)  
 { 
   a._read(from); 
   return from; 
@@ -181,12 +194,12 @@ bool are_equal (const std::vector<Atom>&, const std::vector<Atom>&, double, int 
 
 Permutation is_symmetric (const std::vector<Atom>&, const Symmetry::SpaceElement&, double, int =0);
 
-std::set<Permutation> identical_atoms_permutation_symmetry_group (const Lapack::SymmetricMatrix& dist, double tol) throw(Error::General);
+std::set<Permutation> identical_atoms_permutation_symmetry_group (const Lapack::SymmetricMatrix& dist, double tol) ;
 
-std::set<Permutation> permutation_symmetry_group (const std::vector<Atom>&, double, int = 0) throw(Error::General);
+std::set<Permutation> permutation_symmetry_group (const std::vector<Atom>&, double, int = 0) ;
 
-std::pair<int, int> symmetry_number (const std::vector<Atom>&, double, int = 0) throw(Error::General);
+std::pair<int, int> symmetry_number (const std::vector<Atom>&, double, int = 0) ;
 
-Symmetry::SpaceGroup spatial_symmetry_group (std::vector<Atom>&, double, int = 0) throw(Error::General);
+Symmetry::SpaceGroup spatial_symmetry_group (std::vector<Atom>&, double, int = 0) ;
 
 #endif

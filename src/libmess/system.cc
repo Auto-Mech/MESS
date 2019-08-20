@@ -1,9 +1,24 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include <iostream>
 #include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include <sys/types.h>
-#include <sys/wait.h>
+#include <wait.h>
 #include <cstdarg>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -116,7 +131,7 @@ int System::call_exe (const char* exename ...)
  *                      Pipes
  *************************************************************************/
 
-System::Pipe_base::Pipe_base() throw(Error::General)
+System::Pipe_base::Pipe_base() 
 {
     const char funame [] = "System::Pipe_base::Pipe_base: ";
 
@@ -145,11 +160,103 @@ System::Pipe::Pipe ()
   pout.precision(14);
 }
 
+/*********************************************************
+ *                   Semaphores 
+ *********************************************************/
+
+union semun
+{
+  int val;                          // value for SETVAL
+  struct semid_ds *buf;             // buffer for IPC_STAT & IPC_SET
+  unsigned short int *array;        // array for GETALL & SETALL
+  struct seminfo *__buf;            // buffer for IPC_INFO
+};
+
+System::Semaphore::Semaphore(int n) 
+   : key(IPC_PRIVATE), num(n), creator(getpid())
+{
+    const char funame [] = "System::Semaphore::Semaphore(int): ";
+
+   // create
+   while((id = semget(++key, num, 0666 | IPC_CREAT | IPC_EXCL)) == -1)
+   {} 
+
+   // initialize
+   semun su;
+   Array<unsigned short> init_val (n);
+   for (int i = 0; i < n; ++i)
+      init_val[i] = 1;
+   su.array = init_val;
+
+   if (semctl(id, 0, SETALL, su) == -1)
+      {
+	 semctl(id, 0, IPC_RMID);
+	 std::cerr << funame << "couldn't initialize\n";
+	 throw Error::Init();
+      }
+}
+
+System::Semaphore::Semaphore(key_t k, int n) 
+   : key(k), num(n), creator(0)
+{
+    const char funame [] = "System::Semaphore::Semaphore(key_t, int): ";
+    
+    if((id = semget(k, n, 0666)) == -1) {
+       std::cerr << funame << "couldn't open existing semaphore set\n";
+       throw Error::Init();
+    }
+}
+
+System::Semaphore::~Semaphore()
+{
+   if (getpid() == creator)
+      semctl(id, 0, IPC_RMID);
+} 
+
+void System::Semaphore::busy (int n) const 
+{
+    const char funame [] = "System::Semaphore::busy: ";
+
+    if (n >= num) {
+	std::cerr << funame << "wrong semaphore number\n";
+	throw Error::Range();
+    }
+
+   struct sembuf sb;
+   sb.sem_num = n;
+   sb.sem_op = -1;
+   sb.sem_flg = SEM_UNDO;
+
+   if (semop(id, &sb, 1) == -1) {
+       std::cerr << funame << "failed\n";
+       throw Error::Run();
+   }
+}
+
+void System::Semaphore::free (int n) const 
+{
+    const char funame [] = "System::Semaphore::free: ";
+    if (n >= num) {
+	std::cerr << funame << "wrong semaphore number\n";
+	throw Error::Range();
+    }
+
+    struct sembuf sb;
+    sb.sem_num = n;
+    sb.sem_op = 1;
+    sb.sem_flg = SEM_UNDO;
+
+    if (semop(id, &sb, 1) == -1) {
+       std::cerr << funame << "failed\n";
+       throw Error::Run();
+    }
+}
+
 /*********************************************************************************************
  *                                     Dynamic Libraries                                     *
  ********************************************************************************************/
 
-void System::DynLib::open (const std::string& lib) throw(Error::General) 
+void System::DynLib::open (const std::string& lib)  
 {    
     const char funame [] = "System::DynLib::_open: ";
 
@@ -203,7 +310,7 @@ void System::DynLib::_delete_ref ()
     }
 }
 
-void* System::DynLib::member (const std::string& sym) throw(Error::General)
+void* System::DynLib::member (const std::string& sym) 
 {
     const char funame [] = "System::DynLib::member: ";
 
