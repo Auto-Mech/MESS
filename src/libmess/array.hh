@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #ifndef ARRAY_HH
 #define ARRAY_HH
 
@@ -487,8 +502,8 @@ public:
   Array (const Array&);
   Array& operator= (const Array&);
 
-  explicit Array (int)  throw(Error::General);
-  Array (int, const T&) throw(Error::General);
+  explicit Array (int)  ;
+  Array (int, const T&) ;
 
   template <typename V>
   explicit Array (const V&);
@@ -512,31 +527,31 @@ public:
   bool operator== (const Array& v) const { if(!_compare(v)) return true; return false; }
   bool operator!= (const Array& v) const { if(_compare(v))  return true; return false; }
   
-  T&       front ()       throw(Error::General);
-  T&       back  ()       throw(Error::General);
-  const T& front () const throw(Error::General);
-  const T& back  () const throw(Error::General);
+  T&       front ()       ;
+  T&       back  ()       ;
+  const T& front () const ;
+  const T& back  () const ;
 
   int size     () const { return _size; }
   int capacity () const { return _capacity; }
 
-  void resize  (int) throw(Error::General);
-  void reserve (int) throw(Error::General);
+  void resize  (int) ;
+  void reserve (int) ;
   void compact ();
 
-  T&       operator[] (int)       throw(Error::General);
-  const T& operator[] (int) const throw(Error::General);
+  T&       operator[] (int)       ;
+  const T& operator[] (int) const ;
 
   // block operations
   Array& operator- ();
 
   template <typename V> Array& operator=  (const V&);
-  template <typename V> Array& operator+= (const V&) throw(Error::General);
-  template <typename V> Array& operator-= (const V&) throw(Error::General);
-  template <typename V> Array& operator*= (const V&) throw(Error::General);
-  template <typename V> Array& operator/= (const V&) throw(Error::General);
+  template <typename V> Array& operator+= (const V&) ;
+  template <typename V> Array& operator-= (const V&) ;
+  template <typename V> Array& operator*= (const V&) ;
+  template <typename V> Array& operator/= (const V&) ;
 
-  template <typename V> void add (const T&, const V&) throw(Error::General);
+  template <typename V> void add (const T&, const V&) ;
 
   Array& operator=  (const T*);
   Array& operator+= (const T*);
@@ -621,7 +636,7 @@ Array<T>& Array<T>::operator= (const Array& v)
 }
 
 template <typename T>
-Array<T>::Array (int s) throw(Error::General)
+Array<T>::Array (int s) 
   : _size(s), _capacity(s)
 {
   const char funame [] = "Array<T>::Array: ";
@@ -641,7 +656,7 @@ Array<T>::Array (int s) throw(Error::General)
 }
 
 template <typename T>
-Array<T>::Array (int s, const T& t) throw(Error::General)
+Array<T>::Array (int s, const T& t) 
   : _size(s), _capacity(s)
 {
   const char funame [] = "Array<T>::Array: ";
@@ -708,7 +723,7 @@ void Array<T>::compact ()
 }
 
 template <typename T>
-void Array<T>::resize (int s) throw(Error::General)
+void Array<T>::resize (int s) 
 {
   const char funame [] = "Array<T>::resize: ";
 
@@ -738,7 +753,7 @@ void Array<T>::resize (int s) throw(Error::General)
 }
 
 template <typename T>
-void Array<T>::reserve (int s) throw(Error::General)
+void Array<T>::reserve (int s) 
 {
   const char funame [] = "Array<T>::reserve: ";
 
@@ -760,7 +775,7 @@ void Array<T>::reserve (int s) throw(Error::General)
 }
 
 template <typename T>
-T& Array<T>::operator[] (int i) throw(Error::General)
+T& Array<T>::operator[] (int i) 
 {
   const char funame [] = "Array<T>::operator[]: ";
 
@@ -775,7 +790,7 @@ T& Array<T>::operator[] (int i) throw(Error::General)
 }
 
 template <typename T>
-const T& Array<T>::operator[] (int i) const throw(Error::General)
+const T& Array<T>::operator[] (int i) const 
 {
   const char funame [] = "Array<T>::operator[]: ";
 
@@ -790,7 +805,7 @@ const T& Array<T>::operator[] (int i) const throw(Error::General)
 }
 
 template <typename T>
-T& Array<T>::front () throw(Error::General)
+T& Array<T>::front () 
 {
   if(!_size) {
     std::cerr << "Array<T>::front(): array is empty\n";
@@ -800,7 +815,7 @@ T& Array<T>::front () throw(Error::General)
 }
 
 template <typename T>
-const T& Array<T>::front () const throw(Error::General)
+const T& Array<T>::front () const 
 {
   if(!_size) {
     std::cerr << "Array<T>::front(): array is empty\n";
@@ -810,7 +825,7 @@ const T& Array<T>::front () const throw(Error::General)
 }
 
 template <typename T>
-T& Array<T>::back () throw(Error::General)
+T& Array<T>::back () 
 {
   if(!_size) {
     std::cerr << "Array<T>::back(): array is empty\n";
@@ -820,7 +835,7 @@ T& Array<T>::back () throw(Error::General)
 }
 
 template <typename T>
-const T& Array<T>::back () const throw(Error::General)
+const T& Array<T>::back () const 
 {
   if(!_size) {
     std::cerr << "Array<T>::back(): array is empty\n";
@@ -869,7 +884,7 @@ Array<T>& Array<T>::operator= (const V& v)
 
 template <typename T>
 template <typename V>
-Array<T>& Array<T>::operator+= (const V& v) throw(Error::General)
+Array<T>& Array<T>::operator+= (const V& v) 
 {
   const char funame [] = "Array<T>::operator+=: ";
 
@@ -887,7 +902,7 @@ Array<T>& Array<T>::operator+= (const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-void Array<T>::add (const T& f, const V& v) throw(Error::General)
+void Array<T>::add (const T& f, const V& v) 
 {
   const char funame [] = "Array<T>::add: ";
 
@@ -903,7 +918,7 @@ void Array<T>::add (const T& f, const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-Array<T>& Array<T>::operator-= (const V& v) throw(Error::General)
+Array<T>& Array<T>::operator-= (const V& v) 
 {
   const char funame [] = "Array<T>::operator-=: ";
 
@@ -921,7 +936,7 @@ Array<T>& Array<T>::operator-= (const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-Array<T>& Array<T>::operator*= (const V& v) throw(Error::General)
+Array<T>& Array<T>::operator*= (const V& v) 
 {
   const char funame [] = "Array<T>::operator*=: ";
 
@@ -939,7 +954,7 @@ Array<T>& Array<T>::operator*= (const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-Array<T>& Array<T>::operator/= (const V& v) throw(Error::General)
+Array<T>& Array<T>::operator/= (const V& v) 
 {
   const char funame [] = "Array<T>::operator/=: ";
 
@@ -1050,6 +1065,7 @@ void Array<T>::apply (const F& f)
 /*****************************************************************************************
  ***************************************** STRIDE POINTER ********************************
  *****************************************************************************************/
+template<typename T> class ConstStridePointer;
 
 template<typename T>
 class StridePointer {
@@ -1058,12 +1074,14 @@ class StridePointer {
 
 public:
   StridePointer () : _pnt(0), _stride(0) {}
-  StridePointer (T*, int =1) throw(Error::General);
+  StridePointer (T*, int =1) ;
   int stride () const { return _stride; }
 
   T& operator*  () const { return *_pnt; }
   T* operator-> () const { return  _pnt; }
   operator T*   () const { return  _pnt; }
+  
+  operator ConstStridePointer<T> () const { return ConstStridePointer<T>(_pnt, _stride); }
 
   StridePointer operator++ ()      { _pnt += _stride; return *this; }
   StridePointer operator-- ()      { _pnt -= _stride; return *this; }
@@ -1075,8 +1093,8 @@ public:
   StridePointer operator+  (int d)         const { return StridePointer(_pnt + d * _stride, _stride); }
   StridePointer operator-  (int d)         const { return StridePointer(_pnt - d * _stride, _stride); }
 
-  int           operator-  (StridePointer) const throw(Error::General);
-  bool          operator!= (StridePointer) const throw(Error::General);
+  int           operator-  (StridePointer) const ;
+  bool          operator!= (StridePointer) const ;
 };
 
 template <typename T> 
@@ -1092,7 +1110,7 @@ int distance (StridePointer<T> first, StridePointer<T> last)
 }
 
 template <typename T> 
-bool StridePointer<T>::operator!= (StridePointer p) const throw(Error::General)
+bool StridePointer<T>::operator!= (StridePointer p) const 
 {
   const char funame [] = "StridePointer<T>::operator!=: ";
 
@@ -1117,7 +1135,7 @@ bool StridePointer<T>::operator!= (StridePointer p) const throw(Error::General)
 }
 
 template<typename T> 
-int StridePointer<T>::operator- (StridePointer p) const throw(Error::General)
+int StridePointer<T>::operator- (StridePointer p) const 
 {
   const char funame [] = "StridePointer<T>::operator-: ";
 
@@ -1139,7 +1157,7 @@ int StridePointer<T>::operator- (StridePointer p) const throw(Error::General)
 }
 
 template<typename T>
-StridePointer<T>::StridePointer (T* p, int s) throw(Error::General) : _pnt(p), _stride(s) 
+StridePointer<T>::StridePointer (T* p, int s)  : _pnt(p), _stride(s) 
 {
   const char funame [] = "StridePointer<T>::StridePointer: ";
 
@@ -1170,8 +1188,8 @@ class ConstStridePointer {
 
 public:
   ConstStridePointer () : _pnt(0), _stride(0) {}
-  ConstStridePointer (const T*, int =1) throw(Error::General);
-  ConstStridePointer (const StridePointer<T>& p) : _pnt(p), _stride(p.stride()) {}
+  ConstStridePointer (const T*, int =1) ;
+  ConstStridePointer (StridePointer<T> p) : _pnt(p), _stride(p.stride()) {}
   int stride () const { return _stride; }
 
   const T& operator*  () const { return *_pnt; }
@@ -1188,8 +1206,8 @@ public:
   ConstStridePointer operator+ (int d) const { return ConstStridePointer(_pnt + d * _stride, _stride); }
   ConstStridePointer operator- (int d) const { return ConstStridePointer(_pnt - d * _stride, _stride); }
 
-  int  operator-  (ConstStridePointer) const throw(Error::General);
-  bool operator!= (ConstStridePointer) const throw(Error::General);
+  int  operator-  (ConstStridePointer) const ;
+  bool operator!= (ConstStridePointer) const ;
 };
 
 template <typename T> 
@@ -1199,7 +1217,7 @@ int distance (ConstStridePointer<T> first, ConstStridePointer<T> last)
 }
 
 template <typename T> 
-bool ConstStridePointer<T>::operator!= (ConstStridePointer p) const throw(Error::General)
+bool ConstStridePointer<T>::operator!= (ConstStridePointer p) const 
 {
   const char funame [] = "ConstStridePointer<T>::operator!=: ";
 
@@ -1230,7 +1248,7 @@ ConstStridePointer<T> operator+ (int d, ConstStridePointer<T> p)
 }
 
 template <typename T> 
-int ConstStridePointer<T>::operator- (ConstStridePointer p) const throw(Error::General)
+int ConstStridePointer<T>::operator- (ConstStridePointer p) const 
 {
   const char funame [] = "ConstStridePointer::operator-: ";
 
@@ -1253,7 +1271,7 @@ int ConstStridePointer<T>::operator- (ConstStridePointer p) const throw(Error::G
 }
 
 template <typename T>
-ConstStridePointer<T>::ConstStridePointer (const T* p, int s) throw(Error::General) 
+ConstStridePointer<T>::ConstStridePointer (const T* p, int s)  
     : _pnt(p), _stride(s) 
 {
   const char funame [] = "ConstStridePointer<T>::ConstStridePointer: ";
@@ -1291,7 +1309,7 @@ public:
   typedef ConstStridePointer<T> const_iterator;
   typedef                    T      value_type;
 
-  ConstSlice (const T* st, int sz, int sd =1) throw(Error::General);
+  ConstSlice (const T* st, int sz, int sd =1) ;
 
   const_iterator begin () const { return ConstStridePointer<T>(_begin, _stride); }
   const_iterator end   () const { return ConstStridePointer<T>(_end,   _stride); }
@@ -1299,12 +1317,12 @@ public:
   int   size () const { return   _size; }
   int stride () const { return _stride; }
 
-  const T&  operator[] (int) const throw(Error::General);
+  const T&  operator[] (int) const ;
 
 };
 
 template <typename T>
-ConstSlice<T>::ConstSlice(const T* st, int sz, int sd) throw(Error::General)
+ConstSlice<T>::ConstSlice(const T* st, int sz, int sd) 
   : _begin(st), _size(sz), _stride(sd), _end(st + sz * sd)
 {
   const char funame [] = "ConstSlice<T>::ConstSlice: ";
@@ -1331,7 +1349,7 @@ ConstSlice<T>::ConstSlice(const T* st, int sz, int sd) throw(Error::General)
 }
 
 template <typename T>
-const T& ConstSlice<T>::operator[] (int i) const throw(Error::General)
+const T& ConstSlice<T>::operator[] (int i) const 
 {
   const char funame [] = "ConstSlice<T>::operator[]: ";
 
@@ -1364,29 +1382,31 @@ public:
   typedef ConstStridePointer<T> const_iterator;
   typedef                    T      value_type;
 
-  void operator= (const Slice&) throw(Error::General);
+  void operator= (const Slice&) ;
   
-  Slice(T* st, int sz, int sd =1) throw(Error::General);
+  Slice(T* st, int sz, int sd =1) ;
 
   iterator       begin ()       { return      StridePointer<T>(_begin, _stride); }
   iterator         end ()       { return      StridePointer<T>(_end,   _stride); }
   const_iterator begin () const { return ConstStridePointer<T>(_begin, _stride); }
   const_iterator   end () const { return ConstStridePointer<T>(_end,   _stride); }
 
+  operator ConstSlice<T> () { return ConstSlice<T>(_begin, _size, _stride); }
+  
   int size   () const { return _size; }
   int stride () const { return _stride; }
 
-  const T&  operator[] (int) const throw(Error::General);
-  T&        operator[] (int)       throw(Error::General);
+  const T&  operator[] (int) const ;
+  T&        operator[] (int)       ;
 
   // block operations
-  template <typename V>  void operator=  (const V&) throw(Error::General);
-  template <typename V>  void operator+= (const V&) throw(Error::General);
-  template <typename V>  void operator-= (const V&) throw(Error::General);
-  template <typename V>  void operator*= (const V&) throw(Error::General);
-  template <typename V>  void operator/= (const V&) throw(Error::General);
+  template <typename V>  void operator=  (const V&) ;
+  template <typename V>  void operator+= (const V&) ;
+  template <typename V>  void operator-= (const V&) ;
+  template <typename V>  void operator*= (const V&) ;
+  template <typename V>  void operator/= (const V&) ;
 
-  template <typename V>  void add (const T&, const V&) throw(Error::General);
+  template <typename V>  void add (const T&, const V&) ;
 
   void operator=  (const T*);
   void operator+= (const T*);
@@ -1407,7 +1427,7 @@ public:
 };
 
 template <typename T>
-Slice<T>::Slice(T* st, int sz, int sd) throw(Error::General)
+Slice<T>::Slice(T* st, int sz, int sd) 
   : _begin(st), _size(sz), _stride(sd), _end(st + sz * sd)
 {
   const char funame [] = "Slice<T>::Slice: ";
@@ -1432,7 +1452,7 @@ Slice<T>::Slice(T* st, int sz, int sd) throw(Error::General)
 }
 
 template <typename T>
-void Slice<T>::operator= (const Slice& v) throw(Error::General)
+void Slice<T>::operator= (const Slice& v) 
 {
   const char funame [] = "Slice<T>::operator=: ";
   
@@ -1451,7 +1471,7 @@ void Slice<T>::operator= (const Slice& v) throw(Error::General)
 }
 
 template <typename T>
-const T& Slice<T>::operator[] (int i) const throw(Error::General)
+const T& Slice<T>::operator[] (int i) const 
 {
   const char funame [] = "Slice<T>::operator[]: ";
 
@@ -1468,7 +1488,7 @@ const T& Slice<T>::operator[] (int i) const throw(Error::General)
 }
 
 template <typename T>
-T& Slice<T>::operator[] (int i) throw(Error::General)
+T& Slice<T>::operator[] (int i) 
 {
   const char funame [] = "Slice<T>::operator[]: ";
 
@@ -1486,7 +1506,7 @@ T& Slice<T>::operator[] (int i) throw(Error::General)
 
 template <typename T>
 template <typename V>
-void Slice<T>::operator= (const V& v) throw(Error::General)
+void Slice<T>::operator= (const V& v) 
 {
   const char funame [] = "Slice<T>::operator=: ";
   
@@ -1506,7 +1526,7 @@ void Slice<T>::operator= (const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-void Slice<T>::operator+= (const V& v) throw(Error::General)
+void Slice<T>::operator+= (const V& v) 
 {
   const char funame [] = "Slice<T>::operator+=: ";
   
@@ -1526,7 +1546,7 @@ void Slice<T>::operator+= (const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-void Slice<T>::add (const T& f, const V& v) throw(Error::General)
+void Slice<T>::add (const T& f, const V& v) 
 {
   const char funame [] = "Slice<T>::add: ";
   
@@ -1546,7 +1566,7 @@ void Slice<T>::add (const T& f, const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-void Slice<T>::operator-= (const V& v) throw(Error::General)
+void Slice<T>::operator-= (const V& v) 
 {
   const char funame [] = "Slice<T>::operator-=: ";
   
@@ -1566,7 +1586,7 @@ void Slice<T>::operator-= (const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-void Slice<T>::operator*= (const V& v) throw(Error::General)
+void Slice<T>::operator*= (const V& v) 
 {
   const char funame [] = "Slice<T>::operator*=: ";
   
@@ -1586,7 +1606,7 @@ void Slice<T>::operator*= (const V& v) throw(Error::General)
 
 template <typename T>
 template <typename V>
-void Slice<T>::operator/= (const V& v) throw(Error::General)
+void Slice<T>::operator/= (const V& v) 
 {
   const char funame [] = "Slice<T>::operator/=: ";
   
@@ -1718,45 +1738,45 @@ public:
     
   void resize  (int s);
   void reserve (int s);
-  void compact () throw(Error::General);
+  void compact () ;
 
-  int size      () const throw(Error::General);
-  int capacity  () const throw(Error::General);
-  int ref_count () const throw(Error::General);
+  int size      () const ;
+  int capacity  () const ;
+  int ref_count () const ;
 
-  T*       begin ()       throw(Error::General);
-  const T* begin () const throw(Error::General);
-  T*       end   ()       throw(Error::General);
-  const T* end   () const throw(Error::General);
+  T*       begin ()       ;
+  const T* begin () const ;
+  T*       end   ()       ;
+  const T* end   () const ;
 
-  T&       front ()       throw(Error::General);
-  const T& front () const throw(Error::General);
-  T&       back  ()       throw(Error::General);
-  const T& back  () const throw(Error::General);
+  T&       front ()       ;
+  const T& front () const ;
+  T&       back  ()       ;
+  const T& back  () const ;
 
   // conversions
   operator       T* ();
   operator const T* () const;
 
   // indexing
-  const T& operator[] (int i) const throw(Error::General);
-  T&       operator[] (int i)       throw(Error::General);
+  const T& operator[] (int i) const ;
+  T&       operator[] (int i)       ;
 
   // comparisons
   bool operator== (const RefArr& a) const { return _data == a._data; }
   bool operator!= (const RefArr& a) const { return _data != a._data; }
 
   // arithmetic operations
-  RefArr operator+ (const RefArr&) const throw(Error::General);
-  RefArr operator- (const RefArr&) const throw(Error::General);
+  RefArr operator+ (const RefArr&) const ;
+  RefArr operator- (const RefArr&) const ;
 
-  RefArr operator+= (const RefArr& a) throw(Error::General);
-  RefArr operator-= (const RefArr& a) throw(Error::General);
+  RefArr operator+= (const RefArr& a) ;
+  RefArr operator-= (const RefArr& a) ;
 
-  RefArr operator-  ()           throw(Error::General);
-  RefArr operator=  (const T& t) throw(Error::General);
-  RefArr operator*= (const T& t) throw(Error::General);
-  RefArr operator/= (const T& t) throw(Error::General);
+  RefArr operator-  ()           ;
+  RefArr operator=  (const T& t) ;
+  RefArr operator*= (const T& t) ;
+  RefArr operator/= (const T& t) ;
 
 };// class RefArr
 
@@ -1800,7 +1820,7 @@ RefArr<T> RefArr<T>::copy() const
 }
 
 template <typename T>
-inline int  RefArr<T>::size ()  const throw(Error::General)
+inline int  RefArr<T>::size ()  const 
 { 
   const char funame [] = "RefArr<T>::size: ";
 
@@ -1833,7 +1853,7 @@ inline void RefArr<T>::reserve (int s)
 }
 
 template <typename T>
-inline void  RefArr<T>::compact () throw(Error::General)
+inline void  RefArr<T>::compact () 
 { 
   const char funame [] = "RefArr<T>::compact: ";
 
@@ -1845,7 +1865,7 @@ inline void  RefArr<T>::compact () throw(Error::General)
 }
 
 template <typename T>
-inline int  RefArr<T>::capacity () const throw(Error::General)
+inline int  RefArr<T>::capacity () const 
 { 
   const char funame [] = "RefArr<T>::capacity: ";
 
@@ -1857,7 +1877,7 @@ inline int  RefArr<T>::capacity () const throw(Error::General)
 }
 
 template <typename T>
-inline int  RefArr<T>::ref_count () const throw(Error::General)
+inline int  RefArr<T>::ref_count () const 
 { 
   const char funame [] = "RefArr<T>::ref_count: ";
 
@@ -1869,7 +1889,7 @@ inline int  RefArr<T>::ref_count () const throw(Error::General)
 }
 
 template <typename T>
-inline T&  RefArr<T>::back () throw(Error::General)
+inline T&  RefArr<T>::back () 
 {
   const char funame [] = "RefArr<T>::back: ";
 
@@ -1881,7 +1901,7 @@ inline T&  RefArr<T>::back () throw(Error::General)
 }
 
 template <typename T>
-inline const T&  RefArr<T>::back () const throw(Error::General)
+inline const T&  RefArr<T>::back () const 
 {
   const char funame [] = "RefArr<T>::back: ";
 
@@ -1893,7 +1913,7 @@ inline const T&  RefArr<T>::back () const throw(Error::General)
 }
 
 template <typename T>
-inline T&  RefArr<T>::front () throw(Error::General)
+inline T&  RefArr<T>::front () 
 {
   const char funame [] = "RefArr<T>::front: ";
 
@@ -1905,7 +1925,7 @@ inline T&  RefArr<T>::front () throw(Error::General)
 }
 
 template <typename T>
-inline const T&  RefArr<T>::front () const throw(Error::General)
+inline const T&  RefArr<T>::front () const 
 {
   const char funame [] = "RefArr<T>::front: ";
 
@@ -1917,7 +1937,7 @@ inline const T&  RefArr<T>::front () const throw(Error::General)
 }
 
 template <typename T>
-inline T*  RefArr<T>::begin () throw(Error::General)
+inline T*  RefArr<T>::begin () 
 {
   const char funame [] = "RefArr<T>::begin: ";
 
@@ -1929,7 +1949,7 @@ inline T*  RefArr<T>::begin () throw(Error::General)
 }
 
 template <typename T>
-inline T*  RefArr<T>::end () throw(Error::General)
+inline T*  RefArr<T>::end () 
 {
   const char funame [] = "RefArr<T>::end: ";
 
@@ -1941,7 +1961,7 @@ inline T*  RefArr<T>::end () throw(Error::General)
 }
 
 template <typename T>
-inline const T*  RefArr<T>::begin () const throw(Error::General)
+inline const T*  RefArr<T>::begin () const 
 {
   const char funame [] = "RefArr<T>::begin: ";
 
@@ -1953,7 +1973,7 @@ inline const T*  RefArr<T>::begin () const throw(Error::General)
 }
 
 template <typename T>
-inline const T*  RefArr<T>::end () const throw(Error::General)
+inline const T*  RefArr<T>::end () const 
 { 
   const char funame [] = "RefArr<T>::end: ";
 
@@ -1983,7 +2003,7 @@ inline RefArr<T>::operator const T* () const
 
   // indexing
 template <typename T>
-const T&  RefArr<T>::operator[] (int i) const throw(Error::General)
+const T&  RefArr<T>::operator[] (int i) const 
 {
   const char funame [] = "RefArr<T>::operator[]: ";
 
@@ -1995,7 +2015,7 @@ const T&  RefArr<T>::operator[] (int i) const throw(Error::General)
 }
 
 template <typename T>
-T& RefArr<T>::operator[] (int i) throw(Error::General)
+T& RefArr<T>::operator[] (int i) 
 {
   const char funame [] = "RefArr<T>::operator[]: ";
 
@@ -2007,7 +2027,7 @@ T& RefArr<T>::operator[] (int i) throw(Error::General)
 }
 
 template <typename T>
-RefArr<T>  RefArr<T>::operator+= (const RefArr& a) throw(Error::General)
+RefArr<T>  RefArr<T>::operator+= (const RefArr& a) 
 {
   const char funame [] = "RefArr<T>::operator+=: ";
 
@@ -2021,7 +2041,7 @@ RefArr<T>  RefArr<T>::operator+= (const RefArr& a) throw(Error::General)
 }
 
 template <typename T>
-RefArr<T>  RefArr<T>::operator-= (const RefArr& a) throw(Error::General)
+RefArr<T>  RefArr<T>::operator-= (const RefArr& a) 
 {
   const char funame [] = "RefArr<T>::operator-=: ";
 
@@ -2035,7 +2055,7 @@ RefArr<T>  RefArr<T>::operator-= (const RefArr& a) throw(Error::General)
 }
 
 template <typename T>
-inline RefArr<T>  RefArr<T>::operator- () throw(Error::General)
+inline RefArr<T>  RefArr<T>::operator- () 
 {
   const char funame [] = "RefArr<T>::operator-: ";
 
@@ -2049,7 +2069,7 @@ inline RefArr<T>  RefArr<T>::operator- () throw(Error::General)
 }
 
 template <typename T>
-inline RefArr<T>  RefArr<T>::operator=  (const T& t)  throw(Error::General)
+inline RefArr<T>  RefArr<T>::operator=  (const T& t)  
 {
   const char funame [] = "RefArr<T>::operator=: ";
 
@@ -2063,7 +2083,7 @@ inline RefArr<T>  RefArr<T>::operator=  (const T& t)  throw(Error::General)
 }
 
 template <typename T>
-inline RefArr<T>  RefArr<T>::operator*= (const T& t)  throw(Error::General)
+inline RefArr<T>  RefArr<T>::operator*= (const T& t)  
 {
   const char funame [] = "RefArr<T>::operator*=: ";
 
@@ -2077,7 +2097,7 @@ inline RefArr<T>  RefArr<T>::operator*= (const T& t)  throw(Error::General)
 }
 
 template <typename T>
-inline RefArr<T>  RefArr<T>::operator/= (const T& t) throw(Error::General)
+inline RefArr<T>  RefArr<T>::operator/= (const T& t) 
 { 
   const char funame [] = "RefArr<T>::operator/=: ";
 
@@ -2091,7 +2111,7 @@ inline RefArr<T>  RefArr<T>::operator/= (const T& t) throw(Error::General)
 }
 
 template <typename T>
-RefArr<T> RefArr<T>::operator+ (const RefArr& a) const throw(Error::General)
+RefArr<T> RefArr<T>::operator+ (const RefArr& a) const 
 {
   const char funame [] = "RefArr<T>::operator+: ";
   
@@ -2115,7 +2135,7 @@ RefArr<T> RefArr<T>::operator+ (const RefArr& a) const throw(Error::General)
 }
 
 template <typename T>
-RefArr<T> RefArr<T>::operator- (const RefArr& a) const throw(Error::General)
+RefArr<T> RefArr<T>::operator- (const RefArr& a) const 
 {
   const char funame [] = "RefArr<T>::operator-: ";
 

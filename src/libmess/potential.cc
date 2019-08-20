@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "potential.hh"
 #include "units.hh"
 #include "key.hh"
@@ -6,7 +21,7 @@
 
 Potential::Wrap default_pot;
 
-void Potential::Wrap::read (std::istream& from) throw(Error::General)
+void Potential::Wrap::read (std::istream& from) 
 {
   const char funame [] = "Potential::Wrap::read: ";
 
@@ -72,7 +87,7 @@ void Potential::Wrap::read (std::istream& from) throw(Error::General)
 }
 
 /*
-Potential::Harmonic::Harmonic (std::istream& from) throw(Error::General)
+Potential::Harmonic::Harmonic (std::istream& from) 
 {
   const char funame [] = "Potential::Harmonic::Harmonic: ";
 
@@ -140,7 +155,7 @@ Potential::Harmonic::Harmonic (std::istream& from) throw(Error::General)
 }
 */
 
-Potential::Analytic::Analytic (std::istream& from) throw(Error::General) 
+Potential::Analytic::Analytic (std::istream& from)  
   :  _pot_ener(0), _pot_init(0), _corr_ener(0), _corr_init(0),
      _dist_incr(1.e-4),  _angl_incr(1.e-4)
 {    
@@ -376,7 +391,7 @@ void Potential::Analytic::_dc2cart (const Dynamic::Coordinates& dc, Array_2<doub
 	  coord(i, at + at_shift) = dc.rel_pos(frag)[at][i] + dc.orb_pos(i);
 }
 
-double Potential::Analytic::_tot_ener (const double* coord) const throw(Error::General)
+double Potential::Analytic::_tot_ener (const double* coord) const 
 {
   const char funame [] = "Potential::Analytic::_tot_ener: ";
 
@@ -396,7 +411,7 @@ double Potential::Analytic::_tot_ener (const double* coord) const throw(Error::G
   return res;
 }
 
-double Potential::Analytic::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const throw(Error::General)
+double Potential::Analytic::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
 {
   static const char funame [] = "Potential::Analytic::operator(): ";
   
@@ -526,7 +541,7 @@ double Potential::Analytic::operator() (const Dynamic::Coordinates& dc, D3::Vect
  ******************************** Charge-Linear **************************
  *************************************************************************/
 
-double Potential::ChargeLinear::_pot (double r, double x, _mode_t mode) const throw(Error::General)
+double Potential::ChargeLinear::_pot (double r, double x, _mode_t mode) const 
 {
   static const char funame [] = "Potential::ChargeLinear::_pot: "; 
   static const double c3 = 1./3.;
@@ -557,7 +572,7 @@ double Potential::ChargeLinear::_pot (double r, double x, _mode_t mode) const th
   }
 }
 
-double Potential::ChargeLinear::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const throw(Error::General)
+double Potential::ChargeLinear::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
 {
   D3::Vector nr(dc.orb_pos());
   double dist = nr.normalize();
@@ -593,7 +608,7 @@ double Potential::ChargeLinear::operator() (const Dynamic::Coordinates& dc, D3::
   return ener_val;
 }
 
-Potential::ChargeLinear::ChargeLinear (std::istream& from) throw(Error::General)
+Potential::ChargeLinear::ChargeLinear (std::istream& from) 
   : _charge(1.), _dipole(0.), _quadrupole(0.), _isotropic_polarizability(0.), _anisotropic_polarizability(0.)
 {
   static const char funame [] = "Potential::ChargeLinear::ChargeLinear (std::istream&): ";
@@ -685,7 +700,7 @@ Potential::ChargeLinear::ChargeLinear (std::istream& from) throw(Error::General)
  ***************************** Charge-Nonlinear **************************
  *************************************************************************/
 
-double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const throw(Error::General)
+double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
 {
   D3::Vector lfr(dc.orb_pos());
   D3::Vector mfr; // r in molecular frame
@@ -745,7 +760,7 @@ double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D
   return ener_val;
 }
 
-Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from) throw(Error::General)
+Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from) 
   : _charge(1.)
 {
   static const char funame [] = "Potential::ChargeNonlinear::ChargeNonlinear (std::istream&): ";
@@ -999,7 +1014,7 @@ Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from) throw(Error::Ge
    ******************************** Dipole-Dipole **************************
    *************************************************************************/
 
-  double Potential::DipoleDipole::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const throw(Error::General)
+  double Potential::DipoleDipole::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
   {
     static const char funame [] = "Potential::DipoleDipole::operator(): ";
   
@@ -1100,7 +1115,7 @@ Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from) throw(Error::Ge
     return ener_val;
   }
 
-Potential::DipoleDipole::DipoleDipole (std::istream& from) throw(Error::General)
+Potential::DipoleDipole::DipoleDipole (std::istream& from) 
 {
   static const char funame [] = "Potential::DipoleDipole::DipoleDipole: ";
 
@@ -1289,7 +1304,7 @@ Potential::DipoleDipole::DipoleDipole (std::istream& from) throw(Error::General)
  ******************************** Multipole ******************************
  *************************************************************************/
 
-double Potential::Multipole::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const throw(Error::General)
+double Potential::Multipole::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
 {
   static const char funame [] = "Potential::DipoleDipole::operator(): ";
   
@@ -1572,7 +1587,7 @@ double Potential::Multipole::operator() (const Dynamic::Coordinates& dc, D3::Vec
   return ener_val;
 }
 
-Potential::Multipole::Multipole (std::istream& from) throw(Error::General) : _dispersion(0.)
+Potential::Multipole::Multipole (std::istream& from)  : _dispersion(0.)
 {
   static const char funame [] = "Potential::Multipole::Multipole: ";
 

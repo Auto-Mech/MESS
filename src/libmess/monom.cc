@@ -1,7 +1,22 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "monom.hh"
 #include "multindex.hh"
 
-Monom::iterator::iterator (const std::vector<int>& val) throw(Error::General)
+Monom::iterator::iterator (const std::vector<int>& val) 
   : std::vector<int>(val), _end(false) 
 {
   const char funame [] = "Monom::iterator::iterator: ";
@@ -38,7 +53,7 @@ void Monom::iterator::operator++ ()
   _end = true;
 }
 
-Monom::Monom (int rn, int sz) throw(Error::General) : _rank(rn), _size(sz)
+Monom::Monom (int rn, int sz)  : _rank(rn), _size(sz)
 {
   const char funame [] = "Monom::Monom: ";
 
@@ -64,7 +79,7 @@ Monom::Monom (int rn, int sz) throw(Error::General) : _rank(rn), _size(sz)
 }
 
 
-Lapack::Matrix Monom::operator() (const Lapack::Matrix& a) const throw(Error::General)
+Lapack::Matrix Monom::operator() (const Lapack::Matrix& a) const 
 {
   const char funame [] = "Monom::operator(): ";
 

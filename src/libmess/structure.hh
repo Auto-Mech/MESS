@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef STRUCTURE_HH
 #define STRUCTURE_HH
@@ -46,12 +59,12 @@ public:
 
   // reads geometry and possibly other features from the input stream
   // and uniquely orients molecular structure to the principal axes 
-  void read (std::istream&) throw(Error::General);
+  void read (std::istream&) ;
 
   // output the molecule geometry etc.
-  void print (std::ostream&) const throw(Error::General);
+  void print (std::ostream&) const ;
 
-  Molecule (std::istream& from) throw(Error::General) { read(from); }
+  Molecule (std::istream& from)  { read(from); }
 
   double mass () const { return _mass; }
   int    type () const { return _type; }
@@ -65,12 +78,12 @@ public:
   std::set<Permutation> permutation_symmetry_group (int f) const { return ::permutation_symmetry_group(*this, tolerance, f); }
 
   // inertia moments
-  double imom       (int) const throw(Error::General);
-  double imom_sqrt  (int) const throw(Error::General);
+  double imom       (int) const ;
+  double imom_sqrt  (int) const ;
 
   // dimensions of angular vector & angular velocity
-  int pos_size () const throw(Error::General);
-  int vel_size () const throw(Error::General);
+  int pos_size () const ;
+  int vel_size () const ;
 
   std::vector<int> ref_group;
   D3::Matrix      ref_orient;
@@ -79,10 +92,10 @@ public:
 
   // dynamic variables derivatives
   void set_dvd (const D3::Vector& torque, const double* pos, const double* vel,
-			double* pos_drv, double* vel_drv) const throw(Error::General);
+			double* pos_drv, double* vel_drv) const ;
 
   // number of rotational degrees of freedom
-  int tm_dof () const throw(Error::General); 
+  int tm_dof () const ; 
 
   const std::string& name () const { return _name; }
 
@@ -100,13 +113,13 @@ public:
   const D3::Matrix&   polarizability_matrix () const { return _polar_mat; }
 };
 
-inline std::ostream& operator<< (std::ostream& to, const Molecule& m) throw(Error::General)
+inline std::ostream& operator<< (std::ostream& to, const Molecule& m) 
 {
   m.print(to); 
   return to;
 }
 
-inline int Molecule::pos_size () const throw(Error::General)
+inline int Molecule::pos_size () const 
 {
   const char funame [] = "Molecule::pos_size: ";
 
@@ -123,7 +136,7 @@ inline int Molecule::pos_size () const throw(Error::General)
   }  
 }
 
-inline int Molecule::vel_size () const throw(Error::General)
+inline int Molecule::vel_size () const 
 {
   const char funame [] = "Molecule::vel_size: ";
 
@@ -140,7 +153,7 @@ inline int Molecule::vel_size () const throw(Error::General)
   }  
 }
 
-inline int Molecule::tm_dof () const throw(Error::General)
+inline int Molecule::tm_dof () const 
 {
   const char funame [] = "Molecule::dof: ";
 
@@ -159,42 +172,42 @@ inline int Molecule::tm_dof () const throw(Error::General)
 
 namespace Structure {
 
-  const Molecule& fragment (int frag) throw(Error::General);
+  const Molecule& fragment (int frag) ;
   int type (int frag);
   int top  (int frag);
 
-  int size    () throw(Error::General); // total number of atoms
-  double mass () throw(Error::General); // reduced mass
-  double mass_sqrt () throw(Error::General); // reduced mass square root
+  int size    () ; // total number of atoms
+  double mass () ; // reduced mass
+  double mass_sqrt () ; // reduced mass square root
  
   // Offset for cm-to-cm vector relative to
   // the beginning of the cooridinates data section (0)
-  int orb_pos () throw(Error::General);
+  int orb_pos () ;
 
   // Offset for orientational coordinates of the fragments
   // relative to the beginning of the cooridinates data section (0)
-  int ang_pos (int frag) throw(Error::General);
+  int ang_pos (int frag) ;
 
   // Offset for cm-to-cm velocity relative 
   // to the beginning of the velocities data section (pos_size)
-  int orb_vel () throw(Error::General);
+  int orb_vel () ;
 
   // Offset for angular velicities of the fragments 
   // relative to the beginning of the velocities data (pos_size)
-  int ang_vel (int frag) throw(Error::General);
+  int ang_vel (int frag) ;
 
-  int pos_size () throw(Error::General); // size of the coordinates data section
+  int pos_size () ; // size of the coordinates data section
   int pos_size (int frag);
-  int vel_size () throw(Error::General); // size of the velocities  data section
+  int vel_size () ; // size of the velocities  data section
   int vel_size (int frag);
-  int dv_size  () throw(Error::General); // total dynamical variables dimension
+  int dv_size  () ; // total dynamical variables dimension
 
-  int tm_dof  () throw(Error::General); // number of degrees of freedom for transitional modes
+  int tm_dof  () ; // number of degrees of freedom for transitional modes
   int tm_dof  (int frag);
 
   // setup
   bool isinit ();
-  void init (std::istream&) throw(Error::General);
+  void init (std::istream&) ;
 }
 
 #endif

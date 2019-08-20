@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include <sstream>
 #include <cmath>
 #include <cstdio>
@@ -6,7 +21,7 @@
 #include "units.hh"
 #include "io.hh"
 
-void ReadInt::operator () (std::istream& from) throw(Error::General)
+void ReadInt::operator () (std::istream& from) 
 {
   const char funame [] = "ReadInt::operator () (std::istream&): ";
 
@@ -30,7 +45,7 @@ void ReadInt::operator () (std::istream& from) throw(Error::General)
   }
 }
 
-void ReadLong::operator () (std::istream& from) throw(Error::General)
+void ReadLong::operator () (std::istream& from) 
 {
   const char funame [] = "ReadLong::operator () (std::istream&): ";
 
@@ -54,7 +69,7 @@ void ReadLong::operator () (std::istream& from) throw(Error::General)
   }
 }
 
-void ReadIarr::operator () (std::istream& from) throw(Error::General)
+void ReadIarr::operator () (std::istream& from) 
 {
   const char funame [] = "ReadIarr::operator () (std::istream&): ";
   
@@ -74,7 +89,7 @@ void ReadIarr::operator () (std::istream& from) throw(Error::General)
   }
 }
 
-void ReadDouble::operator () (std::istream& from) throw(Error::General)
+void ReadDouble::operator () (std::istream& from) 
 {
   const char funame [] = "ReadDouble::operator () (std::istream&): ";
 
@@ -96,7 +111,7 @@ void ReadDouble::operator () (std::istream& from) throw(Error::General)
     _data *= Phys_const::str2fac(unit);
 }
 
-void ReadString::operator () (std::istream& from) throw(Error::General)
+void ReadString::operator () (std::istream& from) 
 {
   const char funame [] = "ReadString::operator () (std::istream&): ";
 
@@ -113,7 +128,7 @@ void ReadString::operator () (std::istream& from) throw(Error::General)
   }
 }
 
-void ReadDarr::operator () (std::istream& from) throw(Error::General)
+void ReadDarr::operator () (std::istream& from) 
 {
   const char funame [] = "ReadDarr::operator () (std::istream&): ";
 

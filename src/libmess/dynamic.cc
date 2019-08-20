@@ -122,7 +122,7 @@ void Dynamic::CartData::_copy (const CartData& c)
     _ang = 0;
 }
     
-void Dynamic::CartData::mf2lf (const double* mf, double* lf) const throw(Error::General)
+void Dynamic::CartData::mf2lf (const double* mf, double* lf) const 
 {
   const char funame [] = "Dynamic::CartData::mf2lf: ";
 
@@ -174,7 +174,7 @@ double Dynamic::CartData::imm (int i, int j) const
   }  
 }
 
-void Dynamic::CartData::lf2mf (const double* lf, double* mf) const throw(Error::General)
+void Dynamic::CartData::lf2mf (const double* lf, double* mf) const 
 {
   const char funame [] = "Dynamic::CartData::lf2mf: ";
 
@@ -208,7 +208,7 @@ void Dynamic::CartData::lf2mf (const double* lf, double* mf) const throw(Error::
   }
 }
 
-void Dynamic::CartData::update_mfo(const double* ang) throw(Error::General)
+void Dynamic::CartData::update_mfo(const double* ang) 
 {
   const char funame [] = "Dynamic::CartData::update_mfo: ";
 
@@ -228,7 +228,7 @@ void Dynamic::CartData::update_mfo(const double* ang) throw(Error::General)
   }
 }
 
-void Dynamic::CartData::update_rel() throw(Error::General)
+void Dynamic::CartData::update_rel() 
 {
   const char funame [] = "Dynamic::CartData::update_rel: ";
 
@@ -374,7 +374,7 @@ Lapack::SymmetricMatrix Dynamic::Coordinates::imm () const
   return res;
 }
 
-void Dynamic::Coordinates::write_ang_pos (int frag, const double* pos) throw(Error::General)
+void Dynamic::Coordinates::write_ang_pos (int frag, const double* pos) 
 {
   const char funame [] = "Dynamic::Coordinates::write_ang_pos: ";
 
@@ -451,7 +451,7 @@ void Dynamic::Coordinates::print_geom (std::ostream& to, const std::string& inde
   }
 }
 
-void Dynamic::Coordinates::dipole (int frag, double* d) const throw(Error::General)
+void Dynamic::Coordinates::dipole (int frag, double* d) const 
 {
   static const char funame [] = "Dynamic::Coordinates::dipole";
 
@@ -511,7 +511,7 @@ void Dynamic::Coordinates::dipole (int frag, double* d) const throw(Error::Gener
   }
 }
 
-void Dynamic::Coordinates::quadrupole_vector_product (int frag, const double* v, double* q) const throw(Error::General)
+void Dynamic::Coordinates::quadrupole_vector_product (int frag, const double* v, double* q) const 
 {
   static const char funame [] = "Dynamic::Coordinates::quadrupole_vector_product";
 
@@ -581,7 +581,7 @@ void Dynamic::Coordinates::quadrupole_vector_product (int frag, const double* v,
 
 }
 
-void Dynamic::Coordinates::polarizability_vector_product (int frag, const double* v, double* p) const throw(Error::General)
+void Dynamic::Coordinates::polarizability_vector_product (int frag, const double* v, double* p) const 
 {
   static const char funame [] = "Dynamic::Coordinates::polarizability_vector_product";
 
@@ -920,7 +920,7 @@ double Dynamic::Vars::angular_momentum_k_projection (int frag) const
   return vdot(am, orb_pos()) / vlength(orb_pos(), 3);
 }
 
-double Dynamic::Vars::angular_momentum_m_projection (int frag) const throw(Error::General)
+double Dynamic::Vars::angular_momentum_m_projection (int frag) const 
 {
   static const char funame [] = "Dynamic::Vars::angular_momentum_m_projection: ";
 

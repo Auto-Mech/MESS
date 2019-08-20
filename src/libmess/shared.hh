@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef SHARED_HH
 #define SHARED_HH
@@ -29,10 +42,10 @@ public:
   SharedPointer& operator= (const SharedPointer& s) { _delete_ref(); _create_ref(s); return *this; }
   ~SharedPointer () { _delete_ref(); }
 
-  void init (T*) throw(Error::General);
+  void init (T*) ;
 
-  T* operator-> () const throw(Error::General);
-  T& operator*  () const throw(Error::General);
+  T* operator-> () const ;
+  T& operator*  () const ;
   operator T*   () const { return _pnt; }
 
   operator bool  () const { if(_pnt) return  true; return false; }
@@ -66,7 +79,7 @@ void SharedPointer<T>::_create_ref(const SharedPointer& s)
 }
 
 template <typename T>
-void SharedPointer<T>::init (T* p) throw(Error::General)
+void SharedPointer<T>::init (T* p) 
 {
   const char funame [] = " SharedPointer<T>::init: ";
 
@@ -94,7 +107,7 @@ SharedPointer<T>::SharedPointer (T* p) : _pnt(p)
 }
 
 template <typename T>
-T* SharedPointer<T>::operator-> () const  throw(Error::General)
+T* SharedPointer<T>::operator-> () const  
 { 
   const char funame [] = "SharedPointer::operator->: ";
 
@@ -107,7 +120,7 @@ T* SharedPointer<T>::operator-> () const  throw(Error::General)
 }
 
 template <typename T>
-T& SharedPointer<T>::operator*  () const throw(Error::General)
+T& SharedPointer<T>::operator*  () const 
 {
   const char funame [] = "SharedPointer::operator*: ";
 
@@ -141,15 +154,15 @@ public:
 
   ~ConstSharedPointer () { _delete_ref(); }
 
-  void init (const T*) throw(Error::General);
+  void init (const T*) ;
 
   operator  bool () const { if(_pnt) return  true; return false; }
   bool operator! () const { if(_pnt) return false; return true;  }
 
   int count () const { if(_count) return *_count; return 0; }
 
-  const T* operator-> () const throw(Error::General);
-  const T& operator*  () const throw(Error::General);
+  const T* operator-> () const ;
+  const T& operator*  () const ;
   operator const T* () const { return _pnt; }
 
 };
@@ -186,7 +199,7 @@ void ConstSharedPointer<T>::_create_ref(const SharedPointer<T>& s)
 }
 
 template <typename T>
-void ConstSharedPointer<T>::init (const T* p) throw(Error::General)
+void ConstSharedPointer<T>::init (const T* p) 
 {
   const char funame [] = " ConstSharedPointer<T>::init: ";
 
@@ -214,7 +227,7 @@ ConstSharedPointer<T>::ConstSharedPointer (const T* p) : _pnt(p)
 }
 
 template <typename T>
-const T* ConstSharedPointer<T>::operator-> () const  throw(Error::General)
+const T* ConstSharedPointer<T>::operator-> () const  
 { 
   const char funame [] = "ConstSharedPointer::operator->: ";
 
@@ -227,7 +240,7 @@ const T* ConstSharedPointer<T>::operator-> () const  throw(Error::General)
 }
 
 template <typename T>
-const T& ConstSharedPointer<T>::operator*  () const throw(Error::General)
+const T& ConstSharedPointer<T>::operator*  () const 
 {
   const char funame [] = "ConstSharedPointer::operator*: ";
 

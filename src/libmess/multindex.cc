@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "multindex.hh"
 #include <iostream>
 
@@ -5,7 +20,7 @@
  ********************************** MULTIDIMENSIONAL INDEX **************************************
  ************************************************************************************************/
 
-void MultiIndex::set (const std::vector<int>& gr, const std::vector<int>& gs) throw(Error::General)
+void MultiIndex::set (const std::vector<int>& gr, const std::vector<int>& gs) 
 {
   const char funame [] = "MultiIndex::set: ";
 
@@ -107,7 +122,7 @@ int MultiIndex::cumulative_index () const
  **************************** MULTI-DIMENSIONAL INDEX CONVERTER *********************************
  ************************************************************************************************/
 
-void MultiIndexConvert::resize (const std::vector<int>& s) throw(Error::General)
+void MultiIndexConvert::resize (const std::vector<int>& s) 
 {
   static const char funame [] = "MultiIndexConvert::resize: ";
 
@@ -126,7 +141,7 @@ void MultiIndexConvert::resize (const std::vector<int>& s) throw(Error::General)
     }  
 }
 
-std::vector<int> MultiIndexConvert::operator() (long lindex) const throw(Error::General)
+std::vector<int> MultiIndexConvert::operator() (long lindex) const 
 {
   static const char funame [] = "MultiIndexConvert::operator(): ";
 
@@ -143,7 +158,7 @@ std::vector<int> MultiIndexConvert::operator() (long lindex) const throw(Error::
   return res;
 }
 
-long MultiIndexConvert::operator() (const std::vector<int>& v) const throw(Error::General)
+long MultiIndexConvert::operator() (const std::vector<int>& v) const 
 {
   static const char funame [] = "MultiIndexConvert::operator(): ";
 

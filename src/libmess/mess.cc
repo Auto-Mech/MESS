@@ -4259,9 +4259,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     Lapack::Matrix kappa = proj_pop.transpose() * inv_proj_bim;
 
     IO::log << std::setprecision(2)
-      //
 	    << IO::log_offset << "isomers-to-bimolecular equilibrium coefficients (kappa matrix):\n"
-      //
 	    << IO::log_offset << std::setw(5) << "W\\P";
     
     for(int p = 0; p < Model::bimolecular_size(); ++p)
@@ -4863,19 +4861,20 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   }  
 
   // hot distribution branching ratios
+  //
   if(hot_energy_size) {
-    IO::log << IO::log_offset << "Hot distribution branching ratios:\n";
-
-    IO::log << IO::log_offset
+    //
+    IO::log << IO::log_offset << "Hot distribution branching ratios:\n"
+	    << IO::log_offset //<< std::setprecision(6)
 	    << std::setw(5)  << "Well"
 	    << std::setw(13) << "E, kcal/mol";
+    
     for(int w = 0; w < chem_size; ++w)
       IO::log << std::setw(13) << Model::well(group_index[w]).name();
     for(int p = 0; p < Model::bimolecular_size(); ++p)
       IO::log << std::setw(13) << Model::bimolecular(p).name();
     IO::log << "\n";
     
-
     std::map<int, std::vector<int> >::const_iterator hit;
     int count = 0;
     for(hit = hot_index.begin(); hit != hot_index.end(); ++hit)

@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "divsur.hh"
 #include "random.hh"
 #include "units.hh"
@@ -10,7 +25,7 @@
  *                                    Input/Output                              *
  ********************************************************************************/
 
-void DivSur::FragData::read(int frag, std::istream& from) throw(Error::General)
+void DivSur::FragData::read(int frag, std::istream& from) 
 {
   const char funame [] = "DivSur::FragData::read: ";
 
@@ -131,7 +146,7 @@ void DivSur::FragData::read(int frag, std::istream& from) throw(Error::General)
   }
 }
 
-void DivSur::PrimSet::read (std::istream& from) throw(Error::General)
+void DivSur::PrimSet::read (std::istream& from) 
 {
   const char funame [] = "DivSur::PrimSet::read: ";
 
@@ -908,7 +923,7 @@ double DivSur::Plane::_set_rc (const Dynamic::Coordinates& dv, Dynamic::Momenta&
  ******************** Basic Dividing Surface Methods *******************
  ***********************************************************************/
 
-void DivSur::OneSur::read (std::istream& from) throw(Error::General)
+void DivSur::OneSur::read (std::istream& from) 
 {
   const char funame [] = "DivSur::OneSur::read: ";
 
@@ -974,7 +989,7 @@ void DivSur::OneSur::print (std::ostream& to, const std::string& prefix) const
 
 // test if the configuration is inside the surface
 bool DivSur::OneSur::test (const Dynamic::Coordinates& dc) const
-  throw(Error::General)
+  
 {
   const char funame [] = "DivSur::OneSur::test: ";
 
@@ -990,7 +1005,7 @@ bool DivSur::OneSur::test (const Dynamic::Coordinates& dc) const
 }
 
 DivSur::OneSur::SmpRes DivSur::OneSur::facet_test (int face, const Dynamic::Coordinates& dc) const
-  throw(Error::General)
+  
 {
   const char funame [] = "DivSur::OneSur::facet_test: ";
 
@@ -1036,7 +1051,7 @@ DivSur::OneSur::SmpRes DivSur::OneSur::facet_test (int face, const Dynamic::Coor
 
 // facet to which the configuration is closest
 int DivSur::OneSur::classify (const Dynamic::Coordinates& dc) const
-  throw(Error::General)
+  
 {
   const char funame [] = "DivSur::OneSur::classify: ";
 
@@ -1062,7 +1077,7 @@ int DivSur::OneSur::classify (const Dynamic::Coordinates& dc) const
  *                Multiple species dividing surface: MultiSur               *
  ****************************************************************************/
 
-void DivSur::MultiSur::read (std::istream& from) throw(Error::General)
+void DivSur::MultiSur::read (std::istream& from) 
 {
   const char funame [] = "DivSur::MultiSur::read: ";
 
@@ -1178,7 +1193,7 @@ void DivSur::MultiSur::print (std::ostream& to, const std::string& prefix) const
 }
 
 int DivSur::MultiSur::classify  (const Dynamic::Coordinates& dc) const 
-  throw(Error::General)
+  
 {
   const char funame [] = "DivSur::MultiSur::classify: ";
 
@@ -1205,7 +1220,7 @@ int DivSur::MultiSur::classify  (const Dynamic::Coordinates& dc) const
 }
 
 bool DivSur::MultiSur::species_test (int spec, const Dynamic::Coordinates& dc) const
-  throw(Error::General)
+  
 {
   int res = classify(dc);
   if(res == spec)
@@ -1214,7 +1229,7 @@ bool DivSur::MultiSur::species_test (int spec, const Dynamic::Coordinates& dc) c
 }
 
 DivSur::MultiSur::SmpRes DivSur::MultiSur::facet_test (int sur, const Dynamic::Coordinates& dc) const 
-  throw(Error::General)
+  
 {
   const char funame [] = "DivSur::MultiSur::facet_test: ";
 

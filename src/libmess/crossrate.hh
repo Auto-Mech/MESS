@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef CROSSRATE_HH
 #define CROSSRATE_HH
@@ -65,7 +78,7 @@ namespace CrossRate {
 
   //bool isthermal (); // which calculation
 
-  void init (std::istream&) throw(Error::General);
+  void init (std::istream&) ;
   bool isinit ();
   
   void print_progress (int&, int);
@@ -100,7 +113,7 @@ namespace CrossRate {
     double _energy;    // configuration potential energy
 
   public:
-    DynSmp (Potential::Wrap, const DivSur::MultiSur&, int, const Dynamic::Coordinates&) throw(Error::General);
+    DynSmp (Potential::Wrap, const DivSur::MultiSur&, int, const Dynamic::Coordinates&) ;
 
     // statistical methods
     double ranval           () const { return _ranval; }
@@ -180,7 +193,7 @@ namespace CrossRate {
     int face_num () const { return _flux_num + _fail_num + _fake_num; }
     int samp_num () const;
 
-    double min_ener () const throw(Error::General);
+    double min_ener () const ;
     const Dynamic::Coordinates& min_geom () const { return _min_geom; }
 
     void add_fake () { ++_fake_num; }
@@ -224,7 +237,7 @@ namespace CrossRate {
 
   };// FacetArray
 
-  inline double FacetArray::min_ener () const throw(Error::General)
+  inline double FacetArray::min_ener () const 
   {
     if(!samp_num()) {
       std::cout << "FacetArray::min_ener: minimal energy has not been initialized yet => STOP\n";
@@ -335,7 +348,7 @@ namespace CrossRate {
 
     int _sample (iterator, const std::set<DivSur::face_t>&);
 
-    bool _work (Dynamic::CCP) throw(Error::General);
+    bool _work (Dynamic::CCP) ;
 
     // print samplings results
     void _print_sampling_results () const;
@@ -367,10 +380,10 @@ namespace CrossRate {
 
     static std::vector<int> reactive_transition; // reactive transition for tolerance evaluation
 
-    MultiArray(const DivSur::MultiSur&, Potential::Wrap, Dynamic::CCP) throw(Error::General);
+    MultiArray(const DivSur::MultiSur&, Potential::Wrap, Dynamic::CCP) ;
 
     // run trajectories which have not been run
-    void run_traj (Dynamic::CCP) throw(Error::General);
+    void run_traj (Dynamic::CCP) ;
   };// MultiArray
 
 }// CrossRate

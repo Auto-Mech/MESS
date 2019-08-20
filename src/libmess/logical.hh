@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef LOGICAL_HH
 #define LOGICAL_HH
@@ -16,14 +29,14 @@ namespace Logical
   {
   public:
     virtual bool evaluate (const std::vector<bool>&) const 
-      throw(Error::General) = 0;
+       = 0;
     virtual void init (const std::map<std::string, int>&)
-      throw(Error::General) = 0;
+       = 0;
   };
 
-  SharedPointer<Expr> read_expr (std::istream& from) throw(Error::General);
-  SharedPointer<Expr> read_term (std::istream& from) throw(Error::General);
-  SharedPointer<Expr> read_name (std::istream& from) throw(Error::General);
+  SharedPointer<Expr> read_expr (std::istream& from) ;
+  SharedPointer<Expr> read_term (std::istream& from) ;
+  SharedPointer<Expr> read_name (std::istream& from) ;
 
   // unary negation expression 
   class UniExpr : public Expr
@@ -34,10 +47,10 @@ namespace Logical
   public:
  
     bool evaluate (const std::vector<bool>& l) const 
-      throw(Error::General) { return !(_x->evaluate(l)); }
+       { return !(_x->evaluate(l)); }
 
     void init (const std::map<std::string, int>& l)
-      throw(Error::General) { _x->init(l); }
+       { _x->init(l); }
 
     friend SharedPointer<Expr> negate (SharedPointer<Expr>);
   };
@@ -60,10 +73,10 @@ namespace Logical
 
   public:
     bool evaluate (const std::vector<bool>&) const 
-      throw(Error::General);
+      ;
 
     void init (const std::map<std::string, int>& l)
-      throw(Error::General) { _x1->init(l); _x2->init(l); }
+       { _x1->init(l); _x2->init(l); }
 
     friend SharedPointer<Expr> operator& (SharedPointer<Expr>, SharedPointer<Expr>); 
     friend SharedPointer<Expr> operator| (SharedPointer<Expr>, SharedPointer<Expr>); 
@@ -85,12 +98,12 @@ namespace Logical
     VarExpr(const std::string& s) : _name(s), _var(-1) {}
 
     bool evaluate (const std::vector<bool>&) const
-      throw(Error::General);
+      ;
     void init (const std::map<std::string, int>&)
-      throw(Error::General);
+      ;
   };
 
-  inline bool VarExpr::evaluate (const std::vector<bool>& l) const throw(Error::General)
+  inline bool VarExpr::evaluate (const std::vector<bool>& l) const 
   {
     const char funame [] = "Logical::VarExpr::evaluate: ";
 

@@ -1,4 +1,17 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
 
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
 
 #ifndef SYSTEM_HH
 #define SYSTEM_HH
@@ -35,7 +48,7 @@ namespace System {
 	Pipe_base (const Pipe_base&);
 	Pipe_base& operator= (const Pipe_base&);
 
-	Pipe_base () throw(Error::General);
+	Pipe_base () ;
 
 	friend class Pipe;
     };
@@ -52,6 +65,31 @@ namespace System {
 	Pipe();
     };
 
+    /*************************************************************************************
+     *                                       Semaphores                                  *
+     ************************************************************************************/
+
+    class Semaphore
+    {
+	key_t key;   // semaphore key
+	int   id;    // semaphore id
+	int   num;   // number of semaphores in the set
+	pid_t creator; // creator of semaphore
+
+	Semaphore(const Semaphore&);
+	Semaphore& operator= (const Semaphore&);
+
+    public:
+
+	explicit Semaphore (int) ; // creates set of n semaphores & initilizes them 
+	Semaphore (key_t, int)   ; // initializes existing semaphore set
+	~Semaphore();
+  
+	key_t get_key () const {return key;}
+	void busy (int) const ; // raise n-th semaphore (P, wait)
+	void free (int) const ; // free n-th semaphore  (V, signal)
+    };
+
     /*********************************************************************************************
      *                                     Dynamic Libraries                                     *
      ********************************************************************************************/
@@ -65,20 +103,20 @@ namespace System {
 	void _create_ref (const DynLib& dl);
 
     public:
-	void open (const std::string&) throw(Error::General);
+	void open (const std::string&) ;
 
 	DynLib () : _handle(0), _count(0) {}
-	explicit DynLib (const std::string& lib) throw(Error::General) 
+	explicit DynLib (const std::string& lib)  
 	    : _handle(0), _count(0) { open(lib); }
 
 	DynLib (const DynLib& dl) { _create_ref(dl); }
 	DynLib& operator= (const DynLib& dl) { _delete_ref(); _create_ref(dl); return *this; }
 
 	virtual ~DynLib () { _delete_ref(); }
-	virtual void read (std::istream&) throw(Error::General);
+	virtual void read (std::istream&) ;
 	
 	bool isopen () const;
-	void* member (const std::string&) throw(Error::General);
+	void* member (const std::string&) ;
     };
 
     inline bool DynLib::isopen () const
@@ -88,7 +126,7 @@ namespace System {
 	return false;
     }
 
-    inline void DynLib::read (std::istream& from) throw(Error::General)
+    inline void DynLib::read (std::istream& from) 
     {
 	const char funame [] = "System::DynLib::read: ";
     

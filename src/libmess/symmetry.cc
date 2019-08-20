@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "symmetry.hh"
 #include <set>
 
@@ -5,7 +20,7 @@
  ************************************** ABSTRACT GROUP CLASS ***************************************
  ***************************************************************************************************/
 
-void Symmetry::GroupBase::_isinit () const throw(Error::General)
+void Symmetry::GroupBase::_isinit () const 
 {
   const char funame [] = "Symmetry::GroupBase::_isinit: ";
 
@@ -16,7 +31,7 @@ void Symmetry::GroupBase::_isinit () const throw(Error::General)
   throw Error::Init();
 }
 
-void Symmetry::GroupBase::init (const std::vector<Permutation>& table) throw(Error::General)
+void Symmetry::GroupBase::init (const std::vector<Permutation>& table) 
 {
   const char funame [] = "Symmetry::GroupBase::init: ";
 
@@ -83,7 +98,7 @@ void Symmetry::GroupBase::init (const std::vector<Permutation>& table) throw(Err
  ********************************** SPATIAL SYMMETRY OPERATIONS ***********************************
  **************************************************************************************************/
 
-Symmetry::SpaceElement::SpaceElement (const Quaternion& q, bool i, int flags) throw(Error::General)
+Symmetry::SpaceElement::SpaceElement (const Quaternion& q, bool i, int flags) 
   : Quaternion(q), _inversion(i), _rmatrix(q)
 {
   const char funame [] = "Symmetry::SpaceElement::SpaceElement: ";
@@ -103,7 +118,7 @@ Symmetry::SpaceElement::SpaceElement (const Quaternion& q, bool i, int flags) th
   }
 }
 
-Symmetry::SpaceElement::SpaceElement (const D3::Matrix& m, int flags) throw(Error::General)
+Symmetry::SpaceElement::SpaceElement (const D3::Matrix& m, int flags) 
   : _inversion(m.inversion()), _rmatrix(m) 
 {
   if(_inversion)
@@ -142,7 +157,7 @@ void Symmetry::SpaceElement::apply (const double* v, double* res) const
  *********************************** SPATIAL SYMMETRY GROUP *************************************
  ************************************************************************************************/
 
-Symmetry::SpaceGroup::SpaceGroup (const std::string& nm, const std::vector<SpaceElement>& group_base, int size_max) throw(Error::General)
+Symmetry::SpaceGroup::SpaceGroup (const std::string& nm, const std::vector<SpaceElement>& group_base, int size_max) 
   : _name(nm), std::vector<SpaceElement>(group_base), _sign(group_base.size(), group_base.size())
 {
   const char funame [] = "Symmetry::SpaceGroup::SpaceGroup: ";

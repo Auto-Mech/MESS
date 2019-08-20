@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2016, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "mpack.hh"
 #include "io.hh"
 
@@ -9,7 +24,7 @@
 #include <mpack/qd_complex.h>
 #include <mpack/mlapack_qd.h>
 
-Lapack::Vector Mpack::dd_eigenvalues (Lapack::SymmetricMatrix mat, Lapack::Matrix* evec) throw(Error::General)
+Lapack::Vector Mpack::dd_eigenvalues (Lapack::SymmetricMatrix mat, Lapack::Matrix* evec) 
 {
   const char funame [] = "Mpack::dd_eigenvalues: ";
 
@@ -87,7 +102,7 @@ Lapack::Vector Mpack::dd_eigenvalues (Lapack::SymmetricMatrix mat, Lapack::Matri
   return res;
 }
 
-Lapack::Vector Mpack::qd_eigenvalues (Lapack::SymmetricMatrix mat, Lapack::Matrix* evec) throw(Error::General)
+Lapack::Vector Mpack::qd_eigenvalues (Lapack::SymmetricMatrix mat, Lapack::Matrix* evec) 
 {
   const char funame [] = "Mpack::qd_eigenvalues: ";
 

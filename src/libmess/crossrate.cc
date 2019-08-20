@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "crossrate.hh"
 #include "random.hh"
 #include "read.hh"
@@ -77,7 +92,7 @@ namespace CrossRate {
   std::vector<double> traj_abs_tol;
 }
 
-void CrossRate::init (std::istream& from) throw(Error::General)
+void CrossRate::init (std::istream& from) 
 {
     const char funame [] = "CrossRate::init: ";
 
@@ -272,7 +287,7 @@ void CrossRate::init (std::istream& from) throw(Error::General)
 
 
 CrossRate::DynSmp::DynSmp (Potential::Wrap pot, const DivSur::MultiSur& surface, int prim, const Dynamic::Coordinates& dc)
- throw(Error::General) : Dynamic::Vars(dc)
+  : Dynamic::Vars(dc)
 {
   const char funame [] = "CrossRate::DynSmp::DynSmp: ";
   
@@ -878,7 +893,7 @@ namespace IO {
 // for the uniform relative facet flux error,  
 // and for the uniform facet volume fraction relative error 
 
-void CrossRate::MultiArray::run_traj (Dynamic::CCP stop) throw(Error::General)
+void CrossRate::MultiArray::run_traj (Dynamic::CCP stop) 
 {
   // check that minimal potential enery is bigger than reactive energy
   for(const_iterator mit = begin(); mit != end(); ++mit)
@@ -1615,7 +1630,7 @@ void CrossRate::print_progress (int& old_share, int new_share)
   }
 }
 
-bool CrossRate::MultiArray::_work (Dynamic::CCP stop) throw(Error::General)
+bool CrossRate::MultiArray::_work (Dynamic::CCP stop) 
 {
   const char funame [] = "CrossRate::MultiArray::_work: ";
 
@@ -2149,7 +2164,7 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop) throw(Error::General)
 } 
 
 CrossRate::MultiArray::MultiArray(const DivSur::MultiSur& ms, Potential::Wrap pot, Dynamic::CCP stop)
-  throw(Error::General) : std::vector<SurArray>(ms.primitive_size()), _ms(ms), _pot(pot)
+   : std::vector<SurArray>(ms.primitive_size()), _ms(ms), _pot(pot)
 {
   const char funame [] = "CrossRate::MultiArray::MultiArray: ";
  

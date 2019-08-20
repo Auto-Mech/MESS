@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "slatec.h"
 
 /****************************************************************************************************
@@ -7,7 +22,7 @@
 
 const int Slatec::AdamSolver::_liw;
 
-Slatec::AdamSolver::AdamSolver (int s, dde_f d, double rt, double at)  throw(Error::General) 
+Slatec::AdamSolver::AdamSolver (int s, dde_f d, double rt, double at)   
   : _deriv(d), _size(s),  _rwork(130 + 21 * s),  rel_tol(s, rt), abs_tol(s, at)
 {
   const char funame [] = "AdamSolver::AdamSolver: ";
@@ -31,7 +46,7 @@ Slatec::AdamSolver::AdamSolver (int s, dde_f d, double rt, double at)  throw(Err
 } 
     
 void Slatec::AdamSolver::run(double& x, double* y, double xout,
-			     void* param, Mode mode) throw(Error::General)
+			     void* param, Mode mode) 
 {
   const char funame [] = "AdamSolver::run: ";
 
@@ -119,7 +134,7 @@ void Slatec::AdamSolver::run(double& x, double* y, double xout,
  *********************************************************************************/
 
 void Slatec::Spline::init (const double* x, const double* y, 
-		       int_t s) throw(Error::General)
+		       int_t s) 
 {
     const char funame [] = "Slatec::Spline::init: ";
 
@@ -168,7 +183,7 @@ void Slatec::Spline::init (const double* x, const double* y,
     }
 }
 
-double Slatec::Spline::operator()(double x, int_t drv) const throw(Error::General)
+double Slatec::Spline::operator()(double x, int_t drv) const 
 {
     const char funame [] = "Slatec::Spline::fit: ";
 

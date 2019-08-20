@@ -41,7 +41,7 @@ namespace MasterEquation {
   enum {DIAGONALIZATION, PROJECTION}; // possible reduction algorithms for low eigenvalue method
   extern int  red_out_num;// number of reduction schemes to print 
   extern int reduction_method;// reduction algorithm for low-eigenvalue method
-  void set_default_partition (const std::vector<std::string>&) throw(Error::General);// default reduction scheme
+  void set_default_partition (const std::vector<std::string>&) ;// default reduction scheme
   void set_default_chem_size (int);
 
   // capture probabilities
@@ -49,7 +49,7 @@ namespace MasterEquation {
 
   // product energy distributions
   extern std::ofstream ped_out;
-  void set_ped_pair(const std::vector<std::string>& ped_spec) throw(Error::General);
+  void set_ped_pair(const std::vector<std::string>& ped_spec) ;
 
   extern double         well_cutoff;// well cutoff parameter
   extern double  chemical_threshold;// threshold separating chemical and relaxational eigenstates
@@ -71,7 +71,7 @@ namespace MasterEquation {
   void set_energy_reference (double);
 
   // set states densities, states numbers, etc. 
-  void set (std::map<std::pair<int, int>, double>& rate_data, std::map<int, double>& capture) throw(Error::General);
+  void set (std::map<std::pair<int, int>, double>& rate_data, std::map<int, double>& capture) ;
 
   /********************************************************************************************
    ***************************************** WELL CLASS ***************************************
@@ -102,7 +102,7 @@ namespace MasterEquation {
     Lapack::SymmetricMatrix _crm_radiation_rate;
 
     void _set_state_density (const Model::Well&);
-    void _set_kernel (const Model::Well&) throw(Error::General);
+    void _set_kernel (const Model::Well&) ;
     void _set_crm_basis ();
 
   public:
@@ -159,7 +159,7 @@ namespace MasterEquation {
     double        weight ()      const { return _weight; }
     double   real_weight ()      const { return _real_weight; }
 
-    void      truncate (int) throw(Error::General);
+    void      truncate (int) ;
   };
 
   /********************************************************************************************
@@ -184,36 +184,36 @@ namespace MasterEquation {
   /************************** RATE COEFFICIENTS CALCULATION METHODS ******************************/
 
   void low_eigenvalue_matrix (Lapack::SymmetricMatrix& k_11, Lapack::SymmetricMatrix& k_33, 
-			      Lapack::Matrix& k_13, Lapack::Matrix& l_21) throw(Error::General);
+			      Lapack::Matrix& k_13, Lapack::Matrix& l_21) ;
 
   typedef void             (*Method) (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags);
   void         low_eigenvalue_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    throw(Error::General);
+    ;
   void direct_diagonalization_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    throw(Error::General);
+    ;
   void         well_reduction_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    throw(Error::General);
+    ;
   void         well_reduction_method_old (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    throw(Error::General);
+    ;
   void             sequential_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    throw(Error::General);
+    ;
 
-  void        high_pressure_analysis () throw(Error::General);
+  void        high_pressure_analysis () ;
 
   /************************** WELL PARTITION METHODS ******************************/
 
-  void set_well_partition_method (const std::string&) throw(Error::General);
+  void set_well_partition_method (const std::string&) ;
 
   extern double  well_projection_threshold;
 
   double   threshold_well_partition (const Lapack::Matrix&, Partition&, Group&, const std::vector<double>&)
-    throw(Error::General);
+    ;
   double        sort_well_partition (const Lapack::Matrix&, Partition&, Group&, const std::vector<double>&)
-    throw(Error::General);
+    ;
   double incremental_well_partition (const Lapack::Matrix&, Partition&, Group&, const std::vector<double>&)
-    throw(Error::General);
+    ;
   double  sequential_well_partition (const Lapack::Matrix&, Partition&, Group&, const std::vector<double>&)
-    throw(Error::General);
+    ;
 
   /******************************************* HELPERS *******************************************/
 
@@ -230,9 +230,9 @@ namespace MasterEquation {
     bool contain (const Group&) const;
 
     double projection (const Lapack::Matrix&, const std::vector<double>& = std::vector<double>()) const
-      throw(Error::General);
+      ;
     double projection (const Lapack::Matrix&, int, const std::vector<Group>&, const std::vector<double>&) const 
-      throw(Error::General);
+      ;
 
     int operator[]    (int) const;
     Lapack::Vector basis () const;
@@ -267,7 +267,7 @@ namespace MasterEquation {
     bool _end;
     int _size;
   public:
-    GroupGenerator (int m, int n) throw(Error::General);
+    GroupGenerator (int m, int n) ;
 
     void operator++ ();
     void operator++ (int) { operator++(); }
@@ -284,7 +284,7 @@ namespace MasterEquation {
     bool             _end;
     const int        _partition_size;
   public:
-    PartitionGenerator (int m, int n) throw(Error::General);
+    PartitionGenerator (int m, int n) ;
 
     void operator++();
     void operator++(int) { operator++(); }

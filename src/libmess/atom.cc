@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include "atom.hh"
 #include "units.hh"
 #include "io.hh"
@@ -105,7 +120,7 @@ AtomBase::DataBase::DataBase ()
     _name_num_map[it->second.name] = it->first;
 }
 
-int AtomBase::DataBase::number (const std::string& n) const throw(Error::General)
+int AtomBase::DataBase::number (const std::string& n) const 
 {
   const char funame [] = "AtomBase::DataBase::number: ";
   
@@ -117,7 +132,7 @@ int AtomBase::DataBase::number (const std::string& n) const throw(Error::General
   throw Error::Init();
 }
 
-const std::string&  AtomBase::DataBase::name (int n)  const throw(Error::General)
+const std::string&  AtomBase::DataBase::name (int n)  const 
 {
   const char funame [] = "AtomBase::DataBase::name: ";
 
@@ -129,7 +144,7 @@ const std::string&  AtomBase::DataBase::name (int n)  const throw(Error::General
   throw Error::Init();
 }
 
-int AtomBase::DataBase::default_isotope (int n)  const throw(Error::General)
+int AtomBase::DataBase::default_isotope (int n)  const 
 {
   const char funame [] = "AtomBase::DataBase::default_isotope: ";
 
@@ -141,7 +156,7 @@ int AtomBase::DataBase::default_isotope (int n)  const throw(Error::General)
   throw Error::Init();
 }
 
-int AtomBase::DataBase::valence (int n)  const throw(Error::General)
+int AtomBase::DataBase::valence (int n)  const 
 {
   const char funame [] = "AtomBase::DataBase::valence: ";
 
@@ -153,7 +168,7 @@ int AtomBase::DataBase::valence (int n)  const throw(Error::General)
   throw Error::Init();
 }
 
-double AtomBase::DataBase::mass (int n, int i) const throw(Error::General)
+double AtomBase::DataBase::mass (int n, int i) const 
 {
   const char funame [] = "AtomBase::DataBase::mass: ";
 
@@ -172,7 +187,7 @@ double AtomBase::DataBase::mass (int n, int i) const throw(Error::General)
   throw Error::Init();
 }
 
-void Atom::_read (std::istream& from) throw(Error::General)
+void Atom::_read (std::istream& from) 
 {
     const char funame [] = "Atom::_read: ";
 
@@ -377,7 +392,7 @@ Permutation is_symmetric (const std::vector<Atom>& mol, const Symmetry::SpaceEle
   return Permutation(perm);
 }
 
-std::set<Permutation> identical_atoms_permutation_symmetry_group (const Lapack::SymmetricMatrix& dist, double tol) throw(Error::General)
+std::set<Permutation> identical_atoms_permutation_symmetry_group (const Lapack::SymmetricMatrix& dist, double tol) 
 {
   const char funame [] = "identical_atoms_permutation_symmetry_group: ";
 
@@ -435,7 +450,7 @@ std::set<Permutation> identical_atoms_permutation_symmetry_group (const Lapack::
   return res;
 }
 
-std::set<Permutation> permutation_symmetry_group (const std::vector<Atom>& molecule, double tolerance, int flags) throw(Error::General)
+std::set<Permutation> permutation_symmetry_group (const std::vector<Atom>& molecule, double tolerance, int flags) 
 {
   const char funame [] = "permutation_symmetry_group: ";
   
@@ -540,7 +555,7 @@ std::set<Permutation> permutation_symmetry_group (const std::vector<Atom>& molec
   return res;
 }
 
-std::pair<int, int> symmetry_number (const std::vector<Atom>& molecule, double tolerance, int flags) throw(Error::General)
+std::pair<int, int> symmetry_number (const std::vector<Atom>& molecule, double tolerance, int flags) 
 {
   const char funame [] = "symmetry_number: ";
   
@@ -631,7 +646,7 @@ std::pair<int, int> symmetry_number (const std::vector<Atom>& molecule, double t
 
 }
 
-Symmetry::SpaceGroup spatial_symmetry_group (std::vector<Atom>& molecule, double tolerance, int flags) throw(Error::General)
+Symmetry::SpaceGroup spatial_symmetry_group (std::vector<Atom>& molecule, double tolerance, int flags) 
 {
   const char funame [] = "spatial_symmetry_group: ";
   
