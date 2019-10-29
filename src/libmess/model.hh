@@ -762,7 +762,7 @@ namespace Model {
     virtual ~Species();
 
     virtual double states (double) const =0; // density or number of states of absolute energy
-    virtual double weight (double, std::map<int, double>* =0) const =0; // weight relative to the ground
+    virtual double weight (double) const =0; // weight relative to the ground
 
     double ground () const { return _ground; }
     virtual void shift_ground (double e) { _ground += e; }
@@ -857,8 +857,10 @@ namespace Model {
     double value () const { return _value; }
   };
     
-  extern "C" typedef void (*refpot_t) (int& ifail, double& ener, const double* pos);
-      
+  extern "C" typedef void (*refp_t) (int& ifail, double& ener, const double* pos);
+
+  extern "C" typedef void (*refw_t) (double& w, const double& t);
+
   class MonteCarlo : public Species {
 
     // atom mass square roots
@@ -866,6 +868,8 @@ namespace Model {
     std::vector<double> _mass_sqrt;
 
     double _total_mass_sqrt;
+
+    double _atom_mass (int a) const { return _mass_sqrt[a] * _mass_sqrt[a]; }
     
     // explicitly sampled fluxional modes
     //
@@ -889,6 +893,18 @@ namespace Model {
     //
     bool _nohess;
 
+    // no hessian curvlinear correction
+    //
+    bool _nocurv;
+
+    // center-of-mass shift
+    //
+    bool _cmshift;
+
+    // is transition state calculation
+    //
+    bool _ists;
+    
     // non-fluxional modes frequencies
     //
     std::vector<double> _nm_freq;
@@ -919,28 +935,46 @@ namespace Model {
     //
     void _set_reference_energy ();
 
-    // reference potential
+    Lapack::SymmetricMatrix _inertia_matrix (Lapack::Vector pos) const;
+
+    void _make_cm_shift (Lapack::Vector pos) const;
+    
+    // reference potential definition
     //
     class _RefPot {
 
       System::DynLib _lib;
 
-      refpot_t _pot;
+      refp_t _pot;
+
+      refw_t _weight;
       
     public:
 
-      _RefPot () : _pot(0) {}
+      _RefPot () : _pot(0), _weight(0) {}
 
       void init (std::istream&);
-      
+
+      // energy as a function of fluxional coordinates
+      //
       double operator() (const double*) const;
 
       operator bool () const { return _pot; }
 
+      // reference statistical weight
+      //
+      double weight (double) const;
+
       class PotFail {};
     };
 
+    // reference potential
+    //
     _RefPot _ref_pot;
+
+    // reference temperature
+    //
+    double  _ref_tem;
     
   public:
     //
@@ -950,7 +984,9 @@ namespace Model {
     
     double states (double) const;
     
-    double weight (double, std::map<int, double>* =0) const;
+    double weight_with_error (double, double&) const;
+
+    double weight (double temperature) const { double dtemp; return weight_with_error(temperature, dtemp); }
 
     int atom_size () const { return _mass_sqrt.size(); }
   };
@@ -1011,7 +1047,7 @@ namespace Model {
     
     double states (double) const;
     
-    double weight (double, std::map<int, double>* =0) const;
+    double weight (double) const;
   };
   
   /************************* RIGID ROTOR HARMONIC OSCILATOR MODEL ************************/
@@ -1057,7 +1093,7 @@ namespace Model {
     ~RRHO ();
 
     double states (double) const; // density or number of states of absolute energy
-    double weight (double, std::map<int, double>* =0) const; // weight relative to the ground
+    double weight (double) const; // weight relative to the ground
 
     double real_ground () const { return _real_ground; }
     void shift_ground (double e) { _ground += e; _real_ground += e; }
@@ -1091,7 +1127,7 @@ namespace Model {
     ~ReadSpecies ();
 
     double states (double) const;
-    double weight (double, std::map<int, double>* =0) const;
+    double weight (double) const;
   };
   
   
@@ -1113,7 +1149,7 @@ namespace Model {
     ~UnionSpecies ();
 
     double states (double) const;
-    double weight (double, std::map<int, double>* = 0) const;
+    double weight (double) const;
 
     void shift_ground (double);
     double real_ground () const { return _real_ground; }
@@ -1149,7 +1185,7 @@ namespace Model {
     ~VarBarrier ();
 
     double states (double) const;
-    double weight (double, std::map<int, double>* = 0) const;
+    double weight (double) const;
 
     double real_ground () const { return _real_ground; }
     void shift_ground (double e) { _ground += e; _real_ground += e; }
@@ -1169,7 +1205,7 @@ namespace Model {
     AtomicSpecies(IO::KeyBufferStream& from, const std::string&) ;
     ~AtomicSpecies ();
 
-    double weight (double, std::map<int, double>* = 0) const;
+    double weight (double) const;
     double states (double) const;
 
     void shift_ground (double e);
@@ -1195,7 +1231,7 @@ namespace Model {
     Arrhenius(IO::KeyBufferStream& from, const std::string&) ;
     ~Arrhenius ();
 
-    double weight (double, std::map<int, double>* = 0) const;
+    double weight (double) const;
     double states (double) const;
 
     void shift_ground (double e);
