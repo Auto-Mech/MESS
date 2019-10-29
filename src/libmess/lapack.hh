@@ -89,6 +89,8 @@ namespace Lapack {
     const Vector& operator+= (const Vector&) ;
     const Vector& operator-= (const Vector&) ;
 
+    const Vector& operator=  (const double*);
+
     const Vector& operator-        ();
     const Vector& operator=  (double);
     const Vector& operator*= (double);
@@ -130,6 +132,12 @@ namespace Lapack {
   inline const Vector& Vector::operator= (double d)
   {
     RefArr<double>::operator=(d);
+    return *this;
+  }
+
+  inline const Vector& Vector::operator= (const double* p)
+  {
+    RefArr<double>::operator=(p);
     return *this;
   }
 

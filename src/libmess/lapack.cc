@@ -1292,6 +1292,26 @@ Lapack::SymLU::SymLU (const SymmetricMatrix& m)
   }
 }
 
+double Lapack::SymLU::det () const
+{
+  const char funame [] = "Lapack::SymLU::det: ";
+
+  double res = 1.;
+  
+  for(int_t i = 0; i < size(); ++i)
+    //
+    if(_ipiv[i] > 0) {
+      //
+      res *= (*this)(i, i);
+    }
+    else if(i && _ipiv[i] < 0 && _ipiv[i] == _ipiv[i - 1]) {
+      //
+      res *= (*this)(i, i) * (*this)(i - 1, i - 1) - (*this)(i - 1, i) * (*this)(i - 1, i);
+    }
+
+  return res;
+}
+
 Lapack::SymmetricMatrix Lapack::SymLU::invert() const 
 {
   const char funame [] = "Lapack::SymLU::invert: ";
