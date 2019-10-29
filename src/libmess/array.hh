@@ -1773,6 +1773,8 @@ public:
   RefArr operator+= (const RefArr& a) ;
   RefArr operator-= (const RefArr& a) ;
 
+  RefArr operator= (const T*);
+
   RefArr operator-  ()           ;
   RefArr operator=  (const T& t) ;
   RefArr operator*= (const T& t) ;
@@ -2070,6 +2072,20 @@ inline RefArr<T>  RefArr<T>::operator- ()
 
 template <typename T>
 inline RefArr<T>  RefArr<T>::operator=  (const T& t)  
+{
+  const char funame [] = "RefArr<T>::operator=: ";
+
+  if(_data) {
+    *_data =  t;
+    return *this;
+  }
+    
+  std::cerr << funame << "not initialized\n";
+  throw Error::Init();
+}
+
+template <typename T>
+inline RefArr<T>  RefArr<T>::operator=  (const T* t)  
 {
   const char funame [] = "RefArr<T>::operator=: ";
 
