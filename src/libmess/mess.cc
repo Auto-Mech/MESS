@@ -4410,17 +4410,90 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       }
       ped_out << "\n";
 
-      // bimolecular-to-escape product energy distributions
+      // escape product energy distributions
+      //
       if(Model::escape_size()) {
+	//
+	// Hot energies-to-escape channels distribution
+	//
+	if(hot_energy_size) {
+	  //
+	  ped_out << "Hot-to-escape product energy distributions:\n";
+
+	  std::map<int, std::vector<int> >::const_iterator hit;
+	  
+	  for(int esin = 0; esin < Model::escape_size(); ++esin) {
+	    //
+	    const int ew = Model::escape_well_index(esin);
+
+	    vtemp.resize(well(ew).size());
+	    
+	    for(hit = hot_index.begin(); hit != hot_index.end(); ++hit) {
+	      //
+	      const int& hw = hit->first;
+	      
+	      for(int hi = 0; hi < hit->second.size(); ++hi) {
+		//
+		const int& he = hit->second[hi];
+		
+		dtemp = (energy_reference() - (double)he * energy_step()) / Phys_const::kcal;
+		
+		ped_out << "Hot[" << Model::well(hw).name() << ", E = " << dtemp << " kcal/mol] ---> "
+		  //
+			<< "Escape[" << Model::well(ew).name() << "]\n\n";
+
+		double nfac;
+		
+		for(int ee = 0; ee < well(ew).size(); ++ee) {
+		  //
+		  dtemp = triple_product(&eigen_global(chem_size, he + well_shift[hw]), relax_lave, 
+					 &eigen_global(chem_size, ee + well_shift[ew]), relax_size)
+		    //
+		    * well(ew).escape_rate(ee) * well(ew).boltzman_sqrt(ee);
+
+		  vtemp[ee] = dtemp;
+		  
+		  if(!ee || std::fabs(dtemp) > std::fabs(nfac))
+		    //
+		    nfac = dtemp;
+		}
+		
+		vtemp /= nfac;
+		
+		// output
+		//
+		ped_out << std::setw(13) << "E, kcal/mol" << std::setw(13) << "PED, a.u." << "\n";
+
+		for(int ee = 0; ee < well(ew).size(); ++ee) {
+		  //
+		  dtemp = (energy_reference() - ee * energy_step()) / Phys_const::kcal;
+		  
+		  ped_out << std::setw(13) << dtemp << std::setw(13) << vtemp[ee] << "\n";
+		}
+
+		ped_out << "\n";
+	      }
+	    }
+	  }
+	}
+	//
+	// bimolecular-to-escape product energy distributions
+	//
 	ped_out << "Bimolecular-to-escape product energy distributions:\n";
 
 	// dimensions
+	//
 	itemp = 0;
+	
 	for(int count = 0; count < Model::escape_size(); ++count) {
+	  //
 	  const int w = Model::escape_well_index(count);
+	  
 	  if(well(w).size() > itemp)
+	    //
 	    itemp = well(w).size();
 	}
+	
 	ener_index_max = itemp;
 
 	itemp = 0;
@@ -4431,7 +4504,6 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
 	mtemp.resize(ener_index_max, itemp);
 
-	// distribution
 	for(int e = 0; e < ener_index_max; ++e) {
 	  itemp = 0;
 	  for(int p = 0; p < Model::bimolecular_size(); ++p)
