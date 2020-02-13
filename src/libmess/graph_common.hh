@@ -23,6 +23,10 @@
 
 namespace Graph {
 
+  // potential expansion type
+  //
+  typedef std::map<std::multiset<int>, double> potex_t;
+  
   // maximal number of bonds in the graph
   //
   extern int  bond_max;

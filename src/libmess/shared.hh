@@ -51,6 +51,13 @@ public:
   operator bool  () const { if(_pnt) return  true; return false; }
   bool operator! () const { if(_pnt) return false; return true;  }
 
+  bool operator== (SharedPointer<T> p) const { return _pnt == p._pnt; }
+  bool operator!= (SharedPointer<T> p) const { return _pnt != p._pnt; }
+  bool operator<  (SharedPointer<T> p) const { return _pnt <  p._pnt; }
+  bool operator>  (SharedPointer<T> p) const { return _pnt >  p._pnt; }
+  bool operator<= (SharedPointer<T> p) const { return _pnt <= p._pnt; }
+  bool operator>= (SharedPointer<T> p) const { return _pnt >= p._pnt; }
+  
   int count () const { if(_count) return *_count; return 0; }
 
   friend class ConstSharedPointer<T>;
@@ -159,6 +166,13 @@ public:
   operator  bool () const { if(_pnt) return  true; return false; }
   bool operator! () const { if(_pnt) return false; return true;  }
 
+  bool operator== (ConstSharedPointer<T> p) const { return _pnt == p._pnt; }
+  bool operator!= (ConstSharedPointer<T> p) const { return _pnt != p._pnt; }
+  bool operator<  (ConstSharedPointer<T> p) const { return _pnt <  p._pnt; }
+  bool operator>  (ConstSharedPointer<T> p) const { return _pnt >  p._pnt; }
+  bool operator<= (ConstSharedPointer<T> p) const { return _pnt <= p._pnt; }
+  bool operator>= (ConstSharedPointer<T> p) const { return _pnt >= p._pnt; }
+  
   int count () const { if(_count) return *_count; return 0; }
 
   const T* operator-> () const ;

@@ -548,16 +548,12 @@ public:
   template <typename V> Array& operator=  (const V&);
   template <typename V> Array& operator+= (const V&) ;
   template <typename V> Array& operator-= (const V&) ;
-  template <typename V> Array& operator*= (const V&) ;
-  template <typename V> Array& operator/= (const V&) ;
 
   template <typename V> void add (const T&, const V&) ;
 
   Array& operator=  (const T*);
   Array& operator+= (const T*);
   Array& operator-= (const T*);
-  Array& operator*= (const T*);
-  Array& operator/= (const T*);
 
   Array& operator=  (const T&);
   Array& operator+= (const T&); 
@@ -853,122 +849,99 @@ Array<T>& Array<T>::operator- ()
 }
 
 template <typename T>
+//
 template <typename V>
+//
 Array<T>& Array<T>::operator= (const V& v)
 {
   const char funame [] = "Array<T>::operator=: ";
 
-  _size = v.size();
-
-  if(!v.size()) {
-    _end = _begin;
-    return *this;
+  if (size() != v.size()) {
+    //
+    std::cerr << funame << "sizes mismatch: " << size() << " vs. " << v.size() << "\n";
+    
+    throw Error::Range();
   }
-
-
-  if(v.size() > _capacity) {
-    _capacity = v.size();
-    if(_begin)
-      delete[] _begin;
-    _begin = new T[_size];
-  }
-
-  _end  = _begin + _size;
 
   typename V::const_iterator vit = v.begin();
+  
   for(T* it = begin(); it != end(); ++it, ++vit)
+    //
     *it = *vit;
 
   return *this;
 }
 
 template <typename T>
+//
 template <typename V>
+//
 Array<T>& Array<T>::operator+= (const V& v) 
 {
   const char funame [] = "Array<T>::operator+=: ";
 
   if (size() != v.size()) {
-    std::cerr << funame << "sizes mismatch\n";
+    //
+    std::cerr << funame << "sizes mismatch: " << size() << " vs. " << v.size() << "\n";
+    
     throw Error::Range();
   }
 
   typename V::const_iterator vit = v.begin();
+  
   for(T* it = begin(); it != end(); ++it, ++vit)
+    //
     *it += *vit;
-
+  
   return *this;
 }
 
 template <typename T>
+//
 template <typename V>
+//
 void Array<T>::add (const T& f, const V& v) 
 {
   const char funame [] = "Array<T>::add: ";
 
   if (size() != v.size()) {
-    std::cerr << funame << "sizes mismatch\n";
+    //
+    std::cerr << funame << "sizes mismatch: " << size() << " vs. " << v.size() << "\n";
+    
     throw Error::Range();
   }
 
   typename V::const_iterator vit = v.begin();
+  
   for(T* it = begin(); it != end(); ++it, ++vit)
+    //
     *it += *vit * f;
 }
 
 template <typename T>
+//
 template <typename V>
+//
 Array<T>& Array<T>::operator-= (const V& v) 
 {
   const char funame [] = "Array<T>::operator-=: ";
 
   if (size() != v.size()) {
-    std::cerr << funame << "sizes mismatch\n";
+    //
+    std::cerr << funame << "sizes mismatch: " << size() << " vs. " << v.size() << "\n";
+    
     throw Error::Range();
   }
 
   typename V::const_iterator vit = v.begin();
+  
   for(T* it = begin(); it != end(); ++it, ++vit)
+    //
     *it -= *vit;
 
   return *this;
 }
 
-template <typename T>
-template <typename V>
-Array<T>& Array<T>::operator*= (const V& v) 
-{
-  const char funame [] = "Array<T>::operator*=: ";
-
-  if (size() != v.size()) {
-    std::cerr << funame << "sizes mismatch\n";
-    throw Error::Range();
-  }
-
-  typename V::const_iterator vit = v.begin();
-  for(T* it = begin(); it != end(); ++it, ++vit)
-    *it *= *vit;
-
-  return *this;
-}
-
-template <typename T>
-template <typename V>
-Array<T>& Array<T>::operator/= (const V& v) 
-{
-  const char funame [] = "Array<T>::operator/=: ";
-
-  if (size() != v.size()) {
-    std::cerr << funame << "sizes mismatch\n";
-    throw Error::Range();
-  }
-
-  typename V::const_iterator vit = v.begin();
-  for(T* it = begin(); it != end(); ++it, ++vit)
-    *it /= *vit;
-
-  return *this;
-}
 
 template <typename T>
 Array<T>& Array<T>::operator= (const T* vit)
@@ -992,24 +965,6 @@ Array<T>& Array<T>::operator-= (const T* vit)
 {
   for (T* it = begin(); it != end(); ++it, ++vit)
       *it -= *vit;
-  
-  return *this;
-}
-
-template <typename T>
-Array<T>& Array<T>::operator*= (const T* vit)
-{
-  for (T* it = begin(); it != end(); ++it, ++vit)
-      *it *= *vit;
-  
-  return *this;
-}
-
-template <typename T>
-Array<T>& Array<T>::operator/= (const T* vit)
-{
-  for (T* it = begin(); it != end(); ++it, ++vit)
-      *it /= *vit;
   
   return *this;
 }

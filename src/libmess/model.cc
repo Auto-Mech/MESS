@@ -3230,37 +3230,52 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
 
   std::string token, line, comment;
   while(from >> token) {
+    //
     // hindered rotor geometry
+    //
     if(ang_geom_key == token || bor_geom_key == token) {
       //
       if(_atom.size()) {
 	//
-	IO::log << IO::log_offset << "WARNING: geometry was already defined. Redefining it\n";
+	IO::log << IO::log_offset << "WARNING: geometry has been changed\n";
 
 	_atom.clear();
       }
       
       if(ang_geom_key == token)
+	//
 	read_geometry(from, _atom, ANGSTROM);
+      
       if(bor_geom_key == token)
+	//
 	read_geometry(from, _atom, BOHR);
     }
     // Hamiltonian maximum size
+    //
     else if(hmax_key == token) {
+      //
       if(!(from >> _ham_size_max)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(_ham_size_max < 1) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+
 	throw Error::Range();
       }
+      
       if(!(_ham_size_max % 2))
+	//
 	++_ham_size_max;
     }
     // Hamiltonian minimum size
+    //
     else if(hmin_key == token) {
       if(!(from >> _ham_size_min)) {
 	std::cerr << funame << token << ": corrupted\n";
@@ -3388,13 +3403,20 @@ Model::RotorBase::RotorBase (IO::KeyBufferStream& from, const std::vector<Atom>&
 
   double dtemp;
 
-  // normal mode 
+  // normal mode
+  //
   std::vector<D3::Vector> nm = normal_mode(_atom);
-  // effective mass 
+  
+  // effective mass
+  //
   dtemp = 0.;
+  
   for(int a = 0; a < _atom.size(); ++a)
+    //
     dtemp += _atom[a].mass() * vdot(nm[a]);
+
   // rotational constant
+  //
   _rotational_constant = 0.5 / dtemp;
 
 }// 1D Rotor base
@@ -3556,79 +3578,123 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
   Key  use_quan_key("UseQuantumWeight"          );
 
   std::string token, line, comment;
-  //std::string token = IO::last_key, line, comment;
-  //IO::last_key.clear();
+  
   while(from >> token) {
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+
       break;
     }
     // potential on the grid
+    //
     else if(kcal_pot_key == token || incm_pot_key == token || kj_pot_key == token) {
+      //
       if(_pot_four.size()) {
+	//
 	std::cerr << funame << "potential fourier expansion has been already defined\n";
+
 	throw Error::Init();
       }
 
       // potential sampling size
+      //
       IO::LineInput size_input(from);
+      
       if(!(size_input >> itemp)) {
+	//
 	std::cerr << funame << token << ": potential sampling size unreadable\n";
+
 	throw Error::Input();
       }
+      
       if(itemp < 2) {
+	//
 	std::cerr << funame << token << ": potential sampling size = " << itemp << " too small\n";
+
 	throw Error::Range();
       }
 
       // potential sampling
+      //
       std::vector<double> pval(itemp);
+
       for(int i = 0; i < pval.size(); ++i) {
+	//
 	if(!(from >> dtemp)) {
+	  //
 	  std::cerr << funame << token << ": cannot read potential\n";
+
 	  throw Error::Input();
 	}
 
 	if(kcal_pot_key == token)
+	  //
 	  dtemp *= Phys_const::kcal;
+	
 	if(incm_pot_key == token)
+	  //
 	  dtemp *= Phys_const::incm;
+
 	if(kj_pot_key == token)
+	  //
 	  dtemp *= Phys_const::kjoul;
 
 	pval[i] = dtemp;
       }
+      
       std::getline(from, comment);
       
       // fourier transform
+      //
       itemp = pval.size() % 2 ? pval.size() : pval.size() + 1;
+      
       for(int i = 0; i < itemp; ++i)
+	//
 	for(int j = 0; j < pval.size(); ++j)
-	  if(i % 2)
+	  //
+	  if(i % 2) {
+	    //
 	    _pot_four[i] += pval[j] * std::sin(M_PI * double((i + 1)  * j) / double(pval.size()));
+	  }
 	  else
-	    _pot_four[i] += pval[j] * std::cos(M_PI * double(i        * j) / double(pval.size()));
+	    //
+	    _pot_four[i] += pval[j] * std::cos(M_PI * double(i * j) / double(pval.size()));
 
       // normalization
+      //
       for(int i = 0; i < _pot_four.size(); ++i)
-	if(!i || i == pval.size())
+	//
+	if(!i || i == pval.size()) {
+	  //
 	  _pot_four[i] /= double(pval.size());
+	}
 	else
+	  //
 	  _pot_four[i] /= double(pval.size()) / 2.;
 
       IO::log << IO::log_offset << "Fourier Expansion Coefficients(kcal/mol):\n";
+      
       for(int i = 0; i < _pot_four.size(); ++i)
+	//
 	IO::log << IO::log_offset << std::setw(3) << i << std::setw(15) <<  _pot_four[i] / Phys_const::kcal << "\n";
 
 #ifdef DEBUG
 
       IO::log << IO::log_offset << funame << "Hindered Rotor Potential:\n";
+      
       IO::log << IO::log_offset 
 	      << std::setw(18) << "Angle[degrees]" 
 	      << std::setw(18) << "Energy[kcal/mol]"
 	      << "\n";
+      
       for(int i = 0; i < pval.size(); ++i) {
+	//
 	dtemp = double(i) * 360. / double(pval.size() * symmetry());
+	
 	IO::log << IO::log_offset 
 		<< std::setw(18) << dtemp
 		<< std::setw(18) << potential(dtemp * M_PI / 180.) / Phys_const::kcal
@@ -3636,113 +3702,183 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       }
 
 #endif
+      
     }
     // potential fourier expansion
+    //
     else if(kcal_four_key == token || incm_four_key == token || kj_four_key == token) {
+      //
       if(_pot_four.size()) {
+	//
 	std::cerr << funame << "potential fourier expansion has been already defined\n";
+
 	throw Error::Init();
       }
+      
       // fourier expansion size
+      //
       IO::LineInput size_input(from);
+      
       int esize;
+      
       if(!(size_input >> esize)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       if(esize < 1) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+
 	throw Error::Range();
       }
+      
       // potential fourier expansion data
+      //
       for(int i = 0; i < esize; ++i) {
+	//
 	IO::LineInput data_input(from);
+	
 	if(!(data_input >> itemp)) {
+	  //
 	  std::cerr << funame << token << i << "-th index is unreadable\n";
+	  
 	  throw Error::Input();
 	}
+	
 	if(itemp < 0) {
+	  //
 	  std::cerr << funame << token << ": negative index\n";
+	  
 	  throw Error::Init();
 	}
+	
 	if(_pot_four.find(itemp) != _pot_four.end()) {
+	  //
 	  std::cerr << funame << token << ": identical indices\n";
+	  
 	  throw Error::Init();
 	}
+	
 	if(!(data_input >> dtemp)) {
+	  //
 	  std::cerr << funame << token << i << "-th fourier coeficient is unreadable\n";
+
 	  throw Error::Input();
 	}
 
 	if(kcal_four_key == token)
+	  //
 	  dtemp *= Phys_const::kcal;
+	
 	if(incm_four_key == token)
+	  //
 	  dtemp *= Phys_const::incm;
+	
 	if(kj_four_key == token)
+	  //
 	  dtemp *= Phys_const::kjoul;
 
 	_pot_four[itemp] = dtemp;
       }
     }
     // output temperature step
+    //
     else if(tstep_key == token) {
+      //
       if(!(from >> itemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(itemp <= 0) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
+      
       _weight_output_temperature_step = itemp;
     }
     // output temperature max
+    //
     else if(tmax_key == token) {
+      //
       if(!(from >> itemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(itemp <= 0) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+
 	throw Error::Range();
       }
+      
       _weight_output_temperature_max = itemp;
     }
     // output temperature min
+    //
     else if(tmin_key == token) {
+      //
       if(!(from >> itemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(itemp <= 0) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
+      
       _weight_output_temperature_min = itemp;
     }
     // use quantum weight
+    //
     else if(use_quan_key == token) {
+      //
       std::getline(from, comment);
+      
       _use_quantum_weight = true;
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
-  } //while(from >> token);
+    //
+  }// input cycle
 
   // stream state checking
+  //
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 }
@@ -3853,6 +3989,9 @@ void Model::HinderedRotor::_init ()
 	    << "WARNING: potential second derivative at the minimum is negative, assuming zero\n";
     freq_anal = 0.;
   }
+
+  _harm_ground = _pot_min + freq_anal / 2.;
+  
   IO::log << IO::log_offset << "effective rotational constant[1/cm]  = " 
 	  << rotational_constant() / Phys_const::incm << "\n";
   IO::log << IO::log_offset << "analytic  frequency at minimum[1/cm] = " 
@@ -4172,6 +4311,7 @@ int Model::HinderedRotor::get_semiclassical_weight (double temperature, double& 
 
   dtemp = _grid_step * std::sqrt(temperature / rotational_constant() / 4. / M_PI) 
     * std::exp(_ground / temperature);
+    //* std::exp(_harm_ground / temperature);
   cw *= dtemp;
   sw *= dtemp;
 
@@ -13847,10 +13987,15 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   Key   ev_ground_key("GroundEnergy[eV]"            );
   Key   au_ground_key("GroundEnergy[au]"            );
 
+  Key incm_elev_key("ElectronicLevels[1/cm]"          );
+  Key kcal_elev_key("ElectronicLevels[kcal/mol]"      );
+  Key   kj_elev_key("ElectronicLevels[kJ/mol]"        );
+  Key   ev_elev_key("ElectronicLevels[eV]"            );
+  Key   au_elev_key("ElectronicLevels[au]"            );
+
   bool isrefen = false;
 
   bool isground = false;
-  
   
   while(from >> token) {
     //
@@ -13901,6 +14046,70 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       std::getline(from, comment);
 
       _ists = true;
+    }
+    // electronic energy levels & degeneracies
+    //
+    else if(incm_elev_key == token || au_elev_key == token ||
+	    kcal_elev_key == token || kj_elev_key == token ||
+	    ev_elev_key == token) {
+      //
+      int num;
+      
+      if(!(from >> num)) {
+	std::cerr << funame << token << ": levels number unreadable\n";
+	throw Error::Input();
+      }
+
+      if(num < 1) {
+	std::cerr << funame << token << ": levels number should be positive\n";
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+
+      for(int l = 0; l < num; ++l) {
+	//
+	IO::LineInput level_input(from);
+	
+	if(!(level_input >> dtemp >> itemp)) {
+	  //
+	  std::cerr << funame << token << ": format: energy degeneracy(>=1)\n";
+
+	  throw Error::Input();
+	}
+
+	if(incm_elev_key == token)
+	  //
+	  dtemp *= Phys_const::incm;
+	
+	if(kcal_elev_key == token)
+	  //
+	  dtemp *= Phys_const::kcal;
+	
+	if(kj_elev_key == token)
+	  //
+	  dtemp *= Phys_const::kjoul;
+	
+	if(ev_elev_key == token)
+	  //
+	  dtemp *= Phys_const::ev;
+
+	if(_elevel.find(dtemp) != _elevel.end()) {
+	  //
+	  std::cerr << funame << token << ": identical energy levels\n";
+	  
+	  throw Error::Range();
+	}
+
+	if(itemp < 1) {
+	  //
+	  std::cerr << funame << token << ": degeneracy should be positive\n";
+	  
+	  throw Error::Range();
+	}
+
+	_elevel[dtemp] = itemp;
+      }
     }
     // non-fluxional modes frequencies
     //
@@ -14317,6 +14526,10 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
     throw Error::Init();
   }
+
+  if(!_elevel.size())
+    //
+    _elevel[0.] = 1;
 }
 
 double Model::MonteCarlo::states (double ener) const
@@ -14452,6 +14665,16 @@ double Model::MonteCarlo::weight_with_error (double temperature, double& werr) c
   //
   res /= _symm_fac;
 
+  // electronic energy levels contribution
+  //
+  dtemp = 0.;
+  
+  for(std::map<double, int>::const_iterator cit = _elevel.begin(); cit != _elevel.end(); ++cit)
+    //
+    dtemp += (double)cit->second * std::exp(-cit->first / temperature);
+
+  res *= dtemp;
+  
   // non-fluxional mode frequencies factor
   //
   if(_nohess)
@@ -15276,7 +15499,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
   
     // square root of fluxional modes masses 
     //
-    wfac /= Lapack::orthogonalize(basis, _fluxional.size() + 6);
+    wfac /= Lapack::orthogonalize(basis, 6 + _fluxional.size());
 
     // non-fluxional modes frequency factor
     //
@@ -15288,8 +15511,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 	//
 	for(int j = i; j < nm_size; ++j)
 	  //
-	  nm_fc(i, j) = fc(i + _fluxional.size(), j + _fluxional.size());
-
+	  nm_fc(i, j) = cart_fc * &basis(0, i + 6 + _fluxional.size()) * &basis(0, j + 6 + _fluxional.size());
 
       Lapack::Vector eval = nm_fc.eigenvalues();
 

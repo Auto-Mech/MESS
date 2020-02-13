@@ -20,13 +20,14 @@
 #include <cmath>
 #include <cstdlib>
 
-#ifndef DEBUG
+#ifdef OPENMP
 #include <omp.h>
 #endif
 
 #include "harding.hh"
 #include "key.hh"
 #include "io.hh"
+#include "units.hh"
 
 // interatomic distances counted as (0, 1), (0, 2), (1, 2), (0, 3), (1, 3), (2, 3), ....
 
@@ -75,46 +76,59 @@ void Harding::init (std::istream& from)
       // number of atoms
       //
       else if(token == atom_key) {
+	//
 	IO::LineInput iss(from);
     
 	if(!(iss >> _atom_size))
+	  //
 	  throw funame << token << ": corrupted";
 
 	if(_atom_size < 2)
-	  throw funame << token << ": out of range";
+	  //
+	  throw funame << token << ": out of range: " << _atom_size;
 
 	_dist_size = _atom_size * (_atom_size - 1) / 2;
       }
       // maximal polynomial order
       //
       else if(token == poly_key) {
+	//
 	IO::LineInput iss(from);
 
 	if(!(iss >> poly_order_max))
+	  //
 	  throw funame << token << ": corrupted";
 
 	if(poly_order_max <= 0)
-	  throw funame << token << ": out of range";
+	  //
+	  throw funame << token << ": out of range: " << poly_order_max;
       }
       // maximal term order
       //
       else if(token == term_key) {
+	//
 	IO::LineInput iss(from);
 
 	if(!(iss >> term_order_max))
+	  //
 	  throw funame << token << ": corrupted";
 
 	if(term_order_max <= 0)
-	  throw funame << token << ": out of range";
+	  //
+	  throw funame << token << ": out of range: " << term_order_max;
       }
       // bond expansion term
       //
       else if(token == bond_key) {
+	//
 	IO::LineInput iss(from);
 
 	std::vector<int> bd(3);
+	
 	for(int i = 0; i < 3; ++i)
+	  //
 	  if(!(iss >> bd[i]))
+	    //
 	    throw funame << token << ": corrupted";
 
 	bond_def.push_back(bd);
@@ -122,28 +136,41 @@ void Harding::init (std::istream& from)
       // symmetry group
       //
       else if(token == symm_key) {
+	//
 	IO::LineInput iss(from);
     
 	if(!_atom_size)
+	  //
 	  throw funame << token << ": number of atoms should be set first";
 
 	std::set<Permutation> atom_group;
-	try { 
+	
+	try {
+	  //
 	  while(1)
+	    //
 	    atom_group.insert(Permutation(Permutation::read_orbit(iss), _atom_size));
 	} 
 	catch(Exception::Eof) {}
 
 	atom_group = permutation_group(atom_group);
+	
 	for(std::set<Permutation>::const_iterator g = atom_group.begin(); g != atom_group.end(); ++g) {
-
+	  //
 	  std::vector<int> gg(_dist_size);
+	  
 	  for(int i2 = 1; i2 < _atom_size; ++i2)
+	    //
 	    for(int i1 = 0; i1 < i2; ++i1) {
+	      //
 	      int j1 = (*g)[i1];
+	      
 	      int j2 = (*g)[i2];
+	      
 	      if(j1 > j2)
+		//
 		std::swap(j1, j2);
+	      
 	      gg[i2 * (i2 - 1) / 2 + i1] = j2 * (j2 - 1) / 2 + j1;
 	    }
 
@@ -153,13 +180,15 @@ void Harding::init (std::istream& from)
       // expansion coefficients file
       //
       else if(token == coef_key) {
-
+	//
 	if(coef_file.size())
+	  //
 	  throw funame << token << ": already initialized";
 
 	IO::LineInput iss(from);
 
 	if(!(iss >> coef_file))
+	  //
 	  throw funame << token << ": corrupted";
       }
       // unknown keyword
@@ -432,7 +461,7 @@ double Harding::potential (const double* coord) const
 	  rr += dtemp * dtemp;
 	}
 	
-	dist[count] = std::sqrt(rr);
+	dist[count] = std::sqrt(rr) / Phys_const::angstrom;
       }
     }
 
@@ -450,7 +479,7 @@ double Harding::potential (const double* coord) const
       //
       res += poly_val[i] * coef[i];
     
-    return res;
+    return res * Phys_const::kcal;
   }
   catch(Exception::Base x) {
     //

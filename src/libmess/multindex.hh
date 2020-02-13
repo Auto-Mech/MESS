@@ -17,14 +17,164 @@
 #define MULTINDEX_HH
 
 #include "error.hh"
+#include "io.hh"
+
 #include <vector>
 #include <set>
 #include <iostream>
+#include <map>
+
+// symmetric tensor index
+//
+class SymIndex : private std::vector<int> {
+  //
+  int _range;
+    
+  void _isinit () const;
+
+  SymIndex ();
+
+public:
+
+  explicit SymIndex(int r) : _range(r) { _isinit(); }
+
+  void operator++ ();
+  void operator++ (int) { operator++(); }
+
+  int range () const { return _range; }
+
+  int size () const { return std::vector<int>::size(); }
+
+  int operator() (int i) const { return (*this)[i]; }
+
+  operator std::multiset<int> () const;
+
+  operator std::map<int, int> () const;
+};
+
+inline void SymIndex::_isinit () const
+{
+  const char funame [] = "Thermo::SymIndex::_isinit: ";
+    
+  if(_range <= 0) {
+    //
+    ErrOut err_out;
+
+    err_out << funame << "not initialized properly";
+  }
+}
+
+// generic fixed size multi-index 
+//
+class GenIndex : private std::vector<int> {
+  //
+  int _range;
+
+  bool _fin;
+    
+  void _isinit () const;
+
+  GenIndex ();
+
+public:
+
+  GenIndex(int s, int r) : std::vector<int>(s), _range(r), _fin(false) { _isinit(); }
+
+  void operator++ ();
+  
+  void operator++ (int) { operator++(); }
+
+  int range () const { return _range; }
+
+  int size () const { return std::vector<int>::size(); }
+
+  bool fin () const { return _fin; }
+
+  int operator() (int i) const { return (*this)[i]; }
+
+  operator std::multiset<int> () const;
+  //
+  operator std::map<int, int> () const;
+};
+
+inline void GenIndex::_isinit () const
+{
+  const char funame [] = "Thermo::GenIndex::_isinit: ";
+    
+  if(_range <= 0) {
+    //
+    ErrOut err_out;
+
+    err_out << funame << "not initialized properly";
+  }
+}
+
+//
+// numerical derivative generator
+//
+class NumDer {
+  //
+  // configurational space dimensionality
+  //
+  int _size;
+    
+  void _check ()  const;
+
+public:
+  //
+  // derivative signature
+  //
+  typedef std::map<int, int> der_t;
+
+  // configuration map
+  //
+  typedef std::map<std::vector<int>, int> cmap_t;
+
+  // function-on-the-grid data
+  //
+  typedef std::map<std::vector<int>, double> fdata_t;
+
+  NumDer () : _size(0) {}
+    
+  void resize (int s) { _size = s; _check(); }
+
+  explicit NumDer (int s) { resize(s); }
+
+  int size () const { return _size; }
+
+  // converts derivative signature to configuration map
+  //
+  cmap_t convert (const der_t& der) const;
+
+  // numerical derivative from the function-on-the-grid data
+  //
+  double operator() (const der_t& der, const fdata_t&  fdata, const std::vector<double>& step) const;
+
+  static int order (const der_t& der);
+
+private:
+
+  void _assert (const der_t&) const;
+};
+
+inline void NumDer::_check () const
+{
+  const char funame [] = "Thermo::NumDer::_check: ";
+
+  if(_size <= 0) {
+    //
+    ErrOut err_out;
+      
+    err_out << funame << "dimension out of range: " << _size;
+  }
+}
 
 /************************************************************************************************
  ************************************** MULTI-DIMENSIONAL INDEX *********************************
  ************************************************************************************************/
+
 // several groups of ordered indices of the same size
+//
 // index range: 0 <= index <= index_max
 
 class MultiIndex : private std::vector<int> {

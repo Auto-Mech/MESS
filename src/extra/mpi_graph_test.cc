@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include<mpi.h>
 
 #include<iostream>
@@ -69,9 +84,7 @@ int main (int argc, char* argv [])
 
   // potential expansion
   //
-  typedef std::map<std::multiset<int>, double> potex_t;
-  //
-  potex_t potex;
+  Graph::potex_t potex;
   
   // base name
   std::string base_name = argv[1];
@@ -272,21 +285,21 @@ int main (int argc, char* argv [])
     //
     else if(scut_key == token) {
       //
-      if(!(from >> dtemp)) {
+      if(!(from >> itemp)) {
 	//
 	ErrOut err_out;
 	
 	err_out << funame << token << ": corrupted";
       }
       
-      if(dtemp <= 1.) {
+      if(itemp < 2) {
 	//
 	ErrOut err_out;
 
-	err_out << funame << token << ": out of range: "<< dtemp;
+	err_out << funame << token << ": out of range: "<< itemp;
       }
       
-      Graph::FreqGraph::four_cut = dtemp;
+      Graph::FreqGraph::four_cut = itemp;
 
       std::getline(from, comment);
     }	
@@ -382,7 +395,7 @@ int main (int argc, char* argv [])
 
   itemp = 0;
   //
-  for(potex_t::const_iterator pit = potex.begin(); pit != potex.end(); ++pit)
+  for(Graph::potex_t::const_iterator pit = potex.begin(); pit != potex.end(); ++pit)
     //
     if(pit->first.size() > itemp)
       //

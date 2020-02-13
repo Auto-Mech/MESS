@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2017, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include<iostream>
 #include<fstream>
 #include<sstream>
@@ -58,7 +73,7 @@ int main (int argc, char* argv [])
 
   // molecular specification
   //
-  std::vector<Atom>  atom;
+  std::vector<Atom>  molecule;
   
   // base name
   //
@@ -172,18 +187,18 @@ int main (int argc, char* argv [])
 	err_out << funame << token << ": wrong number of atoms: " << itemp;
       }
 
-      atom.resize(itemp);
+      molecule.resize(itemp);
       //
-      for(int i = 0; i < atom.size(); ++i) {
+      for(int i = 0; i < molecule.size(); ++i) {
 	//
-	if(!(from >> atom[i])) {
+	if(!(from >> molecule[i])) {
 	  //
 	  ErrOut err_out;
 
 	  err_out << funame << token << ": cannot read " << i + 1 << "-th atom";
 	}
 
-	atom[i] *= Phys_const::angstrom;
+	molecule[i] *= Phys_const::angstrom;
       }
     }
     // potential
@@ -438,21 +453,21 @@ int main (int argc, char* argv [])
     //
     else if(scut_key == token) {
       //
-      if(!(from >> dtemp)) {
+      if(!(from >> itemp)) {
 	//
 	ErrOut err_out;
 
 	err_out << funame << token << ": corrupted";
       }
       
-      if(dtemp <= 1.) {
+      if(itemp < 2) {
 	//
 	ErrOut err_out;
 
-	err_out << funame << token << ": out of range: "<< dtemp;
+	err_out << funame << token << ": out of range: "<< itemp;
       }
       
-      Graph::FreqGraph::four_cut = dtemp;
+      Graph::FreqGraph::four_cut = itemp;
 
       std::getline(from, comment);
     }	
@@ -495,11 +510,11 @@ int main (int argc, char* argv [])
     err_out << funame << "temperature list not initialized";
   }
 
-  if(!atom.size()) {
+  if(!molecule.size()) {
     //
     ErrOut err_out;
 
-    err_out << funame << "species not initialized";
+    err_out << funame << "molecule not specified";
   }
 
   if(!pot) {
@@ -519,7 +534,7 @@ int main (int argc, char* argv [])
 
   // initialize thermochemical species
   //
-  Thermo::Species species(atom, pot);
+  Thermo::CSpec species(molecule, pot);
 
   for(int i = 0; i < temperature.size(); ++i) {
     //
