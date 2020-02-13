@@ -585,7 +585,7 @@ void Graph::Expansion::_global_work (const double temperature) const
 	  //
 	  potex_sign.insert(corrin[*it]);
 	      
-	_potex_t::const_iterator pexit = _potex.find(potex_sign);
+	potex_t::const_iterator pexit = _potex.find(potex_sign);
 	
 	if(pexit != _potex.end()) {
 	  //
@@ -843,7 +843,7 @@ void Graph::Expansion::_centroid_work (const double temperature) const
 	  //
 	  potex_sign.insert(corrin[*it]);
 	  
-	_potex_t::const_iterator pexit = _potex.find(potex_sign);
+	potex_t::const_iterator pexit = _potex.find(potex_sign);
 	
 	if(pexit != _potex.end()) {
 	  //
@@ -1209,7 +1209,7 @@ void Graph::Expansion::_centroid_work_with_constrain (const double temperature, 
 	  potex_sign.insert(corrin[*it]);
 	}
 	  
-	_potex_t::const_iterator pexit = _potex.find(potex_sign);
+	potex_t::const_iterator pexit = _potex.find(potex_sign);
 	
 	if(pexit != _potex.end()) {
 	  //
@@ -1578,7 +1578,7 @@ void Graph::Expansion::_centroid_work_with_constrain (const double temperature, 
 
 // perturbation graph theory initializer
 //
-void Graph::Expansion::init (const std::vector<double>& freq, const _potex_t& pex)
+void Graph::Expansion::init (const std::vector<double>& freq, const potex_t& pex)
 {
   const char funame [] = "Graph::Expansion::init: ";
 

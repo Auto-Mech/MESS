@@ -5035,55 +5035,84 @@ double MasterEquation::threshold_well_partition (const Lapack::Matrix& pop_chem,
   }
 
   // projection-ordered wells
+  //
   std::multimap<double, int> proj_well_map;
+  
   bimolecular_group.clear();
+  
   for(int w = 0; w < well_size; ++w) {
+    //
     proj_well_map.insert(std::make_pair(Group().insert(w).projection(pop_chem, weight), w));
+    
     bimolecular_group.insert(w);
   }
 
   // large projection wells map
+  //
   std::vector<int> well_map;
+  
   for(std::multimap<double, int>::const_reverse_iterator i = proj_well_map.rbegin(); i != proj_well_map.rend(); ++i) {
+    //
     if(i->first < well_projection_threshold && well_map.size() >= chem_size)
+      //
       break;
 
     dtemp = i->first;
+    
     well_map.push_back(i->second);
+    
     bimolecular_group.erase(i->second);
   }
 
   if(dtemp < well_projection_threshold)
+    //
     IO::log << IO::log_offset << funame << "WARNING: large well projection is smaller than the well projection threshold\n";
   
   double pmax = -1.;
+  
   for(PartitionGenerator pg(chem_size, well_map.size()); !pg.end(); ++pg) {
+    //
     // initialize new partition
+    //
     Partition p(pg, well_map);
 
     // partition projection
+    //
     dtemp = p.projection(pop_chem, weight);
 
     if(dtemp > pmax) {
+      //
       pmax = dtemp;
+      
       well_partition = p;
     }
   }
 
   while(bimolecular_group.size()) {
+    //
     int smax, wmax;
+    
     pmax = -1.;
-    for(Git w = bimolecular_group.begin(); w !=bimolecular_group.end(); ++w) 
+    
+    for(Git w = bimolecular_group.begin(); w !=bimolecular_group.end(); ++w) {
+      //
       for(int s = 0; s < chem_size; ++s) {
-	dtemp = Group(well_partition[s]).insert(*w).projection(pop_chem, weight) 
-	  -  well_partition[s].projection(pop_chem, weight);
+	//
+	dtemp = Group(well_partition[s]).insert(*w).projection(pop_chem, weight)
+	  //
+	  - well_partition[s].projection(pop_chem, weight);
+	
 	if(dtemp > pmax) {
+	  //
 	  pmax = dtemp;
+	  
 	  smax = s;
+	  
 	  wmax = *w;
 	}
       }
-
+    }
+    
     if(pmax < 0.)
       break;
 

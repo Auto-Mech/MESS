@@ -140,7 +140,7 @@ std::map<int, double> Graph::Expansion::correction (double temperature) const
 	  potex_sign.insert(corrin[*it]);
 	}
 	
-	_potex_t::const_iterator pexit = _potex.find(potex_sign);
+	potex_t::const_iterator pexit = _potex.find(potex_sign);
 	
 	if(pexit != _potex.end()) {
 	  //
@@ -855,7 +855,7 @@ std::map<int, double> Graph::Expansion::centroid_correction (double temperature)
 	    //
 	  potex_sign.insert(corrin[*it]);
 
-	_potex_t::const_iterator pexit = _potex.find(potex_sign);
+	potex_t::const_iterator pexit = _potex.find(potex_sign);
 	
 	if(pexit != _potex.end()) {
 	  //
@@ -1741,7 +1741,7 @@ std::map<int, double> Graph::Expansion::centroid_correction (const std::map<std:
 	  potex_sign.insert(corrin[*it]);
 	}
 	      
-	_potex_t::const_iterator pexit = _potex.find(potex_sign);
+	potex_t::const_iterator pexit = _potex.find(potex_sign);
 	
 	if(pexit != _potex.end()) {
 	  //
@@ -2588,7 +2588,7 @@ std::map<int, double> Graph::Expansion::centroid_correction (const std::map<std:
   return res;
 }
 
-void Graph::Expansion::init (const std::vector<double>& freq, const _potex_t& pex)
+void Graph::Expansion::init (const std::vector<double>& freq, const potex_t& pex)
 {
   const char funame [] = "Graph::Expansion::init: ";
 

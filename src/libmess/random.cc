@@ -38,32 +38,23 @@ double Random::flat ()
     return drand48 ();
 }
 
+// normal distribution RNG
+//
 double Random::norm ()
-{// normal distribution RNG
+{
+  double dtemp;
 
-  static bool first = true;
-  static double x1, x2;
-  double r;
-  if (first)
-    {
-      first = false;
-      do
-	{
-	  x1 = 2.0 * Random::flat() - 1.0;
-	  x2 = 2.0 * Random::flat() - 1.0;
-	  r = x1 * x1 + x2 * x2;
-	}
-      while (r > 1.0);
-      r = std::sqrt(-2.0 * std::log(r)/r);
-      x1 *= r;
-      x2 *= r;
-      return x1;
-    }
-  else
-    {
-      first = true;
-      return x2;
-    }
+  dtemp = Random::flat();
+
+  if(dtemp == 0.)
+    //
+    return 100.;
+
+  if(dtemp == 1.)
+    //
+    return 0.;
+  
+  return std::sqrt(-2. * std::log(dtemp)) * std::cos(2. * M_PI * Random::flat());
 }
 
 double Random::exp ()

@@ -1,3 +1,18 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include <fstream>
 
 #include "lr.hh"
@@ -41,13 +56,13 @@ class FreeEnergy: public Math::GradientSearch { // S - E/T, E = exp(x)
 public:
   double beta;  // T^-1
 
-  double operator() (double, int) const throw(Error::General);
+  double operator() (double, int) const ;
 
   FreeEnergy (const Slatec::Spline& e, double temperature, double tol) 
     : Math::GradientSearch(tol), _entropy(e), beta(1./temperature) {}
 };
 
-double FreeEnergy::operator() (double x, int n) const throw(Error::General)
+double FreeEnergy::operator() (double x, int n) const 
 {
   return _entropy(x, n) - beta * std::exp(x);
 }

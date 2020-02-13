@@ -70,9 +70,7 @@ namespace Graph {
 
     // potential expansion
     //
-    typedef std::map<std::multiset<int>, double> _potex_t;
-    //
-    _potex_t  _potex;
+    potex_t  _potex;
 
     // reduced frequencies
     //
@@ -102,11 +100,11 @@ namespace Graph {
       STAT_TAG
     };
     
-    void init (const std::vector<double>& freq, const _potex_t& potex);
+    void init (const std::vector<double>& freq, const potex_t& potex);
 
     Expansion () {}
 
-    Expansion (const std::vector<double>& freq, const _potex_t& potex) { init(freq, potex); }
+    Expansion (const std::vector<double>& freq, const potex_t& potex) { init(freq, potex); }
 
     void correction (int                                         mode = GLOBAL, 
 		     double                                      temperature = -1., 

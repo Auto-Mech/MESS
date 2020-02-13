@@ -345,6 +345,7 @@ namespace Model {
     double                _pot_min; // global potential energy minimum
     double               _freq_max; // maximum frequency
     double               _freq_min; // minimum frequency
+    double            _harm_ground; // ground energy in harmonic approximation
     
     int _weight_output_temperature_step; // temperature step for statistical weight output
     int _weight_output_temperature_max;  // temperature maximum for statistical weight output
@@ -741,6 +742,7 @@ namespace Model {
     Species ();
 
   protected:
+    //
     double _ground;
     double _mass;
     double _print_min, _print_max, _print_step;
@@ -885,6 +887,10 @@ namespace Model {
     //
     double _symm_fac;
 
+    // electronic energy levels
+    //
+    std::map<double, int> _elevel;
+    
     // no quantum correction factor
     //
     bool _noqf;
