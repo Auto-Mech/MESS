@@ -4942,27 +4942,50 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	    << std::setw(13) << "E, kcal/mol";
     
     for(int w = 0; w < chem_size; ++w)
+      //
       IO::log << std::setw(13) << Model::well(group_index[w]).name();
+
     for(int p = 0; p < Model::bimolecular_size(); ++p)
+      //
       IO::log << std::setw(13) << Model::bimolecular(p).name();
+
+    for(int e = 0; e < Model::escape_size(); ++e) {
+      //
+      stemp = Model::well(Model::escape_well_index(e)).name() + "(e)";
+
+      IO::log << std::setw(13) << stemp;
+    }
     IO::log << "\n";
     
     std::map<int, std::vector<int> >::const_iterator hit;
+    
     int count = 0;
+    
     for(hit = hot_index.begin(); hit != hot_index.end(); ++hit)
+      //
       for(int i = 0; i < hit->second.size(); ++i, ++count) {
+	//
 	dtemp = (energy_reference() - (double)hit->second[i] * energy_step()) / Phys_const::kcal;
+
 	IO::log << IO::log_offset
 		<< std::setw(5)  << Model::well(hit->first).name()
 		<< std::setw(13) << dtemp;
 	
 	for(int w = 0; w < chem_size; ++w)
-	  IO::log << std::setw(13) <<  vdot(m_direct.row(w), &eigen_hot(0, count))
-	    * std::sqrt(weight[w]);
+	  //
+	  IO::log << std::setw(13)
+		  <<  vdot(m_direct.row(w), &eigen_hot(0, count)) * std::sqrt(weight[w]);
+	
 	for(int p = 0; p < Model::bimolecular_size(); ++p)
+	  //
 	  IO::log << std::setw(13) 
-		  << triple_product(&eigen_bim(chem_size, p), &eigen_hot(chem_size, count), 
-				    relax_lave, relax_size);    
+		  << triple_product(&eigen_bim(chem_size, p), &eigen_hot(chem_size, count), relax_lave, relax_size);
+	
+	for(int e = 0; e < Model::escape_size(); ++e)
+	  //
+	  IO::log << std::setw(13)
+		  << triple_product(&eigen_escape(chem_size, e), &eigen_hot(chem_size, count), relax_lave, relax_size);
+	
 	IO::log << "\n";
       }
   }
