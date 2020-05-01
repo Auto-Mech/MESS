@@ -1,7 +1,7 @@
 # cmd: conda build . -c auto-mech
 package:
     name: mess
-    version: "0.2.0"
+    version: "1.0.0"
 
 source:
     path: .
