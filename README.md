@@ -18,13 +18,13 @@ MPACK <https://github.com/Auto-Mech/MPACK>
 
 The most direct way to install the code is through the conda package manager.
 If you have conda installed,  
-(1) activate an environment you wish to use to install MESS, and  
+(1) activate an environment in you wish to use to install MESS, and  
 (2) run the install command:
 ```
 conda install -c auto-mech mess
 ```
 
-If you do not have a preferred Conda environment set up, an empty environment with no packages can be created and activate with the following commands
+If you do not have a preferred Conda environment set up, an empty environment with no packages can be created and activated with the following commands
 ```
 conda create --name myenv
 conda activate myenv
@@ -65,7 +65,7 @@ Note that the above command does not **permanently** alter your PATH, it only af
 
 This is not the advised way to install, since the user will have to deal with their specific system setup.
 
-SLATEC and MPACK can be downloaded from their respective GitHub sites, and then installed in a location that your system can find them. 
+Download SLATEC and MPACK from their respective GitHub sites, and then install them in a location that your system can find them. 
 
 With SLATEC and MPACK installed, run build.sh, which uses cmake to compile MESS.
 ```
