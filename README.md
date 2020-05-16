@@ -65,7 +65,7 @@ Note that the above command does not **permanently** alter your PATH, it only af
 
 This is not the advised way to install, since the user will have to deal with their specific system setup.
 
-Download SLATEC and MPACK from their respective GitHub sites, and then install them in a location that your system can find them. 
+Download SLATEC and MPACK from GitHub, and install them in a location that your system can find them. 
 
 With SLATEC and MPACK installed, run build.sh, which uses cmake to compile MESS.
 ```
