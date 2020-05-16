@@ -5,6 +5,15 @@ Master Equation System Solver
 The primary purpose of the program is to calculate temperature and pressure dependent
 rate coefficients for complex-forming reactions via solution of the one-dimensional master equation. Ancillary calculations of various quantities (e.g., stabilization probabilities for microcanonical initial distributions, microcanonical rate constants, partition functions, and related thermochemical information, time dependent propagation of species populations, etc.) are also available. 
 
+### Requirements ###
+
+To build MESS, the following libraries are required:  
+BLAS  
+LAPACK  
+SLATEC <https://github.com/Auto-Mech/SLATEC>  
+MPACK <https://github.com/Auto-Mech/MPACK>  
+
+
 ### Installation using Conda
 
 The most direct way to install the code is through the conda package manager.
@@ -38,22 +47,14 @@ To put the MESS executables in your path, you can then run
 
 This is not the advised way to install, since the user will have to deal with their specific system setup.
 
-To build MESS, the following libraries are required:
-
-BLAS  
-LAPACK  
-SLATEC   
-MPACK
-
-SLATEC and MPACK can be downloaded from their respective GitHub sites:  
-SLATEC: <https://github.com/Auto-Mech/SLATEC>  
-MPACK: <https://github.com/Auto-Mech/MPACK>  
-These libraries should then be installed in a location that your system can find them. 
+SLATEC and MPACK can be downloaded from their respective GitHub sites, and then installed in a location that your system can find them. 
 
 With SLATEC and MPACK installed, run build.sh, which uses cmake to compile MESS.
 ```
 bash build.sh
 ```
+
+Note that the results of the `make install` command in build.sh will depend on your system setup.
 
 ## Reference
 
