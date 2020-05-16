@@ -40,19 +40,17 @@ This is not the advised way to install, since the user will have to deal with th
 
 To build MESS, the following libraries are required:
 
-BLAS
-LAPACK
-SLATEC 
+BLAS  
+LAPACK  
+SLATEC   
 MPACK
 
-SLATEC and MPACK can be downloaded from their respective GitHub sites
+SLATEC and MPACK can be downloaded from their respective GitHub sites:  
+SLATEC: <https://github.com/Auto-Mech/SLATEC>  
+MPACK: <https://github.com/Auto-Mech/MPACK>  
+and then nstalled individually in a location that your system can find them. 
 
-SLATEC: <https://github.com/Auto-Mech/SLATEC>
-MPACK: <https://github.com/Auto-Mech/MPACK>
-
-and installed individually in a location that your system can find them. 
-
-With SLATEC and MPACK installed, can run build.sh, which uses cmake to compile MESS
+With SLATEC and MPACK installed, run build.sh, which uses cmake to compile MESS
 ```
 bash build.sh
 ```
