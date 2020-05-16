@@ -11,19 +11,35 @@ To build MESS, the following libraries are required:
 BLAS  
 LAPACK  
 SLATEC <https://github.com/Auto-Mech/SLATEC>  
-MPACK <https://github.com/Auto-Mech/MPACK>  
+MPACK <https://github.com/Auto-Mech/MPACK>
 
 
-### Installation using Conda
+### Direct Installation using Conda
 
 The most direct way to install the code is through the conda package manager.
-If you have conda installed, simply run the following command in whichever
-environment you choose:
+If you have conda installed,  
+(1) activate an environment in you wish to use to install MESS, and  
+(2) run the install command:
 ```
 conda install -c auto-mech mess
 ```
-If you do not have conda, it can be installed using the shell script
+
+If you do not have a preferred Conda environment set up, an empty environment with no packages can be created and activated with the following commands
+```
+conda create --name myenv
+conda activate myenv
+```
+where `myenv` should be replaced with your preferred name for the environment.
+
+Alternatively, we also recommend building our own pre-set Auto-Mech environment, which includes MESS and all its dependencies. This environment can be created and activated with the commands:
+```
+conda env create auto-mech/amech-env
+conda activate amech-env
+```
+
+If you do not have Conda, it can be installed using the shell script
 `debug/install-conda.sh`.
+
 
 ### Building from source using Conda environment for dependencies
 
@@ -38,16 +54,18 @@ You can then activate the environment and build the code as follows:
 conda activate mess-env
 bash debug/build.sh
 ```
-To put the MESS executables in your path, you can then run
+To put the MESS executables in your PATH, you can then run
 ```
 . debug/fake-install.sh
 ```
+Note that the above command does not **permanently** alter your PATH, it only affects PATH for the current login session.
+
 
 ### Building from source without Conda
 
 This is not the advised way to install, since the user will have to deal with their specific system setup.
 
-SLATEC and MPACK can be downloaded from their respective GitHub sites, and then installed in a location that your system can find them. 
+Download SLATEC and MPACK from GitHub, and install them in a location that your system can find them. 
 
 With SLATEC and MPACK installed, run build.sh, which uses cmake to compile MESS.
 ```
