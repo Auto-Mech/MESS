@@ -36,7 +36,7 @@ To put the MESS executables in your path, you can then run
 
 ### Building from source without Conda
 
-This is not the advised way to install, since the user will have to deal with their specific system set-up
+This is not the advised way to install, since the user will have to deal with their specific system setup.
 
 To build MESS, the following libraries are required:
 
@@ -48,9 +48,9 @@ MPACK
 SLATEC and MPACK can be downloaded from their respective GitHub sites:  
 SLATEC: <https://github.com/Auto-Mech/SLATEC>  
 MPACK: <https://github.com/Auto-Mech/MPACK>  
-and then nstalled individually in a location that your system can find them. 
+These libraries should then be installed in a location that your system can find them. 
 
-With SLATEC and MPACK installed, run build.sh, which uses cmake to compile MESS
+With SLATEC and MPACK installed, run build.sh, which uses cmake to compile MESS.
 ```
 bash build.sh
 ```
