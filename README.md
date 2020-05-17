@@ -37,6 +37,12 @@ conda env create auto-mech/amech-env
 conda activate amech-env
 ```
 
+If your Conda commands are not functioning, you may need to iniliatize Conda via the command
+```
+. /path/to/conda.sh
+```
+which places Conda executables in your PATH. The specific location of conda.sh depends on the Conda install.
+
 If you do not have Conda, it can be installed using the shell script
 `debug/install-conda.sh`.
 
