@@ -1,12 +1,27 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include<iostream>
 #include<fstream>
 #include<sstream>
 #include<cmath>
 
-#include "libmess/model.hh"
-#include "libmess/key.hh"
-#include "libmess/units.hh"
-#include "libmess/io.hh"
+#include "model.hh"
+#include "key.hh"
+#include "units.hh"
+#include "io.hh"
 
 int main (int argc, char* argv [])
 {
@@ -180,7 +195,7 @@ int main (int argc, char* argv [])
   const double volume_unit = Phys_const::cm * Phys_const::cm * Phys_const::cm;
 
   //  IO::out << "Partition function (relative to the ground,1/cm^3):\n"
-  IO::out << "Partition function (log) and its derivatives:\n"
+  IO::out << "Natural log of the partition function and its derivatives:\n"
 	  << std::left << std::setw(5) << "T, K" << std::right;
   for(int s = 0; s < species.size(); ++s)
     IO::out << std::setw(13) << species[s]->name() << std::setw(26);

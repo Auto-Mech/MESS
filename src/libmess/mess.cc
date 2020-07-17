@@ -48,41 +48,71 @@ namespace MasterEquation {
   /********************************* USER DEFINED PARAMETERS ********************************/
 
   // temperature
+  //
   double                                                     _temperature     = -1.;
+
   // pressure
+  //
   double                                                     _pressure        = -1.;
+
   // energy grid step
+  //
   double                                                     _energy_step     = -1.;
+  
   // zero energy (also upper limit)
+  //
   double                                                     _energy_reference;
-  // well depth cutoff parameter 
+  
+  // well depth cutoff parameter
+  //
   double                                                     well_cutoff       = -1.;
+  
   // highest chemecial eigenvalue
+  //
   double                                                     chemical_threshold     = 0.;
+  
   // smallest chemical eigenvalue
+  //
   double                                                     min_chem_eval     = 1.e-7;
+  
   // maximal chemical relaxation eigenvalue to collision frequency ratio
+  //
   double                                                     reduction_threshold    = 0.;
+  
   // species reduction algorithm for low-eigenvalue method
+  //
   int                                                        reduction_method  = DIAGONALIZATION;
+  
   // default reduction scheme
+  //
   Partition                                                  default_partition;
+  
   // default chemical subspace size
+  //
   int                                                        _default_chem_size = -1;
+
   // microcanonical rate maximum
+  //
   double                                                     rate_max          = -1.;
+  
   // global energy cutoff
+  //
   double                                                     global_cutoff;
+  
   bool                                                       is_global_cutoff = false;
+  
   void set_global_cutoff (double e) { global_cutoff = e; is_global_cutoff = true; }
 
   // pressure units
+  //
   int                                                        pressure_unit = BAR;
 
   // well partition method
+  //
   double (*well_partition_method) (const Lapack::Matrix&, Partition&, Group&, const std::vector<double>&) = threshold_well_partition;
 
   // well partition threshold
+  //
   double                                                     well_projection_threshold = 0.2;
 
   /********************************* INTERNAL PARAMETERS ************************************/
@@ -3405,8 +3435,11 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   }
 
   IO::Marker funame_marker(funame);
-  
+
+  // pressure output
+  //
   IO::log << IO::log_offset << "Pressure = ";
+  
   switch(pressure_unit) {
   case BAR:
     IO::log << pressure() / Phys_const::bar << " bar";
@@ -3418,11 +3451,25 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     IO::log << pressure() / Phys_const::atm << " atm";
     break;
   }
+
+  // temperature output
+  //
   IO::log << "\t Temperature = "
 	  << temperature() / Phys_const::kelv << " K\n";
-  //<< IO::log_offset << "collision frequency = " 
-  //<< MasterEquation::collision_frequency() / Phys_const::herz
-  //<< " 1/sec\n";
+
+  // collisional frequency output
+  //
+  IO::log << IO::log_offset
+	  << std::setw(10) << "Well"
+	  << std::setw(20) << "Collision, 1/sec"
+	  << "\n";
+  
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::log << IO::log_offset
+	    << std::setw(10) << Model::well(w).name()
+	    << std::setw(20) << well(w).collision_frequency() / Phys_const::herz
+	    << "\n";
 
   if(evec_out.is_open()) {
     evec_out << "Pressure = ";
@@ -4047,7 +4094,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   IO::log << IO::log_offset << std::setw(5) << "*R" 
 	  << " - eigenvalue over the relaxation limit\n"
 	  << IO::log_offset << std::setw(5) << "*P" 
-	  << " - eigenvector projection squared on the relaxation subspace\n"
+	  << " - eigenvector projection squared on the relaxation subspace (= 1 -F_ne)\n"
 	  << IO::log_offset << "eigenvector projections:\n"
 	  << IO::log_offset 
 	  << std::setw(5)  << "L"
@@ -4079,7 +4126,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   IO::log << IO::log_offset << std::setw(5) << "*Q" 
 	  << " - eigenvalue over the collision frequency in first well\n"
 	  << IO::log_offset << std::setw(5) << "*P" 
-	  << " - eigenvector projection squared on the relaxation subspace\n"
+	  << " - eigenvector projection squared on the relaxation subspace (= 1 - F_ne)\n"
 	  << IO::log_offset << std::setw(5) << "*Z" 
 	  << " - well partition function square root\n"
 	  << std::setprecision(6);
@@ -4215,6 +4262,72 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     //
     IO::log << IO::log_offset << "dimension of the chemical subspace = " << chem_size << "\n";
 
+  // prompt isomerization
+  //
+  
+  // check real versus effective weights
+  //
+  /*
+  IO::log << IO::log_offset << "effective weight / real weight:";
+
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::log << "   " << well(w).weight() * energy_step() / well(w).real_weight();
+
+  IO::log << "\n";
+
+  IO::log << IO::log_offset << "energy step = " << energy_step() << "\n";
+
+  */
+  
+  IO::log << IO::log_offset << "prompt isomerization/dissociation:\n";
+
+  IO::log << IO::log_offset << std::setw(7) << "W\\W";
+
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::log << std::setw(13) << Model::well(w).name();
+
+  IO::log << std::setw(13) << "Dissociation" << "\n";
+
+  for(int w = 0; w < Model::well_size(); ++w) {
+    //
+    IO::log << IO::log_offset << std::setw(7) << Model::well(w).name();
+
+    double diss = 1.;
+    
+    for(int v = 0; v < Model::well_size(); ++v) {
+      //
+      dtemp = 0.;
+
+      for(int l = 0; l < Model::well_size(); ++l)
+	//
+	dtemp += eigen_pop(l, w) * eigen_pop(l, v);
+
+      // renormalization
+      //
+      if(v == w)
+	//
+	dtemp = 1. - dtemp;
+      
+      dtemp *= well(v).weight_sqrt() * well(w).weight_sqrt() * energy_step() / well(w).real_weight();
+
+      if(v == w)
+	//
+	dtemp = 1. - dtemp;
+      
+      //dtemp *= well(v).weight_sqrt() / well(w).weight_sqrt();
+
+      diss -= dtemp;
+
+      IO::log << std::setw(13) << dtemp;
+    }
+
+    IO::log << std::setw(13) << diss << "\n";
+  }
+
+  IO::log << "\n";
+  
   /***** PARTITIONING THE GLOBAL PHASE SPACE INTO THE CHEMICAL AND COLLISIONAL SUBSPACES *****/
 
   // collisional relaxation eigenvalues and eigenvectors

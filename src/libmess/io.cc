@@ -33,6 +33,8 @@ namespace IO {
   LogOut log;
   LogOut out;
 
+  std::ofstream null("/dev/null");
+
   Offset log_offset(3);
 
   log_t _loglevel = NOTICE;
@@ -229,11 +231,20 @@ IO::Marker::Marker(const char* h, int f, std::ostream* out)
     //
     return;
 
-  if(out)
+  if(out) {
+    //
     _to = out;
-  else if(log.is_open())
+  }
+  else if(_flags & NOPRINT) {
+    //
+    _to = &null;
+  }
+  else if(log.is_open()) {
+    //
     _to = &log;
+  }
   else
+    //
     _to = &std::cout;
 
   *_to << log_offset << _header;
