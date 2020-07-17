@@ -31,6 +31,7 @@
 #include "key.hh"
 #include "io.hh"
 #include "slatec.h"
+#include "random.hh"
 
 // sparse matrix eigenvalue solver
 //#include "feast.h"
@@ -2996,12 +2997,20 @@ double Model::QuarticTunnel::action (double ener, int der) const
  ******************************** INTERNAL ROTATION DEFINITION ******************************
  ********************************************************************************************/
 
-Model::InternalRotationBase::InternalRotationBase (IO::KeyBufferStream& from) 
-  : _axis(-1, -1), _symmetry(1), _isinit(true)
+void Model::InternalRotationBase::init (IO::KeyBufferStream& from) 
 {
-  const char funame [] = "Model::InternalRotationBase::InternalRotationBase: ";
+  const char funame [] = "Model::InternalRotationBase::init: ";
 
-  KeyGroup InternalRotationBaseDefinition;
+  if(_isinit) {
+    //
+    std::cerr << funame << "already initialized\n";
+
+    throw Error::Init();
+  }
+
+  _isinit = true;
+			   
+  KeyGroup InternalRotationBaseInit;
 
   Key group_key("Group"   );
   Key  axis_key("Axis"    );  
@@ -3044,6 +3053,7 @@ Model::InternalRotationBase::InternalRotationBase (IO::KeyBufferStream& from)
       }
     }
     // internal rotation axis definition
+    //
     else if(axis_key == token) {
       if(_axis.first >= 0) {
 	std::cerr << funame << token << ": already defined\n";
@@ -3077,6 +3087,7 @@ Model::InternalRotationBase::InternalRotationBase (IO::KeyBufferStream& from)
     }
     // symmetry
     else if(symm_key == token) {
+      //
       if(!(from >> _symmetry)) {
 	std::cerr << funame << token << ": corrupted\n";
 	throw Error::Input();
@@ -3088,6 +3099,7 @@ Model::InternalRotationBase::InternalRotationBase (IO::KeyBufferStream& from)
     }
     // unknown key
     else if(IO::skip_comment(token, from)) {
+      //
       from.put_back(token);
       //IO::last_key = token;
       break;
@@ -3117,6 +3129,7 @@ Model::InternalRotationBase::InternalRotationBase (IO::KeyBufferStream& from)
   }
 
   // maximal atomic index
+  //
   _imax = *_group.rbegin();
   _imax = _axis.first  > _imax ? _axis.first  : _imax;
   _imax = _axis.second > _imax ? _axis.second : _imax;
@@ -3211,7 +3224,7 @@ std::vector<D3::Vector> Model::InternalRotationBase::normal_mode
 Model::Rotor::Rotor () :_ham_size_min(99), _ham_size_max(999), _grid_size(1000), _therm_pow_max(10.) {}
 
 Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
-  :_ham_size_min(99), _ham_size_max(999), _grid_size(1000), _therm_pow_max(10.), _atom(atom)
+  :_ham_size_min(99), _ham_size_max(999), _grid_size(1000), _therm_pow_max(50.), _atom(atom)
 {
   const char funame [] = "Model::Rotor::Rotor: ";
 
@@ -3371,12 +3384,12 @@ void Model::Rotor::convolute(Array<double>& stat_grid, double ener_quant) const
       
       shift[itemp]++;
     }
-    else {
+    //    else {
       //
-      IO::log << IO::log_offset << funame << "WARNING: "
-	      << n << "-th energy level is too high: "
-	      << energy_level(n) / Phys_const::kcal << " kcal/mol\n";
-    }
+    //      IO::log << IO::log_offset << funame << "WARNING: "
+    //	      << n << "-th energy level is too high: "
+    //	      << energy_level(n) / Phys_const::kcal << " kcal/mol\n";
+    //    }
   }
 
 #pragma omp parallel for default(shared) schedule(static, 10)
@@ -3528,28 +3541,913 @@ void  Model::FreeRotor::set (double ener_max)
   return;
 }
 
+/*********************************************************************************************
+ ******************* HINDERED ROTOR BUNDLE WITH ADIABATIC FREQUENCIES  ***********************
+ ********************************************************************************************/
+
+double Model::HinderedRotorBundle::weight (double temperature) const
+{
+  const char funame [] = "Model::HinderedRotorBundle::weight: ";
+
+  static const double exp_pow_max = 50.;
+
+  static const double exp_pow_min = 15.;
+
+  static const double istep_max = 0.2;
+  
+
+  int    itemp;
+  double dtemp;
+
+  double res = 0.;
+
+  if(temperature <= 0.) {
+    //
+    std::cerr << funame << "temperature out of range: " << temperature / Phys_const::kelv << "\n";
+
+    throw Error::Range();
+  }
+  
+  const double istep = energy_step() / temperature;
+
+  if(istep > istep_max)
+    //
+    std::cerr << funame << "WARNING: integration step is ,probably, too large: " << istep << "\n";
+  
+  double ival = 0.;
+  
+  for(int e = 0; e < size(); ++e, ival += istep) {
+    //
+    if(ival > exp_pow_max)
+      //
+      break;
+
+    res += states(e) * std::exp(-ival);
+  }
+
+  if(ival < exp_pow_min)
+    //
+    std::cerr << funame << "WARNING: integration range is, probably, insufficient: " << ival << "\n";
+												
+  return res;
+}
+
+Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
+  : _ground(0.), _ener_step(Phys_const::incm), _flags(0)
+{
+  const char funame [] = "Model::HinderedRotorBundle::HinderedRotorBundle: ";
+
+  int    itemp;
+  double dtemp;
+
+  IO::Marker funame_marker(funame);
+
+  // internal rotation definitions
+  //
+  std::vector<RotorBase> internal_rotation;
+
+  // potential fourier expansions
+  //
+  std::vector<std::map<int, double> > pot_four;
+
+  // reference frequencies
+  //
+  std::vector<double> ref_freq;
+  
+  // adiabatic frequencies fourier expansions
+  //
+  std::vector<std::vector<std::map<int, double> > > freq_four;
+  
+  // interpolation energy limit
+  //
+  double ener_max = -1.;
+
+  // extrapolation step
+  //
+  double extra_step = 0.1;
+
+  // maximal quantum level energy
+  //
+  double level_ener_max = 10. * Phys_const::kcal;
+
+  // Monte Carlo sampled modes
+  //
+  std::set<int> mc_modes;
+
+  // Monte Carlo sampling samping size
+  //
+  int mc_size = 1000;
+
+  // Overlapping quantum and classical states regions
+  //
+  double overlap = 0.5;
+  
+  KeyGroup HinderedRotorBundleModel;
+
+  Key      irot_key("InternalRotation"          );
+  Key  kcal_pot_key("Potential[kcal/mol]"       );
+  Key  incm_pot_key("Potential[1/cm]"           );
+  Key    kj_pot_key("Potential[kJ/mol]"         );
+  Key      freq_key("Frequency[1/cm]"           );
+  Key     extra_key("ExtrapolationStep"         );
+  Key kcal_emax_key("GridEnergyMax[kcal/mol]"   );  
+  Key incm_emax_key("GridEnergyMax[1/cm]"       );  
+  Key   kj_emax_key("GridEnergyMax[kJ/mol]"     );  
+  Key     estep_key("GridEnergyStep[1/cm]"      );
+  Key      qmax_key("QuantumStatesMax[kcal/mol]");
+  Key       mcm_key("MonteCarloModesList"       );
+  Key       mcs_key("MonteCarloSamplingSize"    );
+  Key       lap_key("OverlapRegion"             );
+  Key   noprint_key("NoPrint"                   );
+  
+  std::string token, line, comment;
+
+  while(from >> token) {
+    //
+    // input end
+    //
+    if(IO::end_key() == token) {
+      //
+      std::getline(from, comment);
+
+      break;
+    }
+    // internal motion definition
+    //
+    else if(irot_key == token) {
+      //
+      std::getline(from, comment);
+
+      IO::log << IO::log_offset << internal_rotation.size() + 1 << "-th internal rotation definition:\n";
+
+      internal_rotation.push_back(RotorBase(from, atom));
+    }
+    // potential on the grid
+    //
+    else if(kcal_pot_key == token || incm_pot_key == token || kj_pot_key == token) {
+      //
+      if(pot_four.size()) {
+	//
+	std::cerr << funame << "potential fourier expansion has been already defined\n";
+
+	throw Error::Init();
+      }
+
+      if(!internal_rotation.size()) {
+	//
+	std::cerr << funame << "internal rotations should be defined first\n";
+
+	throw Error::Init();
+      }
+
+      std::getline(from, comment);
+      
+      pot_four.resize(internal_rotation.size());
+
+      for(int r = 0; r < internal_rotation.size(); ++r) {
+	//
+	// potential sampling size
+	//
+	IO::LineInput size_input(from);
+      
+	if(!(size_input >> itemp)) {
+	  //
+	  std::cerr << funame << token << ": potential sampling size unreadable\n";
+
+	  throw Error::Input();
+	}
+      
+	if(itemp < 2) {
+	  //
+	  std::cerr << funame << token << ": potential sampling size = " << itemp << " too small\n";
+
+	  throw Error::Range();
+	}
+
+	// potential sampling
+	//
+	std::vector<double> pval(itemp);
+
+	for(int i = 0; i < pval.size(); ++i) {
+	  //
+	  if(!(from >> dtemp)) {
+	    //
+	    std::cerr << funame << token << ": cannot read potential\n";
+
+	    throw Error::Input();
+	  }
+
+	  if(!i && dtemp != 0.) {
+	    //
+	    std::cerr << funame << token << ": first potential value should be zero for all rotational profiles\n";
+
+	    throw Error::Input();
+	  }
+	  
+	  if(kcal_pot_key == token)
+	    //
+	    dtemp *= Phys_const::kcal;
+	
+	  if(incm_pot_key == token)
+	    //
+	    dtemp *= Phys_const::incm;
+
+	  if(kj_pot_key == token)
+	    //
+	    dtemp *= Phys_const::kjoul;
+
+	  
+	  pval[i] = dtemp;
+	}
+      
+	std::getline(from, comment);
+      
+	// fourier transform
+	//
+	itemp = pval.size() % 2 ? pval.size() : pval.size() + 1;
+      
+	for(int i = 0; i < itemp; ++i)
+	  //
+	  for(int j = 0; j < pval.size(); ++j)
+	    //
+	    if(i % 2) {
+	      //
+	      pot_four[r][i] += pval[j] * std::sin(M_PI * double((i + 1)  * j) / double(pval.size()));
+	    }
+	    else
+	      //
+	      pot_four[r][i] += pval[j] * std::cos(M_PI * double(i * j) / double(pval.size()));
+
+	// normalization
+	//
+	for(int i = 0; i < pot_four[r].size(); ++i)
+	  //
+	  if(!i || i == pval.size()) {
+	    //
+	    pot_four[r][i] /= double(pval.size());
+	  }
+	  else
+	    //
+	    pot_four[r][i] /= double(pval.size()) / 2.;
+      }
+    }
+    // frequencies on the grid
+    //
+    else if(freq_key == token) {
+      //
+      if(!internal_rotation.size()) {
+	//
+	std::cerr << funame << "internal rotations should be defined first\n";
+
+	throw Error::Init();
+      }
+
+      std::getline(from, comment);
+
+      freq_four.push_back(std::vector<std::map<int, double> >(internal_rotation.size()));
+  
+      for(int r = 0; r < internal_rotation.size(); ++r) {
+	//
+	// frequency profile sampling size
+	//
+	IO::LineInput size_input(from);
+      
+	if(!(size_input >> itemp)) {
+	  //
+	  std::cerr << funame << token << ": " << freq_four.size() << "-th frequency, " << r + 1 <<"-th profile size unreadable\n";
+
+	  throw Error::Input();
+	}
+      
+	if(itemp < 2) {
+	  //
+	  std::cerr << funame << token << ": frequency sampling size = " << itemp << " too small\n";
+
+	  throw Error::Range();
+	}
+
+	//  sampling
+	//
+	std::vector<double> pval(itemp);
+	
+	for(int i = 0; i < pval.size(); ++i) {
+	  //
+	  if(!(from >> dtemp)) {
+	    //
+	    std::cerr << funame << token << ": cannot read (" << freq_four.size() << ", " << r + 1 << ", " << i + 1 << ") frequency\n";
+
+	    throw Error::Input();
+	  }
+
+	  if(dtemp <= 0.) {
+	    //
+	    std::cerr << funame << token << ":  (" << freq_four.size() << ", " << r + 1 << ", " << i + 1 << ") frequency not positive\n";
+
+	    throw Error::Input();
+	  }
+
+	  dtemp *= Phys_const::incm;
+
+	  // reference frequency at the original configuration shared with all profiles
+	  //
+	  if(!r && !i)
+	    //
+	    ref_freq.push_back(dtemp);
+
+	  if(r && !i && dtemp != ref_freq.back()) {
+	    //
+	    std::cerr << funame << ref_freq.size() + 1 << "-th adiabatic frequency : first frequency value in all profiles should be the same\n";
+
+	    throw Error::Range();
+	  }
+	  
+	  pval[i] = dtemp - ref_freq.back();
+	}
+      
+	std::getline(from, comment);
+
+	// fourier transform
+	//
+	itemp = pval.size() % 2 ? pval.size() : pval.size() + 1;
+      
+	for(int i = 0; i < itemp; ++i)
+	  //
+	  for(int j = 0; j < pval.size(); ++j)
+	    //
+	    if(i % 2) {
+	      //
+	      freq_four.back()[r][i] += pval[j] * std::sin(M_PI * double((i + 1)  * j) / double(pval.size()));
+	    }
+	    else
+	      //
+	      freq_four.back()[r][i] += pval[j] * std::cos(M_PI * double(i * j) / double(pval.size()));
+
+	// normalization
+	//
+	for(int i = 0; i < freq_four.back()[r].size(); ++i)
+	  //
+	  if(!i || i == pval.size()) {
+	    //
+	    freq_four.back()[r][i] /= double(pval.size());
+	  }
+	  else
+	    //
+	    freq_four.back()[r][i] /= double(pval.size()) / 2.;
+      }
+    }
+    // extrapolation step
+    //
+    else if(extra_key == token) {
+      //
+      if(!(from >> extra_step)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+      std::getline(from, comment);
+
+      if(extra_step <= 0. || extra_step >= 1.) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+
+	throw Error::Range();
+      }
+    }
+    // interpolation maximal energy
+    //
+    else if(kcal_emax_key == token || incm_emax_key == token || kj_emax_key == token) {
+      //
+      if(!(from >> ener_max)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      std::getline(from, comment);
+
+      if(ener_max <= 0.) {
+	//
+	std::cerr << funame << token << ": should be positive\n";
+
+	throw Error::Range();
+      }
+
+      if(kcal_emax_key == token)
+	//
+	ener_max *= Phys_const::kcal;
+
+      if(incm_emax_key == token)
+	//
+	ener_max *= Phys_const::incm;
+
+      if(kj_emax_key == token)
+	//
+	ener_max *= Phys_const::kjoul;
+    }
+    //  interpolation step
+    //
+    else if(estep_key == token) {
+      //
+      if(!(from >> _ener_step)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	//
+	throw Error::Input();
+      }
+      
+      std::getline(from, comment);
+
+      if(_ener_step <= 0.) {
+	//
+	std::cerr << funame << token << ": should be positive\n";
+
+	throw Error::Range();
+      }
+      
+      _ener_step *= Phys_const::incm;
+    }
+    //  quantum states energy max
+    //
+    else if(qmax_key == token) {
+      //
+      if(!(from >> level_ener_max)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	//
+	throw Error::Input();
+      }
+      
+      std::getline(from, comment);
+
+      if(level_ener_max <= 0.) {
+	//
+	std::cerr << funame << token << ": should be positive\n";
+
+	throw Error::Range();
+      }
+      
+      level_ener_max *= Phys_const::kcal;
+    }
+    // Monte Carlo sampling modes
+    //
+    else if(mcm_key == token) {
+      //
+      if(mc_modes.size()) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      if(!internal_rotation.size()) {
+	//
+	std::cerr << funame << token << ": internal rotations should be initialized first\n";
+
+	throw Error::Init();
+      }
+
+      IO::LineInput lin(from);
+
+      while(lin >> itemp) {
+	//
+	if(itemp < 1 || itemp > internal_rotation.size()) {
+	  //
+	  std::cerr << funame << token << ": internal rotation index out of range: " << itemp << "\n";
+
+	  throw Error::Range();
+	}
+
+	--itemp;
+
+	if(!mc_modes.insert(itemp).second) {
+	  //
+	  std::cerr << funame << token << ": duplicated internal rotation index: " << itemp + 1 << "\n";
+
+	  throw Error::Input();
+	}
+      }
+    }
+    // Monte Carlo sampling size
+    //
+    else if(mcs_key == token) {
+      //
+      if(!(from >> mc_size)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      std::getline(from, comment);
+
+      if(mc_size <= 1) {
+	//
+	std::cerr << funame << token << ": out of range: " << mc_size << "\n";
+
+	throw Error::Input();
+      }
+    }
+    // overlapping region
+    //
+    else if(lap_key == token) {
+      //
+      if(!(from >> overlap)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      std::getline(from, comment);
+
+      if(overlap >= 1. || overlap <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range: " << overlap << "\n";
+
+	throw Error::Input();
+      }
+
+    }
+    // no printing
+    //
+    else if(noprint_key == token) {
+      //
+      _flags |= NOPRINT;
+
+      std::getline(from, comment);
+    }
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      Key::show_all(std::cerr);
+      
+      std::cerr << "\n";
+      
+      throw Error::Init();
+    }
+    //
+  }// input cycle
+
+  if(!internal_rotation.size()) {
+    //
+    std::cerr << funame << "internal rotations not initialized\n";
+
+    throw Error::Init();
+  }
+  
+  if(!pot_four.size()) {
+    //
+    std::cerr << funame << "potential profiles not initialized\n";
+
+    throw Error::Init();
+  }
+  
+  if(!freq_four.size()) {
+    //
+    std::cerr << funame << "adiabatic frequency profiles not initialized\n";
+
+    throw Error::Init();
+  }
+  
+  if(ener_max < level_ener_max) {
+    //
+    std::cerr << funame << "interpolation energy limit out of range: " << ener_max / Phys_const::kcal << " kcal/mol\n";
+
+    throw Error::Init();
+  }
+
+  if(!mc_modes.size())
+    //
+    mc_size = 1;
+  
+  /******************************************* QUANTUM STATES CALCULATION *********************************/
+
+  if(1) {
+    //
+    IO::Marker qstates_marker("quantum states density calculation");
+    
+    _qstates.resize(level_ener_max / _ener_step);
+    
+    Array<double> rot_states(_qstates.size());
+
+    // vibrational population states
+    //
+    std::vector<std::vector<int> > vib_state = population(level_ener_max, ref_freq);
+
+    IO::log << IO::log_offset << "number of vibrational states = " << vib_state.size() << std::endl;
+											
+    for(int v = 0; v < vib_state.size(); ++v) {// vibrational state cycle
+      //
+      double rot_ground = 0.; // rotational ground energy
+  
+      for(int f = 0; f < ref_freq.size(); ++f)
+	//
+	rot_ground += ref_freq[f] * (vib_state[v][f] + 0.5);
+
+      // rotational density of states
+      //
+      rot_states = 0.;
+
+      rot_states[0] = 1.;
+
+      for(int r = 0; r < internal_rotation.size(); ++r) {
+	//
+	std::map<int, double> eff_pot_four = pot_four[r];
+
+	for(int f = 0; f < freq_four.size(); ++f)
+	  //
+	  for(std::map<int, double>::const_iterator cit = freq_four[f][r].begin(); cit != freq_four[f][r].end(); ++cit)
+	    //
+	    eff_pot_four[cit->first] += cit->second * (vib_state[v][f] + 0.5);
+
+	itemp = 0;
+      
+	if(_flags & NOPRINT)
+	  //
+	  itemp = HinderedRotor::NOPRINT;
+      
+	HinderedRotor hr(internal_rotation[r], eff_pot_four, itemp);
+
+	hr.set(ener_max);
+      
+	rot_ground += hr.ground();
+
+	hr.convolute(rot_states, energy_step());
+      }
+
+      // ground vibrational state contribution
+      //
+      if(!v) {
+	//
+	_ground = rot_ground;
+
+	_qstates = rot_states;
+      }
+      // excited vibrational states contribution
+      //
+      else {
+	//
+	itemp = int((rot_ground - ground()) / energy_step());
+
+	if(itemp < 0) {
+	  //
+	  std::cerr << funame << "excited vibrational state energy is less than the ground one\n";
+
+	  throw Error::Range();
+	}
+
+	for(int i = itemp; i < _qstates.size(); ++i)
+	  //
+	  _qstates[i] += rot_states[i - itemp];
+      }
+    }// vibrational state cycle
+    //
+  }// quantum states calculation
+  
+  /************************************** CLASSICAL STATE CALCULATION **************************************/
+
+  // energy index from which the actual states calculation starts
+  //
+  const int emin = _qstates.size() * (1. - overlap);
+
+  if(1) {
+    //
+    IO::Marker cstates_marker("classical states density calculation");
+    
+    _cstates.resize(ener_max / energy_step());
+
+    _cstates = 0.;
+
+    // purely rotational not normalized local density of states
+    //
+    Array<double> stat_base(_cstates.size());
+
+    for(int e = 0; e < stat_base.size(); ++e)
+      //
+      if(internal_rotation.size() == 2) {
+	//
+	stat_base[e] = 1.;
+      }
+      else
+	//
+	stat_base[e] = std::pow((double)e, internal_rotation.size() / 2. - 1.);
+  
+    // grid integration modes
+    //
+    std::vector<int> ivec;
+  
+    std::vector<int> gr_modes;
+
+    for(int r = 0; r < internal_rotation.size(); ++r)
+      //
+      if(mc_modes.find(r) == mc_modes.end()) {
+	//
+	ivec.push_back(internal_rotation[r].angular_grid_size());
+
+	gr_modes.push_back(r);
+      }
+
+
+    MultiIndexConvert grid_index;
+
+    int grid_size = 1;
+  
+    if(gr_modes.size()) {
+      //
+      grid_index.resize(ivec);
+
+      grid_size = grid_index.size();
+    }
+
+    IO::log << IO::log_offset << "Monte Carlo integrartion size = " << mc_size << std::endl;
+    IO::log << IO::log_offset << "Grid        integrartion size = " << grid_size << std::endl;
+    IO::log << IO::log_offset << "overall     integrartion size = " << mc_size * grid_size << std::endl;
+											  
+    std::vector<double> angle_pos(internal_rotation.size());
+
+    // angular grid integration cycle
+    //
+    for(int g = 0; g < grid_size; ++g) {
+      //
+      if(gr_modes.size()) {
+	//
+	ivec = grid_index(g);
+
+	for(int i = 0; i < gr_modes.size(); ++i)
+	  //
+	  angle_pos[gr_modes[i]] = 2. * M_PI * ivec[i] / grid_index.size(i);
+      }
+    
+      // Monte Carlo integration cycle
+      //
+      for(int s = 0; s < mc_size; ++s) {
+	//
+	// Monte Carlo internal rotations sampling
+	//
+	for(std::set<int>::const_iterator cit = mc_modes.begin(); cit != mc_modes.end(); ++cit)
+	  //
+	  angle_pos[*cit] = 2. * M_PI * Random::flat();
+
+	// local frequencies
+	//
+	std::vector<double> loc_freq = ref_freq;
+
+	for(int f = 0; f < freq_four.size(); ++f)
+	  //
+	  for(int r = 0; r < internal_rotation.size(); ++r)
+	    //
+	    for(std::map<int, double>::const_iterator cit = freq_four[f][r].begin(); cit != freq_four[f][r].end(); ++cit)
+	      //
+	      if(!cit->first) {
+		//
+		loc_freq[f]  += cit->second;
+	      }
+	      else if(cit->first % 2) {
+		//
+		loc_freq[f] += cit->second * std::sin((cit->first + 1) / 2 * angle_pos[r]);
+	      }
+	      else
+		//
+		loc_freq[f] += cit->second * std::cos(cit->first / 2 * angle_pos[r]);
+
+	// local ground energy
+	//
+	double loc_ground = 0.;
+
+	for(int f = 0; f < loc_freq.size(); ++f)
+	  //
+	  loc_ground += loc_freq[f] / 2.;
+
+	for(int r = 0; r < internal_rotation.size(); ++r)
+	  //
+	  for(std::map<int, double>::const_iterator cit = pot_four[r].begin(); cit != pot_four[r].end(); ++cit)
+	    //
+	    if(!cit->first) {
+	      //
+	      loc_ground += cit->second;
+	    }
+	    else if(cit->first % 2) {
+	      //
+	      loc_ground += cit->second * std::sin((cit->first + 1) / 2 * angle_pos[r]);
+	    }
+	    else
+	      //
+	      loc_ground += cit->second * std::cos(cit->first / 2 * angle_pos[r]);
+
+	// local states
+	//
+	Array<double> loc_states = stat_base;
+
+	for(int f = 0; f < loc_freq.size(); ++f) {
+	  //
+	  itemp = loc_freq[f] / energy_step();
+
+	  for(int e = itemp; e < loc_states.size(); ++e)
+	    //
+	    loc_states[e] += loc_states[e - itemp];
+	}
+
+	itemp = (loc_ground - ground()) / energy_step();
+
+	int emax = itemp >= 0 ? _cstates.size() : _cstates.size() + itemp;
+      
+	for(int e = emin; e < emax; ++e)
+	  //
+	  _cstates[e] += loc_states[e - itemp];
+
+      }// Monte Carlo integration cycle
+      //
+    }// grid integration cycle
+
+    // classical states normalization
+    //
+    itemp = internal_rotation.size();
+  
+    dtemp = std::pow(M_PI, itemp / 2.) / tgamma(itemp / 2.) * std::pow(energy_step(), itemp / 2.) / grid_size / mc_size;
+
+    for(int r = 0; r < internal_rotation.size(); ++r)
+      //
+      dtemp /= internal_rotation[r].symmetry() * std::sqrt(internal_rotation[r].rotational_constant());
+
+    _cstates *= dtemp;
+    //
+  }// classical states calculation
+  
+  // output for testing purposes
+  //
+  IO::log << std::setw(15) << "E, 1/cm" << std::setw(15) << "_qstates" << std::setw(15) << "_cstates" << std::setw(15) << "Ratio" << "\n";
+
+  for(int e = emin; e < _qstates.size(); ++e)
+    //
+    IO::log << std::setw(15) << e * energy_step() / Phys_const::incm
+	    << std::setw(15) << _qstates[e]
+	    << std::setw(15) << _cstates[e]
+	    << std::setw(15) << _qstates[e] / _cstates[e]
+	    << "\n";
+}
+
 /********************************************************************************************
  ********************************** QUANTUM HINDERED ROTOR **********************************
  ********************************************************************************************/
 
-Model::HinderedRotor::HinderedRotor (const std::map<int, double>& p, double r, int s)
-  : RotorBase(r, s), _pot_four(p), _weight_output_temperature_step(100), _weight_output_temperature_max(1000),
-    _weight_output_temperature_min(-1), _use_quantum_weight(false)
+int Model::HinderedRotor::weight_output_temperature_min  = -1;
+
+int Model::HinderedRotor::weight_output_temperature_max  = 1000;
+
+int Model::HinderedRotor::weight_output_temperature_step = 100;
+
+Model::HinderedRotor::HinderedRotor (const RotorBase& r, const std::map<int, double>& p, int f)
+  //
+  : RotorBase(r), _pot_four(p), _use_quantum_weight(false), _flags(f)
 {
   const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
 
-  IO::Marker funame_marker(funame);
+  int itemp = 0;
+
+  if(_flags & NOPRINT)
+    //
+    itemp = IO::Marker::NOPRINT;
+  
+  IO::Marker funame_marker(funame, itemp);
 
   _init();
 }
 
-Model::HinderedRotor::HinderedRotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
-  : RotorBase(from, atom), _weight_output_temperature_step(100), _weight_output_temperature_max(1000),
-    _weight_output_temperature_min(-1), _use_quantum_weight(false)
+Model::HinderedRotor::HinderedRotor (const std::map<int, double>& p, double r, int s, int f)
+  //
+  : RotorBase(r, s), _pot_four(p), _use_quantum_weight(false), _flags(f)
 {
   const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
 
-  IO::Marker funame_marker(funame);
+  int itemp = 0;
+
+  if(_flags & NOPRINT)
+    //
+    itemp = IO::Marker::NOPRINT;
+  
+  IO::Marker funame_marker(funame, itemp);
+
+  _init();
+}
+
+Model::HinderedRotor::HinderedRotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom, int f)
+  //
+  : RotorBase(from, atom), _use_quantum_weight(false), _flags(f)
+{
+  const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
+
+  int itemp = 0;
+
+  if(_flags & NOPRINT)
+    //
+    itemp = IO::Marker::NOPRINT;
+  
+  IO::Marker funame_marker(funame, itemp);
 
   _read(from);
   _init();
@@ -3562,7 +4460,13 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
   int    itemp;
   double dtemp;
 
-  IO::Marker funame_marker(funame);
+  itemp = 0;
+  
+  if(_flags & NOPRINT)
+    //
+    itemp = IO::Marker::NOPRINT;
+  
+  IO::Marker funame_marker(funame, itemp);
 
   KeyGroup HinderedRotorModel;
 
@@ -3572,9 +4476,6 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
   Key kcal_four_key("FourierExpansion[kcal/mol]");
   Key incm_four_key("FourierExpansion[1/cm]"    );
   Key   kj_four_key("FourierExpansion[kJ/mol]"  );
-  Key     tstep_key("OutputTemperatureStep[K]"  );
-  Key      tmax_key("OutputTemperatureMax[K]"   );
-  Key      tmin_key("OutputTemperatureMin[K]"   );
   Key  use_quan_key("UseQuantumWeight"          );
 
   std::string token, line, comment;
@@ -3784,72 +4685,6 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	_pot_four[itemp] = dtemp;
       }
     }
-    // output temperature step
-    //
-    else if(tstep_key == token) {
-      //
-      if(!(from >> itemp)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      
-      std::getline(from, comment);
-
-      if(itemp <= 0) {
-	//
-	std::cerr << funame << token << ": should be positive\n";
-	
-	throw Error::Range();
-      }
-      
-      _weight_output_temperature_step = itemp;
-    }
-    // output temperature max
-    //
-    else if(tmax_key == token) {
-      //
-      if(!(from >> itemp)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-
-	throw Error::Input();
-      }
-      
-      std::getline(from, comment);
-
-      if(itemp <= 0) {
-	//
-	std::cerr << funame << token << ": should be positive\n";
-
-	throw Error::Range();
-      }
-      
-      _weight_output_temperature_max = itemp;
-    }
-    // output temperature min
-    //
-    else if(tmin_key == token) {
-      //
-      if(!(from >> itemp)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      
-      std::getline(from, comment);
-
-      if(itemp <= 0) {
-	//
-	std::cerr << funame << token << ": should be positive\n";
-	
-	throw Error::Range();
-      }
-      
-      _weight_output_temperature_min = itemp;
-    }
     // use quantum weight
     //
     else if(use_quan_key == token) {
@@ -3891,65 +4726,104 @@ void Model::HinderedRotor::_init ()
   double dtemp;
 
   // fourier expansion checking
+  //
   if(!_pot_four.size()) {
+    //
     std::cerr << funame << "fourier expansion is not initialized\n";
+    
     throw Error::Init();
   }
  
   // hamiltonian size adjusting
+  //
   itemp = _pot_four.rbegin()->first;
-  if(itemp % 2)
+  
+  if(itemp % 2) {
+    //
     itemp += 4;
+  }
   else
+    //
     itemp += 3;
 
   if(itemp > _ham_size_min)
+    //
     _ham_size_min = itemp;
       
 
   if(_ham_size_max < _ham_size_min)
+    //
     _ham_size_max = _ham_size_min;
 
   // minimum and maximum potential energies and potential discretization
+  //
   _grid_step = 2. * M_PI / double(symmetry() * _grid_size);
+  
   _pot_grid.resize(_grid_size);
+  
   _freq_grid.resize(_grid_size);
+  
   // potential
+  //
   _pot_grid[0] = _pot_min = _pot_max = potential(0.);
+  
   // frequency
+  //
   dtemp = potential(0., 2);
-  if(dtemp < 0.)
+  
+  if(dtemp < 0.) {
+    //
     dtemp = -std::sqrt(-2. * dtemp * rotational_constant());
+  }
   else
+    //
     dtemp = std::sqrt(2. * dtemp * rotational_constant());
-  _freq_grid[0] = _freq_min = _freq_max = dtemp;
+  
+  _freq_grid[0] = _freq_max = dtemp;
 
   int imax, imin;
+  
   imin = imax = 0;
+  
   double a = _grid_step;
+  
   for(int i = 1; i < _grid_size; ++i, a += _grid_step) {
+    //
     // potential
+    //
     dtemp = potential(a);
-    _pot_grid[i] = dtemp; 
+    
+    _pot_grid[i] = dtemp;
+    
     if(dtemp < _pot_min) {
+      //
       _pot_min = dtemp;
+
       imin = i;
     }
     if(dtemp > _pot_max) {
+      //
       _pot_max = dtemp;
+
       imax = i;
     }
+    
     // frequency
+    //
     dtemp = potential(a, 2);
-    if(dtemp < 0.)
+    
+    if(dtemp < 0.) {
+      //
       dtemp = -std::sqrt(-2. * dtemp * rotational_constant());
-    else
-      dtemp = std::sqrt(2. * dtemp * rotational_constant());
-    _freq_grid[i] = dtemp;
-    if(dtemp < _freq_min) {
-      _freq_min = dtemp;
     }
+    else
+      //
+      dtemp = std::sqrt(2. * dtemp * rotational_constant());
+
+    _freq_grid[i] = dtemp;
+    
     if(dtemp > _freq_max) {
+      //
       _freq_max = dtemp;
     }
   }
@@ -3974,83 +4848,132 @@ void Model::HinderedRotor::_init ()
   if(a > 1.e-5)
     _pot_min -= dtemp * dtemp / a / 8.;
 
-  // numerical vibrational frequency
-  double freq_num = 0.;
-  if(a > 0.)
-    freq_num = std::sqrt(a * 2. * rotational_constant()) / _grid_step;
-
+  // numerical vibrational frequency at minimum
+  //
+  if(a > 0.) {
+    //
+    _freq_min = std::sqrt(a * 2. * rotational_constant()) / _grid_step;
+  }
+  else
+    //
+    _freq_min = 0.;
+  
   // analytical vibrational frequency at the minimum
+  //
   double freq_anal;
+  
   dtemp = potential((double)imin * _grid_step, 2);
-  if(dtemp > 0.)
+  
+  if(dtemp > 0.) {
+    //
     freq_anal = std::sqrt(dtemp * 2. * rotational_constant());
+  }
   else {
+    //
     IO::log << IO::log_offset << funame 
 	    << "WARNING: potential second derivative at the minimum is negative, assuming zero\n";
+    
     freq_anal = 0.;
   }
 
   _harm_ground = _pot_min + freq_anal / 2.;
-  
-  IO::log << IO::log_offset << "effective rotational constant[1/cm]  = " 
-	  << rotational_constant() / Phys_const::incm << "\n";
-  IO::log << IO::log_offset << "analytic  frequency at minimum[1/cm] = " 
-	  << freq_anal / Phys_const::incm << "\n";
-  IO::log << IO::log_offset << "numerical frequency at minimum[1/cm] = " 
-	  << freq_num  / Phys_const::incm << "\n";    
-  IO::log << IO::log_offset << "minimum energy[kcal/mol]             = "
-	  << _pot_min  / Phys_const::kcal << "\n";
-  IO::log << IO::log_offset << "maximum energy[kcal/mol]             = "
-	  << _pot_max  / Phys_const::kcal << "\n";
-  IO::log << IO::log_offset << "maximum frequency[1/cm]              = "
-	  << _freq_max / Phys_const::incm << "\n";    
-  IO::log << IO::log_offset << "maximum imaginary frequency[1/cm]    = "
-	  <<-_freq_min / Phys_const::incm << "\n";    
 
+  if(!(_flags & NOPRINT)) {
+    //
+    IO::log << IO::log_offset << "effective rotational constant[1/cm]  = " 
+	    << rotational_constant() / Phys_const::incm << "\n";
+  
+    IO::log << IO::log_offset << "analytic  frequency at minimum[1/cm] = " 
+	    << freq_anal / Phys_const::incm << "\n";
+    
+    IO::log << IO::log_offset << "numerical frequency at minimum[1/cm] = " 
+	    << _freq_min  / Phys_const::incm << "\n";
+    
+    IO::log << IO::log_offset << "minimum energy[kcal/mol]             = "
+	    << _pot_min  / Phys_const::kcal << "\n";
+    
+    IO::log << IO::log_offset << "maximum energy[kcal/mol]             = "
+	    << _pot_max  / Phys_const::kcal << "\n";
+    
+    IO::log << IO::log_offset << "maximum frequency[1/cm]              = "
+	    << _freq_max / Phys_const::incm << "\n";
+    
+  }
+  
   // calculating energy levels in momentum space
   _set_energy_levels(_ham_size_min);
 
-  IO::log << IO::log_offset << "ground energy [kcal/mol]             = "
-	  << ground() / Phys_const::kcal << "\n";
-  IO::log << IO::log_offset << "highest energy level [kcal/mol]      = "
-	  << (_energy_level.back() + ground()) / Phys_const::kcal << "\n";
-  IO::log << IO::log_offset << "number of levels                     = "
-	  << level_size()  << "\n";
+  if(!(_flags & NOPRINT)) {
+    //
+    IO::log << IO::log_offset << "ground energy [kcal/mol]             = "
+	    << ground() / Phys_const::kcal << "\n";
+    
+    IO::log << IO::log_offset << "highest energy level [kcal/mol]      = "
+	    << (_energy_level.back() + ground()) / Phys_const::kcal << "\n";
+    
+    IO::log << IO::log_offset << "number of levels                     = "
+	    << level_size()  << "\n";
+  
 
-  // energy levels output
-  itemp = level_size() < 10 ? level_size() : 10;
-  IO::log << IO::log_offset << itemp << " lowest excited states [kcal/mol] relative to the ground:" 
-	  << std::setprecision(3);
-  for(int l = 1; l < itemp; ++l)
-    IO::log  << " " << energy_level(l) / Phys_const::kcal;
-  IO::log << std::setprecision(6) << "\n";
+    // energy levels output
+    //
+    itemp = level_size() < 10 ? level_size() : 10;
+    
+    IO::log << IO::log_offset << itemp << " lowest excited states [kcal/mol] relative to the ground:" 
+	    << std::setprecision(3);
+    
+    for(int l = 1; l < itemp; ++l)
+      //
+      IO::log  << " " << energy_level(l) / Phys_const::kcal;
+    
+    IO::log << std::setprecision(6) << "\n";
 
-  // statistical weight
-  IO::log << IO::log_offset << "Statistical Weight (*** - deep tunneling regime):\n";
-  IO::log << IO::log_offset 
-	  << std::setw(5) << "T, K" 
-	  << std::setw(15) << "Quantum"
-	  << std::setw(15) << "Classical"
-	  << std::setw(15) << "Semiclassical"
-	  << "  ***\n";
+    // statistical weight output (for testing purposes)
+    //
+    if(weight_output_temperature_max > 0) {
+      //
+      if(weight_output_temperature_step <= 0) {
+	//
+	std::cerr << funame << "stat weight output temperature step out of range: " << weight_output_temperature_step << "\n";
 
-  if(_weight_output_temperature_min < 0)
-    _weight_output_temperature_min = _weight_output_temperature_step;
+	throw Error::Range();
+      }
+      
+      IO::log << IO::log_offset << "Statistical Weight (*** - deep tunneling regime):\n";
+      IO::log << IO::log_offset 
+	      << std::setw(5)  << "T, K" 
+	      << std::setw(15) << "Quantum"
+	      << std::setw(15) << "Classical"
+	      << std::setw(15) << "Semiclassical"
+	      << "  ***\n";
 
-  for(int t = _weight_output_temperature_min; t <= _weight_output_temperature_max; t += _weight_output_temperature_step) {
-    double tval = (double)t * Phys_const::kelv;
-    double cw, sw;
-    itemp = get_semiclassical_weight(tval, cw, sw);
-    IO::log << IO::log_offset 
-	    << std::setw(5) << t
-	    << std::setw(15) << quantum_weight(tval)
-	    << std::setw(15) << cw
-	    << std::setw(15) << sw;
-    if(itemp)
-      IO::log << "  ***";
-    IO::log << "\n";
+      if(weight_output_temperature_min < 0)
+	//
+	weight_output_temperature_min = weight_output_temperature_step;
+
+      for(int t = weight_output_temperature_min; t <= weight_output_temperature_max; t += weight_output_temperature_step) {
+	//
+	double tval = (double)t * Phys_const::kelv;
+	
+	double cw, sw;
+	
+	itemp = get_semiclassical_weight(tval, cw, sw);
+	
+	IO::log << IO::log_offset 
+		<< std::setw(5) << t
+		<< std::setw(15) << quantum_weight(tval)
+		<< std::setw(15) << cw
+		<< std::setw(15) << sw;
+	
+	if(itemp)
+	  //
+	  IO::log << "  ***";
+	
+	IO::log << "\n";
+      }
+    }
   }
-
+  
 #ifdef DEBUG
 
   // calculating energy levels in real space
@@ -4089,10 +5012,17 @@ void  Model::HinderedRotor::set (double ener_max)
 {
   const char funame [] = "Model::HinderedRotor::set: ";
 
-  IO::Marker funame_marker(funame);
-
   int    itemp;
   double dtemp;
+
+  itemp = 0;
+
+  if(_flags & NOPRINT)
+    //
+    itemp = IO::Marker::NOPRINT;
+  
+  IO::Marker funame_marker(funame, itemp);
+
 
   /******************************** setting hamiltonian size *********************************/
 
@@ -4104,26 +5034,36 @@ void  Model::HinderedRotor::set (double ener_max)
     hsize = 2 * (int)std::ceil(std::sqrt(dtemp / rotational_constant()) / (double)symmetry()) + 1;
   
   if(hsize <= _ham_size_min)
+    //
     return;
 
   if(hsize > _ham_size_max) {
-    IO::log << IO::log_offset << "WARNING: requested Hamiltonian size = " << hsize 
+    //
+    IO::log << IO::log_offset << funame << "WARNING: requested Hamiltonian size = " << hsize 
 	    << " exceeds the current limit = " << _ham_size_max << "=> truncating\n";
+    
     hsize = _ham_size_max;
   }
   
-  IO::log << IO::log_offset << "hamiltonian size                = " << hsize << "\n";
-
+  if(!(_flags & NOPRINT)) {
+    //
+    IO::log << IO::log_offset << "hamiltonian size                = " << hsize << "\n";
+  }
+  
   // setting quantum levels
+  //
   _set_energy_levels(hsize);
 
-  IO::log << IO::log_offset << "ground energy [kcal/mol]        = " 
-	  << ground() / Phys_const::kcal << "\n";
-  IO::log << IO::log_offset << "highest level energy [kcal/mol] = " 
-	  << _energy_level.back() / Phys_const::kcal << "\n";
-  IO::log << IO::log_offset << "number of levels                = "
-	  << level_size()  << "\n";
-
+  
+  if(!(_flags & NOPRINT)) {
+    //
+    IO::log << IO::log_offset << "ground energy [kcal/mol]        = " 
+	    << ground() / Phys_const::kcal << "\n";
+    IO::log << IO::log_offset << "highest level energy [kcal/mol] = " 
+	    << _energy_level.back() / Phys_const::kcal << "\n";
+    IO::log << IO::log_offset << "number of levels                = "
+	    << level_size()  << "\n";
+  }
 
 #ifdef DEBUG
 
@@ -4282,39 +5222,64 @@ void Model::HinderedRotor::_set_energy_levels (int hsize)
 int Model::HinderedRotor::get_semiclassical_weight (double temperature, double& cw, double& sw) const
 {
   static const double eps = 0.01;
+  
   static const double amin = 0.1 - M_PI;
 
   double dtemp;
 
   int res = 0;
-  if(_freq_min / temperature / 2. < amin)
-    res = 1;
-
+  
   cw = sw = 0.;
+  
   double fac;
+  
   for(int i = 0; i < _pot_grid.size(); ++i) {
+    //
     dtemp = _freq_grid[i] / temperature / 2.;
-    if(dtemp > eps)
+    
+    if(dtemp > eps) {
+      //
       fac = dtemp / std::sinh(dtemp);
-    else if(dtemp < amin)
+    }
+    else if(dtemp < amin) {
+      //
       fac = -1.;
-    else if(dtemp < -eps)
+
+      res = 1;
+    }
+    else if(dtemp < -eps) {
+      //
       fac = dtemp / std::sin(dtemp);
+    }
     else
+      //
       fac = 1.;
 
     dtemp = std::exp(-_pot_grid[i] / temperature);
+    
     if(fac > 0.)
+      //
       sw += dtemp * fac;
+
     cw += dtemp;
   }
 
-  dtemp = _grid_step * std::sqrt(temperature / rotational_constant() / 4. / M_PI) 
-    * std::exp(_ground / temperature);
-    //* std::exp(_harm_ground / temperature);
-  cw *= dtemp;
-  sw *= dtemp;
+  dtemp = _grid_step * std::sqrt(temperature / rotational_constant() / 4. / M_PI);
 
+  // semiclassical weight relative to the ground state energy
+  //
+  sw *= dtemp * std::exp(_ground / temperature);
+
+  // Pitzer-Gwinn correction factor for classical weight
+  //
+  cw *= dtemp * std::exp(_pot_min / temperature);
+
+  dtemp = _freq_min / temperature / 2.;
+
+  if(dtemp > eps)
+    //
+    cw *= dtemp / std::sinh(dtemp);
+  
   return res;
 }
 
@@ -6288,6 +7253,8 @@ double Model::RigidRotor::_core_states (double ener) const
     throw Error::Logic();
   }
 }
+
+
 
 /*******************************************************************************************
  *************************** TRANSITIONAL MODES NUMBER OF STATES  **************************
@@ -13947,7 +14914,7 @@ Model::MonteCarlo::~MonteCarlo() {}
 
 Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, int m)
   : Species(from, n, m), _symm_fac(1.), _noqf(false), _nohess(false), _nocurv(false),
-    _cmshift(false), _ists(false), _ref_tem(-1.)
+    _cmshift(false), _ists(false), _ref_tem(-1.), _ref_wfac(-1.)
 {
   const char funame [] = "Model::MonteCarlo::MonteCarlo: ";
 
@@ -13980,6 +14947,8 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   Key   kj_refen_key("ReferenceEnergy[kJ/mol]"        );
   Key   ev_refen_key("ReferenceEnergy[eV]"            );
   Key   au_refen_key("ReferenceEnergy[au]"            );
+  
+  Key   ref_conf_key("ReferenceConfiguration"         );
 
   Key incm_ground_key("GroundEnergy[1/cm]"          );
   Key kcal_ground_key("GroundEnergy[kcal/mol]"      );
@@ -13996,6 +14965,8 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   bool isrefen = false;
 
   bool isground = false;
+
+  std::string ref_conf;
   
   while(from >> token) {
     //
@@ -14006,6 +14977,26 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       std::getline(from, comment);
       
       break;
+    }
+    // reference configuraiton file
+    //
+    else if(ref_conf_key == token) {
+      //
+      if(ref_conf.size()) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+
+	throw Error::Init();
+      }
+
+      if(!(from >> ref_conf)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      std::getline(from, comment);
     }
     // exclude quantum correction
     //
@@ -14109,53 +15100,6 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 	}
 
 	_elevel[dtemp] = itemp;
-      }
-    }
-    // non-fluxional modes frequencies
-    //
-    else if(freq_key == token) {
-      //
-      if(_nm_freq.size()) {
-	//
-	std::cerr << funame << token << ": already initialized\n";
-
-	throw Error::Init();
-      }
-
-      if(!(from >> itemp)) {
-	//
-	std::cerr << funame << token << ": cannot read frequencies #\n";
-
-	throw Error::Input();
-      }
-
-      if(itemp < 1) {
-	//
-	std::cerr << funame << token << ": frequencies # out of range: " << itemp << "\n";
-
-	throw Error::Range();
-      }
-
-      _nm_freq.resize(itemp);
-
-      for(int f = 0; f < _nm_freq.size(); ++f) {
-	//
-	if(!(from >> dtemp)) {
-	  //
-	  std::cerr << funame << token << ": cannot read " << f + 1 << "-th frequency\n";
-
-	  throw Error::Input();
-	}
-
-	if(dtemp < nm_freq_min) {
-	  //
-	  std::cerr << funame << token << ": " << f + 1 << "-th non-fluxional mode frequency is below the threshold ("
-		    << nm_freq_min << "): " << dtemp << "\n";
-
-	  throw Error::Range();
-	}
-
-	_nm_freq[f] = dtemp * Phys_const::incm;
       }
     }
     //  reference energy
@@ -14459,6 +15403,10 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     throw Error::Input();
   }
 
+  from.close();
+  
+  from.clear();
+  
   if(!atom_size()) {
     //
     std::cerr << funame << "no atoms specified\n";
@@ -14481,14 +15429,6 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     throw Error::Range();
   }
 
-  if(_nohess && _nm_freq.size() + _fluxional.size() + 6 != atom_size() * 3) {
-    //
-    std::cerr << funame << "non-fluxional modes # (" << _nm_freq.size() << ") and fluxional modes # (" << _fluxional.size()
-	      << ") mismatch with the atoms #: " << atom_size() << "\n";
-
-    throw Error::Range();
-  }
-  
   if(!_data_file.size()) {
     //
     std::cerr << funame << "no data file is provided\n";
@@ -14496,30 +15436,71 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     throw Error::Init();
   }
 
-  if(!isrefen && isground) {
+  // setting reference energy 
+  //
+  // from reference configuraiton
+  //
+  if(ref_conf.size()) {
     //
-    IO::log << IO::log_offset << "WARNING: the reference energy set to the ground state energy: " << _ground  / Phys_const::kcal << " kcal/mol\n";
+    from.open(ref_conf.c_str());
 
-    _refen = _ground;
-  }
-  
-  if(isrefen && !isground) {
+    if(!from) {
+      //
+      std::cerr << funame << "cannot open reference configuration file\n";
+
+      throw Error::Init();
+    }
+
+    double ener;
+
+    // cartesian coordinates
     //
-    IO::log << IO::log_offset << "WARNING: the ground state energy set to the reference energy: " << _refen  / Phys_const::kcal << " kcal/mol\n";
+    Lapack::Vector          cart_pos(atom_size() * 3);
 
-    _ground = _refen;
-  }
-  
-  if(!isground && !isrefen) {
+    // cartesian gradient
     //
-    _set_reference_energy();
+    Lapack::Vector          cart_grad(atom_size() * 3);
 
-    _ground = _refen;
+    // cartesian force constant matrix
+    //
+    Lapack::SymmetricMatrix cart_fc(atom_size() * 3);
+
+    _read(from, ener, cart_pos, cart_grad, cart_fc, REF);
+
+    if(isrefen)
+      //
+      dtemp = _refen;
     
-    IO::log << IO::log_offset << "WARNING: ground and reference energies initialized to the minimal sampling energy (with ZPE): "
-	    << _refen / Phys_const::kcal << " kcal/mol\n";
+    _local_weight(ener, cart_pos, cart_grad, cart_fc, 1., REF);
+
+    if(isrefen)
+      //
+      _refen = dtemp;
+  }
+  // from sampling data file
+  //
+  else if(!_nohess) {
+    //
+    if(!isrefen)
+      //
+      _set_reference_energy();
+  }
+  else {
+    //
+    std::cerr << funame << "neither Hessians no reference configuration provided\n";
+
+    throw Error::Init();
   }
 
+  IO::log << IO::log_offset << "reference energy = " << _refen / Phys_const::kcal << " kcal/mol\n";
+										     
+  if(!isground) {
+    //
+    IO::log << IO::log_offset << "WARNING: the ground state energy set to the reference energy\n";
+
+    _ground = _refen;
+  }
+  
   if(_ref_pot && _ref_tem < 0. || !_ref_pot && _ref_tem > 0.) {
     //
     std::cerr << funame << "the reference potential and the reference temperature should be defined simultaneously\n";
@@ -14677,13 +15658,18 @@ double Model::MonteCarlo::weight_with_error (double temperature, double& werr) c
   
   // non-fluxional mode frequencies factor
   //
-  if(_nohess)
+  if(_nohess) {
     //
-    for(int f = 0; f < _nm_freq.size(); ++f)
+    if(_ref_wfac < 0.) {
       //
-      res /= _nm_freq[f];
-  
+      std::cerr << funame << "reference frequency factor not initialized\n";
 
+      throw Error::Init();
+    }
+
+    res *= _ref_wfac;
+  }
+  
   IO::log << IO::log_offset
 	  << std::setw(7)  << "T, K"
 	  << std::setw(13) << "Z"
@@ -14703,7 +15689,8 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
 			       double&                 ener,       // energy
 			       Lapack::Vector          cart_pos,   // cartesian coordinates    
 			       Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
-			       Lapack::SymmetricMatrix cart_fc     // cartesian force constant matrix
+			       Lapack::SymmetricMatrix cart_fc,     // cartesian force constant matrix
+			       int                     flags
 			       ) const
 {
   const char funame [] = "Model::MonteCarlo::_read: ";
@@ -14801,7 +15788,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
     }
   }
 
-  if(_nohess) {
+  if(_nohess && !(flags & REF)) {
     //
     std::getline(from, comment);
 
@@ -14923,7 +15910,7 @@ void Model::MonteCarlo::_set_reference_energy ()
   
   while(_read(from, ener, cart_pos, cart_grad, cart_fc)) {
     //
-    if(!_noqf && !_nohess) {
+    if(!_noqf) {
       //
       for(int c = 0; c < cart_size; ++c)
 	//
@@ -14952,17 +15939,9 @@ void Model::MonteCarlo::_set_reference_energy ()
       _refen = ener;
   }
 
-  // non-fluxional modes zero-point energy correction
-  //
-  if(_nohess && !_noqf)
-    //
-    for(int f = 0; f < _nm_freq.size(); ++f)
-      //
-      _refen += _nm_freq[f] / 2.;
-
   // rounding for better output
   //
-  _refen = std::floor(_refen * 10. / Phys_const::kcal) / 10. * Phys_const::kcal;
+  _refen = std::floor(_refen * 1000. / Phys_const::kcal) / 1000. * Phys_const::kcal;
 }
 
 // non-fluxional mode minimal frequency in 1/cm
@@ -15038,18 +16017,19 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 					 Lapack::Vector          cart_pos,   // cartesian coordinates    
 					 Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
 					 Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
-					 double                  temperature // temprature
+					 double                  temperature, // temprature
+					 int                     flags
 					 ) const
 {
   const char funame [] = "Model::MonteCarlo::_local_weight: ";
 
   // high frequency threshold x = freq / 2 / T.
   //
-  static const double high_freq_thres = 5.;
+  static const double high_freq_thres = 4.;
 
   // maximal exponent argument
   //
-  static const double exp_arg_max = 50.;
+  static const double exp_arg_max = 100.;
   
   /*****************************************************************************
    **************************** CALCULATION BEGINS *****************************
@@ -15098,7 +16078,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 
   // force constant curvlinear correction
   //
-  if(!_nohess && !_nocurv && !_ists) {
+  if(!_nocurv && (!_nohess && !_ists || flags & REF)) {
     //
     // potential energy gradient over fluxional modes coordinates
     //
@@ -15147,7 +16127,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
     }
   }
 
-  if(!_nohess)
+  if(!_nohess || flags & REF)
     //
     for(int c = 0; c < cart_size; ++c)
       //
@@ -15222,7 +16202,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
   //
   Lapack::SymmetricMatrix fc(in_size);
 
-  if(!_nohess)
+  if(!_nohess || flags & REF)
     //
     for(int i = 0; i < in_size; ++i)
       //
@@ -15230,89 +16210,128 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 	//
 	fc(i, j) = cart_fc * &basis(0, i + 6) * &basis(0, j + 6);
 
-  Lapack::Matrix evec(in_size);
-    
+  if(flags & REF)
+    //
+    _refen = ener;
+   
   Lapack::Vector eval;
   
-  bool deep_tunnel = false;
-  
-  // quantum correction factor
+  Lapack::Matrix evec(in_size);
+    
+  // reference frequencies
   //
-  if(!_noqf && !_nohess) {
+  if(!_noqf) {
     //
-    eval = fc.eigenvalues(&evec);
-
-    for(int f = 0; f < in_size; ++f) {
+    if(flags & REF) {
       //
-      if(_ists && !f && eval[f] >= 0.) {
+      // stable species
+      //
+      if(!_ists) {
+	//
+	eval = fc.eigenvalues();
+
+	_ref_freq.resize(in_size);
+
+	_refen = ener;
+
+	for(int f = 0; f < in_size; ++f) {
+	  //
+	  dtemp = eval[f] < 0. ? -std::sqrt(-eval[f]) : std::sqrt(eval[f]);
+
+	  _ref_freq[f] = dtemp;
+
+	  if(dtemp > 0.)
+	    //
+	    _refen += dtemp / 2.;
+	}
+      }
+      // transition state
+      //
+      else {
+
+      }
+    }
+    // quantum correction factor
+    //
+    else if(!_nohess) {
+      //
+      bool deep_tunnel = false;
+
+      eval = fc.eigenvalues(&evec);
+
+      if(_ists && eval[0] >= 0.) {
 	//
 	std::cerr << funame << "not a saddle point: lowest frequency = " << std::sqrt(eval[0]) / Phys_const::incm << " 1/cm\n";
-
+      
 	throw Error::Range();
       }
       
-      if(eval[f] < 0.) {
-	//
-	dtemp = std::sqrt(-eval[f]) / temperature / 2.;
-
-	if(dtemp < 0.9 * M_PI) {
-	  //
-	  wfac *= dtemp / std::sin(dtemp);
-	}
-	else if(!deep_tunnel) {
-	  //
-	  deep_tunnel = true;
-	
-	  std::cerr << funame << "WARNING: the system is in the deep tunneling regime, check the log file\n";
-
-	  IO::log << IO::log_offset << "WARNING: the system is in the deep tunneling regime" << std::endl;
-	}
-      }
-      else if(eval[f] > 0.) {
-	//
-	dtemp = std::sqrt(eval[f]) / temperature / 2.;
-      
-	if(dtemp > high_freq_thres) {
-	  //
-	  ener += dtemp * temperature;
-	
-	  wfac *= 2. * dtemp;
-	}
-	else
-	  //
-	  wfac *= dtemp / std::sinh(dtemp);
-      }
-    }
-
-    // deep tunneling regime output
-    //
-    if(deep_tunnel) {
-      //
-      IO::log << IO::log_offset << "Deep tunneling regime:\n";
-      
-      IO::log << IO::log_offset << "Energy (including zero-point energy correction) = "
-	      << (ener - _refen) / Phys_const::kcal << " kcal/mol" << std::endl;
-
-      IO::log << IO::log_offset << "Frequencies, 1/cm:";
-
       for(int f = 0; f < in_size; ++f) {
 	//
-	IO::log << "   ";
-    
 	if(eval[f] < 0.) {
 	  //
-	  IO::log << -std::sqrt(-eval[f]) / Phys_const::incm;
+	  dtemp = std::sqrt(-eval[f]) / temperature / 2.;
+
+	  if(dtemp < 0.9 * M_PI) {
+	    //
+	    wfac *= dtemp / std::sin(dtemp);
+	  }
+	  else if(!deep_tunnel) {
+	    //
+	    deep_tunnel = true;
+	
+	    std::cerr << funame << "WARNING: the system is in the deep tunneling regime, check the log file\n";
+
+	    IO::log << IO::log_offset << "WARNING: the system is in the deep tunneling regime" << std::endl;
+	  }
 	}
-	else
+	else if(eval[f] > 0.) {
 	  //
-	  IO::log << std::sqrt(eval[f]) / Phys_const::incm;
+	  dtemp = std::sqrt(eval[f]) / temperature / 2.;
+      
+	  if(dtemp > high_freq_thres) {
+	    //
+	    ener += dtemp * temperature;
+	
+	    wfac *= 2. * dtemp;
+	  }
+	  else
+	    //
+	    wfac *= dtemp / std::sinh(dtemp);
+	}
       }
 
-      IO::log << std::endl;
+      // deep tunneling regime output
       //
-    }// deep tunneling
+      if(deep_tunnel) {
+	//
+	IO::log << IO::log_offset << "Deep tunneling regime:\n";
+      
+	IO::log << IO::log_offset << "Energy (including zero-point energy correction) = "
+		<< (ener - _refen) / Phys_const::kcal << " kcal/mol" << std::endl;
 
-  }// quantum correction factor
+	IO::log << IO::log_offset << "Frequencies, 1/cm:";
+
+	for(int f = 0; f < in_size; ++f) {
+	  //
+	  IO::log << "   ";
+    
+	  if(eval[f] < 0.) {
+	    //
+	    IO::log << -std::sqrt(-eval[f]) / Phys_const::incm;
+	  }
+	  else
+	    //
+	    IO::log << std::sqrt(eval[f]) / Phys_const::incm;
+	}
+
+	IO::log << std::endl;
+	//
+      }// deep tunneling
+      //
+    }// quantum correction factor
+    //
+  }// reference frequencies
   
   // transition state calculation
   //
@@ -15503,7 +16522,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 
     // non-fluxional modes frequency factor
     //
-    if(!_nohess) {
+    if(!_nohess || flags & REF) {
       //
       Lapack::SymmetricMatrix nm_fc(nm_size);
 
@@ -15554,22 +16573,42 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 	//
 	std::cerr << funame << "non-fluxional mode frequency is too low: " << dtemp  << " 1/cm \n";
 
-	return -1.;
+	throw Error::Range();
       }
   
-      // classical weight factor for non-fluxional modes
+      // classical frequency factor for non-fluxional modes
       //
-      for(int f = 0; f < nm_size; ++f) {
+      if(flags & REF) {
 	//
-	wfac /= std::sqrt(eval[f]);
+	_ref_wfac = 1.;
+	
+	for(int f = 0; f < nm_size; ++f) {
+	  //
+	  _ref_wfac /= std::sqrt(eval[f]);
+	}
+
+	return 1.;
       }
+      else
+	//
+	for(int f = 0; f < nm_size; ++f) {
+	  //
+	  wfac /= std::sqrt(eval[f]);
+	}
     }
 
     if(_nohess && !_noqf) {
       //
-      for(int f = 0; f < _nm_freq.size(); ++f) {
+      if(!_ref_freq.size()) {
 	//
-	dtemp = _nm_freq[f] / temperature / 2.;
+	std::cerr << funame << "reference frequencies not initialized\n";
+
+	throw Error::Init();
+      }
+	
+      for(int f = 0; f < _ref_freq.size(); ++f) {
+	//
+	dtemp = _ref_freq[f] / temperature / 2.;
       
 	if(dtemp > high_freq_thres) {
 	  //
@@ -15583,7 +16622,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
       }
     }
   }// stable species
-  
+
   // Boltzmann factor, including zero-point energy of high-frequency modes relative to the reference energy
   //
   double bpow = (ener - _refen) / temperature;
@@ -16523,6 +17562,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
   Key      harm_key("AreFrequenciesHarmonic"          );
   Key    anharm_key("Anharmonicities[1/cm]"           );
   Key      hrot_key("Rotor"                           );
+  Key       hrb_key("HinderedRotorBundle"             );
   Key      core_key("Core"                            );
   Key      tunn_key("Tunneling"                       );
   Key      irin_key("InfraredIntensities[km/mol]"     );
@@ -16722,11 +17762,23 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
       _core = new_core(from, geometry(), mode());
     }
     // hindered rotor
+    //
     else if(hrot_key == token) {
+      //
       IO::log << IO::log_offset << _rotor.size() + 1 << "-th ROTOR:\n";
+      
       _rotor.push_back(new_rotor(from, geometry()));
     }
+    // hindered rotor bundle
+    //
+    else if(hrb_key == token) {
+      //
+      IO::log << IO::log_offset << _hrb.size() + 1 << "-th hihndered rotor bundle with adiabatic frequencies:\n";
+      
+      _hrb.push_back(ConstSharedPointer<HinderedRotorBundle>(new HinderedRotorBundle(from, geometry())));
+    }
     // frequency scaling factor
+    //
     else if(fscale_key == token) {
       if(fscale > 0.) {
 	std::cerr << funame << token << ": already initialized\n";
@@ -17020,6 +18072,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
   /************************************* SETTING *************************************/ 
 
   // electronic level ground energy correction
+  //
   if(!elevel_map.size()) {
     _elevel.resize(1, 0.);
     _edegen.resize(1, 1);
@@ -17034,18 +18087,30 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
   }
 
   // vibrational zero-point energy correction
+  //
   if(!iszero) {
+    //
     for(int f = 0; f < _frequency.size(); ++f)
       //
       _ground += _frequency[f] / 2. * _fdegen[f];  
 
     // core ground energy correction
+    //
     if(_core)
+      //
       _ground += _core->ground();
 
-    // hindered rotor energy correction
+    // hindered rotor ground energy correction
+    //
     for(int r = 0; r < _rotor.size(); ++r)
+      //
       _ground += _rotor[r]->ground();
+
+    // hindered rotor bundle ground energy correction
+    //
+    for(int b = 0; b < _hrb.size(); ++b)
+      //
+      _ground += _hrb[b]->ground();
   }
 
   _real_ground = _ground;
@@ -17111,6 +18176,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
       else {
 	//
 	stat_grid = 0.;
+	
 	stat_grid[0] = 1. / ener_quant / _sym_num;
       }
     }
@@ -17124,11 +18190,16 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
       IO::Marker elev_marker("electronic states contribution", IO::Marker::ONE_LINE);
 
       new_stat_grid = 0.;
+      
       for(int l = 0; l < _elevel.size(); ++l) {
+	//
 	itemp = (int)round(_elevel[l] / ener_quant);
+	
 	for(int i = itemp; i < ener_grid.size(); ++i)
+	  //
 	  new_stat_grid[i] += stat_grid[i - itemp] * double(_edegen[l]);
       }
+      
       stat_grid = new_stat_grid;
     }
     //
@@ -17148,18 +18219,24 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
       IO::Marker vib_marker("vibrational modes contribution", IO::Marker::ONE_LINE);
 
       for(int f = 0; f < _frequency.size(); ++f)
+	//
 	for(int d = 0; d < _fdegen[f]; ++d) {
+	  //
 	  itemp = (int)round(_frequency[f] / ener_quant);
+	  
 	  if(itemp < 0) {
+	    //
 	    std::cerr << funame << "negative frequency\n";
+	    
 	    throw Error::Range();
 	  }
+	  
 	  for(int e = itemp; e < ener_grid.size(); ++e)
+	    //
 	    stat_grid[e] += stat_grid[e - itemp];
 	}
     }
   
-
     // hindered rotor contribution
     //
     if(_rotor.size()) {
@@ -17171,15 +18248,45 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
 	_rotor[r]->set(energy_limit() - ground());
 	
 	_rotor[r]->convolute(stat_grid, ener_quant);
+	
       }// 1D rotor cycle
     }
 
+    // hindered rotor bundle contribution
+    //
+    if(_hrb.size()) {
+      //
+      IO::Marker rotor_marker("hindered rotor bundles contribution");
+      
+      for(int b = 0; b < _hrb.size(); ++b) {
+	//
+	// convolute with HRB DoS
+	//
+	new_stat_grid = stat_grid;
+
+	new_stat_grid *= _hrb[b]->states(0);
+	
+	for(int e = 1; e < _hrb[b]->size(); ++e) {
+	  //
+	  itemp = _hrb[b]->energy_step() / ener_quant * e;
+	  
+	  for(int i = itemp; i < ener_grid.size(); ++i)
+	    //
+	    new_stat_grid[i] += stat_grid[i - itemp] * _hrb[b]->states(e);
+	}
+
+	stat_grid = new_stat_grid;
+      }
+    }
 
     // tunneling
+    //
     if(_tunnel) {
+      //
       IO::Marker tunnel_marker("tunneling contribution", IO::Marker::ONE_LINE);
 
       // convolute the number of states with the tunneling density
+      //
       _tunnel->convolute(stat_grid, ener_quant);
     }
 
@@ -17478,6 +18585,7 @@ double Model::RRHO::weight (double temperature) const
     res /= _sym_num;
 
   // vibrational contribution
+  //
   std::vector<double> rfactor(_frequency.size()), sfactor(_frequency.size());
   
   for(int  f = 0; f < _frequency.size(); ++f) {
@@ -17617,12 +18725,22 @@ double Model::RRHO::weight (double temperature) const
     res *= std::exp(-acl);
   }
 
-  // hindered 1D rotor contribution
+  // 1D hindered rotor contribution
+  //
   for(int r = 0; r < _rotor.size(); ++r)
+    //
     res *= _rotor[r]->weight(temperature);
 
+  // 1D hindered rotor bundle contribution
+  //
+  for(int b = 0; b < _hrb.size(); ++b)
+    //
+    res *= _hrb[b]->weight(temperature);
+
   // tunneling contribution
+  //
   if(_tunnel)
+    //
     res *= _tunnel->weight(temperature);
 
   return res;

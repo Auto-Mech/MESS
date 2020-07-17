@@ -244,22 +244,33 @@ namespace Model {
    ********************************************************************************************/
 
   class InternalRotationBase {
+    //
     std::set<int>      _group; // moving group definition
+    
     std::pair<int, int> _axis; // moving direction definition
+    
     int             _symmetry; // internal rotation symmetry
+    
     int                 _imax; // maximal atomic index in internal roation definition
 
     bool _isinit;
 
-  protected:
-    explicit InternalRotationBase (int s) : _isinit(false), _symmetry(s) {}
-    InternalRotationBase (IO::KeyBufferStream&) ;
+  public:
+    //
+    void init(IO::KeyBufferStream&);
+    
+    InternalRotationBase()                           : _isinit(false), _symmetry(1), _axis(-1, -1) {}
+    
+    explicit InternalRotationBase(int s)             : _isinit(false), _symmetry(s), _axis(-1, -1) {}
+    
+    InternalRotationBase (IO::KeyBufferStream& from) : _isinit(false), _symmetry(1), _axis(-1, -1) { init(from); }
+    
     virtual ~InternalRotationBase ();
 
-  public:
     int symmetry () const { return _symmetry; }
 
     std::vector<Atom>            rotate (const std::vector<Atom>& atom, double angle) const;
+    
     std::vector<D3::Vector> normal_mode (const std::vector<Atom>& atom, Lapack::Vector* =0) const;
   };
 
@@ -270,40 +281,75 @@ namespace Model {
   class Rotor {
 
   protected:
+    //
     // controls
-    int      _ham_size_max; // maximum dimension of the Hamiltonian
-    int      _ham_size_min; // minimal dimension of the Hamiltonian
-    int         _grid_size; // angular discretization size
-    double  _therm_pow_max; // thermal exponent power maximum
 
-    std::vector<Atom> _atom; // 3D structure
+     // maximum dimension of the Hamiltonian
+    //
+    int      _ham_size_max;
+
+     // minimal dimension of the Hamiltonian
+    //
+    int      _ham_size_min;
+
+     // angular discretization size
+    //
+    int _grid_size;
+
+     // thermal exponent power maximum
+    //
+    double  _therm_pow_max;
+
+     // 3D structure
+    //
+    std::vector<Atom> _atom;
 
     Rotor ();
+    
     Rotor (IO::KeyBufferStream&, const std::vector<Atom>&) ;
 
   public:
+    
     virtual ~Rotor();
 
-    virtual void   set (double) =0;// maximal energy relative to ground   
+    int angular_grid_size () const { return _grid_size; }
+    
+    // set maximal energy relative to ground
+    //
+    virtual void   set (double) { std::cerr << "Model::Rotor::set: not defined\n"; throw Error::Init(); }
 
-    virtual double ground        ()       const =0;// ground energy
-    virtual double energy_level  (int)    const =0;// energy level relative to the ground
-    virtual int    level_size    ()       const =0;// number of energy levels
-    virtual double weight        (double) const =0;// statistical weight relative to the ground
+    // ground energy
+    //
+    virtual double ground        () const { std::cerr << "Model::Rotor::ground: not defined\n"; throw Error::Init(); }
+    
+    // energy level relative to the ground
+    //
+    virtual double energy_level  (int)  const { std::cerr << "Model::Rotor::energy_level: not defined\n"; throw Error::Init(); }
+
+    // number of energy levels
+    //
+    virtual int    level_size    ()       const { std::cerr << "Model::Rotor::level_size: not defined\n"; throw Error::Init(); }
+    
+    // statistical weight relative to the ground
+    //
+    virtual double weight        (double) const { std::cerr << "Model::Rotor::weight: not defined\n"; throw Error::Init(); }
 
     void convolute(Array<double>&, double) const;
   };
 
   // rotational constant for free and hindered rotors
+  //
   class RotorBase : public Rotor, public InternalRotationBase  {
+    //
     double  _rotational_constant;    
 
-  protected:
-    RotorBase (double r, int s) : InternalRotationBase(s), _rotational_constant(r) {} 
-    RotorBase (IO::KeyBufferStream&, const std::vector<Atom>&) ;
-    virtual ~RotorBase ();
-
   public:
+
+    RotorBase (double r, int s) : InternalRotationBase(s), _rotational_constant(r) {}
+    
+    RotorBase (IO::KeyBufferStream&, const std::vector<Atom>&);
+
+    virtual ~RotorBase ();
 
     double rotational_constant () const { return _rotational_constant; }
   };
@@ -343,23 +389,32 @@ namespace Model {
     double              _grid_step; // angular discretization step
     double                _pot_max; // global potential energy maximum
     double                _pot_min; // global potential energy minimum
+    double               _freq_min; // frequency at minimum
     double               _freq_max; // maximum frequency
-    double               _freq_min; // minimum frequency
     double            _harm_ground; // ground energy in harmonic approximation
     
-    int _weight_output_temperature_step; // temperature step for statistical weight output
-    int _weight_output_temperature_max;  // temperature maximum for statistical weight output
-    int _weight_output_temperature_min;  // temperature maximum for statistical weight output
- 
     void _set_energy_levels (int) ;
     void _read (IO::KeyBufferStream&);
     void _init ();
 
     bool _use_quantum_weight;
 
-  public: 
-    HinderedRotor (IO::KeyBufferStream&, const std::vector<Atom>&);
-    HinderedRotor (const std::map<int, double>& p, double r, int s);
+    int _flags;
+
+  public:
+    //
+    enum {NOPRINT = 1};
+    
+    static int weight_output_temperature_step; // temperature step for statistical weight output
+    static int weight_output_temperature_max;  // temperature maximum for statistical weight output
+    static int weight_output_temperature_min;  // temperature maximum for statistical weight output
+ 
+    HinderedRotor (IO::KeyBufferStream&, const std::vector<Atom>&, int f = 0);
+    
+    HinderedRotor (const RotorBase& r, const std::map<int, double>& p, int f = 0);
+    
+    HinderedRotor (const std::map<int, double>& p, double r, int s, int f = 0);
+    
     ~HinderedRotor ();
 
     double                        potential           (double, int =0) const;
@@ -381,10 +436,44 @@ namespace Model {
     double weight       (double) const;
   };
 
+  /*********************************************************************************************
+   ******************* HINDERED ROTOR BUNDLE WITH ADIABATIC FREQUENCIES  ***********************
+   ********************************************************************************************/
+
+  class HinderedRotorBundle {
+
+    double _ground; // ground energy
+
+    double _ener_step; // discretization step
+    
+    Array<double> _qstates; //   quantum # of states per bin (low energies)
+
+    Array<double> _cstates; // classical # of states per bin (high energies)
+
+    int _flags;
+
+  public:
+
+    enum { NOPRINT = 1 };
+    
+    HinderedRotorBundle (IO::KeyBufferStream&, const std::vector<Atom>&);
+
+    double ground ()       const { return _ground; }
+
+    double energy_step () const { return _ener_step; }
+    
+    int size () const { return _cstates.size(); }
+
+    double states (int e) const { if(e < _qstates.size()) return _qstates[e]; return _cstates[e]; }
+    
+    double weight (double) const;
+  };
+    
   /********************************************************************************************
    ***************************************** UMBRELLA MODE ************************************
    ********************************************************************************************/
 
+  
   class Umbrella : public Rotor {
 
     double _ground;
@@ -546,7 +635,9 @@ namespace Model {
     int                 _qmax; // maximum quantum state size
 
   public:
-    InternalRotation (IO::KeyBufferStream&) ;
+    //
+    InternalRotation (IO::KeyBufferStream&);
+    
     ~InternalRotation ();
 
     int      mass_fourier_size () const { return    _msize; }
@@ -881,7 +972,7 @@ namespace Model {
 
     // reference energy
     //
-    double _refen;
+    mutable double _refen;
 
     // symmetry factor
     //
@@ -925,7 +1016,8 @@ namespace Model {
 			  Lapack::Vector          cart_pos,   // cartesian coordinates    
 			  Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
 			  Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
-			  double                  temperature // temprature
+			  double                  temperature, // temprature
+			  int                     flags = 0
 			  ) const;
 
     // read data from the file
@@ -934,7 +1026,8 @@ namespace Model {
 	        double&                 ener,       // energy
 		Lapack::Vector          cart_pos,   // cartesian coordinates    
 		Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
-		Lapack::SymmetricMatrix cart_fc     // cartesian force constant matrix
+		Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
+		int                     flags = 0
 		) const;
 
     // set reference energy to the minimal total energy including zero-point energy
@@ -944,7 +1037,7 @@ namespace Model {
     Lapack::SymmetricMatrix _inertia_matrix (Lapack::Vector pos) const;
 
     void _make_cm_shift (Lapack::Vector pos) const;
-    
+
     // reference potential definition
     //
     class _RefPot {
@@ -981,9 +1074,25 @@ namespace Model {
     // reference temperature
     //
     double  _ref_tem;
+
+    // internal rotation definition for TS calculations without Hessian
+    //
+    std::vector<InternalRotationBase> _internal_rotation;
+
+    double _internal_rotation_mass_factor (Lapack::Vector cart_pos) const;
+    
+    // reference point frequencies
+    //
+    mutable std::vector<double> _ref_freq;
+
+    // reference point frequency factor
+    //
+    mutable double _ref_wfac;
     
   public:
     //
+    enum { REF = 1 };
+    
     MonteCarlo (IO::KeyBufferStream&, const std::string&, int);
     
     ~MonteCarlo ();
@@ -1065,6 +1174,8 @@ namespace Model {
     SharedPointer<Core>                     _core; // other degrees of freedom
     
     std::vector<SharedPointer<Rotor> >     _rotor; // hindered rotors
+
+    std::vector<ConstSharedPointer<HinderedRotorBundle> > _hrb;
     
     std::vector<double>                _frequency; // real frequencies
     

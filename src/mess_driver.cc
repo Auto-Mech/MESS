@@ -1,12 +1,28 @@
+/*
+        Chemical Kinetics and Dynamics Library
+        Copyright (C) 2008-2019, Yuri Georgievski <ygeorgi@anl.gov>
+
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Library General Public
+        License as published by the Free Software Foundation; either
+        version 2 of the License, or (at your option) any later version.
+
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Library General Public License for more details.
+*/
+
 #include<iostream>
 #include<fstream>
 #include<sstream>
 #include<cmath>
+#include <sys/resource.h>
 
-#include "libmess/mess.hh"
-#include "libmess/key.hh"
-#include "libmess/units.hh"
-#include "libmess/io.hh"
+#include "mess.hh"
+#include "key.hh"
+#include "units.hh"
+#include "io.hh"
 
 int main (int argc, char* argv [])
 {
@@ -17,6 +33,27 @@ int main (int argc, char* argv [])
     return 0;
   }
 
+  // no core dumps
+  //
+  rlimit no_core;
+
+  getrlimit(RLIMIT_CORE, &no_core);
+
+  if(no_core.rlim_max > 0) {
+    //
+    no_core.rlim_cur = 0;
+    no_core.rlim_max = 0;
+
+    if(setrlimit(RLIMIT_CORE, &no_core)) {
+      //
+      std::cerr << funame << "setrlimit failed\n";
+
+      return 1;
+    }
+  }
+
+    
+  
   int                 itemp;
   double              dtemp;
   bool                btemp;
