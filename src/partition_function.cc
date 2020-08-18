@@ -18,10 +18,10 @@
 #include<sstream>
 #include<cmath>
 
-#include "model.hh"
-#include "key.hh"
-#include "units.hh"
-#include "io.hh"
+#include "libmess/model.hh"
+#include "libmess/key.hh"
+#include "libmess/units.hh"
+#include "libmess/io.hh"
 
 int main (int argc, char* argv [])
 {
