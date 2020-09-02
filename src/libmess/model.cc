@@ -3221,10 +3221,10 @@ std::vector<D3::Vector> Model::InternalRotationBase::normal_mode
  *********************** 1D UMBRELLA MODE/ ROTOR CLASS FAMILY  ******************************
  ********************************************************************************************/
 
-Model::Rotor::Rotor () :_ham_size_min(99), _ham_size_max(999), _grid_size(1000), _therm_pow_max(10.) {}
+Model::Rotor::Rotor () :_ham_size_min(999), _ham_size_max(4999), _grid_size(1000), _therm_pow_max(10.) {}
 
 Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
-  :_ham_size_min(99), _ham_size_max(999), _grid_size(1000), _therm_pow_max(50.), _atom(atom)
+  :_ham_size_min(999), _ham_size_max(4999), _grid_size(1000), _therm_pow_max(50.), _atom(atom)
 {
   const char funame [] = "Model::Rotor::Rotor: ";
 
@@ -4401,9 +4401,77 @@ int Model::HinderedRotor::weight_output_temperature_max  = 1000;
 
 int Model::HinderedRotor::weight_output_temperature_step = 100;
 
+double Model::HinderedRotor::weight_thres = 10.;
+
+void Model::HinderedRotor::convolute(Array<double>& stat_grid, double ener_quant) const
+{
+  const char funame [] = "Model::HinderedRotor::convolute: ";
+  
+  int    itemp;
+  double dtemp;
+
+  Array<double> new_stat_grid = stat_grid;
+
+  std::map<int, int> shift;
+  
+  for(int n = 1; n < level_size(); ++n) {
+    //
+    dtemp = std::ceil(energy_level(n) / ener_quant);
+
+    if(dtemp < (double)stat_grid.size()) {
+      //
+      itemp = (int)dtemp;
+    }
+    else
+      //
+      itemp = stat_grid.size();
+    
+    shift[itemp]++;
+  }
+
+  for(std::map<int, int>::const_iterator it = shift.begin(); it != shift.end(); ++it) {
+    //
+#pragma omp parallel for default(shared) schedule(static)
+    //
+    for(int i = it->first; i < stat_grid.size(); ++i)
+      //
+      new_stat_grid[i] += (double)it->second * stat_grid[i - it->first];
+  }
+
+  // high energy states contribution
+  //
+  itemp = shift.rbegin()->first + 1;
+  
+  if(itemp < stat_grid.size()) {
+    //
+    int n1 = semiclassical_states_number(((double)itemp - 0.5) * ener_quant + ground());
+    
+    for(int i = itemp; i < stat_grid.size(); ++i) {
+      //
+      int n2 = semiclassical_states_number(((double)i + 0.5) * ener_quant + ground());
+
+      if(n2 <= n1)
+	//
+	continue;
+      
+      dtemp = n2 - n1;
+
+#pragma omp parallel for default(shared) schedule(static)
+      //
+      for(int j = i; j < stat_grid.size(); ++j)
+	//
+	new_stat_grid[j] += dtemp * stat_grid[j - i];
+
+      n1 = n2;
+    }
+  }
+  
+  stat_grid = new_stat_grid; 
+}
+
 Model::HinderedRotor::HinderedRotor (const RotorBase& r, const std::map<int, double>& p, int f)
   //
-  : RotorBase(r), _pot_four(p), _use_quantum_weight(false), _flags(f)
+  : RotorBase(r), _pot_four(p), _flags(f), _ener_max(-1.)
 {
   const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
 
@@ -4420,7 +4488,7 @@ Model::HinderedRotor::HinderedRotor (const RotorBase& r, const std::map<int, dou
 
 Model::HinderedRotor::HinderedRotor (const std::map<int, double>& p, double r, int s, int f)
   //
-  : RotorBase(r, s), _pot_four(p), _use_quantum_weight(false), _flags(f)
+  : RotorBase(r, s), _pot_four(p), _flags(f), _ener_max(-1.)
 {
   const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
 
@@ -4437,7 +4505,7 @@ Model::HinderedRotor::HinderedRotor (const std::map<int, double>& p, double r, i
 
 Model::HinderedRotor::HinderedRotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom, int f)
   //
-  : RotorBase(from, atom), _use_quantum_weight(false), _flags(f)
+  : RotorBase(from, atom), _flags(f), _ener_max(-1.)
 {
   const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
 
@@ -4476,8 +4544,8 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
   Key kcal_four_key("FourierExpansion[kcal/mol]");
   Key incm_four_key("FourierExpansion[1/cm]"    );
   Key   kj_four_key("FourierExpansion[kJ/mol]"  );
-  Key  use_quan_key("UseQuantumWeight"          );
-
+  Key kcal_emax_key("LevelEnergyMax[kcal/mol]"  );
+  
   std::string token, line, comment;
   
   while(from >> token) {
@@ -4489,6 +4557,35 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       std::getline(from, comment);
 
       break;
+    }
+    // Maximal level energy
+    //
+    else if(kcal_emax_key == token) {
+      //
+      if(_ener_max > 0.) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+
+	throw Error::Init();
+      }
+
+      if(!(from >> _ener_max)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(_ener_max <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+
+	throw Error::Range();
+      }
+
+      _ener_max *= Phys_const::kcal;
+      
+      std::getline(from, comment);
     }
     // potential on the grid
     //
@@ -4685,14 +4782,6 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	_pot_four[itemp] = dtemp;
       }
     }
-    // use quantum weight
-    //
-    else if(use_quan_key == token) {
-      //
-      std::getline(from, comment);
-      
-      _use_quantum_weight = true;
-    }
     // unknown keyword
     //
     else if(IO::skip_comment(token, from)) {
@@ -4736,6 +4825,13 @@ void Model::HinderedRotor::_init ()
  
   // hamiltonian size adjusting
   //
+  if(_ener_max > 0.) {
+    //
+    itemp = 2 * int(std::sqrt(_ener_max / rotational_constant()) / symmetry()) + 1;
+
+    _ham_size_min = itemp;
+  }
+  
   itemp = _pot_four.rbegin()->first;
   
   if(itemp % 2) {
@@ -4750,10 +4846,12 @@ void Model::HinderedRotor::_init ()
     //
     _ham_size_min = itemp;
       
-
-  if(_ham_size_max < _ham_size_min)
+  if(_ham_size_max < _ham_size_min) {
     //
-    _ham_size_max = _ham_size_min;
+    std::cerr << funame << "requested Hamiltonian size (" << _ham_size_min <<") exceeds HamiltonSizeMax (" << _ham_size_max << ")/n";
+
+    throw Error::Range();
+  }
 
   // minimum and maximum potential energies and potential discretization
   //
@@ -5008,7 +5106,7 @@ Model::HinderedRotor::~HinderedRotor ()
   //std::cout << "Model::HinderedRotor destroyed\n";
 }
 
-void  Model::HinderedRotor::set (double ener_max)
+void  Model::HinderedRotor::set (double emax)
 {
   const char funame [] = "Model::HinderedRotor::set: ";
 
@@ -5028,9 +5126,10 @@ void  Model::HinderedRotor::set (double ener_max)
 
   int hsize = 0;
 
-  dtemp = ener_max + ground() - _pot_min;
+  dtemp = emax + ground() - _pot_min;
 
   if(dtemp > 0.)
+    //
     hsize = 2 * (int)std::ceil(std::sqrt(dtemp / rotational_constant()) / (double)symmetry()) + 1;
   
   if(hsize <= _ham_size_min)
@@ -5100,11 +5199,14 @@ int Model::HinderedRotor::level_size () const
 
 double Model::HinderedRotor::weight (double temperature) const
 {
-  if(_use_quantum_weight)
+  if(_energy_level.back() / temperature > weight_thres)
+    //
     return quantum_weight(temperature);
 
   double cw, sw;
+  
   get_semiclassical_weight(temperature, cw, sw);
+  
   return sw;
 }
 
@@ -14913,34 +15015,46 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
 Model::MonteCarlo::~MonteCarlo() {}
 
 Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, int m)
-  : Species(from, n, m), _symm_fac(1.), _noqf(false), _nohess(false), _nocurv(false),
-    _cmshift(false), _ists(false), _ref_tem(-1.), _ref_wfac(-1.)
+  : Species(from, n, m), _corr_fac(1.), _nohess(false), _nocurv(false), _nopg(false),
+    _cmshift(false), _ists(false), _ref_tem(-1.), _use_ilt(false), 
+    nm_freq_min(10. * Phys_const::incm), high_freq_thres(5.), low_freq_thres(1.e-5),
+    exp_arg_max(200.), deep_tunnel_thres(0.8), _deep_tunnel(false), _temp_diff_step(0.01),
+    _ilt_min(100. * Phys_const::kelv), _ilt_max(10000. * Phys_const::kelv), _ilt_num(100),
+    _ener_quant(Phys_const::incm), _ener_max(200. * Phys_const::kcal), _rsymm(1)
 {
   const char funame [] = "Model::MonteCarlo::MonteCarlo: ";
 
   IO::Marker funame_marker(funame);
 
-  int    itemp;
+  int           itemp;
   
-  double dtemp;
+  double        dtemp;
 
+  Array<double> vtemp;
+  
   std::string token, comment, stemp;
 
   KeyGroup MonteCarloModel;
 
   Key    atom_key("MoleculeSpecification"        );
+  
   Key    flux_key("FluxionalMode"                );
+  
+  Key    irot_key("InternalRotation"             );
+  
   Key    incr_key("NumericIncrement[Bohr]"       );
+  
   Key    symm_key("SymmetryFactor"               );
+  Key    excl_key("ExcludedVolumeFactor"         );
   Key    data_key("DataFile"                     );
   Key    rpot_key("ReferencePotential"           );
   Key    rtem_key("ReferenceTemperature[K]"      );
-  Key    noqf_key("NoQuantumCorrection"          );
   Key  nohess_key("NoHessian"                    );
+  Key    nopg_key("NoPitzerGwinnCorrection"      );
   Key  nocurv_key("NoCurvlinearCorrection"       );
   Key cmshift_key("UseCMShift"                   );
-  Key    freq_key("NonFluxionalFrequencies[1/cm]");
-  Key      ts_key("TransitionState");
+  Key      ts_key("TransitionState"              );
+  Key use_ilt_key("UseInverseLaplaceStates"      );
   
   Key incm_refen_key("ReferenceEnergy[1/cm]"          );
   Key kcal_refen_key("ReferenceEnergy[kcal/mol]"      );
@@ -14948,8 +15062,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   Key   ev_refen_key("ReferenceEnergy[eV]"            );
   Key   au_refen_key("ReferenceEnergy[au]"            );
   
+  Key       ebin_key("EnergyQuantum[1/cm]"            );
+  
+  Key       emax_key("EnergyMax[kcal/mol]"            );
+  
   Key   ref_conf_key("ReferenceConfiguration"         );
-
+  
+  Key      rsymm_key("ReferenceConfigurationSymmetry" );
+  
   Key incm_ground_key("GroundEnergy[1/cm]"          );
   Key kcal_ground_key("GroundEnergy[kcal/mol]"      );
   Key   kj_ground_key("GroundEnergy[kJ/mol]"        );
@@ -14961,11 +15081,19 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   Key   kj_elev_key("ElectronicLevels[kJ/mol]"        );
   Key   ev_elev_key("ElectronicLevels[eV]"            );
   Key   au_elev_key("ElectronicLevels[au]"            );
+  
+  Key   ilt_min_key("InverseLaplaceMin[K]"            );
+  Key   ilt_max_key("InverseLaplaceMax[K]"            );
+  Key   ilt_num_key("InverseLaplaceSize"              );
 
   bool isrefen = false;
 
   bool isground = false;
 
+  bool is_symm = false;
+
+  bool is_excl = false;
+  
   std::string ref_conf;
   
   while(from >> token) {
@@ -14998,13 +15126,25 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
       std::getline(from, comment);
     }
-    // exclude quantum correction
+    // reference configuration symmetry
     //
-    else if(noqf_key == token) {
+    else if(rsymm_key == token) {
       //
-      std::getline(from, comment);
+      if(!(from >> _rsymm)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
 
-      _noqf = true;
+	throw Error::Input();
+      }
+
+      if(_rsymm < 1) {
+	//
+	std::cerr << funame << token << ": out of range: " << _rsymm << "\n";
+
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
     }
     // no hessian data
     //
@@ -15013,6 +15153,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       std::getline(from, comment);
 
       _nohess = true;
+    }
+    // no Pitzer-Guinn correction
+    //
+    else if(nopg_key == token) {
+      //
+      std::getline(from, comment);
+
+      _nopg = true;
     }
     // no curvlinear correction to hessian
     //
@@ -15037,6 +15185,78 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       std::getline(from, comment);
 
       _ists = true;
+    }
+    // use inverse laplace transform number of states
+    //
+    else if(use_ilt_key == token) {
+      //
+      std::getline(from, comment);
+
+      _use_ilt = true;
+    }
+    // inverse Laplace transform minimal temperature
+    //
+    else if(ilt_min_key == token) {
+      //
+      if(!(from >> _ilt_min)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(_ilt_min <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+
+      _ilt_min *= Phys_const::kelv;
+    }
+    // inverse Laplace transform maximal temperature
+    //
+    else if(ilt_max_key == token) {
+      //
+      if(!(from >> _ilt_max)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(_ilt_max <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+
+      _ilt_max *= Phys_const::kelv;
+    }
+    // inverse Laplace transform number of points
+    //
+    else if(ilt_num_key == token) {
+      //
+      if(!(from >> _ilt_num)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(_ilt_num < 2) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
     }
     // electronic energy levels & degeneracies
     //
@@ -15099,8 +15319,67 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 	  throw Error::Range();
 	}
 
+	if(dtemp < 0.) {
+	  //
+	  std::cerr << funame << token << ": should not be negative\n";
+	  
+	  throw Error::Range();
+	}
+
+
+	if(!_elevel.size() && dtemp != 0.) {
+	  //
+	  std::cerr << funame << token << ": first energy level should be zero\n";
+
+	  throw Error::Range();
+	}
+	
 	_elevel[dtemp] = itemp;
       }
+    }
+    // energy discretization bin
+    //
+    else if(token == ebin_key) {
+      //
+      if(!(from >> _ener_quant)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(_ener_quant <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+
+      _ener_quant *= Phys_const::incm;
+    }
+    // upper energy limit
+    //
+    else if(token == emax_key) {
+      //
+      if(!(from >> _ener_max)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(_ener_max <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+
+      _ener_max *= Phys_const::kcal;
     }
     //  reference energy
     //
@@ -15248,6 +15527,8 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 	  //
 	  a.set(stemp);
 
+	_atom.push_back(a);
+	
 	dtemp = a.mass();
 
 	_mass += dtemp;
@@ -15271,6 +15552,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       }
 
       _fluxional.push_back(Fluxional(atom_size(), from));
+    }
+    // internal rotation definition
+    //
+    else if(irot_key == token) {
+      //
+      std::getline(from, comment);
+
+      _internal_rotation.push_back(InternalRotationBase(from));
     }
     // numerical differentiation increment
     //
@@ -15342,6 +15631,15 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     //
     else if(symm_key == token) {
       //
+      if(is_symm) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      is_symm = true;
+      
       IO::LineInput lin(from);
 
       if(!(lin >> dtemp)) {
@@ -15351,14 +15649,45 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 	throw Error::Input();
       }
 
-      if(dtemp <= 0) {
+      if(dtemp <= 0.) {
 	//
 	std::cerr << funame << token << ": out of range: " << dtemp << "\n";
 
 	throw Error::Range();
       }
 
-      _symm_fac = dtemp;
+      _corr_fac *= dtemp;
+    }
+    // excluded volume factor
+    //
+    else if(excl_key == token) {
+      //
+      if(is_excl) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      is_excl = true;
+      
+      IO::LineInput lin(from);
+
+      if(!(lin >> dtemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(dtemp <= 0. || dtemp >= 1.) {
+	//
+	std::cerr << funame << token << ": out of range: " << dtemp << "\n";
+
+	throw Error::Range();
+      }
+
+      _corr_fac /= dtemp;
     }
     // data file
     //
@@ -15414,16 +15743,23 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     throw Error::Init();
   }
 
-  if(!_fluxional.size()) {
+  if(!_fluxional.size() && !_internal_rotation.size()) {
     //
-    std::cerr << funame << "no fluxional modes specified\n";
+    std::cerr << funame << "neither fluxional modes nor internal rotations specified\n";
 
     throw Error::Init();
   }
 
-  if(_fluxional.size() + 6 > atom_size() * 3) {
+  if(_fluxional.size() && _internal_rotation.size()) {
     //
-    std::cerr << funame << "number of fluxional modes (" << _fluxional.size()
+    std::cerr << funame << "fluxional and internal rotations specifications are mutually exclusive\n";
+
+    throw Error::Init();
+  }
+
+  if(fluxional_size() + 6 > atom_size() * 3) {
+    //
+    std::cerr << funame << "number of fluxional modes (" << fluxional_size()
 	      << ") is inconsistent with the number of atoms, " << atom_size() << "\n";
 
     throw Error::Range();
@@ -15436,7 +15772,61 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     throw Error::Init();
   }
 
-  // setting reference energy 
+  if(_ists && _fluxional.size() && _nohess) {
+    //
+    std::cerr << funame << "transition state with constrained optimization: must provide Hessian\n";
+
+    throw Error::Init();
+  }
+
+  if(_ener_quant > nm_freq_min) {
+    //
+    std::cerr << funame << "energy discretization step, " << _ener_quant / Phys_const::incm
+      //
+	      << " 1/cm, should be smaller than non-fluxional mode frequency minimum, "
+      //
+	      << nm_freq_min / Phys_const::incm << " 1/cm\n";
+
+    throw Error::Range();
+  }
+      
+  // read sampling data
+  //
+  from.open(_data_file.c_str());
+
+  if(!from) {
+    //
+    std::cerr << funame << "cannot open data file " << _data_file << "\n";
+
+    throw Error::File();
+  }
+
+  std::getline(from, comment);
+  
+  try {
+    //
+    itemp = _nohess ? NOHESS : 0;
+    
+    while(1) {
+      //
+      _sampling_data.push_back(_Sampling(atom_size() * 3, from, itemp));
+      
+      // center of mass shift
+      //
+      if(_cmshift)
+	//
+	_make_cm_shift(_sampling_data.back().cart_pos);
+
+    }
+  }
+  catch(_Sampling::End) {
+    //
+    from.close();
+
+    from.clear();
+  }
+  
+  // setting reference energy, frequencies, etc.
   //
   // from reference configuraiton
   //
@@ -15451,49 +15841,48 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       throw Error::Init();
     }
 
-    double ener;
-
-    // cartesian coordinates
-    //
-    Lapack::Vector          cart_pos(atom_size() * 3);
-
-    // cartesian gradient
-    //
-    Lapack::Vector          cart_grad(atom_size() * 3);
-
-    // cartesian force constant matrix
-    //
-    Lapack::SymmetricMatrix cart_fc(atom_size() * 3);
-
-    _read(from, ener, cart_pos, cart_grad, cart_fc, REF);
-
+    _Sampling rs(atom_size() * 3, from, REF);
+    
     if(isrefen)
       //
       dtemp = _refen;
-    
-    _local_weight(ener, cart_pos, cart_grad, cart_fc, 1., REF);
+
+    _local_weight(rs, 1., vtemp, itemp, REF);
 
     if(isrefen)
       //
       _refen = dtemp;
+
+    from.close();
+
+    from.clear();
   }
   // from sampling data file
   //
   else if(!_nohess) {
     //
-    if(!isrefen)
+    if(isrefen)
       //
-      _set_reference_energy();
+      dtemp = _refen;
+
+    if(_set_reference_energy()) {
+      //
+      std::cerr << funame << "setting reference energy failed\n";
+
+      throw Error::Init();
+    }
+
+    if(isrefen)
+      //
+      _refen = dtemp;
   }
   else {
     //
-    std::cerr << funame << "neither Hessians no reference configuration provided\n";
+    std::cerr << funame << "neither Hessian data nor reference configuration have been provided\n";
 
     throw Error::Init();
   }
 
-  IO::log << IO::log_offset << "reference energy = " << _refen / Phys_const::kcal << " kcal/mol\n";
-										     
   if(!isground) {
     //
     IO::log << IO::log_offset << "WARNING: the ground state energy set to the reference energy\n";
@@ -15511,87 +15900,554 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   if(!_elevel.size())
     //
     _elevel[0.] = 1;
+
+  IO::log << IO::log_offset << "reference energy = " << _refen / Phys_const::kcal << " kcal/mol\n";
+
+  IO::log << IO::log_offset << "reference frequencies [1/cm]:";
+
+  for(int f = 0; f < _ref_freq.size(); ++f) {
+    //
+    if(!(f % 10))
+      //
+      IO::log << "\n" << IO::log_offset;
+      
+    IO::log << std::setw(6) << std::floor(_ref_freq[f] / Phys_const::incm);
+  }
+  
+  IO::log << std::endl;
+
+  if(_nm_freq.size()) {
+    //
+    IO::log << IO::log_offset << "non-fluxional projected frequencies [1/cm]:";
+
+    for(int f = 0; f < _nm_freq.size(); ++f) {
+      //
+      if(!(f % 10))
+	//
+	IO::log << "\n" << IO::log_offset;
+      
+      IO::log << std::setw(6)  << std::floor(_nm_freq[f] / Phys_const::incm);
+    }
+    
+    IO::log << std::endl;
+  }
+  
+  // density of states
+  //
+  //if(mode() != NOSTATES) {
+  //
+  const int dos_size = _ener_max / _ener_quant;
+    
+  Array<double> local_dos(dos_size);
+    
+  Array<double> full_dos(dos_size);
+
+  full_dos = 0.;
+
+  double nfac = 1./ (double)_sampling_data.size();
+    
+  if(!_nohess) {
+    //
+#pragma omp parallel default(shared)
+    //
+    {
+      Array<double> priv_dos(dos_size), priv_local_dos(dos_size);
+	
+      priv_dos = 0.;
+	
+#pragma omp for schedule(static)
+      //
+      for(int s = 0; s < _sampling_data.size(); ++s) {
+	//
+	_local_weight(_sampling_data[s], 1., priv_local_dos, itemp, DOS);
+      
+	priv_dos += priv_local_dos;
+      }
+
+#pragma omp critical
+      {
+	full_dos += priv_dos;
+      }
+      //
+    }// omp parallel
+    //
+  }// with Hessian
+  //
+  // no Hessian
+  //
+  else {
+    //
+    double dos_pow = (fluxional_size() + 3) / 2. - ((mode() == DENSITY) ? 1. : 0.);
+      
+    for(int i = 0; i < dos_size; ++i)
+      //
+      local_dos[i] = std::pow(i, dos_pow);
+
+    nfac *= std::pow(_ener_quant, dos_pow) / tgamma(dos_pow + 1.);
+      
+    for(int f = fluxional_size() + (_ists ? 1 : 0); f < _ref_freq.size(); ++f) {
+      //
+      itemp = _ref_freq[f] / _ener_quant;
+
+      if(!itemp) {
+	//
+	std::cerr << funame << "true non-fluxional frequency is too low: " << std::floor(_ref_freq[f] / Phys_const::incm) << " 1/cm\n";
+
+	throw Error::Range();
+      }
+
+      nfac *= _ref_freq[f] / _nm_freq[f - fluxional_size()];
+
+      for(int i = itemp; i < dos_size; ++i)
+	//
+	local_dos[i] += local_dos[i - itemp];
+    }
+
+    std::vector<std::pair<int, double> > shift_data(_sampling_data.size());
+
+#pragma omp parallel for default(shared) private(itemp, dtemp) schedule(static)
+    //
+    for(int s = 0; s < _sampling_data.size(); ++s) {
+      //
+      dtemp = _local_weight(_sampling_data[s], 1., local_dos, itemp, DOS);
+	
+      shift_data[s].first  = itemp;
+
+      shift_data[s].second = dtemp;
+      
+    }
+
+    std::map<int, double> flux_shift;
+      
+    for(int s = 0; s < shift_data.size(); ++s)
+      //
+      flux_shift[shift_data[s].first] += shift_data[s].second;
+      
+    for(std::map<int, double>::const_iterator cit = flux_shift.begin(); cit != flux_shift.end(); ++cit)
+      //
+      for(int i = cit->first; i < dos_size; ++i)
+	//
+	full_dos[i] += local_dos[i - cit->first] * cit->second;
+  }
+    
+  // span factor for constrain optimization
+  //
+  for(int f = 0; f < _fluxional.size(); ++f)
+    //
+    nfac *= _fluxional[f].span();
+
+  
+  // symmetry factor for internal rotation
+  //
+  for(int r = 0; r < _internal_rotation.size(); ++r)
+    //
+    nfac *= 2. * M_PI / _internal_rotation[r].symmetry();
+  
+  nfac /= _corr_fac;
+
+  // pi factors for fluxional and external rotation modes
+  //
+  nfac *= 2. / std::pow(2. * M_PI, double(fluxional_size() - 1) / 2.);
+
+  full_dos *= nfac;
+
+  // electronic energy levels contribution
+  //
+  local_dos = full_dos;
+    
+  for(std::map<double, int>::const_iterator cit = _elevel.begin(); cit != _elevel.end(); ++cit)
+    //
+    if(cit == _elevel.begin()) {
+      //
+      if(cit->second != 1)
+	//
+	full_dos *= (double)cit->second;
+    }
+    else {
+      //
+      itemp = cit->first / _ener_quant;
+	
+      for(int i = itemp; i < dos_size; ++i)
+	//
+	full_dos[i] += (double)cit->second * local_dos[i - itemp];
+    }
+
+  // fluxional modes zero-point energy shift
+  //
+  dtemp = 0.;
+
+  for(int f = 0; f < fluxional_size(); ++f)
+    //
+    dtemp += _ref_freq[f + (_ists ? 1 : 0)];
+
+  const int fl_shift = dtemp / 2. / _ener_quant;
+
+  if(fl_shift)
+    //
+    for(int i = fl_shift; i < dos_size; ++i)
+      //
+      full_dos[i - fl_shift] = full_dos[i];
+
+  // Pitzer-Gwinn correction
+  //
+  if(!_nopg) {
+    //
+    std::vector<int> fl_freq;
+
+    for(int f = 0; f < fluxional_size(); ++f) {
+      //
+      itemp = _ref_freq[f + (_ists ? 1 : 0)] / _ener_quant;
+
+      if(itemp > 0)
+	//
+	fl_freq.push_back(itemp);
+    }
+
+    // apply correction only if there are non-classical fluxional modes
+    //
+    if(fl_freq.size()) {
+      //
+      std::vector<int> nf_freq;
+      
+      for(int f = fluxional_size() + (_ists ? 1 : 0); f < _ref_freq.size(); ++f) {
+	//
+	itemp = _ref_freq[f] / _ener_quant;
+
+	nf_freq.push_back(itemp);
+      }
+
+      double dos_pow = 1.5 + (fluxional_size() - fl_freq.size());
+
+      if(mode() == DENSITY)
+	//
+	dos_pow -= 1.;
+
+      // quantum fluxional modes density of states
+      //
+      Array<double> qdos(dos_size);
+
+      // classical (external rotation + low frequency fluxional modes) density of states
+      //
+      for(int i = 0; i < dos_size; ++i)
+	//
+	qdos[i] = std::pow(i, dos_pow);
+
+      qdos /= tgamma(dos_pow + 1.);
+
+      // convolution with fluxional modes
+      //
+      for(int f = 0; f < fl_freq.size(); ++f)
+	//
+	for(int i = fl_freq[f]; i < dos_size; ++i)
+	  //
+	  qdos[i] += qdos[i - fl_freq[f]];
+
+      // convolution with non-fluxional modes
+      //
+      for(int f = 0; f < nf_freq.size(); ++f)
+	//
+	for(int i = nf_freq[f]; i < dos_size; ++i)
+	  //
+	  qdos[i] += qdos[i - nf_freq[f]];
+
+      // classical fluxional modes density of states
+      //
+      dos_pow += fl_freq.size();
+	
+      Array<double> cdos(dos_size);
+
+      // classical (external rotation + fluxional modes) density of states
+      //
+      for(int i = 0; i < dos_size; ++i)
+	//
+	cdos[i] = std::pow(i, dos_pow);
+
+      dtemp = tgamma(dos_pow + 1.);
+
+      for(int f = 0; f < fl_freq.size(); ++f)
+	//
+	dtemp *= fl_freq[f];
+
+      cdos /= dtemp;
+
+      // convolution with non-fluxional modes
+      //
+      for(int f = 0; f < nf_freq.size(); ++f)
+	//
+	for(int i = nf_freq[f]; i < dos_size; ++i)
+	  //
+	  cdos[i] += cdos[i - nf_freq[f]];
+
+      // fluxional modes zero-point energy shift
+      //
+      if(fl_shift)
+	//
+	for(int i = fl_shift; i < dos_size; ++i)
+	  //
+	  cdos[i - fl_shift] = cdos[i];
+
+      for(int i = 1; i < dos_size; ++i)
+	//
+	full_dos[i] *= qdos[i] / cdos[i];
+    }//
+    //
+  }// Pitzer-Gwinn correction
+  
+  // spline fit
+  //
+  Array<double> ener_grid(dos_size);
+
+  for(int i = 0; i < dos_size; ++i)
+    //
+    ener_grid[i] = _ener_quant * i;
+
+  _states.init(ener_grid, full_dos, dos_size);
+
+  // reference RRHO states
+  //
+  std::vector<int> rfreq;
+
+  nfac = _rfac / _rsymm * 2. * std::sqrt(2. * M_PI);
+
+  double dos_pow = mode() == DENSITY ? 0.5 : 1.5;
+  
+  for(int f = _ists ? 1 : 0; f < _ref_freq.size(); ++f) {
+    //
+    itemp = _ref_freq[f] / _ener_quant;
+
+    if(itemp)
+      //
+      rfreq.push_back(itemp);
+    //
+    else {
+      //
+      nfac /= _ref_freq[f];
+
+      dos_pow += 1.;
+    }
+  }
+
+  nfac *= std::pow(_ener_quant, dos_pow) / tgamma(dos_pow + 1.);
+
+  for(int i = 0; i < dos_size; ++i)
+    //
+    full_dos[i] = std::pow(i, dos_pow);
+
+  for(int f = 0; f < rfreq.size(); ++f)
+    //
+    for(int i = rfreq[f]; i < dos_size; ++i)
+      //
+      full_dos[i] += full_dos[i - rfreq[f]];
+  
+  // electronic energy levels contribution
+  //
+  local_dos = full_dos;
+    
+  for(std::map<double, int>::const_iterator cit = _elevel.begin(); cit != _elevel.end(); ++cit)
+    //
+    if(cit == _elevel.begin()) {
+      //
+      if(cit->second != 1)
+	//
+	full_dos *= (double)cit->second;
+    }
+    else {
+      //
+      itemp = cit->first / _ener_quant;
+	
+      for(int i = itemp; i < dos_size; ++i)
+	//
+	full_dos[i] += (double)cit->second * local_dos[i - itemp];
+    }
+
+  full_dos *= nfac;
+
+  _ref_states.init(ener_grid, full_dos, dos_size);
+  
+  // inverse Laplace transform number of states
+  //
+  Array<double> x(_ilt_num), y(_ilt_num);
+
+  double tstep = std::pow(_ilt_max / _ilt_min, 1. / double(_ilt_num - 1));
+
+  for(int t = 0; t < _ilt_num; ++t) {
+    //
+    double e, s, c;
+
+    _esc_parameters(_ilt_min * std::pow(tstep, t), e, s, c);
+
+    x[t] = std::log(e);
+
+    y[t] = s - std::log(2. * M_PI * c) / 2.;
+  }
+  
+  _ilt_log.init(x, y, _ilt_num);
+  
+  IO::log << IO::log_offset << "inverse Laplace transform: temperature range [K]: "
+	  << _ilt_min / Phys_const::kelv << " - "
+	  << _ilt_max / Phys_const::kelv
+	  << std::endl;
+    
+  IO::log << IO::log_offset << "inverse Laplace transform: energy range [1/cm]: "
+	  << std::floor(std::exp(x.front()) / Phys_const::incm) << " - "
+	  << std::floor(std::exp(x.back())  / Phys_const::incm)
+	  << std::endl;
+
+  if(_deep_tunnel) {
+    //
+    IO::log << IO::log_offset << "WARNING: the system is in the deep tunneling regime\n";
+
+    std::cerr << funame << "WARNING: the system is in the deep tunneling regime\n";
+  }
+  
+  IO::log << IO::log_offset
+	  << std::setw(10) << "E, 1/cm"
+	  << std::setw(13) << "N_ilt"
+	  << std::setw(13) << "N_dir"
+	  << std::setw(13) << "N_ref"
+	  << std::setw(13) << "N_ilt/N_dir"
+	  << std::endl;
+
+  int out_size = 20;
+
+  out_size = _ilt_num < out_size ? _ilt_num : out_size;
+  
+  for(int l = 0; l < out_size; ++l) {
+    //
+    int i = _ilt_num / out_size * l;
+    
+    double ener = std::exp(x[i]);
+
+    double ilt_states = std::exp(_ilt_log(x[i]));
+
+    if(mode() == DENSITY)
+      //
+      ilt_states *= _ilt_log(x[i], 1) / ener;
+    
+    IO::log << IO::log_offset
+      //
+	    << std::setw(10) << std::floor(ener / Phys_const::incm)
+      //
+	    << std::setw(13) << ilt_states;
+
+    if(ener < _states.arg_max()) {
+      //
+      dtemp = _states(ener);
+      
+      IO::log << std::setw(13) << dtemp
+	//
+	      << std::setw(13) << _ref_states(ener)
+	//
+	      << std::setw(13) << ilt_states / dtemp;
+    }
+    else {
+      //
+      IO::log << std::setw(13) << "***"
+	//
+	      << std::setw(13) << "***"
+	//
+	      << std::setw(13) << "***";
+    }
+    
+    IO::log << std::endl;
+  }
+  
+  //}
+}
+
+Model::MonteCarlo::_Sampling::_Sampling (int s, std::istream& from, int flags)
+  //
+  : cart_pos(s), cart_grad(s), cart_fc(s)
+{
+  if(!_read(from, ener, cart_pos, cart_grad, cart_fc, flags))
+    //
+    throw End();
 }
 
 double Model::MonteCarlo::states (double ener) const
 {
   const char funame [] = "Model::MonteCarlo::states: ";
 
-  std::cerr << funame << "not implemented yet, sorry\n";
+  if(ener <= 0.)
+    //
+    return 0.;
 
-  throw Error::General();
+  if(_use_ilt) {
+    //
+    double x = std::log(ener);
 
-  return 0.;
+    if(x <= _ilt_log.arg_min()) {
+      //
+      return _ref_states(ener);
+    }
+
+    if(x >= _ilt_log.arg_max()) {
+      //
+      std::cerr << funame << "energy out of range: " << ener / Phys_const::kcal << " kcal/mol\n";
+
+      throw Error::Range();
+    }
+      
+    double res = std::exp(_ilt_log(x));
+
+    if(mode() == DENSITY)
+      //
+      res *= _ilt_log(x, 1) / ener;
+
+    return res;
+  }
+
+  if(ener >= _states.arg_max()) {
+    //
+    std::cerr << funame << "energy out of range: " << ener / Phys_const::kcal << " kcal/mol\n";
+
+    throw Error::Range();
+  }
+  
+  return _states(ener);
 }
 
 double Model::MonteCarlo::weight_with_error (double temperature, double& werr) const
 {
   const char funame [] = "Model::MonteCarlo::weight_with_error: ";
 
-  int    itemp;
+  int           itemp;
   
-  double dtemp;
+  double        dtemp;
 
-  IO::Marker funame_marker(funame);
-  
-  std::ifstream from(_data_file.c_str());
+  Array<double> vtemp;
 
-  if(!from) {
-    //
-    std::cerr << funame << "cannot open data file " << _data_file << "\n";
-
-    throw Error::File();
-  }
-
-  std::string comment;
-
-  std::getline(from, comment);
+  //IO::Marker funame_marker(funame);
   
   double res = 0.;
 
   double variance = 0.;
 
-  double ener;
-
-  // cartesian coordinates
-  //
-  Lapack::Vector          cart_pos(atom_size() * 3);
-
-  // cartesian gradient
-  //
-  Lapack::Vector          cart_grad(atom_size() * 3);
-
-  // cartesian force constant matrix
-  //
-  Lapack::SymmetricMatrix cart_fc(atom_size() * 3);
-
-  int count = 0, samp = 0;
+  int count = 0;
   
-  while(_read(from, ener, cart_pos, cart_grad, cart_fc)) {
+#pragma omp parallel for default(shared) private(itemp, dtemp) reduction(+: res, variance, count) schedule(static)
+      //
+  for(int s = 0; s < _sampling_data.size(); ++s) {
     //
-    ++samp;
-    
-    IO::log << IO::log_offset << "Sampling " << samp << "\n";
-    
-    dtemp = _local_weight(ener, cart_pos, cart_grad, cart_fc, temperature);
+    dtemp = _local_weight(_sampling_data[s], temperature, vtemp, itemp);
 
     if(dtemp < 0.) {
       //
-      std::cerr << funame << samp << "-th sampling failed\n";
-
-      continue;
+      std::cerr << funame << s + 1 << "-th sampling failed\n";
     }
+    else {
+      //
+      ++count;
     
-    ++count;
-    
-    res += dtemp;
+      res += dtemp;
 
-    variance += dtemp * dtemp;
+      variance += dtemp * dtemp;
+    }
   }
 
   if(!count) {
     //
-    std::cerr << funame << "no data\n";
+    std::cerr << funame << "no usable data\n";
 
     throw Error::Input();
   }
@@ -15626,25 +16482,15 @@ double Model::MonteCarlo::weight_with_error (double temperature, double& werr) c
   
   // pi factors for fluxional and external rotation modes
   //
-  res *= 2. / std::pow(2. * M_PI, double(_fluxional.size() - 1) / 2.);
+  res *= 2. / std::pow(2. * M_PI, double(fluxional_size() - 1) / 2.);
   
-  // fluxional and external rotation temperature factor
+  // symmetry factor for internal rotations
   //
-  res *= std::pow(temperature, double(_fluxional.size() + 3) / 2.);
-
-  // non-fluxional modes temperature factor
-  //
-  itemp = atom_size() * 3 - _fluxional.size() - 6;
-
-  if(_ists)
+  for(int r = 0; r < _internal_rotation.size(); ++r)
     //
-    --itemp;
+    res *= 2. * M_PI / _internal_rotation[r].symmetry();
   
-  res *= std::pow(temperature, double(itemp));
-
-  // symmetry factor
-  //
-  res /= _symm_fac;
+  res /= _corr_fac;
 
   // electronic energy levels contribution
   //
@@ -15656,20 +16502,7 @@ double Model::MonteCarlo::weight_with_error (double temperature, double& werr) c
 
   res *= dtemp;
   
-  // non-fluxional mode frequencies factor
-  //
-  if(_nohess) {
-    //
-    if(_ref_wfac < 0.) {
-      //
-      std::cerr << funame << "reference frequency factor not initialized\n";
-
-      throw Error::Init();
-    }
-
-    res *= _ref_wfac;
-  }
-  
+  /*
   IO::log << IO::log_offset
 	  << std::setw(7)  << "T, K"
 	  << std::setw(13) << "Z"
@@ -15679,7 +16512,8 @@ double Model::MonteCarlo::weight_with_error (double temperature, double& werr) c
 	  << std::setw(13) << res
 	  << std::setw(13) << werr
 	  << "\n";
-  
+  */
+    
   return res;
 }
 
@@ -15691,7 +16525,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
 			       Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
 			       Lapack::SymmetricMatrix cart_fc,     // cartesian force constant matrix
 			       int                     flags
-			       ) const
+			       )
 {
   const char funame [] = "Model::MonteCarlo::_read: ";
 
@@ -15718,7 +16552,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
 
   // energy label
   //
-  token = "";
+  token.clear();
   
   if(!(from >> token) || token != "Energy") {
     //
@@ -15740,7 +16574,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
 
   // geometry label
   //
-  token = "";
+  token.clear();
   
   if(!(from >> token) || token != "Geometry") {
     //
@@ -15751,18 +16585,41 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
 
   // # of atoms
   //
-  itemp = 0;
-  
-  if(!(from >> itemp) || itemp != atom_size()) {
+  if(!(from >> itemp)) {
     //
-    std::cerr << funame << "wrong atoms #: " << itemp << "\n";
+    std::cerr << funame << "cannot atoms #\n";
 
     throw Error::Input();
   }
 
+  if(itemp <= 1) {
+    //
+    std::cerr << funame << "wrong # of atoms: " << itemp << "\n";
+
+    throw Error::Range();
+  }
+  
+  const int atom_number = itemp;
+
+  if(cart_pos.size() != atom_number * 3) {
+    //
+    std::cerr << funame << "wrong number of coordinates: " << cart_pos.size();
+  }
+
+  if(cart_grad.size() != atom_number * 3) {
+    //
+    std::cerr << funame << "wrong number of gradient components: " << cart_grad.size();
+  }
+
+  if(cart_fc.size() != atom_number * 3) {
+    //
+    std::cerr << funame << "wrong force constant dimensionality: " << cart_fc.size();
+  }
+
+    
   // atom specification
   //
-  for(int a = 0; a < atom_size(); ++a) {
+  for(int a = 0; a < atom_number; ++a) {
     //
     // atom name
     //
@@ -15788,7 +16645,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
     }
   }
 
-  if(_nohess && !(flags & REF)) {
+  if((flags & NOHESS) && !(flags & REF)) {
     //
     std::getline(from, comment);
 
@@ -15800,7 +16657,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
   }
   // gradient label
   //
-  token = "";
+  token.clear();
   
   if(!(from >> token) || token != "Gradient") {
     //
@@ -15822,7 +16679,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
 
   // hessian label
   //
-  token = "";
+  token.clear();
   
   if(!(from >> token) || token != "Hessian") {
     //
@@ -15838,7 +16695,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
     for(int j = 0; j < cart_fc.size(); ++j) {
       //
       if(!(from >> dtemp)) {
-      //
+	//
 	std::cerr << funame << "cannot read (" << i + 1 << ", " << j + 1 << ")-th hessian component\n";
 
 	throw Error::Input();
@@ -15856,11 +16713,11 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
   // empty line
   //
   std::getline(from, comment);
-    
+  
   return true;
 }
 
-void Model::MonteCarlo::_set_reference_energy ()
+int Model::MonteCarlo::_set_reference_energy ()
 {
   const char funame [] = "Model::MonteCarlo::_set_reference_energy: ";
 
@@ -15868,85 +16725,198 @@ void Model::MonteCarlo::_set_reference_energy ()
   
   double dtemp;
 
-  if(!_data_file.size()) {
-    //
-    std::cerr << funame << "no data file\n";
-
-    throw Error::Init();
-  }
-  
-  std::ifstream from(_data_file.c_str());
-
-  if(!from) {
-    //
-    std::cerr << funame << "cannot open data file " << _data_file << "\n";
-
-    throw Error::File();
-  }
-
-  std::string comment;
-
-  std::getline(from, comment);
-  
-  double res = 0.;
-
-  double ener;
+  int res = 0;
 
   const int cart_size = atom_size() * 3;
+
+  const int in_size = cart_size - 6;
+
+  bool first = true;
   
-  // cartesian coordinates
+#pragma omp parallel default(shared) private(itemp, dtemp)
   //
-  Lapack::Vector          cart_pos(cart_size);
+  {
+    Lapack::SymmetricMatrix mw_fc(cart_size);
 
-  // cartesian gradient
-  //
-  Lapack::Vector          cart_grad(cart_size);
+    Lapack::SymmetricMatrix in_fc(in_size);
 
-  // cartesian force constant matrix
-  //
-  Lapack::SymmetricMatrix cart_fc(cart_size);
+    bool priv_first = true;
 
-  int count = 0;
-  
-  while(_read(from, ener, cart_pos, cart_grad, cart_fc)) {
+    double priv_refen, priv_dosen, priv_potmin;
+
+    double priv_rfac;
+    
+    std::vector<double> priv_freq;
+
+    std::vector<double> freq(in_size);
+    
+#pragma omp for schedule(static)
     //
-    if(!_noqf) {
+    for(int s = 0; s < _sampling_data.size(); ++s) {
+      //
+      double ener = _sampling_data[s].ener;
+      
+      double ref_ener = ener;
+
+      double dos_ener = ener;
+    
+      // hessian
       //
       for(int c = 0; c < cart_size; ++c)
 	//
 	for(int d = c; d < cart_size; ++d)
 	  //
-	  cart_fc(c, d) /= _mass_sqrt[c / 3] * _mass_sqrt[d / 3];
-      
-    
-      Lapack::Vector eval = cart_fc.eigenvalues();
+	  mw_fc(c, d) = _sampling_data[s].cart_fc(c, d) / _mass_sqrt[c / 3] / _mass_sqrt[d / 3];
 
-      dtemp = 0.;
-    
-      for(int c = 0; c < cart_size; ++c)
+      // basis orthogonal to external rotations and translations
+      //
+      Lapack::Matrix basis = _internal_basis(_sampling_data[s].cart_pos);
+  
+      double wfac = Lapack::orthogonalize(basis, 6);
+
+      // Hessian without rotations and translations
+      //
+      for(int i = 0; i < in_size; ++i)
 	//
-	if(eval[c] > 0.)
+	for(int j = i; j < in_size; ++j)
 	  //
-	  dtemp += std::sqrt(eval[c]);
+	  in_fc(i, j) = mw_fc * &basis(0, i + 6) * &basis(0, j + 6);
 
+      // frequencies
+      //
+      Lapack::Vector eval = in_fc.eigenvalues();
+
+      for(int f = 0; f < in_size; ++f)
+	//
+	freq[f] = eval[f] < 0. ? -std::sqrt(-eval[f]) : std::sqrt(eval[f]);
+      
       // zero-point energy correction
       //
-      ener += dtemp / 2.;
-    }
+      dtemp = 0.;
+      
+      for(int f = 0; f < in_size; ++f)
+	//
+	if(freq[f] > 0.)
+	  //
+	  dtemp += freq[f];
 
-    if(!count++ || ener < _refen)
+      ref_ener += dtemp / 2.;
+
+      // non-fluxional modes zero-point energy correction
       //
-      _refen = ener;
+      itemp = fluxional_size() + (_ists ? 1 : 0);
+
+      if(freq[itemp] < nm_freq_min) {
+	//
+	std::cerr << funame << "non-fluxional frequency too low: " << freq[itemp] << " 1/cm\n";
+
+	res = 1;
+      }
+
+      dtemp = 0.;
+
+      for(int f = itemp; f < in_size; ++f)
+	//
+	dtemp += freq[f];
+
+      dos_ener += dtemp / 2.;
+      
+
+    
+      if(priv_first) {
+	//
+	priv_refen = ref_ener;
+
+	priv_dosen = dos_ener;
+
+	priv_potmin = ener;
+
+	priv_freq = freq;
+
+	priv_rfac = wfac;
+
+	priv_first = false;
+      }
+      else {
+	//
+	if(ref_ener < priv_refen) {
+	  //
+	  priv_refen = ref_ener;
+
+	  priv_freq = freq;
+
+	  priv_rfac = wfac;
+	}
+
+	if(dos_ener < priv_dosen)
+	  //
+	  priv_dosen = dos_ener;
+
+	if(ener < priv_potmin)
+	  //
+	  priv_potmin = ener;
+      }
+    }// omp for
+
+#pragma omp critical
+    //
+    {
+      if(first) {
+	//
+	_refen = priv_refen;
+
+	_dosen = priv_dosen;
+
+	_potmin = priv_potmin;
+
+	_ref_freq = priv_freq;
+
+	_rfac = priv_rfac;
+
+	first = false;
+      }
+      else {
+	//
+	if(priv_refen < _refen) {
+	  //
+	  _refen = priv_refen;
+
+	  _ref_freq = priv_freq;
+
+	  _rfac = priv_rfac;
+	}
+	
+	if(priv_dosen < _dosen)
+	  //
+	  _dosen = priv_dosen;
+
+	if(priv_potmin < _potmin)
+	  //
+	  _potmin = priv_potmin;
+      }
+      //
+    }// omp critical
+    //
+  }// omp parallel
+
+  if(_ists && _ref_freq[0] >= 0.) {
+    //
+    std::cerr << funame << "positive imaginary frequency: " << _ref_freq[0] / Phys_const::incm << " 1/cm\n";
+
+    res = 1;
   }
 
-  // rounding for better output
-  //
-  _refen = std::floor(_refen * 1000. / Phys_const::kcal) / 1000. * Phys_const::kcal;
-}
+  itemp = _ists ? 1 : 0;
+  
+  if(_ref_freq[itemp] <= 0.) {
+    //
+    std::cerr << funame << "negative stable frequency: " << _ref_freq[itemp] / Phys_const::incm << " 1/cm\n";
 
-// non-fluxional mode minimal frequency in 1/cm
-//
-double Model::MonteCarlo::nm_freq_min = 10.;
+    res = 1;
+  }
+  
+  return res;
+}
 
 Lapack::SymmetricMatrix Model::MonteCarlo::_inertia_matrix (Lapack::Vector pos) const
 {
@@ -16011,134 +16981,79 @@ void Model::MonteCarlo::_make_cm_shift (Lapack::Vector pos) const
       pos[a * 3 + i] -= shift;
   }
 }
-// local weight contribution for the well
+
+// thermal parameters: energy, entropy, thermal capacity
 //
-double Model::MonteCarlo::_local_weight (double                  ener,       // energy of the sampling 
-					 Lapack::Vector          cart_pos,   // cartesian coordinates    
-					 Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
-					 Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
-					 double                  temperature, // temprature
-					 int                     flags
-					 ) const
+void Model::MonteCarlo::_esc_parameters (double temperature, double& e, double& s, double& c) const
 {
-  const char funame [] = "Model::MonteCarlo::_local_weight: ";
-
-  // high frequency threshold x = freq / 2 / T.
+  // absolute energy step
   //
-  static const double high_freq_thres = 4.;
+  double dt = temperature * _temp_diff_step;
 
-  // maximal exponent argument
+  // free energy
   //
-  static const double exp_arg_max = 100.;
-  
-  /*****************************************************************************
-   **************************** CALCULATION BEGINS *****************************
-   *****************************************************************************/
-  
-  int    itemp;
-  
-  double dtemp;
+  double f  = free_energy(temperature);
 
-  IO::Marker funame_marker(funame);
-  
-  // center of mass shift
+  double f1 = free_energy(temperature - dt);
+
+  double f2 = free_energy(temperature + dt);
+
+  // entropy: free energy first derivative
   //
-  if(_cmshift)
+  s = (f1 - f2) / dt / 2.;
+
+  // energy: free energy legandre transform
+  //
+  e = f + temperature * s;
+
+  // thermal capacity
+  //
+  c = temperature * (2. * f - f1 - f2) / dt / dt;
+}
+
+void Model::MonteCarlo::_shift (int s, Array<double>& dos)
+{
+  if(s > 0) {
     //
-    _make_cm_shift(cart_pos);
-  
-  // fluxional modes values output
-  //
-  IO::log << IO::log_offset << "fluxional modes values:";
-  
-  for(int f = 0; f < _fluxional.size(); ++f)
-    //
-    IO::log << std::setw(15) << _fluxional[f].evaluate(cart_pos);
-
-  IO::log << "\n";
-  
-  // fluxional modes first derivatives
-  //
-  const int cart_size = _mass_sqrt.size() * 3;
-
-  Lapack::Matrix fmfd(cart_size, _fluxional.size());
-
-  for(int c = 0; c < cart_size; ++c) {
-    //
-    // first derivative signature
-    //
-    std::vector<int> sign(1);
-
-    sign[0] = c;
-    
-    for(int f = 0; f < _fluxional.size(); ++f)
+    for(int i = dos.size() - 1; i >= 0; --i)
       //
-      fmfd(c, f) = _fluxional[f].evaluate(cart_pos, sign);
-  }
-
-  // force constant curvlinear correction
-  //
-  if(!_nocurv && (!_nohess && !_ists || flags & REF)) {
-    //
-    // potential energy gradient over fluxional modes coordinates
-    //
-    double residue;
-  
-    Lapack::Vector flux_grad = Lapack::svd_solve(fmfd, cart_grad, &residue);
-
-    IO::log << IO::log_offset << "energy, kcal/mol, over fluxional modes coordinates gradient:";
-
-    for(int f = 0; f < _fluxional.size(); ++f)
-      //
-      IO::log << std::setw(15) << flux_grad[f] / Phys_const::kcal;
-
-    IO::log << "\n";
-  
-    IO::log << IO::log_offset << "cartesian gradient length,  kcal/mol/Bohr: " << std::setw(15)
-	    << std::sqrt(cart_grad.vdot()) / Phys_const::kcal << "\n";
-  
-    IO::log << IO::log_offset << "cartesian gradient residue, kcal/mol/Bohr: " << std::setw(15)
-	    << residue / Phys_const::kcal << "\n";
-
-    // check residue: => OK
-    //
-    /*
-      Lapack::Vector appr_grad = fmfd * flux_grad;
-
-      appr_grad -= cart_grad;
-
-      IO::log << IO::log_offset << "test residue,               kcal/mol/Bohr: " << std::setw(15)
-      << std::sqrt(appr_grad.vdot()) / Phys_const::kcal << "\n";
-    */
-    
-    for(int c = 0; c < cart_size; ++c) {
-      //
-      for(int d = c; d < cart_size; ++d) {
+      if(i >= s) {
 	//
-	std::vector<int> sign(2);
-
-	sign[0] = c;
-	sign[1] = d;
-
-	for(int i = 0; i < _fluxional.size(); ++i)
-	  //
-	  cart_fc(c, d) -= flux_grad[i] * _fluxional[i].evaluate(cart_pos, sign);
+      dos[i] = dos[i - s];
       }
-    }
+      else
+	//
+	dos[i] = 0.;
+  }
+  //
+  else if(s < 0)
+    //
+    for(int i = 0; i < dos.size(); ++i)
+      //
+      if(i - s < dos.size()) {
+	//
+	dos[i] = dos[i - s];
+      }
+      else
+	//
+	dos[i] = 0.;
+}
+
+Lapack::Matrix Model::MonteCarlo::_internal_basis (Lapack::Vector cart_pos) const
+{
+  const char funame [] = " Model::MonteCarlo::_internal_basis: ";
+
+  const int cart_size = atom_size() * 3;
+
+  if(cart_pos.size() != cart_size) {
+    //
+    std::cerr << funame << "wrong number of coordinates: " << cart_pos.size() << "\n";
+
+    throw Error::Range();
   }
 
-  if(!_nohess || flags & REF)
-    //
-    for(int c = 0; c < cart_size; ++c)
-      //
-      for(int d = c; d < cart_size; ++d)
-	//
-	cart_fc(c, d) /= _mass_sqrt[c / 3] * _mass_sqrt[d / 3];
-
-  // basis orthogonal to external rotations and translations
-  //
   Lapack::Matrix basis(cart_size);
-
+  
   for(int c = 0; c < cart_size; ++c) {
     //
     // atomic index
@@ -16188,7 +17103,35 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
     //
   }//
 
-  double wfac = Lapack::orthogonalize(basis, 6);
+  return basis;
+}
+
+// local statistical weight contribution 
+//
+double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
+					 double                  temperature, // temprature
+					 Array<double>&          dos,         // local density of states
+					 int&                    ener_shift,  // local density energy shift
+					 int                     flags
+					 ) const
+{
+  const char funame [] = "Model::MonteCarlo::_local_weight: ";
+
+  /*****************************************************************************
+   **************************** CALCULATION BEGINS *****************************
+   *****************************************************************************/
+  
+  int    itemp;
+  
+  double dtemp;
+
+  //  IO::Marker funame_marker(funame);
+
+  // Dimensions
+  //
+  // overall degrees of freedom number
+  //
+  const int cart_size = _mass_sqrt.size() * 3;
 
   // internal configurational space size (without overall rotations and translations)
   //
@@ -16196,148 +17139,281 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 
   // non-fluxional (tight) modes size
   //
-  const int nm_size = in_size - _fluxional.size();
+  const int nm_size = in_size - fluxional_size();
 
-  // Hessian without rotations and translations
+  double ener = sd.ener;
+  
+  // Hessian in mass-weighted coordinates
   //
-  Lapack::SymmetricMatrix fc(in_size);
+  Lapack::SymmetricMatrix mw_fc;
 
-  if(!_nohess || flags & REF)
+  // potential gradient in mass-weighted coordinates
+  //
+  Lapack::Vector mw_grad;
+
+  if(!_nohess || flags & REF) {
     //
+    mw_grad = sd.cart_grad.copy();
+    
+    for(int c = 0; c < cart_size; ++c)
+      //
+      mw_grad[c] /=  _mass_sqrt[c / 3];
+
+    mw_fc = sd.cart_fc.copy();
+    
+    for(int c = 0; c < cart_size; ++c)
+      //
+      for(int d = c; d < cart_size; ++d)
+	//
+	mw_fc(c, d) /= _mass_sqrt[c / 3] * _mass_sqrt[d / 3];
+  }
+  
+  // fluxional modes values output
+  //
+  /*
+    if(_fluxional.size()) {
+    //
+    IO::log << IO::log_offset << "fluxional modes values:";
+  
+    for(int f = 0; f < _fluxional.size(); ++f)
+    //
+    IO::log << std::setw(15) << _fluxional[f].evaluate(cart_pos);
+
+    IO::log << "\n";
+    }
+  */
+  
+  // fluxional modes first derivatives in mass-weighted coordinates
+  //
+  Lapack::Matrix fmfd;
+
+  // Hessian with curvlinear correction in mass-weighted coordinates
+  //
+  Lapack::SymmetricMatrix curv_fc;
+  
+  if(_fluxional.size()) {
+    //
+    fmfd.resize(cart_size, _fluxional.size());
+
+    for(int c = 0; c < cart_size; ++c) {
+      //
+      // first derivative signature
+      //
+      std::vector<int> sign(1);
+
+      sign[0] = c;
+
+      dtemp = _mass_sqrt[c / 3];
+      
+      for(int f = 0; f < _fluxional.size(); ++f)
+	//
+	fmfd(c, f) = _fluxional[f].evaluate(sd.cart_pos, sign) / dtemp;
+    }
+
+    // force constant curvlinear correction
+    //
+    if(!_nocurv && !_ists && (!_nohess || flags & REF)) {
+      //
+      // potential energy gradient over fluxional modes coordinates
+      //
+      double residue;
+  
+      Lapack::Vector flux_grad = Lapack::svd_solve(fmfd, mw_grad, &residue);
+
+      /*
+	IO::log << IO::log_offset << "energy, kcal/mol, over fluxional modes coordinates gradient:";
+
+	for(int f = 0; f < _fluxional.size(); ++f)
+	//
+	IO::log << std::setw(15) << flux_grad[f] / Phys_const::kcal;
+
+	IO::log << "\n";
+  
+	IO::log << IO::log_offset << "cartesian gradient length,  kcal/mol/Bohr: " << std::setw(15)
+	<< std::sqrt(cart_grad.vdot()) / Phys_const::kcal << "\n";
+  
+	IO::log << IO::log_offset << "cartesian gradient residue, kcal/mol/Bohr: " << std::setw(15)
+	<< residue / Phys_const::kcal << "\n";
+
+	// check residue: => OK
+	//
+      
+	Lapack::Vector appr_grad = fmfd * flux_grad;
+
+	appr_grad -= cart_grad;
+
+	IO::log << IO::log_offset << "test residue,               kcal/mol/Bohr: " << std::setw(15)
+	<< std::sqrt(appr_grad.vdot()) / Phys_const::kcal << "\n";
+      */
+    
+      curv_fc = sd.cart_fc.copy();
+      
+      for(int c = 0; c < cart_size; ++c) {
+	//
+	for(int d = c; d < cart_size; ++d) {
+	  //
+	  std::vector<int> sign(2);
+
+	  sign[0] = c;
+	  sign[1] = d;
+
+	  for(int i = 0; i < _fluxional.size(); ++i)
+	    //
+	    curv_fc(c, d) -= flux_grad[i] * _fluxional[i].evaluate(sd.cart_pos, sign);
+
+	  curv_fc(c, d) /= _mass_sqrt[c / 3] * _mass_sqrt[d / 3];
+	}
+      }//
+      //
+    }// force constant curvlinear correction
+    //
+  }// fluxional modes first derivatives
+
+  // basis orthogonal to external rotations and translations
+  //
+  Lapack::Matrix basis = _internal_basis(sd.cart_pos);
+  
+  // external rotation inertia moments factor
+  //
+  dtemp = Lapack::orthogonalize(basis, 6);
+
+  if(flags & REF)
+    //
+    _rfac = dtemp;
+
+  double wfac = std::log(dtemp);
+    
+  Lapack::Vector eval;
+
+  Lapack::Matrix evec;
+  
+  // local frequencies
+  //
+  std::vector<double> local_freq(in_size);
+
+  if(!_nohess || flags & REF) {
+    //
+    // Hessian without external rotations and translations
+    //
+    Lapack::SymmetricMatrix in_fc(in_size);
+
     for(int i = 0; i < in_size; ++i)
       //
       for(int j = i; j < in_size; ++j)
 	//
-	fc(i, j) = cart_fc * &basis(0, i + 6) * &basis(0, j + 6);
+	in_fc(i, j) = mw_fc * &basis(0, i + 6) * &basis(0, j + 6);
 
-  if(flags & REF)
-    //
-    _refen = ener;
-   
-  Lapack::Vector eval;
-  
-  Lapack::Matrix evec(in_size);
-    
-  // reference frequencies
-  //
-  if(!_noqf) {
-    //
-    if(flags & REF) {
+    if(_ists && _fluxional.size()) {
       //
-      // stable species
-      //
-      if(!_ists) {
-	//
-	eval = fc.eigenvalues();
+      evec.resize(in_size);
 
-	_ref_freq.resize(in_size);
-
-	_refen = ener;
-
-	for(int f = 0; f < in_size; ++f) {
-	  //
-	  dtemp = eval[f] < 0. ? -std::sqrt(-eval[f]) : std::sqrt(eval[f]);
-
-	  _ref_freq[f] = dtemp;
-
-	  if(dtemp > 0.)
-	    //
-	    _refen += dtemp / 2.;
-	}
-      }
-      // transition state
-      //
-      else {
-
-      }
+      eval = in_fc.eigenvalues(&evec);
     }
-    // quantum correction factor
-    //
-    else if(!_nohess) {
+    else
       //
-      bool deep_tunnel = false;
-
-      eval = fc.eigenvalues(&evec);
-
-      if(_ists && eval[0] >= 0.) {
-	//
-	std::cerr << funame << "not a saddle point: lowest frequency = " << std::sqrt(eval[0]) / Phys_const::incm << " 1/cm\n";
-      
-	throw Error::Range();
-      }
-      
-      for(int f = 0; f < in_size; ++f) {
-	//
-	if(eval[f] < 0.) {
-	  //
-	  dtemp = std::sqrt(-eval[f]) / temperature / 2.;
-
-	  if(dtemp < 0.9 * M_PI) {
-	    //
-	    wfac *= dtemp / std::sin(dtemp);
-	  }
-	  else if(!deep_tunnel) {
-	    //
-	    deep_tunnel = true;
-	
-	    std::cerr << funame << "WARNING: the system is in the deep tunneling regime, check the log file\n";
-
-	    IO::log << IO::log_offset << "WARNING: the system is in the deep tunneling regime" << std::endl;
-	  }
-	}
-	else if(eval[f] > 0.) {
-	  //
-	  dtemp = std::sqrt(eval[f]) / temperature / 2.;
-      
-	  if(dtemp > high_freq_thres) {
-	    //
-	    ener += dtemp * temperature;
-	
-	    wfac *= 2. * dtemp;
-	  }
-	  else
-	    //
-	    wfac *= dtemp / std::sinh(dtemp);
-	}
-      }
-
-      // deep tunneling regime output
-      //
-      if(deep_tunnel) {
-	//
-	IO::log << IO::log_offset << "Deep tunneling regime:\n";
-      
-	IO::log << IO::log_offset << "Energy (including zero-point energy correction) = "
-		<< (ener - _refen) / Phys_const::kcal << " kcal/mol" << std::endl;
-
-	IO::log << IO::log_offset << "Frequencies, 1/cm:";
-
-	for(int f = 0; f < in_size; ++f) {
-	  //
-	  IO::log << "   ";
+      eval = in_fc.eigenvalues();
     
-	  if(eval[f] < 0.) {
-	    //
-	    IO::log << -std::sqrt(-eval[f]) / Phys_const::incm;
-	  }
-	  else
-	    //
-	    IO::log << std::sqrt(eval[f]) / Phys_const::incm;
-	}
-
-	IO::log << std::endl;
-	//
-      }// deep tunneling
+    for(int f = 0; f < in_size; ++f)
       //
-    }// quantum correction factor
+      local_freq[f] = eval[f] < 0. ? -std::sqrt(-eval[f]) : std::sqrt(eval[f]);
+
+    if(_ists && local_freq[0] > -nm_freq_min) {
+      //
+      std::cerr << funame << "true imaginary frequency out of range: " << local_freq[0] / Phys_const::incm << " 1/cm\n";
+      
+      throw Error::Range();
+    }
+
+    itemp = fluxional_size() + (_ists ? 1 : 0);
+    
+    if(local_freq[itemp] < nm_freq_min) {
+      //
+      std::cerr << funame <<  "true non-fluxional frequency out of range: " << local_freq[itemp] / Phys_const::incm << " 1/cm\n";
+
+      throw Error::Range();
+    }
+  }
+
+  /***********************************************************************************************
+   ************ FLUXIONAL MODES MASS PREFACTOR AND PROJECTED NON-FLUXIONAL FREQUENCIES ***********
+   ***********************************************************************************************/
+
+  // internal rotations case
+  //
+  if(_internal_rotation.size()) {
     //
-  }// reference frequencies
-  
+    for(int a = 0; a < _atom.size(); ++a)
+      //
+      for(int i = 0; i < 3; ++i)
+	//
+	_atom[a][i] = sd.cart_pos[3 * a + i];
+
+    // basis without internal rotations
+    //
+    for(int r = 0; r < _internal_rotation.size(); ++r) {
+      //
+      std::vector<D3::Vector> nm = _internal_rotation[r].normal_mode(_atom);
+	
+      for(int c = 0; c < cart_size; ++c)
+	//
+	basis(c, r + 6) = nm[c / 3][c % 3] * _mass_sqrt[c / 3];
+    }
+
+    // internal rotation  mass factor
+    //
+    wfac += std::log(Lapack::orthogonalize(basis, 6 + _internal_rotation.size()));
+
+    // non-fluxional modes
+    //
+    if(flags & REF || !_nohess) {
+      //
+      // potential gradient without internal rotations
+      //
+      Lapack::Vector vtemp = mw_grad * basis;
+
+      Lapack::Vector grad(nm_size);
+      
+      grad = &vtemp[6 + _internal_rotation.size()];
+
+      // Hessian without internal rotations
+      //
+      Lapack::SymmetricMatrix nm_fc(nm_size);
+
+      for(int i = 0; i < nm_size; ++i)
+	//
+	for(int j = i; j < nm_size; ++j)
+	  //
+	  nm_fc(i, j) = mw_fc * &basis(0, i + 6 + _internal_rotation.size()) * &basis(0, j + 6 + _internal_rotation.size());
+
+      evec.resize(nm_size);
+      
+      eval = nm_fc.eigenvalues(&evec);
+
+      // energy correction
+      //
+      grad = grad * evec;
+
+      dtemp = 0.;
+      
+      for(int f = 0; f < nm_size; ++f)
+	//
+	dtemp -= grad[f] * grad[f] / eval[f];
+
+      dtemp /= 2.;
+      
+      ener += dtemp;    
+      //
+    }//
+    //
+  }// internal rotation case
+  //
+  // constrained optimization case
+  //
   // transition state calculation
   //
-  if(_ists) {
+  else if(_ists) {
     //
-    // fluxional modes in mass-waited coordinates
+    // fluxional modes without overal rotations and translations
     //
     Lapack::Matrix mtemp(_fluxional.size(), cart_size);
     
@@ -16345,10 +17421,8 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
       //
       for(int f = 0; f < _fluxional.size(); ++f)
 	//
-	mtemp(f, c) = fmfd(c, f) / _mass_sqrt[c / 3];
+	mtemp(f, c) = fmfd(c, f);
 
-    // fluxional modes without overal rotations and translations
-    //
     mtemp = mtemp * basis;
 
     Lapack::Matrix fspace(_fluxional.size(), in_size);
@@ -16363,15 +17437,9 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
     //
     fspace = fspace * evec;
 
-    // potential gradient in mass-waited coordinates
-    //
-    for(int c = 0; c < cart_size; ++c)
-      //
-      cart_grad[c] /= _mass_sqrt[c / 3];
-
     // gradient without rotations and translations
     //
-    Lapack::Vector vtemp = cart_grad * basis;
+    Lapack::Vector vtemp = mw_grad * basis;
 
     Lapack::Vector grad(in_size);
 
@@ -16395,7 +17463,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 	  //
 	  smtemp(f, g) += fspace(f, i) * fspace(g, i) / eval[i] / eval[i];
 
-    wfac *= Lapack::Cholesky(smtemp).det_sqrt();
+    wfac += std::log(Lapack::Cholesky(smtemp).det_sqrt());
 
     smtemp = 0.;
     
@@ -16407,7 +17475,7 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 	  //
 	  smtemp(f, g) += fspace(f, i) * fspace(g, i) / eval[i];
 
-    wfac /= fabs(Lapack::SymLU(smtemp).det());
+    wfac -= std::log(fabs(Lapack::SymLU(smtemp).det()));
     
     // true fluxional modes complimentary space
     //
@@ -16431,9 +17499,9 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
     
     // Hessian in complimentary space
     //
-    fc.resize(nm_size);
+    Lapack::SymmetricMatrix nm_fc(nm_size);
 
-    fc = 0.;
+    nm_fc = 0.;
     
     for(int m = 0; m < nm_size; ++m)
       //
@@ -16441,50 +17509,16 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 	//
 	for(int i = 0; i < in_size; ++i)
 	  //
-	  fc(m, n) += eval[i] * basis(i, m + _fluxional.size()) * basis(i, n + _fluxional.size());
+	  nm_fc(m, n) += eval[i] * basis(i, m + _fluxional.size()) * basis(i, n + _fluxional.size());
 
     evec.resize(nm_size);
     
-    eval = fc.eigenvalues(&evec);
-
-    IO::log << IO::log_offset << "projected frequencies, 1/cm:";
-    
-    for(int f = 0; f < nm_size; ++f) {
-      //
-      double freq = eval[f] >= 0. ? std::sqrt(eval[f]) : -std::sqrt(-eval[f]);
-
-      IO::log << "   " << freq / Phys_const::incm;
-      
-      if(!f) {
-	//
-	if(freq >= -nm_freq_min) {
-	  //
-	  std::cerr << funame << "out of range: imaginary frequency = " << freq /Phys_const::incm << "\n";
-      
-	  throw Error::Logic();
-	}
-
-	continue;
-      }
-      
-      if(freq < nm_freq_min) {
-	//
-	std::cerr << funame << f + 1 << "-th projected frequency is too low: " << freq / Phys_const::incm << " 1/cm\n";
-
-	throw Error::Logic();
-      }
-
-      wfac /= freq;
-    }
-
-    IO::log << "\n";
-    
-    // gradient in the eigenvector complimentary space
-    //
-    grad = grad * evec;
+    eval = nm_fc.eigenvalues(&evec);
 
     // energy correction
     //
+    grad = grad * evec;
+
     dtemp = 0.;
     
     for(int i = 0; i < nm_size; ++i)
@@ -16492,8 +17526,6 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
       dtemp -= grad[i] * grad[i] / eval[i];
 
     dtemp /= 2.;
-
-    IO::log << IO::log_offset << "Energy correction = " << dtemp / Phys_const::kcal << " kcal/mol\n";
 
     ener += dtemp;
     //
@@ -16503,24 +17535,20 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
   //
   else {
     //
+    // add fluxional modes in mass-weighted coordinates to the basis
+    //
     for(int c = 0; c < cart_size; ++c) {
       //
-      // fluxional modes start index 
-      //
-      itemp = 6;
-    
-      // fluxional modes in mass-weighted coordinates
-      //
-      for(int i = 0; i < _fluxional.size(); ++i, ++itemp)
+      for(int i = 0; i < _fluxional.size(); ++i)
 	//
-	basis(c, itemp) = fmfd(c, i) / _mass_sqrt[c / 3];
+	basis(c, 6 + i) = fmfd(c, i);
     }
   
-    // square root of fluxional modes masses 
+    // fluxional modes mass factor 
     //
-    wfac /= Lapack::orthogonalize(basis, 6 + _fluxional.size());
+    wfac -= std::log(Lapack::orthogonalize(basis, 6 + _fluxional.size()));
 
-    // non-fluxional modes frequency factor
+    // non-fluxional modes
     //
     if(!_nohess || flags & REF) {
       //
@@ -16530,102 +17558,283 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 	//
 	for(int j = i; j < nm_size; ++j)
 	  //
-	  nm_fc(i, j) = cart_fc * &basis(0, i + 6 + _fluxional.size()) * &basis(0, j + 6 + _fluxional.size());
-
-      Lapack::Vector eval = nm_fc.eigenvalues();
-
-      // after testing uncomment next clause
+	  if(!_nocurv) {
+	    //
+	    nm_fc(i, j) = curv_fc * &basis(0, i + 6 + _fluxional.size()) * &basis(0, j + 6 + _fluxional.size());
+	  }
+	  else {
+	    //
+	    nm_fc(i, j) = mw_fc * &basis(0, i + 6 + _fluxional.size()) * &basis(0, j + 6 + _fluxional.size());
+	  }
+      
+      eval = nm_fc.eigenvalues();
       //
-      // if(deep_tunnel) {
-      //
-      IO::log << IO::log_offset << "non-fluxional modes (" << nm_size << ") frequencies, 1/cm:";
+    }// non-fluxional modes
+    //
+  }// stable species
 
-      for(int f = 0; f < nm_size; ++f) {
-	//
-	IO::log << "   ";
+  // non-fluxional projected frequencies
+  //
+  std::vector<double> nm_local_freq;
+
+  if(!_nohess || flags & REF) {
+    //
+    nm_local_freq.resize(nm_size);
     
-	if(eval[f] < 0.) {
+    for(int f = 0; f < nm_size; ++f)
+      //
+      nm_local_freq[f] = eval[f] >= 0. ? std::sqrt(eval[f]) : -std::sqrt(-eval[f]);
+    
+    if(_ists && nm_local_freq[0] > -nm_freq_min) {
+      //
+      std::cerr << funame << "projected imaginary frequency out of range: "
+	//
+		<< std::floor(nm_local_freq[0] / Phys_const::incm) << " 1/cm\n";
+	    
+      throw Error::Range();
+    }
+
+    itemp = _ists ? 1 : 0;
+      
+    if(nm_local_freq[itemp] < nm_freq_min) {
+      //
+      std::cerr << funame << "projected stable frequency out of range: "
+	//
+		<< std::floor(nm_local_freq[itemp] / Phys_const::incm) << " 1/cm\n";
+      
+      throw Error::Range();
+    }
+  }
+  
+  /***************************************************
+   ************** REFERENCE CALCULATION **************
+   ***************************************************/
+  
+  if(flags & REF) {
+    //
+    // reference frequencies
+    //
+    _ref_freq = local_freq;
+
+    itemp = _ists ? 1 : 0;
+    
+    if(_ref_freq[itemp] <= 0.) {
+      //
+      std::cerr << funame << "negative stable reference frequency: " << std::floor(_ref_freq[itemp] / Phys_const::incm) << " 1/cm\n";
+      
+      throw Error::Range();
+    }
+
+    // minimal potential energy
+    //
+    _potmin = ener;
+
+    // non-fluxional zero-point energy correction
+    //
+    dtemp = 0.;
+    
+    for(int f = fluxional_size() + (_ists ? 1 : 0); f < in_size; ++f)
+      //
+      dtemp += _ref_freq[f];
+
+    _dosen = ener + dtemp / 2.;
+
+    // full zero-point energy correction
+    //
+    dtemp = 0.;
+    
+    for(int f = _ists ? 1 : 0; f < in_size; ++f)
+      //
+      dtemp += _ref_freq[f];
+
+    _refen = ener + dtemp / 2.;
+
+    // reference projected non-fluxional frequencies
+    //
+    _nm_freq = nm_local_freq;
+    
+    return 1.;
+    //
+  }// reference calculation
+
+  // non-fluxional frequency factor
+  //
+  if(!_nohess)
+    //
+    for(int f = _ists ? 1 : 0; f < nm_size; ++f)
+      //
+      wfac -= std::log(nm_local_freq[f]);
+    
+  /**************************************************
+   *************** DENSITY OF STATES ****************
+   **************************************************/
+  
+  if(flags & DOS) {
+    //
+    if(_nohess) {
+      //
+      // energy relative to potential minimum
+      //
+      ener -= _potmin;
+      
+      itemp = ener / _ener_quant;
+
+      if(itemp < 0) {
+	//
+	std::cerr << funame << "WARNING: negative energy shift: " << std::floor(ener / Phys_const::incm) << " 1/cm\n";
+	
+	itemp = 0;
+      }
+
+      // local density energy shift
+      //
+      ener_shift = itemp;
+    }
+    // with Hessian
+    //
+    else {
+      //
+      // non-fluxional integer frequencies
+      //
+      std::vector<int> ifreq;
+
+      for(int f = fluxional_size() + (_ists ? 1 : 0); f < in_size; ++f) {
+	//
+	dtemp = local_freq[f];
+
+	itemp = dtemp / _ener_quant;
+
+	if(itemp) {
 	  //
-	  IO::log << -std::sqrt(-eval[f]) / Phys_const::incm;
+	  wfac += std::log(dtemp);
+
+	  ifreq.push_back(itemp);
+	}
+      }
+
+      // classical modes density of states
+      //
+      itemp = nm_size - (_ists ? 1 : 0) - ifreq.size();
+
+      double dos_pow = (3 + fluxional_size()) / 2. + itemp;
+	
+      if(mode() == DENSITY)
+	//
+	dos_pow -= 1.;
+
+      for(int i = 0; i < dos.size(); ++i) 
+	//
+	dos[i] = std::pow(i, dos_pow);
+
+      wfac += std::log(_ener_quant) * dos_pow - lgamma(dos_pow + 1.);
+  
+      // convolution with non-fluxional modes
+      //
+      for(int f = 0; f < ifreq.size(); ++f)
+	//
+	for(int i = ifreq[f]; i < dos.size(); ++i)
+	  //
+	  dos[i] += dos[i - ifreq[f]];
+      
+      // energy relative to non-fluxional modes ground state
+      //
+      ener -= _dosen;
+
+      for(int f = fluxional_size() + (_ists ? 1 : 0); f < in_size; ++f)
+	//
+	ener += local_freq[f] / 2.;
+
+      if(ener < 0.) {
+	//
+	//IO::log << IO::log_offset << "WARNING: negative energy shift: " << ener / Phys_const::kcal << " kcal/mol\n";
+
+	std::cerr << funame << "WARNING: negative energy shift: " << ener / Phys_const::kcal << " kcal/mol\n";
+      }
+      else
+	//
+	_shift(ener / _ener_quant, dos);
+      
+      // density of state normalization
+      //
+      dos *= std::exp(wfac);
+      //
+    }// with Hessian
+    
+    return std::exp(wfac);
+    //
+  }// state density
+
+  /*********************************************************
+   ************ PARTITION FUNCTION CALCULATION *************
+   *********************************************************/
+  
+  if(_nohess)
+    //
+    for(int f = _ists ? 1 : 0; f < nm_size; ++f)
+      //
+      wfac -= std::log(_nm_freq[f]);
+
+  // temperature factor
+  //
+  wfac += (double(_ists ? nm_size - 1 : nm_size) + double(fluxional_size() + 3) / 2.) * std::log(temperature);
+    
+  // quantum correction factor
+  //
+  if(_nohess) {
+    //
+    for(int f = _ists ? 1 : 0; f < _ref_freq.size(); ++f) {
+      //
+      dtemp = _ref_freq[f] / temperature / 2.;
+
+      if(dtemp > high_freq_thres) {
+	//
+	wfac += std::log(2. * dtemp) - dtemp;
+      }
+      else if(dtemp > low_freq_thres) {
+	//
+	wfac += std::log(dtemp / std::sinh(dtemp));
+      }
+    }
+  }
+  //
+  // with Hesssian
+  //
+  else {
+    //
+    for(int f = _ists ? 1 : 0; f < in_size; ++f) {
+      //
+      if(local_freq[f] < 0.) {
+	//
+	dtemp = -local_freq[f] / temperature / 2.;
+
+	if(dtemp < deep_tunnel_thres * M_PI) {
+	  //
+	  wfac += std::log(dtemp / std::sin(dtemp));
 	}
 	else
 	  //
-	  IO::log << std::sqrt(eval[f]) / Phys_const::incm;
+	  _deep_tunnel = true;
       }
-
-      IO::log << std::endl;
-      //
-      // }
-  
-      // check for soft non-fluxional modes
-      //
-      if(eval[0] < 0.) {
+      else {
 	//
-	dtemp = -std::sqrt(-eval[0]);
-      }
-      else
-	//
-	dtemp = std::sqrt(eval[0]);
-
-      dtemp /= Phys_const::incm;
-    
-      if(dtemp < nm_freq_min) {
-	//
-	std::cerr << funame << "non-fluxional mode frequency is too low: " << dtemp  << " 1/cm \n";
-
-	throw Error::Range();
-      }
-  
-      // classical frequency factor for non-fluxional modes
-      //
-      if(flags & REF) {
-	//
-	_ref_wfac = 1.;
-	
-	for(int f = 0; f < nm_size; ++f) {
-	  //
-	  _ref_wfac /= std::sqrt(eval[f]);
-	}
-
-	return 1.;
-      }
-      else
-	//
-	for(int f = 0; f < nm_size; ++f) {
-	  //
-	  wfac /= std::sqrt(eval[f]);
-	}
-    }
-
-    if(_nohess && !_noqf) {
-      //
-      if(!_ref_freq.size()) {
-	//
-	std::cerr << funame << "reference frequencies not initialized\n";
-
-	throw Error::Init();
-      }
-	
-      for(int f = 0; f < _ref_freq.size(); ++f) {
-	//
-	dtemp = _ref_freq[f] / temperature / 2.;
+	dtemp = local_freq[f] / temperature / 2.;
       
 	if(dtemp > high_freq_thres) {
 	  //
-	  ener += dtemp * temperature;
-	
-	  wfac *= 2. * dtemp;
+	  wfac += std::log(2. * dtemp) - dtemp;
 	}
-	else
+	else if(dtemp > low_freq_thres) {
 	  //
-	  wfac *= dtemp / std::sinh(dtemp);
+	  wfac += std::log(dtemp / std::sinh(dtemp));
+	}
       }
-    }
-  }// stable species
+    }//
+    //
+  }// quantum correction factor
 
-  // Boltzmann factor, including zero-point energy of high-frequency modes relative to the reference energy
+  // Boltzmann factor relative to the reference energy
   //
-  double bpow = (ener - _refen) / temperature;
+  wfac -= (ener - _refen) / temperature;
 
   // reference potential correction
   //
@@ -16635,25 +17844,54 @@ double Model::MonteCarlo::_local_weight (double                  ener,       // 
 
     for(int f = 0; f < _fluxional.size(); ++f)
       //
-      flux_pos[f] = _fluxional[f].evaluate(cart_pos);
+      flux_pos[f] = _fluxional[f].evaluate(sd.cart_pos);
   
-    bpow -= _ref_pot(flux_pos) / _ref_tem;
+    wfac += _ref_pot(flux_pos) / _ref_tem;
   }
 
-  if(bpow > exp_arg_max)
+  if(wfac < -exp_arg_max)
     //
     return 0.;
 
-  if(bpow < -exp_arg_max) {
+  if(wfac > exp_arg_max) {
     //
-    std::cerr << funame << "energy (relative to the reference energy) is too low: "
-	      << (ener - _refen) / Phys_const::kcal
-	      << " kcal/mol. Check the reference energy\n";
+    std::cerr << funame << " number of states (natural log), " << wfac << ", is too large\n"
+      //
+	      << "energy (relative to potential minimum) = " << (sd.ener - _potmin) / Phys_const::kcal << " kcal/mol\n";
 
-    throw Error::Range();
+    if(!_nohess) {
+      //
+      std::cerr << funame << "true local frequencies [1/cm]:";
+
+      for(int f = 0; f < local_freq.size(); ++f) {
+	//
+	if(!(f % 10))
+	  //
+	  std::cerr << "\n";
+
+	std::cerr << std::setw(7) << std::floor(local_freq[f] / Phys_const::incm);
+      }
+
+      std::cerr << std::endl;
+      
+      std::cerr << funame << "projected non-fluxional frequencies [1/cm]:";
+
+      for(int f = 0; f < nm_local_freq.size(); ++f) {
+	//
+	if(!(f % 10))
+	  //
+	  std::cerr << "\n";
+
+	std::cerr << std::setw(7) << std::floor(nm_local_freq[f] / Phys_const::incm);
+      }
+
+      std::cerr << std::endl;
+    }
+      
+    return -1.;
   }
   
-  return wfac * std::exp(-bpow);
+  return std::exp(wfac);
 }
 
 /***********************************************************************************************************
@@ -17224,7 +18462,7 @@ double Model::MonteCarloWithDummy::_local_weight (double                  ener, 
 	
 	std::cerr << funame << "WARNING: the system is in the deep tunneling regime, check the log file\n";
 
-	IO::log << IO::log_offset << "WARNING: the system is in the deep tunneling regime" << std::endl;
+	//IO::log << IO::log_offset << "WARNING: the system is in the deep tunneling regime" << std::endl;
       }
       else {
 	//
@@ -17247,6 +18485,7 @@ double Model::MonteCarloWithDummy::_local_weight (double                  ener, 
     }
   }
 
+  /*
   // internal mode frequencies output
   
   // after testing uncomment next clause
@@ -17271,7 +18510,8 @@ double Model::MonteCarloWithDummy::_local_weight (double                  ener, 
   IO::log << std::endl;
 
   // }
-  
+  */
+    
   // non-fluxional modes frequencies
   //
   const int nm_size = in_size - _fluxional.size();

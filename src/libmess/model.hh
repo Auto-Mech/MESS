@@ -153,6 +153,8 @@ namespace Model {
     double   _freq;// imaginary frequency
 
     Tunnel(IO::KeyBufferStream&) ;
+
+    Tunnel (double c, double f) : _cutoff(c), _freq(f) {}
     
   public:
     virtual ~Tunnel ();
@@ -191,6 +193,9 @@ namespace Model {
   class HarmonicTunnel: public Tunnel {
   public:
     HarmonicTunnel(IO::KeyBufferStream&) ;
+
+    HarmonicTunnel (double c, double f) : Tunnel(c, f) {}
+    
     ~HarmonicTunnel ();
 
     double action (double, int =0) const; // semiclassical action
@@ -263,7 +268,7 @@ namespace Model {
     
     explicit InternalRotationBase(int s)             : _isinit(false), _symmetry(s), _axis(-1, -1) {}
     
-    InternalRotationBase (IO::KeyBufferStream& from) : _isinit(false), _symmetry(1), _axis(-1, -1) { init(from); }
+    explicit InternalRotationBase (IO::KeyBufferStream& from) : _isinit(false), _symmetry(1), _axis(-1, -1) { init(from); }
     
     virtual ~InternalRotationBase ();
 
@@ -334,7 +339,7 @@ namespace Model {
     //
     virtual double weight        (double) const { std::cerr << "Model::Rotor::weight: not defined\n"; throw Error::Init(); }
 
-    void convolute(Array<double>&, double) const;
+    virtual void convolute(Array<double>&, double) const;
   };
 
   // rotational constant for free and hindered rotors
@@ -390,14 +395,14 @@ namespace Model {
     double                _pot_max; // global potential energy maximum
     double                _pot_min; // global potential energy minimum
     double               _freq_min; // frequency at minimum
-    double               _freq_max; // maximum frequency
+    double               _freq_max; // maximal frequency
     double            _harm_ground; // ground energy in harmonic approximation
+    
+    double               _ener_max; // maximal level energy
     
     void _set_energy_levels (int) ;
     void _read (IO::KeyBufferStream&);
     void _init ();
-
-    bool _use_quantum_weight;
 
     int _flags;
 
@@ -408,7 +413,11 @@ namespace Model {
     static int weight_output_temperature_step; // temperature step for statistical weight output
     static int weight_output_temperature_max;  // temperature maximum for statistical weight output
     static int weight_output_temperature_min;  // temperature maximum for statistical weight output
- 
+
+    // switch from quantum to semiclassical partition function calculation
+    //
+    static double weight_thres;
+    
     HinderedRotor (IO::KeyBufferStream&, const std::vector<Atom>&, int f = 0);
     
     HinderedRotor (const RotorBase& r, const std::map<int, double>& p, int f = 0);
@@ -431,9 +440,14 @@ namespace Model {
     void set (double);
 
     double ground       ()       const;
+    
     double energy_level (int)    const;
+    
     int    level_size   ()       const;
+    
     double weight       (double) const;
+    
+    void convolute(Array<double>&, double) const;
   };
 
   /*********************************************************************************************
@@ -970,22 +984,14 @@ namespace Model {
 
     std::string _data_file;
 
-    // reference energy
+    // correction factor
     //
-    mutable double _refen;
-
-    // symmetry factor
-    //
-    double _symm_fac;
+    double _corr_fac;
 
     // electronic energy levels
     //
     std::map<double, int> _elevel;
     
-    // no quantum correction factor
-    //
-    bool _noqf;
-
     // no hessian data
     //
     bool _nohess;
@@ -994,6 +1000,10 @@ namespace Model {
     //
     bool _nocurv;
 
+    // no Pitzer-Gwinn density of states correction
+    //
+    bool _nopg;
+
     // center-of-mass shift
     //
     bool _cmshift;
@@ -1001,38 +1011,52 @@ namespace Model {
     // is transition state calculation
     //
     bool _ists;
-    
-    // non-fluxional modes frequencies
-    //
-    std::vector<double> _nm_freq;
 
-    // minimal non-fluxional modes frequency 
+    // sampling data
     //
-    static double nm_freq_min;
+    struct _Sampling {
+      //
+      double                  ener;      // potential energy
+      
+      Lapack::Vector          cart_pos;  // cartesian coordinates
+      
+      Lapack::Vector          cart_grad; // energy gradient in cartesian coordinates
+      
+      Lapack::SymmetricMatrix cart_fc;   // force constant matrix
+
+      _Sampling (int s, std::istream& from, int flags =0);
+
+      class End {};
+    };
+
+    std::vector<_Sampling> _sampling_data;
     
     // statistical weight prefactor including mass factors and quantum prefactor in local harmonic approximation
     //
-    double _local_weight (double                  ener,       // energy
-			  Lapack::Vector          cart_pos,   // cartesian coordinates    
-			  Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
-			  Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
+    double _local_weight (const _Sampling&        s,
 			  double                  temperature, // temprature
+			  Array<double>&          local_dos,   // local density of states
+			  int&                    flux_shift,  // fluxional modes energy shift
 			  int                     flags = 0
 			  ) const;
 
     // read data from the file
     //
-    bool _read (std::istream&           from,       // data stream
-	        double&                 ener,       // energy
-		Lapack::Vector          cart_pos,   // cartesian coordinates    
-		Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
-		Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
-		int                     flags = 0
-		) const;
+    static bool _read (std::istream&           from,       // data stream
+		       double&                 ener,       // energy
+		       Lapack::Vector          cart_pos,   // cartesian coordinates    
+		       Lapack::Vector          cart_grad,  // energy gradient in cartesian coordinates
+		       Lapack::SymmetricMatrix cart_fc,    // cartesian force constant matrix
+		       int                     flags = 0
+		       );
 
+    // internal motion basis
+    //
+    Lapack::Matrix _internal_basis (Lapack::Vector pos) const;
+    
     // set reference energy to the minimal total energy including zero-point energy
     //
-    void _set_reference_energy ();
+    int _set_reference_energy ();
 
     Lapack::SymmetricMatrix _inertia_matrix (Lapack::Vector pos) const;
 
@@ -1075,23 +1099,83 @@ namespace Model {
     //
     double  _ref_tem;
 
-    // internal rotation definition for TS calculations without Hessian
+    // internal rotation definition for calculations without constrain optimization
     //
     std::vector<InternalRotationBase> _internal_rotation;
 
-    double _internal_rotation_mass_factor (Lapack::Vector cart_pos) const;
+    // reference energy
+    //
+    mutable double _refen;
+
+    // DOS reference energy
+    //
+    mutable double _dosen;
+
+    // minimal potential energy
+    //
+    mutable double _potmin;
     
-    // reference point frequencies
+    // reference point (true) frequencies
     //
     mutable std::vector<double> _ref_freq;
 
-    // reference point frequency factor
+    // reference external rotation factor (square root of inertia moments product)
     //
-    mutable double _ref_wfac;
+    mutable double _rfac;
+
+    // reference configuration symmetry
+    //
+    int _rsymm;
+
+    Slatec::Spline _ref_states;
+    
+    // reference non-fluxional modes frequencies
+    //
+    mutable std::vector<double> _nm_freq;
+
+    mutable std::vector<Atom> _atom;
+
+    // descretization energy bin
+    //
+    double _ener_quant;
+
+    // upper energy limit
+    //
+    double _ener_max;
+
+    // shift density of states
+    //
+    static void _shift (int s, Array<double>& dos);
+
+    Slatec::Spline _states;
+
+    // thermal parameters: energy, entropy, and thermal capacity
+    //
+    void _esc_parameters (double temperature, double& e, double& s, double& c) const;
+
+    // inverse Laplace transform log number of states
+    //
+    Slatec::Spline _ilt_log;
+
+    // (relative) temperature differentiation step
+    //
+    double _temp_diff_step;
+    
+    // temperature interpolation grid parameters
+    //
+    double _ilt_min, _ilt_max;
+
+    int _ilt_num;
+
+    // use inverse laplace transform states
+    //
+    bool _use_ilt;
+
+    mutable bool _deep_tunnel;
     
   public:
     //
-    enum { REF = 1 };
+    enum { REF = 1, DOS = 2, NOHESS = 4 };
     
     MonteCarlo (IO::KeyBufferStream&, const std::string&, int);
     
@@ -1103,7 +1187,31 @@ namespace Model {
 
     double weight (double temperature) const { double dtemp; return weight_with_error(temperature, dtemp); }
 
+    double free_energy (double temperature) const { return -temperature * std::log(weight(temperature)); }
+    
     int atom_size () const { return _mass_sqrt.size(); }
+
+    int fluxional_size() const { if (_fluxional.size()) return _fluxional.size(); return _internal_rotation.size(); }
+    
+    // minimal non-fluxional modes frequency 
+    //
+    double nm_freq_min;
+
+    // high frequency threshold x = freq / 2 / T.
+    //
+    double high_freq_thres;
+
+    // low frequency threshold x = freq / 2 / T.
+    //
+    double low_freq_thres;
+  
+    // maximal exponent argument
+    //
+    double exp_arg_max;
+
+    // deep tunneling threshold
+    //
+    double deep_tunnel_thres;
   };
   
   /***********************************************************************************************************
