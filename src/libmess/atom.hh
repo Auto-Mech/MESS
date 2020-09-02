@@ -170,6 +170,7 @@ class Atom : public AtomBase, public D3::Vector
 public:
   Atom () {}
   Atom          (const std::string& s, int i) : AtomBase(s, i) {}
+  Atom          (const AtomBase& b)           : AtomBase(b)    {}
   explicit Atom (const std::string& s)        : AtomBase(s)    {}
   explicit Atom (std::istream& from)  { _read(from); }
 
