@@ -115,6 +115,10 @@ namespace MasterEquation {
   //
   double                                                     well_projection_threshold = 0.2;
 
+  // well extention (in temperature units)
+  //
+  double                                                     well_extension = -1.;
+
   /********************************* INTERNAL PARAMETERS ************************************/
 
   // inner setting check
@@ -408,17 +412,63 @@ void MasterEquation::set_default_chem_size (int s)
  ********************* SETTING WELLS, BARRIERS, AND BIMOLECULAR *****************************
  ********************************************************************************************/
 
-void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std::map<int, double>& capture)
+void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std::map<int, double>& capture, int flags)
   
 {
   const char funame [] = "MasterEquation::set: ";
 
   const double bru = Phys_const::cm * Phys_const::cm * Phys_const::cm * Phys_const::herz;
 
+  double dtemp;
+  int    itemp;
+  bool   btemp;
+  
+  // set default energy reference
+  //
+  if(flags & DEFAULT_EREF) {
+
+    double e, s, c;
+    
+    btemp = true;
+
+    for(int b = 0; b < Model::outer_barrier_size(); ++b) {
+      //
+      Model::outer_barrier(b).esc_parameters(temperature(), e, s, c);
+      
+      e += Model::outer_barrier(b).ground() + 5. * temperature() * std::sqrt(c);
+      
+      if(btemp || _energy_reference < e) {
+	//
+	btemp = false;
+	
+	_energy_reference = e;
+      }
+    }
+    for(int b = 0; b < Model::inner_barrier_size(); ++b) {
+      //
+      Model::inner_barrier(b).esc_parameters(temperature(), e, s, c);
+      
+      e += Model::inner_barrier(b).ground() + 5. * temperature() * std::sqrt(c);
+      
+      if(btemp || _energy_reference < e) {
+	//
+	btemp = false;
+	
+	_energy_reference = e;
+      }
+    }
+
+    //_energy_reference = nearbyint(_energy_reference / Phys_const::incm) * Phys_const::incm;
+  }
+
   if(energy_reference() > Model::energy_limit()) {
-    std::cerr << funame << "model energy limit (" << Model::energy_limit() / Phys_const::kcal 
-	      << " kcal/mol) is lower than the energy reference (" << energy_reference() / Phys_const::kcal 
+    //
+    std::cerr << funame << "model energy limit (" << Model::energy_limit() / Phys_const::kcal
+      //
+	      << " kcal/mol) is lower than the energy reference (" << energy_reference() / Phys_const::kcal
+      //
 	      << " kcal/mol)\n";
+    
     throw Error::Range();
   }
 
@@ -429,12 +479,9 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
   _isset = true;
 
-  int    itemp;
-  double dtemp;
-
   IO::log << IO::log_offset << "Temperature      = " << temperature()      / Phys_const::kelv << " K\n";
   //IO::log << IO::log_offset << "Collision rate   = " << _collision_frequency_factor * temperature() / bru << "cm^3/sec\n";
-  IO::log << IO::log_offset << "Energy reference = " << energy_reference() / Phys_const::incm << " 1/cm\n";
+  IO::log << IO::log_offset << "Energy reference = " << std::ceil(energy_reference() / Phys_const::incm) << " 1/cm\n";
   IO::log << IO::log_offset << "Energy step      = " << energy_step()      / Phys_const::incm << " 1/cm\n";
 
   {
@@ -809,44 +856,102 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
   double dtemp;
   bool   btemp;
 
+  // enthalpy (average energy), entropy, and thermal capacity
+  //
+  double hval, sval, cval;
+
+  model.species()->esc_parameters(temperature(), hval, sval, cval);
+
+  hval += model.ground();
+  
+  IO::log << IO::log_offset << model.name() << " Well: average energy = "
+	  << std::ceil(hval / Phys_const::kcal * 10.) / 10.
+	  << " kcal/mol\n";
+  
   /***************************** SETTING DENSITY OF STATES ************************************/
 
-  int new_size = (int)std::ceil((energy_reference() - model.ground()) / energy_step());
-
-  // truncate, if necessary, the well
-  //
-  if(well_cutoff > 0.) {
-    //
-    itemp = (int)std::ceil((energy_reference() - model.dissociation_limit + 
-			    well_cutoff * temperature()) / energy_step());
-    
-    if(itemp < new_size)
-      //
-      new_size = itemp;
-  }
-
-  if(is_global_cutoff) {
-    itemp =(int)std::ceil((energy_reference() - global_cutoff) / energy_step());
-    new_size = itemp < new_size ? itemp : new_size;      
-  }
-
-  _state_density.resize(new_size);
-  resize_thermal_factor(new_size);
-
-  // setting state density
-  //
-  double ener = energy_reference();
+  double ener, base_ener, ext_ener = -1.;
   
-  for(int e = 0; e < size(); ++e, ener -= energy_step()) {
-    dtemp = model.states(ener);
-    if(dtemp <= 0.) {
-      IO::log << IO::log_offset << model.name()  << " Well: nonpositive density at " 
-	      << ener / Phys_const::incm << " 1/cm => truncating\n";
-      _state_density.resize(e);      
-      break;    
+  if(well_extension >= 0. && well_cutoff > 0.) {
+    //
+    //dtemp = hval > model.dissociation_limit ? hval : model.dissociation_limit;
+
+    dtemp = hval;
+    
+    base_ener = dtemp * (1. - well_extension) + model.ground() * well_extension;
+    
+    ext_ener = well_cutoff * temperature();
+	
+    if(is_global_cutoff) {
+      //
+      if(global_cutoff >= base_ener) {
+	//
+	base_ener = global_cutoff;
+
+	ext_ener = -1.;
+      }
+      else {
+	//
+	dtemp = base_ener - global_cutoff;
+
+	ext_ener = dtemp < ext_ener ? dtemp : ext_ener;
+      }
     }
+  }
+  //
+  else {
+    //
+    if(well_cutoff > 0.)
+      //
+      base_ener = model.dissociation_limit - well_cutoff * temperature();
+
+    if(well_cutoff <= 0. || model.ground() > base_ener)
+      //
+      base_ener = model.ground();
+
+    if(is_global_cutoff && global_cutoff > base_ener)
+      //
+      base_ener = global_cutoff;
+  }
+
+  int base_size = std::ceil((energy_reference() - base_ener) / energy_step());
+
+  int ext_size = ext_ener < 0. ? 0 : std::ceil(ext_ener / energy_step());
+  
+  if(ext_size)
+    //
+    IO::log << IO::log_offset << model.name() << " Well: extension size = " << ext_size << "\n";
+											   
+  itemp = base_size + ext_size;
+  
+  _state_density.resize(itemp);
+  
+  resize_thermal_factor(itemp);
+
+  ener = energy_reference();
+  
+  for(int e = 0; e < base_size; ++e, ener -= energy_step()) {
+    //
+    dtemp = model.states(ener);
+    
+    if(dtemp <= 0.) {
+      //
+      IO::log << IO::log_offset << model.name()  << " Well: WARNING: nonpositive density at " 
+	      << ener / Phys_const::incm << " 1/cm, truncating\n";
+
+      _state_density.resize(e);      
+
+      return;    
+    }
+    
     _state_density[e] = dtemp;
   }
+
+  //double fac = std::exp(energy_step() / temperature() / 2.);
+  
+  for(int e = base_size; e < size(); ++e)
+    //
+    _state_density[e] = dtemp;
 }
 
 void MasterEquation::Well::_set_kernel (const Model::Well& model) 
@@ -856,26 +961,6 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
   int    itemp;
   double dtemp;
   bool   btemp;
-
-  // well extension
-  //
-  if(model.extension() > 0.) {
-    //
-    itemp = std::ceil((energy_reference() - model.dissociation_limit
-		       + model.extension() * temperature()) / energy_step());
-    
-    if(itemp > size()) {
-      //
-      dtemp = _state_density.back();
-
-      int old_size = size();
-
-      _state_density.resize(itemp);
-      for(int e = old_size; e < size(); ++e)
-	_state_density[e] = dtemp;
-    }
-  }
-
 
   double a, c;
 
@@ -894,45 +979,57 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
 
       tmp_kernel = 0.;
 
-      // collisional energy transfer down probability distribution on the grid
+      // collisional energy transfer on the grid
       //
       itemp = (int)std::ceil(model.kernel(b)->cutoff_energy(temperature()) / energy_step());
-      
-      std::vector<double> energy_transfer_form(itemp);
-      
-      for(int i = 0; i < energy_transfer_form.size(); ++i)
-	//
-	energy_transfer_form[i] = (*model.kernel(b))((double)i * energy_step(), temperature());
 
-      if(!b || kernel_bandwidth < energy_transfer_form.size())
+      IO::log << IO::log_offset << model.name() << " Well: collisional kernel bandwidth = " << itemp << "\n";
+
+      std::vector<double> energy_transfer(itemp);
+	
+      for(int i = 0; i < energy_transfer.size(); ++i)
 	//
-	kernel_bandwidth = energy_transfer_form.size();
+	energy_transfer[i] = (*model.kernel(b))((double)i * energy_step(), temperature());
+      
+      if(!b || kernel_bandwidth < energy_transfer.size())
+	//
+	kernel_bandwidth = energy_transfer.size();
 
       // energy transfer UP probability functional form predefined
       //
       if(Model::Kernel::flags() & Model::Kernel::UP) {
 	//
 	for(int i = size() - 1; i >= 0; --i) {// energy grid cycle
-
-	  itemp = i + energy_transfer_form.size();
-	  const int jmax = itemp < size() ? itemp : size(); 
-	  itemp = i - energy_transfer_form.size() + 1;
+	  //
+	  itemp = i + energy_transfer.size();
+	  
+	  const int jmax = itemp < size() ? itemp : size();
+	  
+	  itemp = i - energy_transfer.size() + 1;
+	  
 	  const int jmin = itemp  > 0 ? itemp : 0;
 
 	  // normalization constant
 	  //
 	  c = 0.;
+	  
 	  for(int j = jmin; j <= i; ++j) {
-	    dtemp = energy_transfer_form[i - j];
+	    //
+	    dtemp = energy_transfer[i - j];
+	    
 	    if(Model::Kernel::flags() & Model::Kernel::DENSITY)
+	      //
 	      dtemp *= state_density(j);
+	    
 	    tmp_kernel(i, j) = -dtemp;
+	    
 	    c += dtemp;
 	  }
 
 	  // down-transitions contribution
 	  //
 	  a = kernel_fraction(b);
+	  
 	  for(int j = i + 1; j < jmax; ++j) {
 	    //
 	    a += tmp_kernel(i, j);
@@ -960,16 +1057,21 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
 	    tmp_kernel(i, i) = tmp_kernel(i, i) * a + kernel_fraction(b);
 	  }
 	}// energy grid cycle
-      }
+	//
+      }// recursion up
+      //
       // energy transfer DOWN probability functional form predefined
       //
-      else {
+      else if(Model::Kernel::flags() & Model::Kernel::DOWN) {
 	//
 	for(int i = 0; i < size(); ++i) {// energy grid cycle
-
-	  itemp = i + energy_transfer_form.size();
-	  const int jmax = itemp < size() ? itemp : size(); 
-	  itemp = i - energy_transfer_form.size() + 1;
+	  //
+	  itemp = i + energy_transfer.size();
+	  
+	  const int jmax = itemp < size() ? itemp : size();
+	  
+	  itemp = i - energy_transfer.size() + 1;
+	  
 	  const int jmin = itemp  > 0 ? itemp : 0;
 
 	  // normalization constant
@@ -978,7 +1080,7 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
 	  
 	  for(int j = i; j < jmax; ++j) {
 	    //
-	    dtemp = energy_transfer_form[j - i];
+	    dtemp = energy_transfer[j - i];
 	    
 	    if(Model::Kernel::flags() & Model::Kernel::DENSITY)
 	      //
@@ -1003,22 +1105,29 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
 	    IO::log << IO::log_offset << model.name() 
 		    << " Well: cannot satisfy the constant collision frequency at energy = "
 		    << (energy_reference() - (double)i * energy_step()) / Phys_const::incm
-		    << " 1/cm";
+		    << " 1/cm: ";
 	    
 	    if(Model::Kernel::flags() & Model::Kernel::NOTRUN) {
 	      //
 	      dtemp = kernel_fraction(b) - a;
 	      
-	      IO::log << ", collision frequency = " << dtemp << "\n";
+	      IO::log << "renormalizing collision frequency: " << dtemp << "\n";
+	      
 	      tmp_kernel(i, i) = dtemp;
+	      
 	      for(int j = i + 1; j < jmax; ++j) {
+		//
 		tmp_kernel(i, j) = 0.;
+		
 		tmp_kernel(j, i) = 0.;
 	      }
 	    }
 	    else {
-	      IO::log << ", truncating the well\n";
+	      //
+	      IO::log << "truncating the well\n";
+	      
 	      _state_density.resize(i);
+	      
 	      break;
 	    }
 	  }
@@ -1036,13 +1145,73 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
 	    tmp_kernel(i, i) = tmp_kernel(i, i) * a + kernel_fraction(b);
 	  }
 	}// energy grid cycle
+	//
+      }// recursion down
+      //
+      // default
+      //
+      else {
+	//
+	for(int e = 0; e < size(); ++e) {
+	  //
+	  dtemp = energy_transfer[0];
+	  
+	  for(int i = 1; i < energy_transfer.size(); ++i) {
+	    //
+	    itemp = e + i;
+
+	    if(itemp == size())
+	      //
+	      break;
+	    
+	    tmp_kernel(e, itemp) = energy_transfer[i];
+
+	    tmp_kernel(itemp, e) = energy_transfer[i] * _state_density[e] / _state_density[itemp] / std::exp(i * energy_step() / temperature());
+
+	    dtemp += tmp_kernel(e, itemp) + tmp_kernel(itemp, e);
+	  }
+
+	  dtemp /= kernel_fraction(b);
+	  
+	  for(int i = 1; i < energy_transfer.size(); ++i) {
+	    //
+	    itemp = e + i;
+
+	    if(itemp == size())
+	      //
+	      break;
+	    
+	    tmp_kernel(e, itemp) /= -dtemp;
+
+	    tmp_kernel(itemp, e) /= -dtemp;
+	  }
+	}
+
+	for(int e = 0; e < size(); ++e)
+	  //
+	  for(int i = 1; i < energy_transfer.size(); ++i) {
+	    //
+	    itemp = e - i;
+
+	    if(itemp >= 0.)
+	      //
+	      tmp_kernel(e, e) -= tmp_kernel(e, itemp);
+
+	    itemp = e + i;
+
+	    if(itemp < size())
+	      //
+	      tmp_kernel(e, e) -= tmp_kernel(e, itemp);
+	  }
       }
       
       if(_kernel.size() != size())
+	//
 	break;
       else
 	_kernel += tmp_kernel;
-    }
+    }//
+    //
   } while(_kernel.size() != size());
 
 #ifdef DEBUG
@@ -1106,6 +1275,7 @@ MasterEquation::Well::Well (const Model::Well& model)
   double              dtemp;
   bool                btemp;
   Lapack::Vector      vtemp;
+  std::string         stemp;
   
   std::clock_t start_time;
 
@@ -1161,6 +1331,44 @@ MasterEquation::Well::Well (const Model::Well& model)
 	  << " Well: kernel in relaxation modes basis done, elapsed time[sec] = "
 	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
 
+  /*
+  Lapack::SymmetricMatrix ktest(size());
+
+  for(int i = 0; i < size(); ++i) {
+    //
+    ktest(i, i) = _kernel(i, i);
+    
+    for(int j = i + 1; j < size(); ++j)
+      //
+      ktest(i, j) = _kernel(i, j) * boltzman_sqrt(i) / boltzman_sqrt(j);
+  }
+
+  Lapack::Matrix kvec(size());
+
+  Lapack::Vector kval = ktest.eigenvalues(&kvec);
+
+  IO::log << IO::log_offset << model.name() << " Well: energy transfer kernel lowest eigenvalues:\n";
+
+  itemp = size() < 10 ? size() : 10;
+  
+  for(int i = 0; i < itemp; ++i)
+    //
+    IO::log << IO::log_offset << std::setw(15) << kval[i] << "\n";
+
+  stemp = "kvec_" + model.name() + "_" + IO::String(int(temperature() / Phys_const::kelv)) + ".dat";
+
+  std::ofstream kvec_out(stemp.c_str());
+  
+  for(int e = 0; e < size(); ++e) {
+    //
+    for(int i = 0; i < itemp; ++i)
+      //
+      kvec_out << std::setw(15) << kvec(e, i) / boltzman_sqrt(e) * boltzman_sqrt(size() - 1);
+
+    kvec_out << "\n";
+  }
+  */
+  
   // minimal collisional relaxation eigenvalue
   start_time = std::clock();
 
@@ -4091,18 +4299,22 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     IO::log << "\n";
   }
 
-  IO::log << IO::log_offset << std::setw(5) << "*R" 
-	  << " - eigenvalue over the relaxation limit\n"
-	  << IO::log_offset << std::setw(5) << "*P" 
-	  << " - eigenvector projection squared on the relaxation subspace (= 1 -F_ne)\n"
-	  << IO::log_offset << "eigenvector projections:\n"
-	  << IO::log_offset 
-	  << std::setw(5)  << "L"
-	  << std::setw(10) << "*Q"
-	  << std::setw(10) << "*P";
+  IO::log << IO::log_offset
+    //
+	  << "*R - eigenvalue over the relaxation limit\n"
+    //
+	  << IO::log_offset
+    //
+	  << "*P - eigenvector projection squared on the relaxation subspace (= 1 -F_ne)\n";
+  
+  IO::log << IO::log_offset << "eigenvector projections:\n"
+    //
+	  << IO::log_offset << std::setw(5)  << "L" << std::setw(10) << "*Q" << std::setw(10) << "*P";
 
   for(int w = 0; w < Model::well_size(); ++w)
-    IO::log << std::setw(10) << Model::well(w).name();  
+    //
+    IO::log << std::setw(10) << Model::well(w).name();
+  
   IO::log << "\n";
 
   for(int l = 0; l < Model::well_size(); ++l) {
@@ -4123,12 +4335,18 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     IO::log << std::setw(10) << well(w).weight_sqrt();
   IO::log << "\n";
 
-  IO::log << IO::log_offset << std::setw(5) << "*Q" 
-	  << " - eigenvalue over the collision frequency in first well\n"
-	  << IO::log_offset << std::setw(5) << "*P" 
-	  << " - eigenvector projection squared on the relaxation subspace (= 1 - F_ne)\n"
-	  << IO::log_offset << std::setw(5) << "*Z" 
-	  << " - well partition function square root\n"
+  IO::log << IO::log_offset
+    //
+	  << "*Q - eigenvalue over the collision frequency in first well\n"
+    //
+	  << IO::log_offset
+    //
+	  << "*P - eigenvector projection squared on the relaxation subspace (= 1 - F_ne)\n"
+    //
+	  << IO::log_offset
+    //
+	  << "*Z - well partition function square root\n"
+    //
 	  << std::setprecision(6);
   
   // eigenvalues output

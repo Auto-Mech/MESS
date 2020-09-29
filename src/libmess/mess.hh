@@ -56,7 +56,8 @@ namespace MasterEquation {
   extern double       min_chem_eval;// smallest chemical eigenvalue
   extern double            rate_max;// microcanonical rate maximum
   extern double reduction_threshold;// maximal chemical eigenvalue to collision frequency ratio
-
+  extern double      well_extension;
+  
   void set_global_cutoff (double);
 
   double temperature            ();
@@ -70,8 +71,11 @@ namespace MasterEquation {
   void set_energy_step      (double);
   void set_energy_reference (double);
 
-  // set states densities, states numbers, etc. 
-  void set (std::map<std::pair<int, int>, double>& rate_data, std::map<int, double>& capture) ;
+  // set states densities, states numbers, etc.
+  //
+  enum {DEFAULT_EREF = 1};
+  
+  void set (std::map<std::pair<int, int>, double>& rate_data, std::map<int, double>& capture, int flags = 0) ;
 
   /********************************************************************************************
    ***************************************** WELL CLASS ***************************************

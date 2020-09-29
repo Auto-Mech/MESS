@@ -203,7 +203,7 @@ int main (int argc, char* argv [])
   
   for(int t = 0; t < temperature.size(); ++t) {
 
-    const double tval = temperature[t];
+    double tval = temperature[t];
 
     double temp_incr = tval * temp_rel_incr;
 
@@ -213,6 +213,8 @@ int main (int argc, char* argv [])
     tt[2] = tval + temp_incr;
 
     temp_incr /= Phys_const::kelv;
+
+    tval      /= Phys_const::kelv;
 
     double zz[3];
 
@@ -236,6 +238,20 @@ int main (int argc, char* argv [])
       IO::out << std::setw(13) << zz[0]
 	      << std::setw(13) << (zz[2] - zz[1]) / 2. / temp_incr
 	      << std::setw(13) << (zz[2] + zz[1] - 2. * zz[0]) / temp_incr / temp_incr;
+
+      // free energy in cal/mol
+      //
+      for(int i = 0; i < 3; ++i)
+	//
+	zz[i] *= tt[i] / Phys_const::kcal * 1000.;
+
+      // entropy, cal/mol/grad
+      //
+      IO::out << std::setw(13) << (zz[2] - zz[1]) / 2. / temp_incr;
+
+      // thermal capacity, cal/mol/grad
+      //
+      IO::out << std::setw(13) << (zz[2] + zz[1] - 2. * zz[0]) / temp_incr / temp_incr * tval;
 
       //IO::out << std::setw(13) << species[s]->weight(temperature[t]) 
       //* std::exp((species[s]->real_ground() - species[s]->ground())/ temperature[t])

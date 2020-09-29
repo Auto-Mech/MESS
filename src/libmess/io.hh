@@ -84,6 +84,8 @@ namespace IO {
   
   extern LogOut out;
 
+  extern LogOut aux;
+  
   extern std::ofstream null;
   
   /***********************************************************************************

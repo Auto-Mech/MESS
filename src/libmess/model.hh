@@ -111,7 +111,8 @@ namespace Model {
     enum {
       UP = 1,      // transition up probability form predefined
       DENSITY = 2, // transition probability is proportional to the final density of states
-      NOTRUN  = 4  // no truncation even so the transition probability is negative
+      NOTRUN  = 4,  // no truncation even so the transition probability is negative
+      DOWN = 8
     };
 
     static int flags () { return _flags; }
@@ -871,6 +872,18 @@ namespace Model {
     virtual double states (double) const =0; // density or number of states of absolute energy
     virtual double weight (double) const =0; // weight relative to the ground
 
+    // free energy
+    //
+    double free_energy (double temperature) const { return -temperature * std::log(weight(temperature)); }
+    
+    // (relative) temperature differentiation step
+    //
+    static double temp_diff_step;
+    
+    // thermal parameters: energy, entropy, and thermal capacity
+    //
+    void esc_parameters (double temperature, double& e, double& s, double& c) const;
+
     double ground () const { return _ground; }
     virtual void shift_ground (double e) { _ground += e; }
     virtual double real_ground () const { return _ground; }
@@ -1149,18 +1162,10 @@ namespace Model {
 
     Slatec::Spline _states;
 
-    // thermal parameters: energy, entropy, and thermal capacity
-    //
-    void _esc_parameters (double temperature, double& e, double& s, double& c) const;
-
     // inverse Laplace transform log number of states
     //
     Slatec::Spline _ilt_log;
 
-    // (relative) temperature differentiation step
-    //
-    double _temp_diff_step;
-    
     // temperature interpolation grid parameters
     //
     double _ilt_min, _ilt_max;
@@ -1187,8 +1192,6 @@ namespace Model {
 
     double weight (double temperature) const { double dtemp; return weight_with_error(temperature, dtemp); }
 
-    double free_energy (double temperature) const { return -temperature * std::log(weight(temperature)); }
-    
     int atom_size () const { return _mass_sqrt.size(); }
 
     int fluxional_size() const { if (_fluxional.size()) return _fluxional.size(); return _internal_rotation.size(); }
@@ -1536,13 +1539,17 @@ namespace Model {
   };
 
   class Well {
+    //
     SharedPointer<Species>                  _species;
+    
     std::vector<SharedPointer<Kernel> >     _kernel;
+    
     std::vector<SharedPointer<Collision> >  _collision;
+    
     SharedPointer<Escape>                   _escape;
-    double                                  _extension;
 
   public:
+    //
     Well (IO::KeyBufferStream&, const std::string&) ;
 
     SharedPointer<Species>      species ()       { return _species; }
@@ -1564,15 +1571,17 @@ namespace Model {
     void shift_ground (double) ;
 
     // radiation transitions
+    //
     double oscillator_frequency (int num) const;
+    
     int         oscillator_size ()        const;
 
     // radiation down-transition probability
+    //
     double transition_probability (double ener, double temperature, int num) const;
 
     double dissociation_limit;
-    double extension () const { return _extension; }
-  }; // Well
+  };
 
   inline double Well::oscillator_frequency (int num) const 
   {
