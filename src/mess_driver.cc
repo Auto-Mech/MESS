@@ -19,10 +19,10 @@
 #include<cmath>
 #include <sys/resource.h>
 
-#include "mess.hh"
-#include "key.hh"
-#include "units.hh"
-#include "io.hh"
+#include "libmess/mess.hh"
+#include "libmess/key.hh"
+#include "libmess/units.hh"
+#include "libmess/io.hh"
 
 int main (int argc, char* argv [])
 {
@@ -85,6 +85,7 @@ int main (int argc, char* argv [])
   Key  adm_ang_key("AtomDistanceMin[angstrom]"  );
   Key     xtun_key("TunnelingActionCutoff"      );
   Key well_cut_key("WellCutoff"                 );
+  Key well_ext_key("WellExtension"              );
   Key eval_max_key("ChemicalEigenvalueMax"      );
   Key eval_min_key("ChemicalEigenvalueMin"      );
   Key well_red_key("WellReductionThreshold"     );
@@ -131,70 +132,113 @@ int main (int argc, char* argv [])
   std::string state_landscape;
 
   // base name
+  //
   std::string base_name = argv[1];
+  
   if(base_name.size() >= 4 && !base_name.compare(base_name.size() - 4, 4, ".inp", 4))
+    //
     base_name.resize(base_name.size() - 4);
 
   IO::KeyBufferStream from(argv[1]);
+  
   if(!from && base_name == argv[1]) {
+    //
     // try inp extension
+    //
     stemp = base_name + ".inp";
+    
     from.open(stemp.c_str());
   }
 
   if(!from) {
+    //
     std::cerr << funame << "input file " << argv[1] << " is not found\n";
+    
     return 1;
   }
 
+  // auxiliary output
+  //
+  IO::aux.open((base_name + ".aux").c_str());
+  
   std::string token, comment, line;
+  
   while(from >> token) {
-    // main input group 
+    //
+    // main input group
+    //
     if(model_key == token) {
-      // default log output	
+      //
+      // default log output
+      //
       if(!IO::log.is_open()) {
+	//
 	stemp = base_name + ".log";
+	
 	IO::log.open(stemp.c_str());
+	
 	if(!IO::log) {
+	  //
 	  std::cerr << funame << token << ": cannot open " << stemp << " file\n";
+	  
 	  throw Error::Input();
 	}
       }
 
       // default rate output
+      //
       if(!IO::out.is_open()) {
+	//
 	stemp = base_name + ".out";
+	
 	IO::out.open(stemp.c_str());
+	
 	if(!IO::out) {
+	  //
 	  std::cerr << funame << token << ": cannot open " << stemp << " file\n";
+	  
 	  throw Error::Input();
 	}
       }
 
       // global energy limit check
+      //
       if(!Model::is_energy_limit()) {
+	//
 	std::cerr << funame << "model energy limit should be set BEFORE model input section\n";
+	
 	throw Error::Init();
       }
 
       // main initialization
+      //
       try {
+	//
 	Model::init(from);
       }  
       catch(Error::General) {
+	//
 	IO::log << std::flush;
+	
 	throw;
       }
       break;
     }
     // rate output
+    //
     else if(rate_out_key == token) {
+      //
       if(IO::out.is_open()) {
+	//
         std::cerr << funame << token << ": allready opened\n";
+	
         throw Error::Input();
-      }      
+      }
+      
       if(!(from >> stemp)) {
+	//
         std::cerr << funame << token << ": bad input\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
@@ -533,19 +577,45 @@ int main (int argc, char* argv [])
       MasterEquation::rate_max *= Phys_const::herz;
     }
     // well cutoff
+    //
     else if(well_cut_key == token) {
+      //
       if(!(from >> MasterEquation::well_cutoff)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
 
       if(MasterEquation::well_cutoff <= 0.) {
+	//
         std::cerr << funame << token << ": should be positive\n";
+	
         throw Error::Range();
       }
     }
+    // well extention
+    //
+    else if(well_ext_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      dtemp = 0.;
+
+      lin >> dtemp;
+      
+      if(dtemp < 0. || dtemp >= 1.) {
+	//
+        std::cerr << funame << token << ": out of range: " << dtemp << "\n";
+	
+        throw Error::Range();
+      }
+
+      MasterEquation::well_extension = dtemp;
+    }
     // chemical relaxation to collision frequency ratio
+    //
     else if(well_red_key == token) {
       if(!(from >> MasterEquation::reduction_threshold)) {
         std::cerr << funame << token << ": corrupted\n";
@@ -775,10 +845,9 @@ int main (int argc, char* argv [])
     throw Error::Input();
   }
 
-  if(xtot <= 0. && !iseref) {
-    std::cerr << funame << "reference energy has not been initialized\n";
-    throw Error::Input();
-  }
+  if(xtot < 0. && !iseref)
+    //
+    std::cerr << funame << "WARNING: reference energy has not been initialized: using the default\n";
 
   if(reduction_scheme.size())
     MasterEquation::set_default_partition(reduction_scheme);
@@ -857,10 +926,13 @@ int main (int argc, char* argv [])
   /*********** PRESSURE AND TEMPERATURE DEPENDENT RATE COEFFICIENTS CALCULATION*************/
 
   if(estep > 0.)
+    //
     etot = estep / *temperature.begin();
 
   if(iseref) {
+    //
     eref += Model::energy_shift();
+    
     xtot = (eref - Model::maximum_barrier_height()) / *temperature.begin();
   }
 
@@ -936,21 +1008,28 @@ int main (int argc, char* argv [])
       MasterEquation::set_temperature(*t);
 
       // energy step
-      if(estep > 0.)
-	MasterEquation::set_energy_step(estep);
-      else
-	MasterEquation::set_energy_step(nearbyint(*t * etot / Phys_const::incm) * Phys_const::incm);
+      //
+      MasterEquation::set_energy_step(nearbyint(*t * etot / Phys_const::incm) * Phys_const::incm);
       
       // reference energy
-      if(iseref)
-	MasterEquation::set_energy_reference(eref);
-      else
+      //
+      itemp = 0;
+      
+      if(xtot > 0.) {
+	//
 	MasterEquation::set_energy_reference(nearbyint((*t * xtot + Model::maximum_barrier_height())
 						       / Phys_const::incm) * Phys_const::incm);
+      }
+      else
+	//
+	itemp = MasterEquation::DEFAULT_EREF;
 
       // set barriers, wells, and bimolecular species
-      MasterEquation::set(rate_data, capture_data);
+      //
+      MasterEquation::set(rate_data, capture_data, itemp);
+      
       hp_rate_coef.push_back(rate_data);
+      
       capture.push_back(capture_data);
 
       // output

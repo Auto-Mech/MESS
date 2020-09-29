@@ -32,6 +32,7 @@ namespace IO {
 
   LogOut log;
   LogOut out;
+  LogOut aux;
 
   std::ofstream null("/dev/null");
 

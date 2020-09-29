@@ -378,7 +378,7 @@ void Model::init (IO::KeyBufferStream& from)
 
   KeyGroup ModelInit;
 
-  Key     kflag_key("EnergyRelaxationFlag"    );
+  Key     kflag_key("EnergyRelaxationFlags"   );
   Key      freq_key("CollisionFrequency"      );
   Key       cer_key("EnergyRelaxation"        );
   Key      buff_key("BufferFraction"          );
@@ -528,20 +528,34 @@ void Model::init (IO::KeyBufferStream& from)
 	_buffer_fraction[i] /= dtemp;
     }
     // energy relaxation kernel flags
+    //
     else if(kflag_key == token) {
-      from >> stemp;
-      std::getline(from, comment);
-      if(stemp == "up")
-	Kernel::add_flag(Kernel::UP);
-      else if(stemp == "density")
-	Kernel::add_flag(Kernel::DENSITY);
-      else if(stemp == "notruncation")
-	Kernel::add_flag(Kernel::NOTRUN);
-      else {
-	std::cerr << funame << token << ": unknown key: " << stemp 
-		  << " possible keys: up, density, notruncation\n";
-	throw Error::Range();
-      }
+      //
+      IO::LineInput lin(from);
+
+      while(lin >> stemp)
+	//
+	if(stemp == "up") {
+	  //
+	  Kernel::add_flag(Kernel::UP);
+	}
+	else if(stemp == "density") {
+	  //
+	  Kernel::add_flag(Kernel::DENSITY);
+	}
+	else if(stemp == "notruncation") {
+	  //
+	  Kernel::add_flag(Kernel::NOTRUN);
+	}
+	else if(stemp == "down") {
+	  //
+	  Kernel::add_flag(Kernel::DOWN);
+	}
+	else {
+	  std::cerr << funame << token << ": unknown key: " << stemp 
+		    << " possible keys: up, density, notruncation\n";
+	  throw Error::Range();
+	}
     }
     // new well
     else if(well_key == token) {
@@ -831,17 +845,26 @@ void Model::init (IO::KeyBufferStream& from)
     IO::Marker height_marker("setting maximum barrier height", IO::Marker::ONE_LINE | IO::Marker::NOTIME);
 
     btemp = true;
+    
     for(int b = 0; b < outer_barrier_size(); ++b) {
+      //
       dtemp = outer_barrier(b).real_ground();
+      
       if(btemp || _maximum_barrier_height < dtemp) {
+	//
 	btemp = false;
+	
 	_maximum_barrier_height = dtemp;
       }
     }
     for(int b = 0; b < inner_barrier_size(); ++b) {
+      //
       dtemp = inner_barrier(b).real_ground();
+      
       if(btemp || _maximum_barrier_height < dtemp) {
+	//
 	btemp = false;
+	
 	_maximum_barrier_height = dtemp;
       }
     }
@@ -2086,9 +2109,11 @@ double Model::ExponentialKernel::_energy_down (int f, double temperature) const
   double res = _factor[f] * std::pow(temperature / normal_temperature, _power[f]);
 
   if(Kernel::flags() & UP) {
+    //
     return temperature * res / (temperature + res);
   }
   else
+    //
     return res;
 }
 
@@ -2099,15 +2124,20 @@ double Model::ExponentialKernel::operator () (double energy, double temperature)
   double dtemp;
  
   if(energy < 0.) {
+    //
     std::cerr << funame << "negative energy\n";
+
     throw Error::Range();
   }
   
   double res = 0.;
 
   for(int f = 0; f < _fraction.size(); ++f) {
+    //
     dtemp = energy / _energy_down(f, temperature) + _fraction[f];
+    
     if(dtemp < _cutoff)
+      //
       res += std::exp(-dtemp);
   }
 
@@ -2266,12 +2296,15 @@ void Model::Tunnel::convolute(Array<double>& stat, double step) const
 }
 
 // statistical weight relative to cutoff energy
+//
 double Model::Tunnel::weight (double temperature) const
 {
   const char funame [] = "Model::Tunnel::weight: ";
 
   if(cutoff() < 0.) {
+    //
     std::cerr << funame << "cutoff energy is not initialized\n";
+    
     throw Error::Init();
   }
 
@@ -2279,6 +2312,7 @@ double Model::Tunnel::weight (double temperature) const
   int    itemp;
 
   double estep = temperature * _wtol; // discretization energy step
+  
   itemp = (int)std::floor(cutoff() / estep);
   int imax = 2 * itemp + 1;
   double ener = -double(itemp) * estep;
@@ -4937,13 +4971,17 @@ void Model::HinderedRotor::_init ()
     _pot_max -= dtemp * dtemp / a / 8.;
 
   // minimum energy correction
+  //
   dtemp = _pot_grid[imin == _pot_grid.size() - 1 ? 0: imin + 1] -
+    //
     _pot_grid[imin == 0 ? _pot_grid.size() - 1 : imin - 1];
   
   a = _pot_grid[imin == _pot_grid.size() - 1 ? 0: imin + 1] +
+    //
     _pot_grid[imin == 0 ? _pot_grid.size() - 1 : imin - 1] - 2. * _pot_grid[imin];
 
   if(a > 1.e-5)
+    //
     _pot_min -= dtemp * dtemp / a / 8.;
 
   // numerical vibrational frequency at minimum
@@ -4999,8 +5037,15 @@ void Model::HinderedRotor::_init ()
   }
   
   // calculating energy levels in momentum space
+  //
   _set_energy_levels(_ham_size_min);
 
+  IO::aux << "harmonic    frequency = " << std::ceil(_freq_min / Phys_const::incm) << " 1/cm\n";
+
+  if(level_size() > 1)
+    //
+    IO::aux << "fundamental frequency = " << std::ceil(energy_level(1) / Phys_const::incm) << " 1/cm\n";
+  
   if(!(_flags & NOPRINT)) {
     //
     IO::log << IO::log_offset << "ground energy [kcal/mol]             = "
@@ -5011,7 +5056,6 @@ void Model::HinderedRotor::_init ()
     
     IO::log << IO::log_offset << "number of levels                     = "
 	    << level_size()  << "\n";
-  
 
     // energy levels output
     //
@@ -5041,8 +5085,8 @@ void Model::HinderedRotor::_init ()
       IO::log << IO::log_offset 
 	      << std::setw(5)  << "T, K" 
 	      << std::setw(15) << "Quantum"
-	      << std::setw(15) << "Classical"
-	      << std::setw(15) << "Semiclassical"
+	      << std::setw(15) << "PG"
+	      << std::setw(15) << "PI"
 	      << "  ***\n";
 
       if(weight_output_temperature_min < 0)
@@ -5056,7 +5100,7 @@ void Model::HinderedRotor::_init ()
 	double cw, sw;
 	
 	itemp = get_semiclassical_weight(tval, cw, sw);
-	
+
 	IO::log << IO::log_offset 
 		<< std::setw(5) << t
 		<< std::setw(15) << quantum_weight(tval)
@@ -5368,14 +5412,16 @@ int Model::HinderedRotor::get_semiclassical_weight (double temperature, double& 
 
   dtemp = _grid_step * std::sqrt(temperature / rotational_constant() / 4. / M_PI);
 
-  // semiclassical weight relative to the ground state energy
+  // weight relative to the ground state energy
   //
-  sw *= dtemp * std::exp(_ground / temperature);
+  dtemp *= std::exp(_ground / temperature);
+  
+  sw *= dtemp;
+
+  cw *= dtemp;
 
   // Pitzer-Gwinn correction factor for classical weight
   //
-  cw *= dtemp * std::exp(_pot_min / temperature);
-
   dtemp = _freq_min / temperature / 2.;
 
   if(dtemp > eps)
@@ -14102,6 +14148,37 @@ int Model::Species::oscillator_size () const
   return 0;
 }
 
+double Model::Species::temp_diff_step = 0.01;
+
+// thermal parameters: energy, entropy, thermal capacity
+//
+void Model::Species::esc_parameters (double temperature, double& e, double& s, double& c) const
+{
+  // absolute energy step
+  //
+  double dt = temperature * temp_diff_step;
+
+  // free energy
+  //
+  double f  = free_energy(temperature);
+
+  double f1 = free_energy(temperature - dt);
+
+  double f2 = free_energy(temperature + dt);
+
+  // entropy: free energy first derivative
+  //
+  s = (f1 - f2) / dt / 2.;
+
+  // energy: free energy legandre transform
+  //
+  e = f + temperature * s;
+
+  // thermal capacity
+  //
+  c = temperature * (2. * f - f1 - f2) / dt / dt;
+}
+
 /*******************************************************************************************
  ************************* READ STATES FROM THE FILE AND INTERPOLATE ***********************
  *******************************************************************************************/
@@ -15018,7 +15095,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   : Species(from, n, m), _corr_fac(1.), _nohess(false), _nocurv(false), _nopg(false),
     _cmshift(false), _ists(false), _ref_tem(-1.), _use_ilt(false), 
     nm_freq_min(10. * Phys_const::incm), high_freq_thres(5.), low_freq_thres(1.e-5),
-    exp_arg_max(200.), deep_tunnel_thres(0.8), _deep_tunnel(false), _temp_diff_step(0.01),
+    exp_arg_max(200.), deep_tunnel_thres(0.8), _deep_tunnel(false),
     _ilt_min(100. * Phys_const::kelv), _ilt_max(10000. * Phys_const::kelv), _ilt_num(100),
     _ener_quant(Phys_const::incm), _ener_max(200. * Phys_const::kcal), _rsymm(1)
 {
@@ -16274,7 +16351,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     //
     double e, s, c;
 
-    _esc_parameters(_ilt_min * std::pow(tstep, t), e, s, c);
+    esc_parameters(_ilt_min * std::pow(tstep, t), e, s, c);
 
     x[t] = std::log(e);
 
@@ -16980,35 +17057,6 @@ void Model::MonteCarlo::_make_cm_shift (Lapack::Vector pos) const
       //
       pos[a * 3 + i] -= shift;
   }
-}
-
-// thermal parameters: energy, entropy, thermal capacity
-//
-void Model::MonteCarlo::_esc_parameters (double temperature, double& e, double& s, double& c) const
-{
-  // absolute energy step
-  //
-  double dt = temperature * _temp_diff_step;
-
-  // free energy
-  //
-  double f  = free_energy(temperature);
-
-  double f1 = free_energy(temperature - dt);
-
-  double f2 = free_energy(temperature + dt);
-
-  // entropy: free energy first derivative
-  //
-  s = (f1 - f2) / dt / 2.;
-
-  // energy: free energy legandre transform
-  //
-  e = f + temperature * s;
-
-  // thermal capacity
-  //
-  c = temperature * (2. * f - f1 - f2) / dt / dt;
 }
 
 void Model::MonteCarlo::_shift (int s, Array<double>& dos)
@@ -18776,6 +18824,8 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
 
   IO::Marker funame_marker(funame);
 
+  IO::aux << name() << ":\n";
+
   KeyGroup RRHO_Model;
 
   Key incm_ener_key("ElectronicEnergy[1/cm]"          );
@@ -18971,9 +19021,12 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
     //
     // ONLY WORK WITH NO DEGENERACIES
     //
-    else if(graph_key == token) {      
+    else if(graph_key == token) {
+      //
       if(!_frequency.size()) {
+	//
 	std::cerr << funame << token << ": frequencies should be initialized first\n";
+	
 	throw Error::Init();
       }
       
@@ -18982,34 +19035,49 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
       _init_graphex(from);
     }
     // tunneling
+    //
     else if(tunn_key == token) {
+      //
       if(_tunnel) {
+	//
 	std::cerr << funame << token << ": already intialized\n";
+	
 	throw Error::Init();
       }
+      
       if(mode() == DENSITY) {
+	//
 	std::cerr << funame << token << ": only for barriers\n";
+	
 	throw Error::Init();
       }
+      
       _tunnel = new_tunnel(from);
     }
     // RRHO core
+    //
     else if(core_key == token) {
+      //
       if(_core) {
+	//
 	std::cerr << funame << token << ": already intialized\n";
+	
 	throw Error::Init();
       }
+      
       _core = new_core(from, geometry(), mode());
     }
-    // hindered rotor
+    // Hindered rotor
     //
     else if(hrot_key == token) {
       //
       IO::log << IO::log_offset << _rotor.size() + 1 << "-th ROTOR:\n";
       
+      IO::aux << _rotor.size() + 1 << "-th ROTOR:\n";
+      
       _rotor.push_back(new_rotor(from, geometry()));
     }
-    // hindered rotor bundle
+    // Hindered rotor bundle
     //
     else if(hrb_key == token) {
       //
@@ -19020,98 +19088,161 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
     // frequency scaling factor
     //
     else if(fscale_key == token) {
+      //
       if(fscale > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> fscale)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       if(fscale <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
 
       std::getline(from, comment);
     }
     // frequencies
+    //
     else if(freq_key == token) {
+      //
       if(_frequency.size()) {
+	//
 	std::cerr << funame << token << ": have been initialized already\n";
+	
 	throw Error::Init();
       }
+      
       // number of frequencies
+      //
       if(!(from >> itemp)) {
+	//
 	std::cerr << funame << token << ": cannot read number of frequencies\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(itemp < 1) {
+	//
 	std::cerr << funame << token << ": number of frequencies should be positive\n";
+	
 	throw Error::Range();
       }
+      
       _frequency.resize(itemp);
+      
       // read frequencies
+      //
       for(int i = 0; i < _frequency.size(); ++i) {
+	//
 	if(!(from >> dtemp)) {
+	  //
 	  std::cerr << funame << token << ": cannot read " << i << "-th frequency\n";
+	  
 	  throw Error::Input();
 	}
+	
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << token << ": " << i << "-th frequency: should be positive\n";
+	  
 	  throw Error::Range();
 	}
+	
 	_frequency[i] = dtemp * Phys_const::incm;
       }
+      
       if(!from) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
     }
     // infrared intensities
+    //
     else if(irin_key == token) {
+      //
       if(mode() != DENSITY) {
+	//
 	std::cerr << funame << token << "only for wells\n";
+	
 	throw Error::Logic();
       }
+      
       if(_osc_int.size()) {
+	//
 	std::cerr << funame << token << ": have been initialized already\n";
+	
 	throw Error::Init();
       }
+      
       // number of frequencies
+      //
       if(!(from >> itemp)) {
+	//
 	std::cerr << funame << token << ": cannot read number of oscillators\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(itemp < 1) {
+	//
 	std::cerr << funame << token << ": number of oscillators should be positive\n";
+	
 	throw Error::Range();
       }
+      
       _osc_int.resize(itemp);
+      
       // read intensities
+      //
       for(int i = 0; i < _osc_int.size(); ++i) {
+	//
 	if(!(from >> dtemp)) {
+	  //
 	  std::cerr << funame << token << ": cannot read " << i << "-th intensity\n";
+	  
 	  throw Error::Input();
 	}
+	
 	if(dtemp < 0.) {
+	  //
 	  std::cerr << funame << token << ": " << i << "-th intensity: should be positive\n";
+	  
 	  throw Error::Range();
 	}
+	
 	_osc_int[i] = dtemp * 1.e5 * Phys_const::cm / Phys_const::avogadro;
       }
+      
       if(!from) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
     }
+    
     //  frequency quantum
+    //
     else if(estep_key == token) {
       if(!(from >> ener_quant)) {
 	std::cerr << funame << token << ": corrupted\n";
@@ -19126,6 +19257,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
       ener_quant *= Phys_const::incm;
     }
     // interpolation maximal energy
+    //
     else if(emax_key == token) {
       if(!(from >> _emax)) {
 	std::cerr << funame << token << ": corrupted\n";
@@ -21097,7 +21229,6 @@ double Model::FitEscape::rate (double ener) const
  ********************************************************************************************/
 
 Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) 
-  : _extension(-1.)
 {
   const char funame [] = "Model::Well::Well: ";
 
@@ -21105,7 +21236,6 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   Key  relax_key("EnergyRelaxation");
   Key   spec_key("Species");
   Key escape_key("Escape");
-  Key    ext_key("Extension");
   Key   freq_key("CollisionFrequency");
 
   std::string token, comment;
@@ -21140,23 +21270,6 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
 	throw Error::Init();
       }
       _escape = new_escape(from);
-    }
-    // well extension
-    //
-    else if(ext_key == token) {
-      if(_extension > 0.) {
-	std::cerr << funame << token << ": already defined\n";
-	throw Error::Init();
-      }
-      if(!(from >> _extension)) {
-	std::cerr << funame << token << ": corrupted\n";
-	throw Error::Input();
-      }
-
-      if(_extension <= 0.) {
-	std::cerr << funame << token << ": out of range\n";
-	throw Error::Range();
-      }
     }
     // unknown key
     else if(IO::skip_comment(token, from)) {
