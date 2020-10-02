@@ -6152,13 +6152,18 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 {
   const char funame [] = "Model::PhaseSpaceTheory::PhaseSpaceTheory: ";
 
+  static const double SQRT_PI = std::sqrt(M_PI);
+  
   IO::Marker funame_marker(funame);
 
   double pot_exp = -1.; // power exponent n in potential expression V(R) = V_0 / R^n;
   double pot_fac = -1.; // potential prefactor V_0
 
-  int    itemp;
-  double dtemp;
+  int tst_level = E_LEVEL;
+  
+  int         itemp;
+  double      dtemp;
+  std::string stemp;
 
   KeyGroup PhaseSpaceTheoryModel;
 
@@ -6170,6 +6175,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
   Key     symm_key("SymmetryFactor"            );
   Key     pfac_key("PotentialPrefactor[au]"    );
   Key     pexp_key("PotentialPowerExponent"    );
+  Key      tst_key("TSTLevel"                  );
   
   int gcount = 0; // number of read geometries
   std::vector<double> frag_mass; // fragments masses
@@ -6177,16 +6183,25 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
   
 
   std::string token, comment;
+  
   while(from >> token) {
+    //
     // end input
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // fragment geometry
+    //
     else if(ang_geom_key == token || bor_geom_key == token) {
+      //
       if(!gcount && (frag_mass.size() || frag_rcon.size())) {
+	//
 	std::cerr << funame << token << ": no geometry if fragments masses or rotational constants are used\n";
+	
 	throw Error::Init();
       }
       gcount++;
@@ -6229,144 +6244,342 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       }
     }
     // fragment masses
+    //
     else if(mass_key == token) {
+      //
       if(gcount || frag_mass.size()) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
       
       IO::LineInput mass_input(from);
+      
       for(int i = 0; i < 2; ++i) {
+	//
 	if(!(mass_input >> dtemp)) {
+	  //
 	  std::cerr << funame << token << ": corrupted\n";
+	  
 	  throw Error::Input();
 	}
       
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << token << ": should be positive\n";
+	  
 	  throw Error::Range();
 	}
+	
 	frag_mass.push_back(dtemp * Phys_const::amu);
       }
     }
     // rotational constants
+    //
     else if(wn_rcon_key == token || ghz_rcon_key == token) {
+      //
       if(gcount || frag_rcon.size()) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       IO::LineInput rcon_input(from);
+      
       while(rcon_input >> dtemp) {
+	//
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << token << ": should be positive\n";
+	  
 	  throw Error::Range();
 	}
 
-	if(wn_rcon_key == token)
+	if(wn_rcon_key == token) {
+	  //
 	  dtemp *= Phys_const::incm;
+	}
 	else
+	  //
 	  dtemp *= Phys_const::herz * 2.e+9 * M_PI;
 
 	frag_rcon.push_back(dtemp);
       }
     }
     // symmetry factor (number of symmetry operations)
+    //
     else if(symm_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
+      
       _states_factor = 1./dtemp;
     }
     // potential prefactor V_0
+    //
     else if(pfac_key == token) {
+      //
       if(!(from >> pot_fac)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(pot_fac <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
     }
     // potential distance dependence power exponent
+    //
     else if(pexp_key == token) {
+      //
       if(!(from >> pot_exp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
-      if(pot_exp <= 1.) {
-	std::cerr << funame << token << ": should be more than 1\n";
+      if(pot_exp <= 2.) {
+	//
+	std::cerr << funame << token << ": should be more than 2\n";
+	
 	throw Error::Range();
       }
     }
+    // TST level
+    //
+    else if(tst_key == token) {
+      //
+      IO::LineInput lin(from);
+      
+      if(!(lin >> stemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+
+      if(stemp == "EJ") {
+	//
+	tst_level = EJ_LEVEL;
+      }
+      else if(stemp == "E") {
+	//
+	tst_level = E_LEVEL;
+      }
+      else if(stemp == "T") {
+	//
+	tst_level = T_LEVEL;
+      }
+      else {
+	//
+	std::cerr << funame << token << ": unknown level: " << stemp << ": avaiable levels: EJ, E, T\n";
+	
+	throw Error::Input();
+      }
+    }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
  
   if(!from) {
+    //
     std::cerr << funame << "input corrupted\n";
+    
     throw Error::Input();
   }
   
   if(frag_mass.size() != 2) {
+    //
     std::cerr << funame << "wrong number of fragments\n";
+    
     throw Error::Init();
   }
+
+  IO::log << IO::log_offset << "TST level: ";
+
+  switch(tst_level) {
+    //
+  case T_LEVEL:
+    //
+    IO::log << "T";
+    
+    break;
+	       
+  case E_LEVEL:
+    //
+    IO::log << "E";
+    
+    break;
+    
+  case EJ_LEVEL:
+    //
+    IO::log << "EJ";
+    
+    break;
+
+  default:
+    //
+    std::cerr << funame << "unknown tst level: " << tst_level << "\n";
+
+    throw Error::Range();
+  }
+
+  IO::log << "\n";
+  
+  // energy & temperature power in the number of states & partition function
+  //
+  _power = (double)(frag_rcon.size() + 2) / 2. - 2. / pot_exp;
 
   // numerical factor for the number of states
-  switch(frag_rcon.size()) {
-  case 2:// 2 + 0 
+  //
+  switch(tst_level) {
+    //
+  case E_LEVEL:
+    
+    switch(frag_rcon.size()) {
+      //
+    case 2:// 2 + 0
+      //
+      break;
+    
+    case 3:// 3 + 0
+      //
+      _states_factor *= 16. / 15.;
+    
+      break;
+    
+    case 4:// 2 + 2
+      //
+      _states_factor *= 1. / 3.;
+    
+      break;
+    
+    case 5:// 2 + 3
+      //
+      _states_factor *= 32. / 105.;
+    
+      break;
+    
+    case 6:// 3 + 3
+      //
+      _states_factor *= M_PI / 12.;
+    
+      break;
+    
+    default:
+      //
+      std::cerr << funame << "wrong number of rotational constants: " << frag_rcon.size() << "\n";
+    
+      throw Error::Init();
+    }
+
+    itemp = frag_rcon.size() + 2; // nu - 1
+  
+    dtemp = (double)(itemp) * pot_exp / 4. - 1.; // (nu - 1) * n / 4 - 1
+  
+    _states_factor *= std::pow(dtemp, 2. / pot_exp) * std::pow(1. + 1. / dtemp, (double)itemp / 2.);
+    
     break;
-  case 3:// 3 + 0
-    _states_factor *= 16. / 15.;
+
+  case EJ_LEVEL:
+    //
+    if(frag_rcon.size() == 3 || frag_rcon.size() == 5) {// one non-linear fragment
+      //
+      _states_factor *= SQRT_PI;
+    }
+    else if(frag_rcon.size() == 6)// two non-linear fragments
+      //
+      _states_factor *= M_PI;
+
+    _states_factor *= 2. * std::pow((pot_exp - 2.) / 2., 2. / pot_exp) * tgamma(1. - 2. / pot_exp);
+
+    _states_factor /= tgamma(_power + 1.);
+    
     break;
-  case 4:// 2 + 2
-    _states_factor *= 1. / 3.;
+
+  case T_LEVEL:
+    //
+    if(frag_rcon.size() == 3 || frag_rcon.size() == 5) {// one non-linear fragment
+      //
+      _states_factor *= SQRT_PI;
+    }
+    else if(frag_rcon.size() == 6)// two non-linear fragments
+      //
+      _states_factor *= M_PI;
+
+    _states_factor *= 2. * std::pow(pot_exp / 2., 2. / pot_exp) * std::exp(2. / pot_exp);
+
+    _states_factor /= tgamma(_power + 1.);
+    
     break;
-  case 5:// 2 + 3
-    _states_factor *= 32. / 105.;
-    break;
-  case 6:// 3 + 3
-    _states_factor *= M_PI / 12.;
-    break;
+
   default:
-    std::cerr << funame << "wrong number of rotational constants: " << frag_rcon.size() << "\n";
-    throw Error::Init();
+    //
+    std::cerr << funame << "wrong case: " << tst_level << "\n";
+
+    throw Error::Range();
   }
+
+  // potential prefactor contribution
+  //
+  _states_factor *= std::pow(pot_fac, 2. / pot_exp);
+  
   // effective mass factor
+  //
   dtemp = 0.;
+  
   for(int i = 0; i < 2; ++i)
+    //
     dtemp += 1. / frag_mass[i];
+  
   _states_factor /= dtemp;
 
-  // rotational constants factor;
+  // rotational constants contribution;
+  //
   dtemp = 1.;
+  
   for(int i  = 0; i < frag_rcon.size(); ++i)
+    //
     dtemp *= frag_rcon[i];
+  
   _states_factor /= std::sqrt(dtemp);
 
-  // power parameter
-  itemp = frag_rcon.size() + 2;
-  dtemp = (double)(itemp) * pot_exp / 4. - 1.;
-  _states_factor *= std::pow(dtemp * pot_fac, 2. / pot_exp) * std::pow(1. + 1. / dtemp, (double)itemp / 2.); 
-  _power = (double)itemp / 2. - 2. / pot_exp;
-
+  // partition function prefactor
+  //
   _weight_factor = _states_factor * tgamma(_power + 1.);
 
 }// Phase Space Theory
@@ -6388,6 +6601,8 @@ double Model::PhaseSpaceTheory::weight (double temperature) const
 
 double Model::PhaseSpaceTheory::states (double ener) const
 {
+  // number of states on E-resolved level
+  //
   return _states_factor * std::pow(ener, _power);
 }
 
