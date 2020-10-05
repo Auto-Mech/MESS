@@ -555,20 +555,31 @@ namespace Model {
   }
 
   /**************************************************************************************
-   *********************** PHASE SPACE THEORY NUMBER OF STATES **************************
+   ******************************** PHASE SPACE THEORY **********************************
    **************************************************************************************/
 
   class PhaseSpaceTheory : public Core {
+    //
     double _states_factor;
+    
     double _weight_factor;
+    
     double _power;
 
+    // TST levels
+    //
+    enum {T_LEVEL, E_LEVEL, EJ_LEVEL};
+    
   public:
-    PhaseSpaceTheory (IO::KeyBufferStream& from) ;
+    //
+    PhaseSpaceTheory (IO::KeyBufferStream& from);
+    
     ~PhaseSpaceTheory ();
 
     double ground       () const;
+    
     double weight (double) const;
+    
     double states (double) const;
   };
 
