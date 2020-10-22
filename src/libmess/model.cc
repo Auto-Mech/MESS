@@ -72,6 +72,7 @@ namespace Model {
   int Kernel::_flags = 0;
 
   // buffer fraction
+  //
   std::vector<double> _buffer_fraction;
   double buffer_fraction (int i) { return _buffer_fraction[i]; }
   int buffer_size () { return _buffer_fraction.size(); }
@@ -81,16 +82,27 @@ namespace Model {
   int escape_well_index (int i) { return _escape_well_index[i];     }
 
   // bound species
+  //
   std::vector<Well> _well;
+  
   // bimolecular products
+  //
   std::vector<SharedPointer<Bimolecular> > _bimolecular;
+  
   // well-to-well barriers
+  //
   std::vector<SharedPointer<Species> >   _inner_barrier;
+  
   // well-to-well connection scheme
+  //
   std::vector<std::pair<int ,int> >      _inner_connect;
+  
   // well-to-bimolecular barriers
+  //
   std::vector<SharedPointer<Species> >   _outer_barrier;
+  
   // well-to-bimolecular connection scheme
+  //
   std::vector<std::pair<int ,int> >      _outer_connect;
 
   int            well_size () { return            _well.size(); }
@@ -7638,22 +7650,33 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
   KeyGroup RotdModel;
 
-  Key rotd_key("File"          );
-  Key symm_key("SymmetryFactor");
+  Key rotd_key("File"                );
+  Key symm_key("SymmetryFactor"      );
+  Key zero_key("ZeroEnergy[kcal/mol]");
 
+  bool is_zero = false;
+  
   std::string rotd_name;
   double factor = 1.;
 
   bool issym = false;
 
   std::string comment, token;
+  
   while(from >> token) {
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // symmetry factor (number of symmetry operations)
+    //
     else if(symm_key == token) {
+      //
       if(issym) {
 	std::cerr << funame << "symmetry number has been initialized already\n";
 	throw Error::Init();
@@ -7674,7 +7697,32 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
       factor /= dtemp;
     }
+    // zero density energy
+    //
+    else if(zero_key == token) {
+      //
+      if(is_zero) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      is_zero = true;
+
+      IO::LineInput lin(from);
+
+      if(!(lin >> _ground)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      _ground *= Phys_const::kcal;
+    }
     // rotd output file name
+    //
     else if(rotd_key == token) {
       if(rotd_name.size()) {
 	std::cerr << funame << token <<  ": already initialized\n";
@@ -7688,6 +7736,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
       std::getline(from, comment);
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
       std::cerr << funame << "unknown keyword " << token << "\n";
       Key::show_all(std::cerr);
@@ -7708,42 +7757,83 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
   /************************************* ROTD INPUT **********************************/
 
+  if(!is_zero) {
+    //
+    IO::log << IO::log_offset << "WARNING: zero number of states energy is not initialized: will try to estimate it from the data\n";
+  }
+  
   std::ifstream rotd_in(rotd_name.c_str());
+  
   if(!rotd_in) {
+    //
     std::cerr << funame << "cannot open rotd input file " << rotd_name << "\n";
+    
     throw Error::Open();
   }
 
   std::map<double, double> read_nos;
 
   while(rotd_in >> dtemp) {
-    dtemp *= Phys_const::incm; // energy
-    rotd_in >> read_nos[dtemp];             // number of states
+    //
+    dtemp *= Phys_const::incm;  // energy
+    
+    rotd_in >> read_nos[dtemp]; // number of states
+    
     if(!rotd_in) {
+      //
       std::cerr << funame << "reading transitional modes density failed\n";
+      
       throw Error::Input();
     }
   }
 
   // find zero density energy
+  //
   typedef std::map<double, double>::const_reverse_iterator It;
+  
   It izero;
-  for( izero = read_nos.rbegin(), itemp = 1; izero != read_nos.rend(); ++izero, ++itemp)
-    if(izero->second <= rotd_ntol)
-      break;
+  
+  for( izero = read_nos.rbegin(), itemp = 1; izero != read_nos.rend(); ++izero, ++itemp) {
+    //
+    if(is_zero && izero->first <= _ground)
+	//
+	break;
 
+    if(izero->second <= rotd_ntol) {
+      //
+      if(is_zero) {
+	//
+	std::cerr << funame << "number of states at E = " << std::ceil(izero->first / Phys_const::incm)
+		  << " 1/cm too small: " << izero->second << "\n";
+
+	throw Error::Range();
+      }
+
+      break;
+    }
+  }
+  
   if(itemp < 3) {
+    //
     std::cerr << funame << "not enough data\n";
+    
     throw Error::Init();
   }
 
-  if(izero != read_nos.rend())
-    _ground = izero->first;
-  else {
-    std::cerr << funame << "zero flux energy is not reached\n";
-    throw Error::Input();
+  if(!is_zero) {
+    //
+    if(izero != read_nos.rend()) {
+      //
+      _ground = izero->first;
+    }
+    else {
+      //
+      std::cerr << funame << "zero flux energy is not reached\n";
+    
+      throw Error::Input();
+    }
   }
-
+  
   _rotd_ener.resize(itemp);
   _rotd_nos.resize(itemp);
 
@@ -7753,8 +7843,11 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
   IO::log << IO::log_offset << "grid size = " << itemp << "\n";
 
   --itemp;
+  
   for(It it = read_nos.rbegin(); it != izero; ++it, --itemp) {
+    //
     _rotd_ener[itemp] = it->first - _ground;
+    
     _rotd_nos[itemp]  = it->second * factor;
   }
   
@@ -7782,7 +7875,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
   IO::log << IO::log_offset << "effective power exponent at " 
 	  << _rotd_emax / Phys_const::kcal << " kcal/mol = " << _rotd_nmax << "\n"
-	  << IO::log_offset << "ground energy [kcal/mol] = " << _ground / Phys_const::kcal << "\n";
+	  << IO::log_offset << "zero number of states energy = " << std::ceil(_ground / Phys_const::incm) << " 1/cm\n";
 
 }// Rotd Core
 
