@@ -3267,10 +3267,10 @@ std::vector<D3::Vector> Model::InternalRotationBase::normal_mode
  *********************** 1D UMBRELLA MODE/ ROTOR CLASS FAMILY  ******************************
  ********************************************************************************************/
 
-Model::Rotor::Rotor () :_ham_size_min(999), _ham_size_max(4999), _grid_size(1000), _therm_pow_max(10.) {}
+Model::Rotor::Rotor () :_ham_size_min(999), _ham_size_max(1999), _grid_size(1000), _therm_pow_max(10.) {}
 
 Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
-  :_ham_size_min(999), _ham_size_max(4999), _grid_size(1000), _therm_pow_max(50.), _atom(atom)
+  :_ham_size_min(999), _ham_size_max(1999), _grid_size(1000), _therm_pow_max(50.), _atom(atom)
 {
   const char funame [] = "Model::Rotor::Rotor: ";
 
