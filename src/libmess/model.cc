@@ -4694,7 +4694,9 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
       // rough frequency estimate
       //
-      dtemp = (pval[1] + pval.back() - 2. * pval[0]) / M_PI * pval.size() * symmetry() * rotational_constant();
+      dtemp = 2. * M_PI / pval.size() / symmetry();
+      
+      dtemp = (pval[1] + pval.back() - 2. * pval[0]) / dtemp / dtemp * 2. * rotational_constant();
 
       if(dtemp <= 0.) {
 	//
