@@ -4655,7 +4655,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	throw Error::Input();
       }
       
-      if(itemp < 3) {
+      if(itemp < 1) {
 	//
 	std::cerr << funame << token << ": potential sampling size = " << itemp << " too small\n";
 
@@ -4694,11 +4694,18 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
       // rough frequency estimate
       //
-      dtemp = 2. * M_PI / pval.size() / symmetry();
-      
-      dtemp = (pval[1] + pval.back() - 2. * pval[0]) / dtemp / dtemp * 2. * rotational_constant();
+      if(pval.size() == 1) {
+	//
+	dtemp = 0.;
+      }
+      else {
+	//
+	dtemp = 2. * M_PI / pval.size() / symmetry();
 
-      if(dtemp <= 0.) {
+	dtemp = (pval[1] + pval.back() - 2. * pval[0]) / dtemp / dtemp * 2. * rotational_constant();
+      }
+
+      if(dtemp < 0.) {
 	//
 	std::cerr << funame << token << "initial point not a minumum\n";
 
