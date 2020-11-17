@@ -2339,6 +2339,13 @@ double Model::Tunnel::weight (double temperature) const
 
   res /= fac * std::exp(cutoff() / temperature);
 
+  if(!std::isnormal(res)) {
+    //
+    std::cerr << funame << "the result is not a normal number\n";
+
+    throw Error::Range();
+  }
+  
   return res;
 }
 
@@ -14482,7 +14489,7 @@ int Model::Species::oscillator_size () const
   return 0;
 }
 
-double Model::Species::temp_diff_step = 0.01;
+double Model::Species::temp_diff_step = 0.1;
 
 // thermal parameters: energy, entropy, thermal capacity
 //
