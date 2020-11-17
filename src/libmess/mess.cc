@@ -423,6 +423,8 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
   int    itemp;
   bool   btemp;
   
+  IO::Marker funame_marker(funame);
+
   // set default energy reference
   //
   if(flags & DEFAULT_EREF) {
@@ -434,6 +436,8 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     for(int b = 0; b < Model::outer_barrier_size(); ++b) {
       //
       Model::outer_barrier(b).esc_parameters(temperature(), e, s, c);
+
+      IO::log << IO::log_offset << Model::outer_barrier(b).name() << ": e = " << e / Phys_const::kcal << " kcal/mol, c = " << c << std::endl;
       
       e += Model::outer_barrier(b).ground() + 5. * temperature() * std::sqrt(c);
       
@@ -447,6 +451,8 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     for(int b = 0; b < Model::inner_barrier_size(); ++b) {
       //
       Model::inner_barrier(b).esc_parameters(temperature(), e, s, c);
+      
+      IO::log << IO::log_offset << Model::inner_barrier(b).name() << ": e = " << e / Phys_const::kcal << " kcal/mol, c = " << c << std::endl;
       
       e += Model::inner_barrier(b).ground() + 5. * temperature() * std::sqrt(c);
       
@@ -471,8 +477,6 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     
     throw Error::Range();
   }
-
-  IO::Marker funame_marker(funame);
 
   rate_data.clear();
 
@@ -1310,6 +1314,7 @@ MasterEquation::Well::Well (const Model::Well& model)
 	    << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
 
   // CRM basis
+  //
   start_time = std::clock();
 
   _set_crm_basis();
@@ -1322,13 +1327,17 @@ MasterEquation::Well::Well (const Model::Well& model)
   start_time = std::clock();
 
   _crm_bra = _crm_basis.copy();
+  
   for(int i = 0; i < size(); ++i)
+    //
     _crm_bra.row(i) /= boltzman(i);
 
   _crm_kernel = Lapack::SymmetricMatrix(_crm_basis.transpose() * _kernel * _crm_bra);
 
-  IO::log << IO::log_offset << model.name() 
+  IO::log << IO::log_offset << model.name()
+    //
 	  << " Well: kernel in relaxation modes basis done, elapsed time[sec] = "
+    //
 	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
 
   /*
