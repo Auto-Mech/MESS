@@ -19921,7 +19921,9 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m)
       IO::Marker elev_marker("electronic states contribution", IO::Marker::ONE_LINE);
 
       dtemp = double(_edegen[0]);
-      for(int i = 1; i < ener_grid.size(); ++i)
+      
+      for(int i = 0; i < ener_grid.size(); ++i)
+	//
 	stat_grid[i] *= dtemp;
     }
 
