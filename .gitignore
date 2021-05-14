@@ -50,6 +50,6 @@ __pycache__/
 # Ignore local CircleCI run build scripts
 local.sh
 
-# Ignore debug builds
-debug/build
-debug/bin
+# Ignore builds
+build
+debug
