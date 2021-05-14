@@ -918,6 +918,50 @@ int main (int argc, char* argv [])
 	micro_out << "\n";
       } // energy cycle
     } // well cycle
+
+    // bimolecular density of states
+    //
+    itemp = 0;
+    
+    for(int p = 0; p < Model::bimolecular_size(); ++p)
+      //
+      for(int f = 0; f < 2; ++f)
+	//
+	if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+	  //
+	  itemp = 1;
+
+    if(itemp) {
+      //
+      micro_out << "Bimolecular fragments density of states:\n";
+
+      micro_out << std::setw(15) << "E, kcal/mol";
+    
+      for(int p = 0; p < Model::bimolecular_size(); ++p)
+	//
+	for(int f = 0; f < 2; ++f)
+	  //
+	  if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+	    //
+	    micro_out << std::setw(15) << Model::bimolecular(p).fragment_name(f);
+      
+	micro_out << "\n";
+
+      for(double ener = micro_ener_min; ener <= micro_ener_max; ener += micro_ener_step) {
+	//
+	micro_out << std::setw(15) << ener / Phys_const::kcal;
+      
+	for(int p = 0; p < Model::bimolecular_size(); ++p)
+	  //
+	  for(int f = 0; f < 2; ++f)
+	    //
+	    if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+	      //
+	      micro_out << std::setw(15) << Model::bimolecular(p).states(f, ener) * Phys_const::kcal;
+
+	micro_out << "\n";
+      }
+    }
   } // micro output
 
   if(Model::no_run())

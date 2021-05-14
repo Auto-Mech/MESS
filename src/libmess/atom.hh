@@ -74,7 +74,8 @@ public:
     SULFUR     = 16,
     CHLORINE   = 17,
     TITANIUM   = 22,
-    BROMINE    = 35
+    BROMINE    = 35,
+    URANIUM    = 92
   };
 
   void set         (int)                     ;

@@ -1613,38 +1613,67 @@ SharedPointer<Model::Tunnel> Model::new_tunnel(IO::KeyBufferStream& from)
 
   KeyGroup NewTunnelModel;
 
-  Key harmon_key("Harmonic");
-  Key eckart_key("Eckart"  );
-  Key  quart_key("Quartic" );
-  Key   read_key("Read"    );
+  Key harmon_key("Harmonic" );
+  Key eckart_key("Eckart"   );
+  Key  quart_key("Quartic"  );
+  Key   read_key("Read"     );
+  Key  expan_key("Expansion");
 
   std::string token, comment;
   while(from >> token) {
-  // parabolic barrier tunneling
+    //
+    // parabolic barrier tunneling
+    //
     if(harmon_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Tunnel>(new HarmonicTunnel(from));
     }
-  // Eckart barrier tunneling
+    // Eckart barrier tunneling
+    //
     if(eckart_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Tunnel>(new   EckartTunnel(from));
     }
     // Quartic potential barrier tunneling
+    //
     if(quart_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Tunnel>(new  QuarticTunnel(from));
     }
+    // action interpolation
+    //
     if(read_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Tunnel>(new  ReadTunnel(from));
     }
+    // action expansion
+    //
+    if(expan_key == token) {
+      //
+      std::getline(from, comment);
+      
+      return SharedPointer<Tunnel>(new  ExpTunnel(from));
+    }
     // unknown keyword
+    //
     if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       IO::log << std::flush;
+      
       throw Error::Init();
     }
   }
@@ -2189,34 +2218,53 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
 
   std::string token, comment;
   while(from >> token) {
+    //
     // energy cutoff
+    //
     if(kcal_cut_key == token || incm_cut_key == token || kj_cut_key == token) {
+      //
       if(!(from >> _cutoff)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }    
       std::getline(from, comment);
 
       if(_cutoff < 0.) {
+	//
 	std::cerr << funame << token << ": should not be negative\n";
-      throw Error::Range();
+
+	throw Error::Range();
       }
-      if(kcal_cut_key == token)
+      
+      if(kcal_cut_key == token) {
+	//
 	_cutoff *= Phys_const::kcal;
-      if(incm_cut_key == token)
+      }
+      if(incm_cut_key == token) {
+	//
 	_cutoff *= Phys_const::incm;
+      }
       if(kj_cut_key == token)
+	//
 	_cutoff *= Phys_const::kjoul;
     }
     // imaginary frequency
+    //
     else if(freq_key == token) {
+      //
       if(_freq > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
 
       if(!(from >> _freq)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
@@ -2229,36 +2277,46 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
       _freq *= Phys_const::incm;
     }
     // statistical weight tolerance
+    //
     else if(wtol_key == token) {
+      //
       if(!(from >> _wtol)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }    
       std::getline(from, comment);
 
       if(_wtol <= 0. || _wtol >= 1.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
-      throw Error::Range();
+	
+	throw Error::Range();
       }
     }
     // unknown key
+    //
     else if(IO::skip_comment(token, from)) {
-      //IO::last_key = token;
+      //
       from.put_back(token);
       break;
     }
   }
 
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(_freq < 0.) {
+    //
     std::cerr << funame << "imaginary frequency not initialized\n";
+    
     throw Error::Init();
   }
-
 }
 
 Model::Tunnel::~Tunnel ()
@@ -2600,13 +2658,217 @@ double Model::HarmonicTunnel::action (double ener, int n) const
 
   switch(n) {
   case 0: 
-    return 2. * M_PI * ener / _freq;
+    return 2. * M_PI * ener / frequency();
   case 1: 
-    return 2. * M_PI  / _freq;
+    return 2. * M_PI  / frequency();
   default:
     std::cerr << funame << "should not be here\n";
     throw Error::Logic();
   }
+}
+
+/********************************************************************************************
+ ******************************** PARABOLIC BARRIER TUNNELING *******************************
+ ********************************************************************************************/
+
+Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from) 
+  : Tunnel(from)
+{
+  const char funame [] = "Model::ExpTunnel::ExpTunnel: ";
+
+  double dtemp;
+  int    itemp;
+  
+  IO::Marker funame_marker(funame);
+
+  KeyGroup ExpTunnelModel;
+
+  Key exp_key("ActionExpansion");
+  
+  std::string token, comment;
+  //std::string token = IO::last_key, comment;
+  //IO::last_key.clear();
+  while(from >> token) {
+    //
+    // end
+    //
+    if(IO::end_key() == token) {
+      std::getline(from, comment);
+      break;
+    }
+    //
+    // action expansion
+    //
+    else if(exp_key == token) {
+      //
+      if(_expansion.size()) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+
+	throw Error::Input();
+      }
+
+      std::getline(from, comment);
+
+      while(1) {
+	//
+	if(!from) {
+	  //
+	  std::cerr << funame << token << ": forgot to add End?\n";
+
+	  throw Error::Input();
+	}
+	
+	IO::LineInput lin(from);
+
+	IO::String index;
+	
+	if(!(lin >> index)) {
+	  //
+	  std::cerr << funame << token << ": empty line?\n";
+
+	  throw Error::Input();
+	}
+
+	if(index == IO::end_key())
+	  //
+	  break;
+
+	itemp = (int)index;
+
+	if(itemp < 2) {
+	  //
+	  std::cerr << funame << token << ": index out of range: " << itemp << "\n";
+	  
+	  throw Error::Range();
+	}
+
+	if(_expansion.find(itemp) != _expansion.end()) {
+	  //
+	  std::cerr << funame << token << ": dupplicated index: " << itemp << "\n";
+
+	  throw Error::Range();
+	}
+	  
+	if(!(lin >> dtemp)) {
+	  //
+	  std::cerr << funame << token << ": cannot read " << itemp << "=th value\n";
+								       
+	  throw Error::Input();
+	}
+
+	_expansion[itemp] = dtemp;
+      }
+    }
+    //
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      std::cerr << funame << "unknown keyword " << token << "\n";
+      Key::show_all(std::cerr);
+      std::cerr << "\n";
+      throw Error::Init();
+    }
+  } //while(from >> token);
+  
+  if(!from) {
+    std::cerr << funame << "input stream corrupted\n";
+    throw Error::Input();
+  }
+
+  if(_expansion.size() && _expansion.begin()->first < 2) {
+    //
+    std::cerr << funame << "action expansion starts from the wrong term: " << _expansion.begin()->first << "\n";
+
+    throw Error::Range();
+  }
+  
+  if(cutoff() < 0.) {
+    std::cerr << funame << "cutoff energy is not initialized\n";
+    throw Error::Init();
+  }
+
+  IO::log << IO::log_offset << "cutoff energy = " << -cutoff() / Phys_const::kcal 
+	  << " kcal/mol   tunneling factor = "
+	  << factor(-cutoff()) << "\n";
+
+}
+
+Model::ExpTunnel::~ExpTunnel ()
+{
+  //std::cout << "Model::ExpTunnel destroyed\n";
+}
+
+double Model::ExpTunnel::action (double ener, int n) const
+{
+  const char funame [] = "Model::ExpTunnel::action: ";
+
+  double dtemp;
+  int    itemp;
+  
+  double res;
+  
+  switch(n) {
+    //
+  case 0:
+    //
+    res = 2. * M_PI * ener / frequency();
+
+    break;
+    
+  case 1:
+    //
+    res = 2. * M_PI  / frequency();
+
+    break;
+    
+  default:
+      //
+      std::cerr << funame << "should not be here\n";
+      
+      throw Error::Logic();
+    }
+  
+  if(ener >= 0.)
+    //
+    return res;
+  
+  for(std::map<int, double>::const_iterator cit = _expansion.begin(); cit != _expansion.end(); ++cit) {
+    //
+    dtemp = cit->second * std::pow(ener / frequency(), cit->first);
+
+    // E^2 coefficient is special
+    //
+    if(cit->first == 2)
+      //
+      dtemp *= 2.;
+
+    switch(n) {
+      //
+    case 0:
+      //
+      dtemp /= (double)cit->first;
+
+      break;
+
+    case 1:
+      //
+      dtemp /= ener;
+
+      break;
+    }
+    
+    if(cit->first % 2) {
+      //
+      res += dtemp;
+    }
+    else {
+      //
+      res -= dtemp;
+    }
+  }
+
+  return res;
 }
 
 /********************************************************************************************
@@ -2700,7 +2962,7 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
     _cutoff = _depth[0];
 
   for(int w = 0; w < 2; ++w)
-    _depth[w] /= _freq;
+    _depth[w] /= frequency();
 
   dtemp = 0.;
   for(int w = 0; w < 2; ++w)
@@ -2719,7 +2981,7 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
   int emax = (int)std::ceil(cutoff() / Phys_const::kcal);
   for(int e = 1; e < emax; ++e)
     IO::log << IO::log_offset << std::setw(2) << e 
-	    << std::setw(13) << 2. * M_PI * (double)e * Phys_const::kcal / _freq
+	    << std::setw(13) << 2. * M_PI * (double)e * Phys_const::kcal / frequency()
 	    << std::setw(13) << -action(-(double)e * Phys_const::kcal) << "\n";
 
   IO::log << IO::log_offset << "cutoff energy = " << -cutoff() / Phys_const::kcal 
@@ -2742,7 +3004,7 @@ double Model::EckartTunnel::action (double ener, int der) const
   double dtemp;
   double res = 0.;
 
-  ener /= _freq;
+  ener /= frequency();
   for(int w = 0; w < 2; ++w) {
     dtemp = ener + _depth[w];
     if(dtemp < 0.) 
@@ -2763,7 +3025,7 @@ double Model::EckartTunnel::action (double ener, int der) const
   res *= _factor;
 
   if(der)    
-    res /= 2. * _freq;  
+    res /= 2. * frequency();  
 
   return res;
 }
@@ -2989,8 +3251,8 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
   for(int e = 1; e < emax; ++e) {
     ener = (double)e * Phys_const::kcal;
     IO::log << IO::log_offset << std::setw(2) << e 
-	    << std::setw(13) << 2. * M_PI * ener / _freq 
-	    << std::setw(13) << 2. * M_PI * ener / _freq * (1. + quad_corr * ener / _vmin)
+	    << std::setw(13) << 2. * M_PI * ener / frequency() 
+	    << std::setw(13) << 2. * M_PI * ener / frequency() * (1. + quad_corr * ener / _vmin)
 	    << std::setw(13) << -action(-ener) 
 	    << "\n";
   }
@@ -3014,9 +3276,9 @@ double Model::QuarticTunnel::action (double ener, int der) const
   if(ener >= 0.)
     switch(der) {
     case 0:
-      return 2. * M_PI * ener / _freq;
+      return 2. * M_PI * ener / frequency();
     case 1:
-      return 2. * M_PI / _freq;
+      return 2. * M_PI / frequency();
     default:
       std::cerr << funame << "wrong derivative\n";
       throw Error::Range();
@@ -3027,9 +3289,9 @@ double Model::QuarticTunnel::action (double ener, int der) const
   if(ener < 1.)
     switch(der) {
     case 0:
-      return - _vmin * _action(ener, 0) / _freq;
+      return - _vmin * _action(ener, 0) / frequency();
     case 1:
-      return _action(ener, 1) / _freq;
+      return _action(ener, 1) / frequency();
     default:
       std::cerr << funame << "wrong derivative\n";
       throw Error::Range();
@@ -3037,7 +3299,7 @@ double Model::QuarticTunnel::action (double ener, int der) const
   else
     switch(der) {
     case 0:
-      return - _vmin * _action.fun_max() / _freq;
+      return - _vmin * _action.fun_max() / frequency();
     case 1:
       return 0.;
     default:
@@ -4594,6 +4856,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
   Key  kcal_pot_key("Potential[kcal/mol]"       );
   Key  incm_pot_key("Potential[1/cm]"           );
   Key    kj_pot_key("Potential[kJ/mol]"         );
+  Key kcal_pspl_key("PotentialSpline[kcal/mol]" );
   Key kcal_four_key("FourierExpansion[kcal/mol]");
   Key incm_four_key("FourierExpansion[1/cm]"    );
   Key   kj_four_key("FourierExpansion[kJ/mol]"  );
@@ -4639,6 +4902,155 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       _ener_max *= Phys_const::kcal;
       
       std::getline(from, comment);
+    }
+    // potential spline
+    //
+    else if(kcal_pspl_key == token) {
+      //
+      if(_pot_four.size()) {
+	//
+	std::cerr << funame << "potential fourier expansion has been already defined\n";
+
+	throw Error::Init();
+      }
+
+      // potential sampling size
+      //
+      if(!(from >> itemp)) {
+	//
+	std::cerr << funame << token << ": potential sampling size unreadable\n";
+
+	throw Error::Input();
+      }
+      
+      if(itemp < 3) {
+	//
+	std::cerr << funame << token << ": potential spline size = " << itemp << " too small\n";
+
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+
+      const int smp_size = itemp;
+      
+      // potential sampling
+      //
+      std::map<double, double> pot_map;
+      
+      const double ang_max = 360. / symmetry();
+      
+      for(int i = 0; i < smp_size; ++i) {
+	//
+	IO::LineInput lin(from);
+      
+	if(!(lin >> dtemp)) {
+	  //
+	  std::cerr << funame << token << ": cannot read " << i+1 <<"-th angle\n";
+
+	  throw Error::Input();
+	}
+
+	dtemp /= ang_max;
+	
+	if(dtemp < 0. || dtemp >= 1.) {
+	  //
+	  std::cerr << funame << token << ": WARNING: "<< i + 1
+		    << "-th angle is beyond the default angular range: [0-"
+		    << ang_max << "]: the shift is applied\n";
+
+	  dtemp -= std::floor(dtemp);
+	}
+
+	if(pot_map.find(dtemp) != pot_map.end()) {
+	  //
+	  std::cerr << funame << token << i+1 <<"-th angle already in the map\n";
+
+	  throw Error::Input();
+	}
+
+	double pot_smp;
+	
+	if(!(lin >> pot_smp)) {
+	  //
+	  std::cerr << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
+
+	  throw Error::Input();
+	}
+
+	pot_smp *= Phys_const::kcal;
+	
+	pot_map[dtemp] = pot_smp;
+      }
+
+      const int offset = 2;
+      
+      itemp = pot_map.size() + 2 * offset;
+
+      Array<double> x(itemp), y(itemp);
+
+      int count = 0;
+
+      for(std::map<double, double>::const_reverse_iterator rit = pot_map.rbegin(); count < offset; ++rit, ++count) {
+	//
+	itemp = offset - count - 1;
+	
+	x[itemp] = rit->first - 1.;
+	
+	y[itemp] = rit->second;
+      }
+      
+      for(std::map<double, double>::const_iterator fit = pot_map.begin(); fit != pot_map.end(); ++fit, ++count) {
+	//
+	x[count] = fit->first;
+	
+	y[count] = fit->second;
+      }
+      
+      for(std::map<double, double>::const_iterator fit = pot_map.begin(); count < x.size(); ++fit, ++count) {
+	//
+	x[count] = fit->first + 1.;
+	
+	y[count] = fit->second;
+      }
+      
+      Slatec::Spline sp(x, y, x.size());
+
+      Array<double> pval(_ham_size_min);
+
+      for(int i = 0; i < pval.size(); ++i)
+	//
+	pval[i] = sp((double)i/(double)pval.size());
+
+      // fourier transform
+      //
+      dtemp = 0.;
+      
+      for(int i = 0; i < pval.size(); ++i)
+	//
+	dtemp += pval[i];
+
+      _pot_four[0] = dtemp / (double)pval.size();
+
+      
+      for(int i = 1; i < pval.size(); ++i) {
+	//
+	dtemp = 0.;
+	
+	if(i % 2) {
+	  //
+	  for(int j = 0; j < pval.size(); ++j)
+	    //
+	    dtemp += pval[j] * std::sin(M_PI * double((i + 1)  * j) / double(pval.size()));
+	}
+	else
+	    //
+	  for(int j = 0; j < pval.size(); ++j)
+	    //
+	    dtemp += pval[j] * std::cos(M_PI * double(i * j) / double(pval.size()));
+
+	_pot_four[i] = dtemp / (double)pval.size() * 2.;
+      }
     }
     // potential on the grid
     //
@@ -13609,8 +14021,16 @@ double Model::MultiRotor::ground () const
 double Model::MultiRotor::weight (double temperature) const
 {
   double cw, qw;
+  
   get_semiclassical_weight(temperature, cw, qw);
-  return qw;
+  
+  if(_level_ener_max > 0.)
+    //
+    return qw;
+  //
+  else
+    //
+    return cw;
 }
 
 void Model::MultiRotor::rotational_energy_levels () const
@@ -20470,6 +20890,7 @@ double Model::RRHO::tunnel_weight (double temperature) const
 }
 
 // radiational transitions
+//
 int Model::RRHO::oscillator_size () const
 {
   return _osc_int.size(); 
@@ -20480,7 +20901,9 @@ double Model::RRHO::oscillator_frequency (int f) const
   const char funame [] = "Model::RRHO::oscillator_frequency: ";
   
   if(f < 0 || f >= _osc_int.size()) {
+    //
     std::cerr << funame << "oscillator index out of range\n";
+    
     throw Error::Range();
   }
   
@@ -20492,7 +20915,9 @@ double Model::RRHO::infrared_intensity (double ener, int f) const
   const char funame [] = "Model::RRHO::occupation_number: ";
   
   if(f < 0 || f >= _osc_int.size()) {
+    //
     std::cerr << funame << "oscillator index out of range\n";
+    
     throw Error::Range();
   }
 
@@ -20507,8 +20932,9 @@ double Model::RRHO::infrared_intensity (double ener, int f) const
   double res = _osc_int[f];
 
   if(ener >= _occ_num[f].arg_max()) {
-
+    //
     if(ener >= _occ_num[f].arg_max() * 2.)
+      //
       IO::log << IO::log_offset << funame << "WARNING: energy far beyond interpolation range\n";
 
     res *= _occ_num[f].fun_max() + (ener - _occ_num[f].arg_max()) * _occ_num_der[f];
@@ -20523,6 +20949,15 @@ double Model::RRHO::infrared_intensity (double ener, int f) const
  *********************************** UNION OF WELLS **********************************
  *************************************************************************************/
 
+void Model::UnionSpecies::_read (IO::KeyBufferStream& from, const std::string& n, int m)
+{
+  SharedPointer<Species> p;
+  
+  while(p = new_species(from, n, m))
+    //
+    _species.push_back(p);  
+}
+  
 Model::UnionSpecies::UnionSpecies (IO::KeyBufferStream& from, const std::string& n, int m) 
   : Species(n, m)
 {
@@ -20530,10 +20965,29 @@ Model::UnionSpecies::UnionSpecies (IO::KeyBufferStream& from, const std::string&
 
   IO::Marker funame_marker(funame);
 
-  SharedPointer<Species> p;
-  while(p = new_species(from, n, mode()))
-    _species.push_back(p);
-  
+  _read(from, n, m);
+
+  _set();
+
+  _print();
+}
+
+Model::UnionSpecies::UnionSpecies (const std::vector<SharedPointer<Species> >& s, const std::string& n, int m) 
+  : Species(n, m), _species(s)
+{
+  const char funame [] = "Model::UnionSpecies::UnionSpecies: ";
+
+  IO::Marker funame_marker(funame);
+
+  _set();
+
+  _print();
+}
+
+void Model::UnionSpecies::_set ()
+{
+  const char funame [] = "Model::UnionSpecies::_set: ";
+
   if(!_species.size()) {
     std::cerr << funame << "no species found\n";
     throw Error::Init();
@@ -20565,9 +21019,7 @@ Model::UnionSpecies::UnionSpecies (IO::KeyBufferStream& from, const std::string&
       for(int i = 0; i < _species[w]->oscillator_size(); ++i)
 	_osc_spec_index.push_back(w);
     }
-
-  _print();
-}// Union Species
+}
 
 Model::UnionSpecies::~UnionSpecies ()
 {
@@ -20602,6 +21054,7 @@ void Model::UnionSpecies::shift_ground (double e)
 }
 
 // radiational transitions
+//
 double Model::UnionSpecies::oscillator_frequency (int num) const
 {
   const char funame [] = "Model::UnionSpecies::oscillator_frequency: ";
@@ -21229,13 +21682,11 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
   Key   kj_ener_key("GroundEnergy[kJ/mol]"  );
   Key      frag_key("Fragment"              );
   Key     dummy_key("Dummy"                 );
-  Key      dens_key("StatesDensity"         );
   
   int    itemp;
   double dtemp;
 
   bool isener = false;
-  bool isdensity = false;
 
   std::string token, comment, stemp;
   while(from >> token) {
@@ -21265,25 +21716,27 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
       if(kj_ener_key == token)
 	_ground *= Phys_const::kjoul;      
     }
-    // set density of states
-    else if(dens_key == token) {
-      if(_fragment.size()) {
-	std::cerr << funame << token << "should be before any fragment definition\n";
-	throw Error::Init();
-      }
-      std::getline(from, comment);
-      isdensity = true;
-    }
     // fragment
+    //
     else if(frag_key == token) {
-      if(!(from >> stemp)) {
+      //
+      IO::LineInput lin(from);
+      
+      if(!(lin >> stemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
-      }      
-      std::getline(from, comment);
-      if(isdensity)
+      }
+
+      std::string isdensity;
+
+      if(lin >> isdensity && isdensity == "density") {
+	//
 	_fragment.push_back(new_species(from, stemp, DENSITY));
+      }
       else
+	//
 	_fragment.push_back(new_species(from, stemp, NOSTATES));
     }
     // dummy
@@ -21571,7 +22024,8 @@ double Model::FitEscape::rate (double ener) const
  **************************************** WELL MODEL ****************************************
  ********************************************************************************************/
 
-Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) 
+Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
+  : well_ext_cap(-1.)
 {
   const char funame [] = "Model::Well::Well: ";
 
@@ -21580,27 +22034,62 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   Key   spec_key("Species");
   Key escape_key("Escape");
   Key   freq_key("CollisionFrequency");
+  Key   ext_key("WellExtensionCap[kcal/mol]");
 
   std::string token, comment;
 
   while(from >> token) {// input cycle
-    // end input 
+    //
+    // end input
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
+    // well extension cap
+    //
+    else if(ext_key == token) {
+      //
+      if(!(from >> well_ext_cap)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(well_ext_cap <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range: " << well_ext_cap << "\n";
+
+	throw Error::Range();
+      }
+
+      well_ext_cap *= Phys_const::kcal;
+      
+      std::getline(from, comment);
+    }
     // collisional energy relaxation kernel
+    //
     else if(relax_key == token) {
+      //
       _kernel.push_back(new_kernel(from));
     }
     // collision frequency model
+    //
     else if(freq_key == token) {
+      //
       _collision.push_back(new_collision(from));
     }
     // species specification
+    //
     else if(spec_key == token) {
+      //
       if(_species) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Init();
       }
       _species = new_species(from, n, DENSITY);
@@ -21608,17 +22097,25 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
     // escape specification
     //
     else if(escape_key == token) {
+      //
       if(_escape) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Init();
       }
       _escape = new_escape(from);
     }
     // unknown key
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }// input cycle
@@ -21655,7 +22152,8 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   }
 }
 
-// radiational transition down probability 
+// radiational transition down probability
+//
 double Model::Well::transition_probability (double ener, double temperature, int num) const
 {
   const char funame [] = "Model::Well::transition_probability: ";
@@ -21678,7 +22176,9 @@ double Model::Well::transition_probability (double ener, double temperature, int
   }
 
   double res = _species->infrared_intensity(ener, num);
+  
   if(res == 0.)
+    //
     return res;
 
   double dtemp = _species->oscillator_frequency(num);

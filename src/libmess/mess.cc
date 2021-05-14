@@ -883,7 +883,13 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
     dtemp = hval;
     
     base_ener = dtemp * (1. - well_extension) + model.ground() * well_extension;
-    
+
+    // well extension cap
+    //
+    if(model.well_ext_cap > 0. && model.well_ext_cap < base_ener)
+      //
+      base_ener = model.well_ext_cap;
+     
     ext_ener = well_cutoff * temperature();
 	
     if(is_global_cutoff) {
@@ -3674,6 +3680,9 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   IO::log << "\t Temperature = "
 	  << temperature() / Phys_const::kelv << " K\n";
 
+  IO::aux << "Pressure = " << pressure() / Phys_const::bar << " bar"
+	  << "\t Temperature = " << temperature() / Phys_const::kelv << " K\n";
+  
   // collisional frequency output
   //
   IO::log << IO::log_offset
@@ -5034,6 +5043,30 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     weight      = well_partition.weight();
     real_weight = well_partition.real_weight();
 
+    // auxiliary output
+    //
+    IO::aux << "number of species = " << well_partition.size() << "\n";
+    
+    for(int p = 0; p < well_partition.size(); ++p) {
+      //
+      std::multimap<double, int> ww_map;
+      
+      for(Git git = well_partition[p].begin(); git != well_partition[p].end(); ++git)
+	//
+	ww_map.insert(std::make_pair(well(*git).real_weight(),*git));
+
+      for(std::multimap<double, int>::const_reverse_iterator mit = ww_map.rbegin(); mit != ww_map.rend(); ++mit)
+	//
+	IO::aux << std::setw(15) << Model::well(mit->second).name();
+
+      IO::aux << "\n";
+      
+      for(std::multimap<double, int>::const_reverse_iterator mit = ww_map.rbegin(); mit != ww_map.rend(); ++mit)
+	//
+	IO::aux << std::setw(15) << mit->first;
+      
+      IO::aux << "\n";
+    }
     // output
     if(chem_size != Model::well_size()) {
       IO::log << IO::log_offset << "species:\n" 

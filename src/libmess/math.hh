@@ -26,20 +26,28 @@ namespace Math {
   class Exception {};
 
   // Newton-Raphson search method
+  //
   class NewtonRaphsonSearch {
+    //
   public:
+    //
     double tol;
 
     virtual double operator() (double, int) const =0;
+    
     void find (double& guess) const;
   };
 
   // Bisection search method
+  //
   class BisectionSearch {
+    //
   public:
+    //
     double tol;
 
     virtual double operator() (double) const =0;
+    
     void find (double& x1, double& x2) const;
   };
 

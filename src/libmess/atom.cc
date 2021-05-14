@@ -115,6 +115,11 @@ AtomBase::DataBase::DataBase ()
   (*this)[BROMINE].mass[79] = 78.9183;
   (*this)[BROMINE].mass[81] = 80.9163;
 
+  (*this)[URANIUM].name     = "U";
+  (*this)[URANIUM].valence  = 6;
+  (*this)[URANIUM].isotope  = 238;
+  (*this)[URANIUM].mass[238] = 238.029;
+
   // name-to-number map
   for(std::map<int, Data>::const_iterator it = this->begin(); it != this->end(); ++it)
     _name_num_map[it->second.name] = it->first;
