@@ -146,18 +146,28 @@ namespace Model {
    **************************************************************************************/
 
   class Tunnel {
-    double    _wtol;// statistical weight tolerance
+    double        _wtol;// statistical weight tolerance
+    
     static double _action_max; // maximum 
 
+    double        _freq;// imaginary frequency
+    
   protected:
-    double _cutoff;// cutoff energy
-    double   _freq;// imaginary frequency
+    //
+    double        _cutoff;// cutoff energy
+    
+    void read_freq(IO::KeyBufferStream&);
 
-    Tunnel(IO::KeyBufferStream&) ;
+    void assert_freq() const;
+
+    double frequency () const { return _freq; }
+    
+    Tunnel(IO::KeyBufferStream&);
 
     Tunnel (double c, double f) : _cutoff(c), _freq(f) {}
     
   public:
+    //
     virtual ~Tunnel ();
 
     double  cutoff () const { return _cutoff; }
@@ -181,7 +191,8 @@ namespace Model {
     Slatec::Spline _action;
 
   public:
-    ReadTunnel(IO::KeyBufferStream&) ;
+    ReadTunnel(IO::KeyBufferStream&);
+    
     ~ReadTunnel ();
 
     double action (double, int =0) const; // semiclassical action
@@ -192,12 +203,31 @@ namespace Model {
    **************************************************************************************/
 
   class HarmonicTunnel: public Tunnel {
+    //
   public:
-    HarmonicTunnel(IO::KeyBufferStream&) ;
+    //
+    HarmonicTunnel(IO::KeyBufferStream&);
 
     HarmonicTunnel (double c, double f) : Tunnel(c, f) {}
     
     ~HarmonicTunnel ();
+
+    double action (double, int =0) const;
+  };
+
+  /**************************************************************************************
+   ************************** POWER EXPANSION TUNNELING *******************************
+   **************************************************************************************/
+
+  class ExpTunnel: public Tunnel {
+
+    std::map<int, double> _expansion;
+    
+  public:
+    //
+    ExpTunnel(IO::KeyBufferStream&);
+
+    ~ExpTunnel ();
 
     double action (double, int =0) const; // semiclassical action
   };
@@ -207,11 +237,15 @@ namespace Model {
    **************************************************************************************/
 
   class EckartTunnel: public Tunnel {
+    //
     std::vector<double> _depth;
+    
     double             _factor;
 
   public:
-    EckartTunnel(IO::KeyBufferStream&) ;
+    //
+    EckartTunnel(IO::KeyBufferStream&);
+    
     ~EckartTunnel ();
 
     double action (double, int =0) const; // semiclassical action
@@ -222,8 +256,11 @@ namespace Model {
    **************************************************************************************/
 
   class QuarticTunnel: public Tunnel {
-    double _vmin;// minimal well depth    
+    //
+    double _vmin;// minimal well depth
+    
     double   _v3;// x^3 power expansion coefficient
+    
     double   _v4;// x^4 power expansion coefficient
 
     double _potential (double x) { return x * x * (0.5  + _v3 * x + _v4 * x * x); }
@@ -231,15 +268,20 @@ namespace Model {
     Slatec::Spline _action; // semiclassical action for energies below barrier 
 
     class XratioSearch : public Math::NewtonRaphsonSearch {
+      //
       double _vratio;
 
     public:
+      //
       XratioSearch(double v, double t) : _vratio(v) { tol = t; }
+      
       double operator() (double, int) const;
     };
 
   public:
-    QuarticTunnel(IO::KeyBufferStream&) ;
+    //
+    QuarticTunnel(IO::KeyBufferStream&);
+    
     ~QuarticTunnel ();
 
     double action (double, int =0) const; // semiclassical action
@@ -554,6 +596,27 @@ namespace Model {
     }
   }
 
+  /**************************************************************************************
+   ************************************* DUMMY CORE *************************************
+   **************************************************************************************/
+
+  class DummyCore : public Core {
+
+    double _symmetry;
+
+  public:
+
+    DummyCore (IO::KeyBufferStream& from);
+
+    ~DummyCore () {}
+
+    double ground () const { return 0.; }
+
+    double weight (double) const { return _symmetry; }
+
+    double states (double) const;
+  };
+  
   /**************************************************************************************
    ******************************** PHASE SPACE THEORY **********************************
    **************************************************************************************/
@@ -1382,9 +1445,15 @@ namespace Model {
     std::vector<int> _osc_shift;
     std::vector<int> _osc_spec_index;
 
+    void _read (IO::KeyBufferStream&, const std::string&, int);
+
+    void _set ();
+
   public:
 
-    UnionSpecies  (IO::KeyBufferStream&, const std::string&, int) ;
+    UnionSpecies  (IO::KeyBufferStream&, const std::string&, int);
+    UnionSpecies  (const std::vector<SharedPointer<Species> >&, const std::string&, int);
+    
     ~UnionSpecies ();
 
     double states (double) const;
@@ -1394,6 +1463,7 @@ namespace Model {
     double real_ground () const { return _real_ground; }
 
     // radiative transitions
+    //
     double   infrared_intensity (double, int) const;
     double oscillator_frequency (int)         const;
     int         oscillator_size ()            const;
@@ -1505,6 +1575,10 @@ namespace Model {
 
     //void set_name (const std::string& n) { _name = n; }
     const std::string& name () const { return _name; }
+
+    int mode (int f) const {return _fragment[f]->mode(); }
+    
+    double states (int f, double e) const { return _fragment[f]->states(e); }
   };
 
   /********************************************************************************************
@@ -1570,11 +1644,11 @@ namespace Model {
     ConstSharedPointer<Collision> collision (int i)  const { return _collision[i]; }
 
     //void             set_name (const std::string&) ;
-    const std::string&   name () const             ;
-    double             ground () const             ;
-    double             weight (double) const       ;
-    double             states (double) const       ;
-    double               mass () const             ;
+    const std::string&   name () const;
+    double             ground () const;
+    double             weight (double) const;
+    double             states (double) const;
+    double               mass () const;
 
     double        escape_rate (double ener) const { if(_escape) return _escape->rate(ener); else return 0.; }
     bool               escape () const { return (bool)_escape; } 
@@ -1592,6 +1666,8 @@ namespace Model {
     double transition_probability (double ener, double temperature, int num) const;
 
     double dissociation_limit;
+
+    double well_ext_cap;
   };
 
   inline double Well::oscillator_frequency (int num) const 

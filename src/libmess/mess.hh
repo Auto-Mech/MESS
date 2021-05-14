@@ -191,18 +191,13 @@ namespace MasterEquation {
 			      Lapack::Matrix& k_13, Lapack::Matrix& l_21) ;
 
   typedef void             (*Method) (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags);
-  void         low_eigenvalue_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    ;
-  void direct_diagonalization_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    ;
-  void         well_reduction_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    ;
-  void         well_reduction_method_old (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    ;
-  void             sequential_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-    ;
+  void         low_eigenvalue_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags);
+  void direct_diagonalization_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags);
+  void         well_reduction_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags);
+  void         well_reduction_method_old (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags);
+  void             sequential_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags);
 
-  void        high_pressure_analysis () ;
+  void        high_pressure_analysis ();
 
   /************************** WELL PARTITION METHODS ******************************/
 
@@ -248,7 +243,9 @@ namespace MasterEquation {
   typedef Group::const_iterator Git;
 
   // partition of the wells
+  //
   class PartitionGenerator;
+  
   class Partition : public std::vector<Group> {
   public:
     explicit Partition (int n) : std::vector<Group>(n) {}
