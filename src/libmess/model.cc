@@ -428,9 +428,9 @@ void Model::init (IO::KeyBufferStream& from)
   
   // lumping scheme
   //
-  std::vector<std::string>  lump_scheme;
+  std::list<std::string>  lump_scheme;
 
-  char lump_separator = '+';
+  std::string well_separator = "+";
   
   std::string wout_file;
   double temp_rel_incr = 0.001;
@@ -460,14 +460,12 @@ void Model::init (IO::KeyBufferStream& from)
       //
       IO::LineInput lin(from);
 
-      if(!(lin >> stemp)) {
+      if(!(lin >> well_separator)) {
 	//
 	std::cerr << funame << token << ": corrupted\n";
 
 	throw Error::Input();
       }
-
-      lump_separator = stemp[0];
     }
     // relative temperature increment
     //
@@ -878,15 +876,15 @@ void Model::init (IO::KeyBufferStream& from)
     //
     std::vector<std::set<int> > well_partition;
 
-    for(std::vector<std::string>::iterator git = lump_scheme.begin(); git != lump_scheme.end(); ++git) {
+    for(std::list<std::string>::iterator git = lump_scheme.begin(); git != lump_scheme.end(); ++git) {
       //
       std::set<int> well_group;
       
       std::string::size_type start = 0;
 
-      while(start != git->size()) {
+      while(start < git->size()) {
 	//
-	std::string::size_type next = git->find(lump_separator, start);
+	std::string::size_type next = git->find(well_separator, start);
 
 	if(next != std::string::npos) {
 	  //
@@ -898,7 +896,7 @@ void Model::init (IO::KeyBufferStream& from)
 
 	if(well_map.find(name) == well_map.end()) {
 	  //
-	  std::cerr << funame << "well name " << name << " either does not exist or is duplicated\n";
+	  std::cerr << funame << "well name <" << name << "> either does not exist or is duplicated\n";
 
 	  throw Error::Input();
 	}
@@ -911,7 +909,7 @@ void Model::init (IO::KeyBufferStream& from)
 	  //
 	  break;
 	
-	start = next + 1;
+	start = next + well_separator.size();
       }
 
       well_partition.push_back(well_group);
@@ -926,6 +924,43 @@ void Model::init (IO::KeyBufferStream& from)
       well_partition.push_back(well_group);
     }
 
+    // old-to-new well index map
+    //
+    std::vector<int> o2n_map(well_size());
+    
+    for(int g = 0; g < well_partition.size(); ++g)
+      //
+      for(std::set<int>::const_iterator cit = well_partition[g].begin(); cit != well_partition[g].end(); ++cit)
+	//
+	o2n_map[*cit] = g;
+
+    // new inner connections
+    //
+    std::map<std::set<int>, std::set<int> > new_inner_connect;
+
+    for(int b = 0; b < _inner_connect.size(); ++b) {
+      //
+      std::set<int> wp;
+
+      wp.insert(o2n_map[_inner_connect[b].first]);
+
+      wp.insert(o2n_map[_inner_connect[b].second]);
+
+      if(wp.size() == 2)
+	//
+	new_inner_connect[wp].insert(b);
+    }
+
+    // new outer connections
+    //
+    std::map<std::pair<int, int>, std::set<int> > new_outer_connect;
+
+    for(int b = 0; b < _outer_connect.size(); ++b)
+      //
+      new_outer_connect[std::make_pair(o2n_map[_outer_connect[b].first], _outer_connect[b].second)].insert(b);
+
+    // output
+    //
     IO::log << IO::log_offset << "well partitioning:\n";
 
     for(int g = 0; g < well_partition.size(); ++g) {
@@ -944,31 +979,6 @@ void Model::init (IO::KeyBufferStream& from)
       IO::log << "\n";
     }
     
-    // old-to-new well index map
-    //
-    std::vector<int> o2n_map(well_size());
-    
-    for(int g = 0; g < well_partition.size(); ++g)
-      //
-      for(std::set<int>::const_iterator cit = well_partition[g].begin(); cit != well_partition[g].end(); ++cit)
-	//
-	o2n_map[*cit] = g;
-
-    std::map<std::set<int>, std::set<int> > new_inner_connect;
-
-    for(int b = 0; b < _inner_connect.size(); ++b) {
-      //
-      std::set<int> wp;
-
-      wp.insert(o2n_map[_inner_connect[b].first]);
-
-      wp.insert(o2n_map[_inner_connect[b].second]);
-
-      if(wp.size() == 2)
-	//
-	new_inner_connect[wp].insert(b);
-    }
-
     IO::log << IO::log_offset << "new inner connect:\n";
 
     for(std::map<std::set<int>, std::set<int> >::const_iterator pit = new_inner_connect.begin();
@@ -1014,43 +1024,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       IO::log << "\n";
     }
-    
-    std::vector<SharedPointer<Species> > new_barrier;
 
-    _inner_connect.clear();
-    
-    for(std::map<std::set<int>, std::set<int> >::const_iterator pit = new_inner_connect.begin();
-	//
-	pit != new_inner_connect.end(); ++pit) {
-      //
-      _inner_connect.push_back(std::make_pair(*pit->first.begin(), *pit->first.rbegin()));
-
-      if(pit->second.size() == 1) {
-	//
-	new_barrier.push_back(_inner_barrier[*pit->second.begin()]);
-      }
-      else {
-	//
-	std::vector<SharedPointer<Species> > spec_array;
-
-	for(std::set<int>::const_iterator cit = pit->second.begin(); cit != pit->second.end(); ++cit)
-	  //
-	  spec_array.push_back(_inner_barrier[*cit]);
-
-	new_barrier.push_back(SharedPointer<Species>(new UnionSpecies(spec_array, spec_array[0]->name(), NUMBER)));
-      }
-    }
-    
-    _inner_barrier = new_barrier;
-
-    std::map<std::pair<int, int>, std::set<int> > new_outer_connect;
-
-    for(int b = 0; b < _outer_connect.size(); ++b)
-      //
-      new_outer_connect[std::make_pair(o2n_map[_outer_connect[b].first], _outer_connect[b].second)].insert(b);
-
-    // output
-    //
     IO::log << IO::log_offset << "new outer connect:\n";
 
     for(std::map<std::pair<int, int>, std::set<int> >::const_iterator pit = new_outer_connect.begin();
@@ -1083,7 +1057,46 @@ void Model::init (IO::KeyBufferStream& from)
 
       IO::log << "\n";
     }
+
+    // new inner barriers
+    //
+    std::vector<SharedPointer<Species> > new_barrier;
+
+    _inner_connect.clear();
     
+    for(std::map<std::set<int>, std::set<int> >::const_iterator pit = new_inner_connect.begin();
+	//
+	pit != new_inner_connect.end(); ++pit) {
+      //
+      _inner_connect.push_back(std::make_pair(*pit->first.begin(), *pit->first.rbegin()));
+
+      if(pit->second.size() == 1) {
+	//
+	new_barrier.push_back(_inner_barrier[*pit->second.begin()]);
+      }
+      else {
+	//
+	std::vector<SharedPointer<Species> > spec_array;
+
+	std::multimap<double, int> ener_map;
+
+	for(std::set<int>::const_iterator cit = pit->second.begin(); cit != pit->second.end(); ++cit) {
+	  //
+	  ener_map.insert(std::make_pair(_inner_barrier[*cit]->ground(), spec_array.size()));
+	  
+	  spec_array.push_back(_inner_barrier[*cit]);
+	}
+
+	new_barrier.push_back(SharedPointer<Species>(new UnionSpecies(spec_array,
+								      //
+								      spec_array[ener_map.begin()->second]->name(), NUMBER)));
+      }
+    }
+    
+    _inner_barrier = new_barrier;
+
+    // new outer barries
+    //
     _outer_connect.clear();
 
     new_barrier.clear();
@@ -1102,11 +1115,18 @@ void Model::init (IO::KeyBufferStream& from)
 	//
 	std::vector<SharedPointer<Species> > spec_array;
 
-	for(std::set<int>::const_iterator cit = pit->second.begin(); cit != pit->second.end(); ++cit)
+	std::multimap<double, int> ener_map;
+	
+	for(std::set<int>::const_iterator cit = pit->second.begin(); cit != pit->second.end(); ++cit) {
 	  //
+	  ener_map.insert(std::make_pair(_outer_barrier[*cit]->ground(), spec_array.size()));
+	  
 	  spec_array.push_back(_outer_barrier[*cit]);
+	}
 
-	new_barrier.push_back(SharedPointer<Species>(new UnionSpecies(spec_array, spec_array[0]->name(), NUMBER)));
+	new_barrier.push_back(SharedPointer<Species>(new UnionSpecies(spec_array,
+								      //
+								      spec_array[ener_map.begin()->second]->name(), NUMBER)));
       }
     }
 
@@ -1146,13 +1166,21 @@ void Model::init (IO::KeyBufferStream& from)
     IO::Marker zero_marker("shifting energy zero", IO::Marker::ONE_LINE | IO::Marker::NOTIME);
 
     _energy_shift = -bimolecular(bimolecular_index[reactant]).ground();
+    
     for(int w = 0; w < well_size(); ++w)
+      //
       _well[w].shift_ground(_energy_shift);
+    
     for(int b = 0; b < inner_barrier_size(); ++b)
+      //
       _inner_barrier[b]->shift_ground(_energy_shift);
+    
     for(int b = 0; b < outer_barrier_size(); ++b)
+      //
       _outer_barrier[b]->shift_ground(_energy_shift);
+    
     for(int p = 0; p < bimolecular_size(); ++p)
+      //
       _bimolecular[p]->shift_ground(_energy_shift);
   }
 
