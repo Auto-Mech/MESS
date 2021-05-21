@@ -441,7 +441,9 @@ void Model::init (IO::KeyBufferStream& from)
     // end input
     //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // well lumping scheme
@@ -454,7 +456,7 @@ void Model::init (IO::KeyBufferStream& from)
 	//
 	lump_scheme.push_back(stemp);
     }
-    // well lumping names separator
+    // lumping scheme well names separator
     //
     else if(separ_key == token) {
       //
@@ -470,30 +472,43 @@ void Model::init (IO::KeyBufferStream& from)
     // relative temperature increment
     //
     else if(tincr_key == token) {
+      //
       if(!(from >> temp_rel_incr)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
 
       std::getline(from, comment);
 
       if(temp_rel_incr <= 0. || temp_rel_incr >= 1.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
     }
     // weight output
+    //
     else if(wout_key == token) {
+      //
       if(!(from >> wout_file)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
     }
     // output reference energy
+    //
     else if(eref_key == token) {
+      //
       if(!(from >> eref)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
@@ -501,80 +516,113 @@ void Model::init (IO::KeyBufferStream& from)
       eref *= Phys_const::kcal;
     }
     // output temperature step
+    //
     else if(tstep_key == token) {
+      //
       if(!(from >> tstep)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(tstep <= 0) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
-	
     }
     // output temperature start
+    //
     else if(tmin_key == token) {
+      //
       if(!(from >> tmin)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(tmin <= 0) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
-	
     }
     // output temperature size
+    //
     else if(tsize_key == token) {
+      //
       if(!(from >> tsize)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(tsize <= 0) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }	
     }
     // collision frequency model
+    //
     else if(freq_key == token) {
+      //
       _default_collision.push_back(new_collision(from));
     }
     // energy relaxation kernel
+    //
     else if(cer_key == token) {
+      //
       _default_kernel.push_back(new_kernel(from));
     }
     // buffer gas fraction
+    //
     else if(buff_key == token) {
+      //
       if(_buffer_fraction.size()) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Init();
       }
 
       IO::LineInput lin(from);
+      
       while(lin >> dtemp) {
+	//
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << token << ": should be positive\n";
+	  
 	  throw Error::Range();
 	}
 	_buffer_fraction.push_back(dtemp);
       }
 
       if(!_buffer_fraction.size()) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Init();
       }
 
       dtemp = 0.;
+      
       for(int i = 0; i < _buffer_fraction.size(); ++i)
+	//
 	dtemp += _buffer_fraction[i];
 
       for(int i = 0; i < _buffer_fraction.size(); ++i)
+	//
 	_buffer_fraction[i] /= dtemp;
     }
     // energy relaxation kernel flags
@@ -610,77 +658,120 @@ void Model::init (IO::KeyBufferStream& from)
     // new well
     //
     else if(well_key == token) {
+      //
       if(!(from >> name)) {
+	//
 	std::cerr << funame << token << ": bad input\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(species_name.find(name) != species_name.end()) {
+	//
 	std::cerr << funame << token << ": name " << name << " already in use\n";
+	
 	throw Error::Logic();
       }
+      
       species_name.insert(name);
+      
       well_index[name] = _well.size();
+      
       IO::log << IO::log_offset << "WELL: " << name << "\n";
+      
       _well.push_back(Well(from, name));
+      
       //_well.rbegin()->set_name(name);
     }
     // new bimolecular
+    //
     else if(bimol_key == token) {
+      //
       if(!(from >> name)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(species_name.find(name) != species_name.end()) {
+	//
 	std::cerr << funame << token << ": name " << name << " already in use\n";
+	
 	throw Error::Logic();
       }
+      
       species_name.insert(name);
+      
       bimolecular_index[name] = _bimolecular.size();
+      
       IO::log << IO::log_offset << "BIMOLECULAR: " << name << "\n";
+      
       _bimolecular.push_back(new_bimolecular(from, name));
       //_bimolecular.back()->set_name(name);
     }
     // new barrier
+    //
     else if(barr_key == token) {
+      //
       if(!(from >> name >> species_pair.first >> species_pair.second)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(species_name.find(name) != species_name.end()) {
+	//
 	std::cerr << funame << token << ": name " << name << " already in use\n";
+	
 	throw Error::Logic();
       }
       if(species_pair.first == species_pair.second) {
+	//
 	std::cerr << funame << name << "barrier connects " 
 		  << species_pair.first <<" well with itself\n";
+	
 	throw Error::Logic();
       }
+      
       for(It b = connect_verbal.begin(); b != connect_verbal.end(); ++b) {
+	//
 	itemp = b - connect_verbal.begin();
+	
 	if(b->first == species_pair.second && b->second == species_pair.first ||
+	   //
 	   *b == species_pair) {
+	  //
 	  std::cerr << funame << name << " and " << barrier[itemp]->name()
 		    << " barriers connect the same pair of species\n";
+	  
 	  throw Error::Logic();
 	}
-      } 
+      }
+      
       species_name.insert(name);
+      
       connect_verbal.push_back(species_pair);
+      
       IO::log << IO::log_offset << "BARRIER: " << name << "\n";
+      
       barrier.push_back(new_species(from, name, NUMBER));
       //barrier.back()->set_name(name);
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
@@ -691,43 +782,54 @@ void Model::init (IO::KeyBufferStream& from)
     IO::Marker  input_marker("checking input", IO::Marker::ONE_LINE| IO::Marker::NOTIME);
 
     if(!from) {
+      //
       std::cerr << funame << "input stream is currupted\n";
+      
       throw Error::Input();
     }
 
     if(!_default_collision.size()) {
+      //
       std::cerr << funame  << "default collision model is not initialized\n";
+      
       throw Error::Init();
     }
 
     if(!_default_kernel.size()) {
+      //
       std::cerr << funame  << "default energy transfer kernel is not defined\n";
+      
       throw Error::Init();
     }
 
     if(_default_collision.size() != _default_kernel.size()) {
+      //
       std::cerr << funame  << "number of energy transfer kernels and collision frequency models mismatch\n";
+      
       throw Error::Init();
     }
 
     if(_default_collision.size() == 1) {
+      //
       _buffer_fraction.resize(1);
+      
       _buffer_fraction[0] = 1.;
     }
     
     if(_default_collision.size() != _buffer_fraction.size()) {
+      //
       std::cerr << funame  << "number of collision frequency models and buffer gas fractions mismatch\n";
+      
       throw Error::Init();
     }
 
     if(!well_size()) {
+      //
       std::cerr << funame << "no wells\n";
+      
       throw Error::Init();
     }
 
-    for(int w = 0; w < well_size(); ++w)
-      if(well(w).escape())
-	_escape_well_index.push_back(w);
   }
 
   /****************************** SETTING CONNECTIVITY SCHEME **********************************/
@@ -787,73 +889,118 @@ void Model::init (IO::KeyBufferStream& from)
     IO::Marker  check_marker("checking connectivity", IO::Marker::ONE_LINE| IO::Marker::NOTIME);
 
     std::vector<std::set<int> > pool;
+    
     typedef std::vector<std::set<int> >::iterator Pit;
+    
     // well connectivity
+    //
     for(int b = 0; b < inner_barrier_size(); ++b) {// inner barrier cycle
+      //
       Pit p1, p2;
+      
       for(p1 = pool.begin(); p1 != pool.end(); ++p1)
+	//
 	if(p1->find(inner_connect(b).first) != p1->end())
+	  //
 	  break;
+      
       for(p2 = pool.begin(); p2 != pool.end(); ++p2)
+	//
 	if(p2->find(inner_connect(b).second) != p2->end())
+	  //
 	  break;
-
 
       if(p1 == pool.end() && p2 == pool.end()) {
+	//
 	pool.push_back(std::set<int>());
+	
 	pool.rbegin()->insert(inner_connect(b).first);
+	
 	pool.rbegin()->insert(inner_connect(b).second);
       }
-      else if(p1 == pool.end())
+      else if(p1 == pool.end()) {
+	//
 	p2->insert(inner_connect(b).first);
-      else if(p2 == pool.end())
+      }
+      else if(p2 == pool.end()) {
+	//
 	p1->insert(inner_connect(b).second);
+      }
       else if(p1 != p2) {
+	//
 	p1->insert(p2->begin(), p2->end());
+	
 	pool.erase(p2);
       }
     }// inner barrier cycle
 
     if(!pool.size()) {
+      //
       if(well_size() > 1) {
+	//
 	std::cerr << funame << "wells are not connected\n";
+	
 	throw Error::Init();
       }
     }
     else if(pool.size() > 1) {
+      //
       std::cerr << funame << "there are " << pool.size() << " unconnected groups of wells: ";
+      
       for(Pit p = pool.begin(); p != pool.end(); ++p) {
+	//
 	if(p != pool.begin())
+	  //
 	  std::cerr << ", ";
+	
 	for(std::set<int>::iterator s = p->begin(); s != p->end(); ++s) {
+	  //
 	  if(s != p->begin())
+	    //
 	    std::cerr << "+";
+	  
 	  std::cerr << well(*s).name();
 	}
       }
       std::cerr << std::endl;
+      
       throw Error::Input();
     }
     else if(pool.begin()->size() != well_size()) {
+      //
       std::cerr << funame << "there are unconnected wells:";
+      
       for(int w = 0; w < well_size(); ++w)
-	if(pool.begin()->find(w) == pool.begin()->end()) 
+	//
+	if(pool.begin()->find(w) == pool.begin()->end())
+	  //
 	  std::cerr << " " << well(w).name();
+      
       std::cerr << std::endl;
+      
       throw Error::Input();
     }
   
     // product connectivity
     //
     std::set<int> product_pool;
+    
     for(int b = 0; b < outer_barrier_size(); ++b)
+      //
       product_pool.insert(outer_connect(b).second);
+    
     if(product_pool.size() != bimolecular_size()) {
+      //
       std::cerr << funame << "there are unconnected bimolecular products:";
+      //
       for(int p = 0; p < bimolecular_size(); ++p)
-	if(product_pool.find(p) == product_pool.end()) 
+	//
+	if(product_pool.find(p) == product_pool.end())
+	  //
 	  std::cerr << " " << bimolecular(p).name();
+      
       std::cerr << std::endl;
+      
       throw Error::Input();
     }
   }
@@ -876,6 +1023,8 @@ void Model::init (IO::KeyBufferStream& from)
     //
     std::vector<std::set<int> > well_partition;
 
+    btemp = true;
+    
     for(std::list<std::string>::iterator git = lump_scheme.begin(); git != lump_scheme.end(); ++git) {
       //
       std::set<int> well_group;
@@ -886,6 +1035,16 @@ void Model::init (IO::KeyBufferStream& from)
 	//
 	std::string::size_type next = git->find(well_separator, start);
 
+	if(!next) {
+	  //
+	  IO::log << IO::log_offset << "WARNING: skipping the separator <" << well_separator
+		  << "> at the begining of the group <" << *git << ">\n";
+	  
+	  start = well_separator.size();
+
+	  continue;
+	}
+	
 	if(next != std::string::npos) {
 	  //
 	  name = git->substr(start, next - start);
@@ -896,7 +1055,8 @@ void Model::init (IO::KeyBufferStream& from)
 
 	if(well_map.find(name) == well_map.end()) {
 	  //
-	  std::cerr << funame << "well name <" << name << "> either does not exist or is duplicated\n";
+	  std::cerr << funame << "well name <" << name << "> in the group <" << *git
+		    << "> either does not exist or is duplicated from the previous groups\n";
 
 	  throw Error::Input();
 	}
@@ -912,9 +1072,27 @@ void Model::init (IO::KeyBufferStream& from)
 	start = next + well_separator.size();
       }
 
+      if(!well_group.size()) {
+	//
+	std::cerr << funame << "empty group: " << *git << "\n";
+
+	throw Error::Input();
+      }
+
+      if(well_group.size() > 1)
+	//
+	btemp = false;
+      
       well_partition.push_back(well_group);
     }
 
+    if(btemp) {
+      //
+      std::cerr << funame << "no lumping\n";
+
+      throw Error::Init();
+    }
+    
     for(std::map<std::string, int>::const_iterator cit = well_map.begin(); cit != well_map.end(); ++cit) {
       //
       std::set<int> well_group;
@@ -926,13 +1104,13 @@ void Model::init (IO::KeyBufferStream& from)
 
     // old-to-new well index map
     //
-    std::vector<int> o2n_map(well_size());
+    std::vector<int> o2n(well_size());
     
     for(int g = 0; g < well_partition.size(); ++g)
       //
       for(std::set<int>::const_iterator cit = well_partition[g].begin(); cit != well_partition[g].end(); ++cit)
 	//
-	o2n_map[*cit] = g;
+	o2n[*cit] = g;
 
     // new inner connections
     //
@@ -942,9 +1120,9 @@ void Model::init (IO::KeyBufferStream& from)
       //
       std::set<int> wp;
 
-      wp.insert(o2n_map[_inner_connect[b].first]);
+      wp.insert(o2n[_inner_connect[b].first]);
 
-      wp.insert(o2n_map[_inner_connect[b].second]);
+      wp.insert(o2n[_inner_connect[b].second]);
 
       if(wp.size() == 2)
 	//
@@ -957,7 +1135,7 @@ void Model::init (IO::KeyBufferStream& from)
 
     for(int b = 0; b < _outer_connect.size(); ++b)
       //
-      new_outer_connect[std::make_pair(o2n_map[_outer_connect[b].first], _outer_connect[b].second)].insert(b);
+      new_outer_connect[std::make_pair(o2n[_outer_connect[b].first], _outer_connect[b].second)].insert(b);
 
     // output
     //
@@ -1156,6 +1334,12 @@ void Model::init (IO::KeyBufferStream& from)
 
     _well = new_well;
   }
+  
+  for(int w = 0; w < well_size(); ++w)
+    //
+    if(well(w).escape())
+      //
+      _escape_well_index.push_back(w);
   
   /****************************** SHIFTING ENERGY ***********************************/
 
