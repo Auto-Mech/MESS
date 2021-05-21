@@ -825,21 +825,48 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
   }
 
   // hot energies
+  //
   if(hot_energy.size()) {
-    hot_index.clear();
-    hot_energy_size = 0;
+    //
+    // check if hot energy wells exist
+    //
     std::map<std::string, std::vector<double> >::const_iterator hit;
+
+    for(hit = hot_energy.begin(); hit != hot_energy.end(); ++hit) {
+      //
+      if(!Model::is_well(hit->first)) {
+	//
+	std::cerr << funame << hit->first << " well does not exist\n";
+
+	throw Error::Init();
+      }
+    }
+    
+    hot_index.clear();
+    
+    hot_energy_size = 0;
+    
+
     for(int w = 0; w < Model::well_size(); ++w) {
+      //
       hit = hot_energy.find(Model::well(w).name());
-      if(hit != hot_energy.end()) {
+      
+      if(hit != hot_energy.end())
+	//
 	for(int i = 0; i < hit->second.size(); ++i) {
+	  //
 	  itemp = int((energy_reference() - hit->second[i]) / energy_step());
+	  
 	  if(itemp >= 0 && itemp < well(w).size()) {
+	    //
 	    hot_index[w].push_back(itemp);
+	    
 	    ++hot_energy_size;
 	  }
+	  else
+	    //
+	    IO::log << IO::log_offset << "WARNING: " << i <<"-th hot energy our of range\n";
 	}
-      }
     }
   }// hot energies
 
@@ -864,7 +891,7 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
   //
   double hval, sval, cval;
 
-  model.species()->esc_parameters(temperature(), hval, sval, cval);
+  model.esc_parameters(temperature(), hval, sval, cval);
 
   hval += model.ground();
   
@@ -5307,6 +5334,8 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   // hot distribution branching ratios
   //
+  IO::log << IO::log_offset << "hot energies # = " << hot_energy_size << "\n";
+  
   if(hot_energy_size) {
     //
     IO::log << IO::log_offset << "Hot distribution branching ratios:\n"
