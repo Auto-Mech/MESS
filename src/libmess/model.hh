@@ -51,6 +51,8 @@ namespace Model {
   Lapack::SymmetricMatrix inertia_moment_matrix(const std::vector<Atom>&);
   void read_geometry (IO::KeyBufferStream&, std::vector<Atom>&, int =ANGSTROM);
 
+  bool is_well (const std::string&);
+  
   /********************************************************************************************
    ******************************************** READERS ***************************************
    ********************************************************************************************/
@@ -1586,29 +1588,49 @@ namespace Model {
    ********************************************************************************************/
 
   // abstract class for escape rate
+  //
   class Escape {
+    //
+    void _assert () const;
+    
+    ConstSharedPointer<Species> _spec;
+    
   public:
+    //
     virtual double rate (double) const =0;
+
+    double states (double ener) const { _assert(); return rate(ener) * _spec->states(ener); }
+    
     virtual void shift_ground (double) =0;
+
+    void set_spec (ConstSharedPointer<Species> s) { _spec = s; }
   };
 
   class ConstEscape : public Escape {
+    //
     double _rate;
+    
   public:
-    ConstEscape(IO::KeyBufferStream&) ;
+    //
+    ConstEscape(IO::KeyBufferStream&);
 
     double rate (double) const {return _rate; }
+    
     void shift_ground (double) {}
   };
 
   class FitEscape : public Escape {
+    //
     double _ground;
+    
     Slatec::Spline _rate;
 
   public:
+    //
     FitEscape(IO::KeyBufferStream&) ;
 
     double rate (double) const;
+    
     void shift_ground(double e) { _ground += e; }
   };
 
@@ -1617,6 +1639,7 @@ namespace Model {
    ********************************************************************************************/
 
   class ThermoChemistry {
+    //
   public:
     ThermoChemistry(std::istream&) ;
 
@@ -1625,20 +1648,22 @@ namespace Model {
 
   class Well {
     //
-    SharedPointer<Species>                  _species;
+    SharedPointer<Species>   _species;
     
     std::vector<SharedPointer<Kernel> >     _kernel;
     
     std::vector<SharedPointer<Collision> >  _collision;
     
-    SharedPointer<Escape>                   _escape;
+    std::vector<SharedPointer<Escape> >  _escape;
 
   public:
     //
-    Well (IO::KeyBufferStream&, const std::string&) ;
+    Well (IO::KeyBufferStream&, const std::string&);
 
-    SharedPointer<Species>      species ()       { return _species; }
-    ConstSharedPointer<Species> species () const { return _species; }
+    Well (const std::vector<Well>&);
+
+    //SharedPointer<Species>      species ()       { return _species; }
+    //ConstSharedPointer<Species> species () const { return _species; }
 
     ConstSharedPointer<Kernel>    kernel    (int i)  const { return _kernel[i]; }
     ConstSharedPointer<Collision> collision (int i)  const { return _collision[i]; }
@@ -1649,9 +1674,11 @@ namespace Model {
     double             weight (double) const;
     double             states (double) const;
     double               mass () const;
+    void  esc_parameters (double, double&, double&, double&) const; // energy, entropy, thermal capacity
 
-    double        escape_rate (double ener) const { if(_escape) return _escape->rate(ener); else return 0.; }
-    bool               escape () const { return (bool)_escape; } 
+    bool  escape () const { return _escape.size(); }
+
+    double escape_rate (double) const;
 
     void shift_ground (double) ;
 
@@ -1705,8 +1732,9 @@ namespace Model {
 
     _species->shift_ground(e);
 
-    if(_escape)
-      _escape->shift_ground(e);
+    for(int i = 0; i < _escape.size(); ++i)
+      //
+      _escape[i]->shift_ground(e);
   }
 
   inline const std::string& Well::name () const 
@@ -1731,6 +1759,18 @@ namespace Model {
     }
 
     return _species->ground();
+  }
+
+  inline void Well::esc_parameters (double t, double& e, double& s, double& c) const 
+  {
+    const char funame [] = "Model::Well::esc_parameters: ";
+
+    if(!_species) {
+      std::cerr << funame << "not initialized\n";
+      throw Error::Init();
+    }
+
+    _species->esc_parameters(t, e, s, c);
   }
 
   inline double Well::mass () const 

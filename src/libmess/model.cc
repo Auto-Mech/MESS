@@ -105,6 +105,11 @@ namespace Model {
   //
   std::vector<std::pair<int ,int> >      _outer_connect;
 
+  // well index
+  std::map<std::string, int>        well_index;
+
+  bool is_well (const std::string& w) { if(well_index.find(w) != well_index.end()) return true; return false; }
+  
   int            well_size () { return            _well.size(); }
   int     bimolecular_size () { return     _bimolecular.size(); }
   int   inner_barrier_size () { return   _inner_barrier.size(); }
@@ -403,7 +408,9 @@ void Model::init (IO::KeyBufferStream& from)
   Key     eref_key("OutputReferenceEnergy[kcal/mol]");
   Key     wout_key("ThermodynamicDataOutput");
   Key    tincr_key("RelativeTemperatureIncrement");
-
+  Key    lump_key("LumpingScheme");
+  Key    separ_key("WellSeparator");
+  
   /************************************* INPUT *********************************************/
 
   double eref = 0.;
@@ -417,20 +424,53 @@ void Model::init (IO::KeyBufferStream& from)
   typedef std::vector<std::pair<std::string, std::string> >::const_iterator It;
   std::vector<SharedPointer<Species> > barrier;   // barrier pool
   std::set<std::string> species_name;  // all wells, barriers, and bimolecular products names
-  std::map<std::string, int>        well_index;
   std::map<std::string, int> bimolecular_index;
+  
+  // lumping scheme
+  //
+  std::vector<std::string>  lump_scheme;
 
+  char lump_separator = '+';
+  
   std::string wout_file;
   double temp_rel_incr = 0.001;
 
 
   while(from >> token) {
-    // end input 
+    //
+    // end input
+    //
     if(IO::end_key() == token) {
       std::getline(from, comment);
       break;
     }
+    // well lumping scheme
+    //
+    else if(lump_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      while(lin >> stemp)
+	//
+	lump_scheme.push_back(stemp);
+    }
+    // well lumping names separator
+    //
+    else if(separ_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> stemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      lump_separator = stemp[0];
+    }
     // relative temperature increment
+    //
     else if(tincr_key == token) {
       if(!(from >> temp_rel_incr)) {
 	std::cerr << funame << token << ": corrupted\n";
@@ -570,6 +610,7 @@ void Model::init (IO::KeyBufferStream& from)
 	}
     }
     // new well
+    //
     else if(well_key == token) {
       if(!(from >> name)) {
 	std::cerr << funame << token << ": bad input\n";
@@ -697,35 +738,49 @@ void Model::init (IO::KeyBufferStream& from)
     IO::Marker  set_marker("setting connectivity", IO::Marker::ONE_LINE| IO::Marker::NOTIME);
 
     for(It b = connect_verbal.begin(); b != connect_verbal.end(); ++b) {
+      //
       itemp = b - connect_verbal.begin();
+      
       // inner barrier
+      //
       if(well_index.find(b->first)  != well_index.end() &&
+	 //
 	 well_index.find(b->second) != well_index.end()) {
+	//
 	_inner_barrier.push_back(barrier[itemp]);
+	
 	_inner_connect.push_back(std::make_pair(well_index[b->first], well_index[b->second]));
       }
       // outer barrier
+      //
       else if(well_index.find(b->first) != well_index.end() &&
+	      //
 	      bimolecular_index.find(b->second)  != bimolecular_index.end()) {
+	//
 	_outer_barrier.push_back(barrier[itemp]);
-	_outer_connect.push_back(std::make_pair(well_index[b->first], 
-						bimolecular_index[b->second]));
+	
+	_outer_connect.push_back(std::make_pair(well_index[b->first], bimolecular_index[b->second]));
       }
       // outer barrier
+      //
       else if(well_index.find(b->second) != well_index.end() &&
+	      //
 	      bimolecular_index.find(b->first)  != bimolecular_index.end()) {
+	//
 	_outer_barrier.push_back(barrier[itemp]);
-	_outer_connect.push_back(std::make_pair(well_index[b->second], 
-						bimolecular_index[b->first]));
+	
+	_outer_connect.push_back(std::make_pair(well_index[b->second], bimolecular_index[b->first]));
       }
       // wrong connection
+      //
       else {
+	//
 	std::cerr << funame << barrier[itemp]->name() << " barrier connects wrong species: "
 		  << b->first << " and " << b->second << "\n";
+	
 	throw Error::Logic();
       }
     }
-
   }
 
   /****************************** CONNECTIVITY CHECK ***********************************/
@@ -791,6 +846,7 @@ void Model::init (IO::KeyBufferStream& from)
     }
   
     // product connectivity
+    //
     std::set<int> product_pool;
     for(int b = 0; b < outer_barrier_size(); ++b)
       product_pool.insert(outer_connect(b).second);
@@ -803,11 +859,290 @@ void Model::init (IO::KeyBufferStream& from)
       throw Error::Input();
     }
   }
- 
+
+  /******************************* LUMPING SCHEME ***********************************/
+
+  if(lump_scheme.size()) {
+    //
+    IO::Marker lump_marker("lumping wells", IO::Marker::NOTIME);
+
+    // well name-to-index map
+    //
+    std::map<std::string, int> well_map;
+
+    for(int w = 0; w < well_size(); ++w)
+      //
+      well_map[well(w).name()] = w;
+
+    // numerical lumpling scheme
+    //
+    std::vector<std::set<int> > well_partition;
+
+    for(std::vector<std::string>::iterator git = lump_scheme.begin(); git != lump_scheme.end(); ++git) {
+      //
+      std::set<int> well_group;
+      
+      std::string::size_type start = 0;
+
+      while(start != git->size()) {
+	//
+	std::string::size_type next = git->find(lump_separator, start);
+
+	if(next != std::string::npos) {
+	  //
+	  name = git->substr(start, next - start);
+	}
+	else
+	  //
+	  name = git->substr(start);
+
+	if(well_map.find(name) == well_map.end()) {
+	  //
+	  std::cerr << funame << "well name " << name << " either does not exist or is duplicated\n";
+
+	  throw Error::Input();
+	}
+
+	well_group.insert(well_map[name]);
+	
+	well_map.erase(name);
+
+	if(next == std::string::npos)
+	  //
+	  break;
+	
+	start = next + 1;
+      }
+
+      well_partition.push_back(well_group);
+    }
+
+    for(std::map<std::string, int>::const_iterator cit = well_map.begin(); cit != well_map.end(); ++cit) {
+      //
+      std::set<int> well_group;
+
+      well_group.insert(cit->second);
+
+      well_partition.push_back(well_group);
+    }
+
+    IO::log << IO::log_offset << "well partitioning:\n";
+
+    for(int g = 0; g < well_partition.size(); ++g) {
+      //
+      IO::log << IO::log_offset;
+
+      for(std::set<int>::const_iterator wit = well_partition[g].begin(); wit != well_partition[g].end(); ++wit) {
+	//
+	if(wit != well_partition[g].begin())
+	  //
+	  IO::log << " + ";
+	
+	IO::log << well(*wit).name();
+      }
+
+      IO::log << "\n";
+    }
+    
+    // old-to-new well index map
+    //
+    std::vector<int> o2n_map(well_size());
+    
+    for(int g = 0; g < well_partition.size(); ++g)
+      //
+      for(std::set<int>::const_iterator cit = well_partition[g].begin(); cit != well_partition[g].end(); ++cit)
+	//
+	o2n_map[*cit] = g;
+
+    std::map<std::set<int>, std::set<int> > new_inner_connect;
+
+    for(int b = 0; b < _inner_connect.size(); ++b) {
+      //
+      std::set<int> wp;
+
+      wp.insert(o2n_map[_inner_connect[b].first]);
+
+      wp.insert(o2n_map[_inner_connect[b].second]);
+
+      if(wp.size() == 2)
+	//
+	new_inner_connect[wp].insert(b);
+    }
+
+    IO::log << IO::log_offset << "new inner connect:\n";
+
+    for(std::map<std::set<int>, std::set<int> >::const_iterator pit = new_inner_connect.begin();
+	//
+	pit != new_inner_connect.end(); ++pit) {
+      //
+      IO::log << IO::log_offset << "(";
+
+      for(std::set<int>::const_iterator cit = well_partition[*pit->first.begin()].begin();
+	  //
+	  cit != well_partition[*pit->first.begin()].end(); ++cit) {
+	//
+	if(cit != well_partition[*pit->first.begin()].begin())
+	  //
+	  IO::log << " + ";
+		     
+	IO::log << well(*cit).name();
+      }
+      
+      IO::log << ", ";
+		 
+      for(std::set<int>::const_iterator cit = well_partition[*pit->first.rbegin()].begin();
+	  //
+	  cit != well_partition[*pit->first.rbegin()].end(); ++cit) {
+	//
+	if(cit != well_partition[*pit->first.rbegin()].begin())
+	  //
+	  IO::log << " + ";
+		     
+	IO::log << well(*cit).name();
+      }
+
+      IO::log << ") -> ";
+
+      for(std::set<int>::const_iterator cit = pit->second.begin(); cit != pit->second.end(); ++cit) {
+	//
+	if(cit != pit->second.begin())
+	  //
+	  IO::log << " + ";
+
+	IO::log << inner_barrier(*cit).name();
+      }
+
+      IO::log << "\n";
+    }
+    
+    std::vector<SharedPointer<Species> > new_barrier;
+
+    _inner_connect.clear();
+    
+    for(std::map<std::set<int>, std::set<int> >::const_iterator pit = new_inner_connect.begin();
+	//
+	pit != new_inner_connect.end(); ++pit) {
+      //
+      _inner_connect.push_back(std::make_pair(*pit->first.begin(), *pit->first.rbegin()));
+
+      if(pit->second.size() == 1) {
+	//
+	new_barrier.push_back(_inner_barrier[*pit->second.begin()]);
+      }
+      else {
+	//
+	std::vector<SharedPointer<Species> > spec_array;
+
+	for(std::set<int>::const_iterator cit = pit->second.begin(); cit != pit->second.end(); ++cit)
+	  //
+	  spec_array.push_back(_inner_barrier[*cit]);
+
+	new_barrier.push_back(SharedPointer<Species>(new UnionSpecies(spec_array, spec_array[0]->name(), NUMBER)));
+      }
+    }
+    
+    _inner_barrier = new_barrier;
+
+    std::map<std::pair<int, int>, std::set<int> > new_outer_connect;
+
+    for(int b = 0; b < _outer_connect.size(); ++b)
+      //
+      new_outer_connect[std::make_pair(o2n_map[_outer_connect[b].first], _outer_connect[b].second)].insert(b);
+
+    // output
+    //
+    IO::log << IO::log_offset << "new outer connect:\n";
+
+    for(std::map<std::pair<int, int>, std::set<int> >::const_iterator pit = new_outer_connect.begin();
+	//
+	pit != new_outer_connect.end(); ++pit) {
+      //
+      IO::log << IO::log_offset << "(";
+
+      for(std::set<int>::const_iterator cit = well_partition[pit->first.first].begin();
+	  //
+	  cit != well_partition[pit->first.first].end(); ++cit) {
+	//
+	if(cit != well_partition[pit->first.first].begin())
+	  //
+	  IO::log << " + ";
+		     
+	IO::log << well(*cit).name();
+      }
+      
+      IO::log << ", " << bimolecular(pit->first.second).name() << ") -> ";
+      
+      for(std::set<int>::const_iterator cit = pit->second.begin(); cit != pit->second.end(); ++cit) {
+	//
+	if(cit != pit->second.begin())
+	  //
+	  IO::log << " + ";
+
+	IO::log << outer_barrier(*cit).name();
+      }
+
+      IO::log << "\n";
+    }
+    
+    _outer_connect.clear();
+
+    new_barrier.clear();
+
+    for(std::map<std::pair<int, int>, std::set<int> >::const_iterator pit = new_outer_connect.begin();
+	//
+	pit != new_outer_connect.end(); ++pit) {
+      //
+      _outer_connect.push_back(pit->first);
+
+      if(pit->second.size() == 1) {
+	//
+	new_barrier.push_back(_outer_barrier[*pit->second.begin()]);
+      }
+      else {
+	//
+	std::vector<SharedPointer<Species> > spec_array;
+
+	for(std::set<int>::const_iterator cit = pit->second.begin(); cit != pit->second.end(); ++cit)
+	  //
+	  spec_array.push_back(_outer_barrier[*cit]);
+
+	new_barrier.push_back(SharedPointer<Species>(new UnionSpecies(spec_array, spec_array[0]->name(), NUMBER)));
+      }
+    }
+
+    _outer_barrier = new_barrier;
+    
+    // new wells
+    //
+    std::vector<Well> new_well;
+
+    for(int g = 0; g < well_partition.size(); ++g) {
+      //
+      if(well_partition[g].size() == 1) {
+	//
+	new_well.push_back(_well[*well_partition[g].begin()]);
+      }
+      else {
+	//
+	std::vector<Well> wa;
+
+	for(std::set<int>::const_iterator wit = well_partition[g].begin(); wit != well_partition[g].end(); ++wit)
+	  //
+	  wa.push_back(_well[*wit]);
+
+	new_well.push_back(Well(wa));
+      }
+    }
+
+    _well = new_well;
+  }
+  
   /****************************** SHIFTING ENERGY ***********************************/
 
   // bimolecular reactant index
+  //
   if(bimolecular_index.find(reactant) != bimolecular_index.end()) {
+    //
     IO::Marker zero_marker("shifting energy zero", IO::Marker::ONE_LINE | IO::Marker::NOTIME);
 
     _energy_shift = -bimolecular(bimolecular_index[reactant]).ground();
@@ -21830,6 +22165,17 @@ void Model::Bimolecular::shift_ground (double e)
 /********************************************************************************************
  ************************************** ESCAPE MODEL ****************************************
  ********************************************************************************************/
+void Model::Escape::_assert () const
+{
+    const char funame [] = "Model::Escape::_assert: ";
+
+  if(!_spec) {
+    //
+    std::cerr << funame << "density of statate is not initialized\n";
+
+    throw Error::Init();
+  }
+}
 
 Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from) 
   : _rate(-1.)
@@ -22024,6 +22370,40 @@ double Model::FitEscape::rate (double ener) const
  **************************************** WELL MODEL ****************************************
  ********************************************************************************************/
 
+Model::Well::Well(const std::vector<Well>& well_array)
+  : well_ext_cap(-1.)
+{
+  const char funame [] = "Model::Well::Well: ";
+
+  if(well_array.size() < 2) {
+    //
+    std::cerr << funame << "number of wells out of range: " << well_array.size() << "\n";
+
+    throw Error::Range();
+  }
+  
+  std::multimap<double, int> well_order;
+
+  std::vector<SharedPointer<Species> > species_array;
+  
+  for(int w = 0; w < well_array.size(); ++w) {
+    //
+    well_order.insert(std::make_pair(well_array[w]._species->ground(), w));
+
+    species_array.push_back(well_array[w]._species);
+
+    for(int i = 0; i < well_array[w]._escape.size(); ++i)
+      //
+      _escape.push_back(well_array[w]._escape[i]);
+  }
+
+  _species.init(new UnionSpecies(species_array, well_array[well_order.begin()->second].name(), DENSITY));
+
+  _collision = well_array[well_order.begin()->second]._collision;
+
+  _kernel = well_array[well_order.begin()->second]._kernel;
+}
+
 Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   : well_ext_cap(-1.)
 {
@@ -22098,13 +22478,7 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
     //
     else if(escape_key == token) {
       //
-      if(_escape) {
-	//
-	std::cerr << funame << token << ": already defined\n";
-	
-	throw Error::Init();
-      }
-      _escape = new_escape(from);
+      _escape.push_back(new_escape(from));
     }
     // unknown key
     //
@@ -22150,6 +22524,31 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
     std::cerr << funame << "species not inititalized\n";
     throw Error::Init();
   }
+
+  for(int e = 0; e < _escape.size(); ++e)
+    //
+    _escape[e]->set_spec(_species);
+}
+
+double  Model::Well::escape_rate (double ener) const
+{
+  if(!_escape.size())
+    //
+    return 0.;
+  
+  const double dos = _species->states(ener);
+
+  if(dos <= 0.)
+    //
+    return 0.;
+
+  double res = 0.;
+
+  for(int e = 0; e < _escape.size(); ++e)
+    //
+    res += _escape[e]->states(ener);
+
+  return res / dos;
 }
 
 // radiational transition down probability
