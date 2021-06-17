@@ -77,10 +77,34 @@ namespace Model {
   double buffer_fraction (int i) { return _buffer_fraction[i]; }
   int buffer_size () { return _buffer_fraction.size(); }
 
-  std::vector<int> _escape_well_index;
-  int escape_size       ()      { return _escape_well_index.size(); }
-  int escape_well_index (int i) { return _escape_well_index[i];     }
+  std::vector<std::pair<int, int> > _escape_channel;
+  
+  int escape_size       ()      { return _escape_channel.size(); }
+  
+  const std::pair<int, int>& escape_channel (int i) { return _escape_channel[i]; }
 
+  std::string escape_name(int e)
+  {
+    //
+    const int ew = escape_channel(e).first;
+
+    const int ei = escape_channel(e).second;
+
+    std::ostringstream to;
+
+    to << well(ew).name() << "/";
+
+    if(well(ew).escape_name(ei).size()) {
+      //
+      to << well(ew).escape_name(ei);
+    }
+    else
+      //
+      to << ei;
+
+    return to.str();
+  }
+  
   // bound species
   //
   std::vector<Well> _well;
@@ -1337,9 +1361,9 @@ void Model::init (IO::KeyBufferStream& from)
   
   for(int w = 0; w < well_size(); ++w)
     //
-    if(well(w).escape())
+    for(int i = 0; i < well(w).escape_size(); ++i)
       //
-      _escape_well_index.push_back(w);
+      _escape_channel.push_back(std::make_pair(w, i));
   
   /****************************** SHIFTING ENERGY ***********************************/
 
@@ -2751,7 +2775,7 @@ double Model::ExponentialKernel::cutoff_energy (double temperature) const
  ********************************************************************************************/
 
 Model::Tunnel::Tunnel (IO::KeyBufferStream& from) 
-  : _cutoff(-1.), _wtol(1.e-2), _freq(-1.)
+  : _cutoff(-1.), _wtol(1.e-2), _freq(-1.), _efac(0.)
 {
   const char funame [] = "Model::Tunnel::Tunnel : ";
 
@@ -2872,24 +2896,34 @@ Model::Tunnel::~Tunnel ()
 }
 
 // convolution of the number of states with the tunneling density
+//
 void Model::Tunnel::convolute(Array<double>& stat, double step) const
 {
   const char funame [] = "Model::Tunnel::convolute: ";
 
   if(cutoff() < 0.) {
+    //
     std::cerr << funame << "cutoff energy is not initialized\n";
+    
     throw Error::Init();
   }
 
   double dtemp;
 
   // tunneling density of states
+  //
   Array<double> td((int)std::ceil(2. * cutoff() / step) + 1);
+  
   double ener = - cutoff();
+  
   double fac = 0.;
+  
   for(int i = 0; i < td.size(); ++i, ener += step) {
+    //
     dtemp = density(ener);
+    
     td[i] = dtemp;
+    
     fac  += dtemp;
   }
 
@@ -2900,12 +2934,18 @@ void Model::Tunnel::convolute(Array<double>& stat, double step) const
 #pragma omp parallel for default(shared) private(dtemp) schedule(dynamic, 1)
 
   for(int j = 0; j < stat.size(); ++j) {
+    //
     dtemp = 0.;
+    
     for(int i = 0; i < td.size(); ++i) {
+      //
       if(i > j)
+	//
 	break;
+      
       dtemp += stat[j - i] * td[i];
     }
+    
     new_stat[j] = dtemp;
   }
   
@@ -2931,14 +2971,21 @@ double Model::Tunnel::weight (double temperature) const
   double estep = temperature * _wtol; // discretization energy step
   
   itemp = (int)std::floor(cutoff() / estep);
+  
   int imax = 2 * itemp + 1;
+  
   double ener = -double(itemp) * estep;
 
   double fac = 0.;
+  
   double res = 0.;
+  
   for(int i = 0; i < imax; ++i, ener += estep) {
+    //
     dtemp = density(ener);
+    
     res += dtemp * std::exp(-ener / temperature);
+    
     fac += dtemp;
   }
 
@@ -2957,22 +3004,44 @@ double Model::Tunnel::weight (double temperature) const
 double Model::Tunnel::density (double ener) const
 {
   double dtemp = action(ener, 0);
+  
   if(dtemp > action_max() || dtemp < - action_max())
+    //
     return 0.;
 
-  dtemp = std::cosh(dtemp / 2);
-  return action(ener, 1) / 4. / dtemp / dtemp;
+  if(_efac != 0.) {
+    //
+    dtemp = _efac * std::exp(-dtemp);
+
+    return  action(ener, 1) * dtemp / (1. + dtemp) / (1. + dtemp);
+  }
+  else {
+    //
+    dtemp = std::cosh(dtemp / 2);
+    
+    return action(ener, 1) / 4. / dtemp / dtemp;
+  }
 }
 
 double Model::Tunnel::factor (double ener) const
 {
   double dtemp = action(ener, 0);
 
-  if(dtemp > action_max()) 
+  if(dtemp > action_max())
+    //
     return 1.;
-  if(dtemp < - action_max())
+  
+  if(dtemp < -action_max())
+    //
     return 0.;
-  return 1. / (1. + std::exp(-dtemp));
+
+  if(_efac != 0.) {
+    //
+    return 1. / (1. + std::exp(-dtemp) * _efac);
+  }
+  else
+    //
+    return 1. / (1. + std::exp(-dtemp));
 }
 
 /**************************************************************************************
@@ -3231,19 +3300,40 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
   KeyGroup ExpTunnelModel;
 
   Key exp_key("ActionExpansion");
+  Key fac_key("EntanglementFactor");
   
   std::string token, comment;
-  //std::string token = IO::last_key, comment;
-  //IO::last_key.clear();
+  
   while(from >> token) {
     //
     // end
     //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
+    // entanglement correction factor
     //
+    else if(fac_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> _efac)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(_efac <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range: " << _efac << "\n";
+
+	throw Error::Range();
+      }
+    }
     // action expansion
     //
     else if(exp_key == token) {
@@ -3333,6 +3423,20 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
   if(cutoff() < 0.) {
     std::cerr << funame << "cutoff energy is not initialized\n";
     throw Error::Init();
+  }
+
+  if(_efac != 0.) {
+    //
+    if(_expansion.find(2) == _expansion.end()) {
+      //
+      std::cerr << funame << "for entanglement correction alpha should be present\n";
+
+      throw Error::Init();
+    }
+    
+    _efac = std::sqrt(1. + _efac / _expansion[2]);
+
+    IO::log << IO::log_offset << "entanglement correction: " << _efac << "\n";
   }
 
   IO::log << IO::log_offset << "cutoff energy = " << -cutoff() / Phys_const::kcal 
@@ -15516,7 +15620,9 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
   double ground_shift = 0.;
 
   if(mode() == NOSTATES) {
+    //
     std::cerr << funame << "wrong calculation mode\n";
+    
     throw Error::Logic();
   }
   
@@ -15528,12 +15634,15 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
   std::string token, comment, name, stemp;
 
   while(from >> token) {
+    //
     // end input
+    //
     if(IO::end_key() == token) {
       std::getline(from, comment);
       break;
     }
     // energy shift
+    //
     else if(incm_ener_key == token || 
 	    kcal_ener_key == token || 
 	    kj_ener_key == token || 
@@ -15556,6 +15665,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
 	ground_shift *= Phys_const::ev;
     }
     // units
+    //
     else if(unit_key == token) {
       if(!(from >> stemp)) {
 	std::cerr << funame << token << ": corrupted\n";
@@ -15579,6 +15689,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       }
     }
     // ground state threshold
+    //
     else if(zero_nos_key == token) {
       if(!(from >> _dtol)) {
 	std::cerr << funame << token << ": corrupted\n";
@@ -15590,6 +15701,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       }
     }
     // mass
+    //
     else if(mass_key == token) {
       if(_mass > 0.) {
 	std::cerr << funame << token << ": already initialized\n";
@@ -15610,27 +15722,44 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       _mass *= Phys_const::amu;
     }
     // reading density/number of states from file
+    //
     else if(file_key == token) {
+      //
       if(!(from >> name)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	IO::log << std::flush;
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
+      
       std::ifstream file(name.c_str());
+      
       if(!file) {
+	//
 	std::cerr << funame << "cannot open file " << name << " for reading\n";
+	
 	IO::log << std::flush;
+	
 	throw Error::File();
       }
 
       double eval, dval;
+      
       while(file >> eval) {
+	//
 	file >> dval;        // density of states
+	
 	if(!file) {
+	  //
 	  std::cerr << funame << token << ": reading number/density failed\n";
+	  
 	  throw Error::Input();
 	}
+	
 	read_states[eval] = dval;
       }
     }
@@ -15644,65 +15773,91 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
   }
 
   if(mode() == DENSITY)
+    //
     for(std::map<double, double>::iterator i = read_states.begin(); i != read_states.end(); ++i)
+      //
       i->second /= energy_unit;
 
   // find zero density energy
+  //
   typedef std::map<double, double>::const_reverse_iterator It;
+  
   It izero;
+  
   for( izero = read_states.rbegin(), itemp = 1; izero != read_states.rend(); ++izero, ++itemp)
+    //
     if(izero->second <= _dtol)
+      //
       break;
 
   if(itemp < 3) {
+    //
     std::cerr << funame << "not enough data\n";
+    
     throw Error::Init();
   }
 
   _ener.resize(itemp);
+  
   _states.resize(itemp);
 
   _ener[0] = 0.;
+  
   _states[0]  = 0.;
   
   --itemp;
   for(It it = read_states.rbegin(); it != izero; ++it, --itemp) {
+    //
     _ener[itemp]    = it->first * energy_unit;
+    
     _states[itemp]  = it->second;
   }
 
   //IO::log << IO::log_offset << "original # of points = " << read_states.size() << "\n";
 
-  if(izero != read_states.rend())
+  if(izero != read_states.rend()) {
+    //
     _ground = izero->first * energy_unit;
+  }
   else
+    //
     _ground = 2. * _ener[1] - _ener[2];  
 
   for(int i = 1; i < _ener.size(); ++i)
+    //
     _ener[i] -= _ground;
 
   _ground += ground_shift;
 
   Array<double> x(_ener.size() - 1);
+  
   Array<double> y(_ener.size() - 1);
 
   for(int i = 1; i < _ener.size(); ++i) {
+    //
     itemp = i - 1;
+    
     x[itemp] = std::log(_ener[i]);
+    
     y[itemp] = std::log( _states[i]);
   }
 
   _spline.init(x, y, x.size());
 
   _emin = _ener[1]     * (1. + _etol);
+  
   _emax = _ener.back() * (1. - _etol);
 
   _nmin = (y[1] - y[0]) / (x[1] - x[0]);
+  
   _amin = std::exp(y[0] - x[0] * _nmin);
 
   int l1 = x.size() - 1;
+  
   int l2 = x.size() - 2;
+  
   _nmax = (y[l1] - y[l2]) / (x[l1] - x[l2]);
+  
   _amax = std::exp(y[l1] - x[l1] * _nmax);
 
   _print();
@@ -22395,7 +22550,9 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from)
   const char funame [] = "Model::ConstEscape::ConstEscape: ";
 
   KeyGroup ConstEscapeModel;
+  
   Key first_key("PseudoFirstOrderRateConstant[1/sec]");
+  Key  name_key("Name");
 
   double dtemp;
   int    itemp;
@@ -22409,14 +22566,32 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from)
     // end key
     //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
+    }
+    // escape channel name
+    //
+    else if(name_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> _name)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
     }
     // rate value
     //
     if(first_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       
@@ -22465,6 +22640,7 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
   // input keys
   KeyGroup FitEscapeModel;
   Key file_key("RateDataFile[kcal/mol,1/sec]");
+  Key name_key("Name");
 
   // actual input
   std::string comment, token;
@@ -22473,14 +22649,32 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
     // end key
     //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
-    // rate data file
-    else if(file_key == token) {
+    // escape channel name
+    //
+    else if(name_key == token) {
+      //
+      IO::LineInput lin(from);
 
+      if(!(lin >> _name)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+    }
+    // rate data file
+    //
+    else if(file_key == token) {
+      //
       if(rate_in.is_open()) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
 
@@ -22498,6 +22692,7 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
       }
     }
     // unknown key
+    //
     else {
       std::cerr << funame << "unknown keyword: " << token << "\n";
       Key::show_all(std::cerr);
@@ -22626,7 +22821,7 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   Key   spec_key("Species");
   Key escape_key("Escape");
   Key   freq_key("CollisionFrequency");
-  Key   ext_key("WellExtensionCap[kcal/mol]");
+  Key    ext_key("WellExtensionCap[kcal/mol]");
 
   std::string token, comment;
 
@@ -22761,6 +22956,21 @@ double  Model::Well::escape_rate (double ener) const
     res += _escape[e]->states(ener);
 
   return res / dos;
+}
+
+double  Model::Well::escape_rate (double ener, int i) const
+{
+  if(!_escape.size())
+    //
+    return 0.;
+  
+  const double dos = _species->states(ener);
+
+  if(dos <= 0.)
+    //
+    return 0.;
+
+  return _escape[i]->states(ener) / dos;
 }
 
 // radiational transition down probability

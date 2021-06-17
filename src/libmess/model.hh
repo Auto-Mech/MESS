@@ -44,8 +44,11 @@ namespace Model {
   void set_energy_limit (double);
   bool is_energy_limit ();
 
-  int escape_size       ();    // number of wells with escape channels
-  int escape_well_index (int); // escape well index
+  int escape_size       ();                 // number escape channels
+  
+  const std::pair<int, int>& escape_channel (int); // escape channel: <well, well escape index>
+
+  std::string escape_name (int); // escape channel name
 
   void shift_cm_to_zero(std::vector<Atom>&);
   Lapack::SymmetricMatrix inertia_moment_matrix(const std::vector<Atom>&);
@@ -158,6 +161,8 @@ namespace Model {
     //
     double        _cutoff;// cutoff energy
     
+    double          _efac;// entanglement correction
+    
     void read_freq(IO::KeyBufferStream&);
 
     void assert_freq() const;
@@ -166,7 +171,7 @@ namespace Model {
     
     Tunnel(IO::KeyBufferStream&);
 
-    Tunnel (double c, double f) : _cutoff(c), _freq(f) {}
+    Tunnel (double c, double f) : _cutoff(c), _freq(f), _efac(0.) {}
     
   public:
     //
@@ -224,7 +229,7 @@ namespace Model {
   class ExpTunnel: public Tunnel {
 
     std::map<int, double> _expansion;
-    
+
   public:
     //
     ExpTunnel(IO::KeyBufferStream&);
@@ -1594,6 +1599,10 @@ namespace Model {
     void _assert () const;
     
     ConstSharedPointer<Species> _spec;
+
+  protected:
+
+    std::string _name;
     
   public:
     //
@@ -1604,6 +1613,8 @@ namespace Model {
     virtual void shift_ground (double) =0;
 
     void set_spec (ConstSharedPointer<Species> s) { _spec = s; }
+
+    const std::string& name () const { return _name; }
   };
 
   class ConstEscape : public Escape {
@@ -1676,9 +1687,13 @@ namespace Model {
     double               mass () const;
     void  esc_parameters (double, double&, double&, double&) const; // energy, entropy, thermal capacity
 
-    bool  escape () const { return _escape.size(); }
+    int  escape_size () const { return _escape.size(); }
 
+    const std::string& escape_name (int i) const { return _escape[i]->name(); }
+    
     double escape_rate (double) const;
+
+    double escape_rate (double, int) const;
 
     void shift_ground (double) ;
 
