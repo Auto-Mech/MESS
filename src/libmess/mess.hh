@@ -57,6 +57,7 @@ namespace MasterEquation {
   extern double            rate_max;// microcanonical rate maximum
   extern double reduction_threshold;// maximal chemical eigenvalue to collision frequency ratio
   extern double      well_extension;
+  extern double      well_ext_corr;
   
   void set_global_cutoff (double);
 
@@ -91,12 +92,12 @@ namespace MasterEquation {
     double                  _max_relax_eval;     // maximal collisional relaxation eigenvalue
     Lapack::Vector          _state_density;      // density of states on the grid
     Lapack::Vector          _boltzman;           // Boltzmann distribution
-    Lapack::Vector          _boltzman_sqrt;      // Boltzmann distribution
+    Lapack::Vector          _boltzman_sqrt;      // Boltzmann distribution square root
     Lapack::Matrix          _crm_basis;          // CRM basis (ket)
     Lapack::Matrix          _crm_bra;            // CRM basis (bra)
     Lapack::Matrix          _kernel;             // energy relaxation kernel
     Lapack::SymmetricMatrix _crm_kernel;         // kernel in CRM basis
-    Lapack::Vector          _escape_rate;        // escape rate;
+    //Lapack::Vector          _escape_rate;        // escape rate;
 
     double              _collision_factor;
     std::vector<double> _kernel_fraction;
@@ -131,8 +132,8 @@ namespace MasterEquation {
     const double* crm_row    (int i)        const { return     &_crm_basis(i, 0);   }
     const double& crm_kernel (int i, int j) const { return      _crm_kernel(i, j);  }// kernel in CRM basis 
 
-    double escape_rate(int i)               const { return       _escape_rate[i]; }
-    const double* escape_rate()             const { return       _escape_rate; }
+    //double escape_rate(int i)               const { return       _escape_rate[i]; }
+    //const double* escape_rate()             const { return       _escape_rate; }
 
     // radiational transitions
     bool       radiation      ()             const { return     _radiation_rate.isinit(); }

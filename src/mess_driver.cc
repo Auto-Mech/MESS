@@ -86,6 +86,7 @@ int main (int argc, char* argv [])
   Key     xtun_key("TunnelingActionCutoff"      );
   Key well_cut_key("WellCutoff"                 );
   Key well_ext_key("WellExtension"              );
+  Key ext_corr_key("ExtensionCorrection"        );
   Key eval_max_key("ChemicalEigenvalueMax"      );
   Key eval_min_key("ChemicalEigenvalueMin"      );
   Key well_red_key("WellReductionThreshold"     );
@@ -601,18 +602,44 @@ int main (int argc, char* argv [])
       //
       IO::LineInput lin(from);
 
+      if(lin >> dtemp) {
+	//
+	if(dtemp <= 0. || dtemp >= 1.) {
+	  //
+	  std::cerr << funame << token << ": out of range: " << dtemp << "\n";
+	
+	  throw Error::Range();
+	}
+
+	MasterEquation::well_extension = dtemp;
+      }
+      else
+	//
+	MasterEquation::well_extension = 0.;
+    }
+    // well extention correction factor
+    //
+    else if(ext_corr_key == token) {
+      //
+      IO::LineInput lin(from);
+
       dtemp = 0.;
 
-      lin >> dtemp;
+      if(!(lin >> dtemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
       
-      if(dtemp < 0. || dtemp >= 1.) {
+      if(dtemp <= 0. || dtemp >= 1.) {
 	//
         std::cerr << funame << token << ": out of range: " << dtemp << "\n";
 	
         throw Error::Range();
       }
 
-      MasterEquation::well_extension = dtemp;
+      MasterEquation::well_ext_corr = dtemp;
     }
     // chemical relaxation to collision frequency ratio
     //
@@ -1120,37 +1147,56 @@ int main (int argc, char* argv [])
 	  break;
 	}
 	IO::out << "\n\n";
-	IO::out << std::left << std::setw(8) << "From\\To" << std::right;
-	for(int j = 0; j < spec_name.size(); ++j)
-	  IO::out << std::setw(13) << spec_name[j];
 	
-	for(int w = 0; w < Model::well_size(); ++w)
-	  if(Model::well(w).escape())
-	    IO::out << std::setw(13) << Model::well(w).name(); 
+	IO::out << std::left << std::setw(8) << "From\\To" << std::right;
+	
+	for(int j = 0; j < spec_name.size(); ++j)
+	  //
+	  IO::out << std::setw(13) << spec_name[j];
+
+	for(int e = 0; e < Model::escape_size(); ++e)
+	  //
+	  IO::out << std::setw(13) << Model::escape_name(e);
+	
 	IO::out << "\n";
 
 	for(int i = 0; i < spec_name.size(); ++i) {
+	  //
 	  IO::out << std::left << std::setw(8) << spec_name[i] << std::right;
+	  
 	  for(int j = 0; j < spec_name.size(); ++j) {
+	    //
 	    ptemp = std::make_pair(i, j);
-	    if(rate_data.find(ptemp) != rate_data.end())
+	    
+	    if(rate_data.find(ptemp) != rate_data.end()) {
+	      //
 	      IO::out << std::setw(13) << rate_data[ptemp];
+	    }
 	    else
+	      //
 	      IO::out << std::setw(13) << "***";
 	  }
 	  // escape rates
-	  for(int w = 0; w < Model::well_size(); ++w)
-	    if(Model::well(w).escape()) {
-	      ptemp = std::make_pair(i, Model::well_size() + Model::bimolecular_size() + w);
-	      if(rate_data.find(ptemp) != rate_data.end())
-		IO::out << std::setw(13) << rate_data[ptemp];
-	      else
-		IO::out << std::setw(13) << "***";
+	  //
+	  for(int e = 0; e < Model::escape_size(); ++e) {
+	    //
+	    ptemp = std::make_pair(i, Model::well_size() + Model::bimolecular_size() + e);
+	    
+	    if(rate_data.find(ptemp) != rate_data.end()) {
+	      //
+	      IO::out << std::setw(13) << rate_data[ptemp];
 	    }
+	    else
+	      //
+	      IO::out << std::setw(13) << "***";
+	  }
+	
 	  IO::out << "\n";
 	}
 	IO::out << "\n";
+	//
       }// pressure cycle
+      //
     }// temperature cycle
   }
   //catch(Error::General) {
@@ -1225,9 +1271,11 @@ int main (int argc, char* argv [])
       IO::out << std::setw(13) << spec_name[i] + "->";
 
       // escape
-      for(int w = 0; w < Model::well_size(); ++w)
-	if(Model::well(w).escape())
-	  IO::out << std::setw(13) << Model::well(w).name(); 
+      //
+      for(int e = 0; e < Model::escape_size(); ++e)
+	//
+	IO::out << std::setw(13) << Model::escape_name(e);
+      
       IO::out << "\n";
 
       // rates
@@ -1254,23 +1302,33 @@ int main (int argc, char* argv [])
 	      IO::out << std::setw(13) << "***";
 	  }
 	// reactant loss
+	//
 	if(rate_coef[itemp].find(std::make_pair(i, i)) != rate_coef[itemp].end())
 	  IO::out << std::setw(13) << rate_coef[itemp][std::make_pair(i, i)];
 	else
 	  IO::out << std::setw(13) << "***";
+	
 	// escape rates
-	for(int w = 0; w < Model::well_size(); ++w)
-	  if(Model::well(w).escape()) {
-	    ptemp = std::make_pair(i, Model::well_size() + Model::bimolecular_size() + w);
-	    if(rate_coef[itemp].find(ptemp) != rate_coef[itemp].end())
-	      IO::out << std::setw(13) << rate_coef[itemp][ptemp];
-	    else
-	      IO::out << std::setw(13) << "***";
+	//
+	for(int e = 0; e < Model::escape_size(); ++e) {
+	  //
+	  ptemp = std::make_pair(i, Model::well_size() + Model::bimolecular_size() + e);
+	  
+	  if(rate_coef[itemp].find(ptemp) != rate_coef[itemp].end()) {
+	    //
+	    IO::out << std::setw(13) << rate_coef[itemp][ptemp];
 	  }
+	  else
+	    //
+	    IO::out << std::setw(13) << "***";
+	}
 	IO::out << "\n";
       }
+      
       IO::out << std::setw(7) << "O-O";
+      
       for(int j = 0; j < spec_name.size(); ++j)
+	//
 	if(j != i) {
 	  if(hp_rate_coef[t].find(std::make_pair(i, j)) != hp_rate_coef[t].end())
 	    IO::out << std::setw(13) << hp_rate_coef[t][std::make_pair(i, j)];
@@ -1314,15 +1372,21 @@ int main (int argc, char* argv [])
 	      << std::setw(13) << "Capture";
 
       // escape
-      for(int w = 0; w < Model::well_size(); ++w)
-	if(Model::well(w).escape())
-	  IO::out << std::setw(13) << Model::well(w).name(); 
+      //
+      for(int e = 0; e < Model::escape_size(); ++e)
+	//
+	IO::out << std::setw(13) << Model::escape_name(e);
+      
       IO::out << "\n";
 
       // rates
+      //
       for(int t = 0; t < temperature.size(); ++t) {
-	IO::out << std::setw(7) << temperature[t] / Phys_const::kelv; 
+	//
+	IO::out << std::setw(7) << temperature[t] / Phys_const::kelv;
+	
 	itemp = p + t * pressure.size();
+	
 	// to products
 	for(int j = 0; j < spec_name.size(); ++j)
 	  if(j != i) {
@@ -1343,14 +1407,20 @@ int main (int argc, char* argv [])
 	  IO::out << std::setw(13) << "***";
 
 	// escape rates
-	for(int w = 0; w < Model::well_size(); ++w)
-	  if(Model::well(w).escape()) {
-	    ptemp = std::make_pair(i, Model::well_size() + Model::bimolecular_size() + w);
-	    if(rate_coef[itemp].find(ptemp) != rate_coef[itemp].end())
-	      IO::out << std::setw(13) << rate_coef[itemp][ptemp];
-	    else
-	      IO::out << std::setw(13) << "***";
+	//
+	for(int e = 0; e < Model::escape_size(); ++e) {
+	  //
+	  ptemp = std::make_pair(i, Model::well_size() + Model::bimolecular_size() + e);
+	  
+	  if(rate_coef[itemp].find(ptemp) != rate_coef[itemp].end()) {
+	    //
+	    IO::out << std::setw(13) << rate_coef[itemp][ptemp];
 	  }
+	  else
+	    //
+	    IO::out << std::setw(13) << "***";
+	}
+	
 	IO::out << "\n";
       }
       IO::out << "\n";
@@ -1406,20 +1476,11 @@ int main (int argc, char* argv [])
 	IO::out << "\n\n";
       }
 
-  // escape rates
-  if(Model::escape_size()) {
-    for(int spec = 0; spec < spec_name.size(); ++spec)
-      for(int w = 0; w < Model::well_size(); ++w) {
-
-      }
-
-  }
-  
   // loss
+  //
   for(int i = 0; i < spec_name.size(); ++i) {
-    // title
-    stemp = spec_name[i] + "-> ";
-    IO::out << stemp << "\n\n";
+    //
+    IO::out << spec_name[i] + "-> " << "\n\n";
 
     IO::out << std::left << std::setw(7) << "P\\T" << std::right;
     for(int t = 0; t < temperature.size(); ++t)
