@@ -5583,19 +5583,17 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
       std::getline(from, comment);
 
-      const int smp_size = itemp;
-      
+      std::vector<double> ang_val(itemp);
+
       // potential sampling
       //
       std::map<double, double> pot_map;
       
       const double ang_max = 360. / symmetry();
       
-      for(int i = 0; i < smp_size; ++i) {
+      for(int i = 0; i < ang_val.size(); ++i) {
 	//
-	IO::LineInput lin(from);
-      
-	if(!(lin >> dtemp)) {
+	if(!(from >> dtemp)) {
 	  //
 	  std::cerr << funame << token << ": cannot read " << i+1 <<"-th angle\n";
 
@@ -5607,33 +5605,31 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	if(dtemp < 0. || dtemp >= 1.) {
 	  //
 	  std::cerr << funame << token << ": WARNING: "<< i + 1
+	    //
 		    << "-th angle is beyond the default angular range: [0-"
+	    //
 		    << ang_max << "]: the shift is applied\n";
 
 	  dtemp -= std::floor(dtemp);
 	}
 
-	if(pot_map.find(dtemp) != pot_map.end()) {
-	  //
-	  std::cerr << funame << token << i+1 <<"-th angle already in the map\n";
-
-	  throw Error::Input();
-	}
-
-	double pot_smp;
-	
-	if(!(lin >> pot_smp)) {
+	ang_val[i] = dtemp;
+      }
+      
+      for(int i = 0; i < ang_val.size(); ++i) {
+	//
+	if(!(from >> dtemp)) {
 	  //
 	  std::cerr << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
 
 	  throw Error::Input();
 	}
 
-	pot_smp *= Phys_const::kcal;
-	
-	pot_map[dtemp] = pot_smp;
+	pot_map[ang_val[i]] = dtemp * Phys_const::kcal;
       }
 
+      std::getline(from, comment);
+      
       const int offset = 2;
       
       itemp = pot_map.size() + 2 * offset;
@@ -6148,8 +6144,12 @@ void Model::HinderedRotor::_init ()
   //
   _set_energy_levels(_ham_size_min);
 
-  IO::aux << "harmonic    frequency = " << std::ceil(_freq_min / Phys_const::incm) << " 1/cm\n";
+  IO::aux << "harmonic frequency = " << std::ceil(_freq_min / Phys_const::incm) << " 1/cm\n";
 
+  IO::aux << "harmonic  frequency at first point = "
+    //
+	  << std::ceil(std::sqrt(2. * potential(0., 2) * rotational_constant()) / Phys_const::incm) << " 1/cm\n";
+  
   if(level_size() > 1)
     //
     IO::aux << "fundamental frequency = " << std::ceil(energy_level(1) / Phys_const::incm) << " 1/cm\n";
