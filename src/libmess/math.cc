@@ -1,6 +1,6 @@
 /*
         Chemical Kinetics and Dynamics Library
-        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+        Copyright (C) 2008-2021, Yuri Georgievski <ygeorgi@anl.gov>
 
         This library is free software; you can redistribute it and/or
         modify it under the terms of the GNU Library General Public
@@ -14,6 +14,9 @@
 */
 
 #include "math.hh"
+#include "array.hh"
+
+#include <cmath>
 #include <vector>
 #include <set>
 #include <map>
@@ -348,4 +351,207 @@ double Math::MinimumSearch::find (double x1, double step, double* xp)
       }
     }
   }// x2 < x0 < x1, y1 >= y0 <= y2 situation
+}
+
+void Math::Spline::init (const std::map<double, double>& data, int t) throw(Error::General)
+{
+  const char funame [] = "Math::Spline::init:";
+  
+  int    itemp;
+  double dtemp;
+
+  _type = t;
+
+  _arg_min = data.begin()->first;
+
+  _arg_max = data.rbegin()->first;
+
+  _arg_range = _arg_max - _arg_min;
+  
+  const gsl_interp_type* spline_type;
+
+  if(_type & STEFFEN) {
+    //
+    spline_type = gsl_interp_steffen;
+  }
+  else if((_type & AKIMA) && (_type & PERIODIC)) {
+    //
+    spline_type = gsl_interp_akima_periodic;
+  }
+  else if((_type & AKIMA) && !(_type & PERIODIC)) {
+    //
+    spline_type = gsl_interp_akima;
+  }
+  else if(!(_type & AKIMA) && (_type & PERIODIC)) {
+    //
+    spline_type = gsl_interp_cspline_periodic;
+  }
+  else if(!(_type & AKIMA) && !(_type & PERIODIC)) {
+    //
+    spline_type = gsl_interp_cspline;
+  }
+
+  itemp = gsl_interp_type_min_size(spline_type);
+  
+  if(data.size() < itemp) {
+    //
+    std::cerr << funame << "number of data points, " << data.size() << ", out of range: " << itemp << "\n";
+
+    throw Error::Range();
+  }
+
+  if(_type & PERIODIC && data.begin()->second != data.rbegin()->second) {
+    //
+    std::cerr << funame << "end point values mismatch: " << data.begin()->second << ", " << data.rbegin()->second << "\n";
+
+    throw Error::Range();
+  }
+
+  _spline = gsl_spline_alloc(spline_type, data.size());
+
+  Array<double> x((int)data.size());
+  
+  Array<double> y((int)data.size());
+
+  itemp = 0;
+  
+  for(std::map<double, double>::const_iterator cit = data.begin(); cit != data.end(); ++cit, ++itemp) {
+    //
+    x[itemp] = cit->first;
+
+    y[itemp] = cit->second;
+  }
+
+  gsl_spline_init(_spline, x, y, data.size());
+}
+
+double Math::Spline::operator() (double arg, int der) const throw(Error::General)
+{
+  const char funame [] = "Math::Spline::operator(): ";
+
+  double dtemp;
+  int    itemp;
+
+  if(!_spline) {
+    //
+    std::cerr << funame << "not initialized\n";
+
+    throw Error::Init();
+  }
+  
+  if(arg > _arg_max || arg < _arg_min) {
+    //
+    if(!(_type & PERIODIC)) {
+      //
+      std::cerr << funame << "argument value, " << arg << ", out of range: [" << _arg_min << ", " << _arg_max << "]\n";
+
+      throw Error::Range();
+    }
+
+    arg -= _arg_min;
+
+    arg -= std::floor(arg / _arg_range) * _arg_range;
+
+    arg += _arg_min;
+
+    if(arg < _arg_min) {
+      //
+      std::cerr << funame << "WARNING: argument, " << arg << ", out of range, ["
+		<< _arg_min << ", " << _arg_max << "]: rounding up\n";
+      
+      arg = _arg_min;
+    }
+    else if(arg > _arg_max) {
+      //
+      std::cerr << funame << "WARNING: argument, " << arg << ", out of range, ["
+		<< _arg_min << ", " << _arg_max << "]: rounding down\n";
+      
+      arg = _arg_max;
+    }
+  }
+
+  switch(der) {
+    //
+  case 0:
+    //
+    return gsl_spline_eval(_spline, arg, _accel.value());
+
+  case 1:
+    //
+    return gsl_spline_eval_deriv(_spline, arg, _accel.value());
+
+  case 2:
+    //
+    return gsl_spline_eval_deriv2(_spline, arg, _accel.value());
+
+  default:
+    //
+    std::cerr << funame << "derivative index out of range: " << der << "\n";
+
+    throw Error::Range();
+  }
+}
+
+Math::DirectFFT::DirectFFT (int n) : _size(n)
+{
+  const char funame [] = "Math::DirectFFT::DirectFFT: ";
+
+  if(n < 1) {
+    //
+    std::cerr << funame << "size out of range: " << n << "\n";
+
+    throw Error::Range();
+  }
+
+  _table = gsl_fft_real_wavetable_alloc(n);
+
+  _work  = gsl_fft_real_workspace_alloc(n);
+}
+
+Math::DirectFFT::~DirectFFT ()
+{
+  gsl_fft_real_workspace_free(_work);
+  
+  gsl_fft_real_wavetable_free(_table);
+}
+  
+void Math::DirectFFT::operator() (Array<double>& data) const
+{
+  const char funame [] = "Math::DirectFFT::operator(): ";
+
+  if(data.size() != size()) {
+    //
+    std::cerr << funame << "sizes mismatch: " << data.size() << ", " << size() << "\n";
+
+    throw Error::Range();
+  }
+  
+  gsl_fft_real_transform(data, 1, data.size(), _table, _work);
+}
+
+void Math::DirectFFT::normalize (Array<double>& data)
+{
+  double dtemp;
+  
+  if(!data.size())
+    //
+    return;
+  
+  data[0] /= data.size();
+
+  dtemp = data.size() / 2.;
+  
+  for(int i = 1; i < data.size(); ++i)
+    //
+    if(i % 2) {
+      //
+      data[i] /= dtemp;
+    }
+    else
+      //
+      data[i] /= -dtemp;
+
+  if(!(data.size() % 2))
+    //
+    data.back() /= 2.;
 }

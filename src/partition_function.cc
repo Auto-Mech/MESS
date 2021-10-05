@@ -42,46 +42,62 @@ int main (int argc, char* argv [])
 
   KeyGroup Main;
 
-  Key spec_key("Species"                   );
-  Key list_key("TemperatureList[K]"        );
-  Key grid_key("Temperature(step[K],size)" );
-  Key emax_key("ModelEnergyLimit[kcal/mol]");
-  Key tincr_key("RelativeTemperatureIncrement");
-  Key  adm_bor_key("AtomDistanceMin[bohr]"      );
-  Key  adm_ang_key("AtomDistanceMin[angstrom]"  );
+  Key spec_key("Species"                         );
+  Key     list_key("TemperatureList[K]"          );
+  Key     grid_key("Temperature(step[K],size)"   );
+  Key     emax_key("ModelEnergyLimit[kcal/mol]"  );
+  Key    tincr_key("RelativeTemperatureIncrement");
+  Key  adm_bor_key("AtomDistanceMin[bohr]"       );
+  Key  adm_ang_key("AtomDistanceMin[angstrom]"   );
 
 
   std::vector<double> temperature;
+  
   std::vector<SharedPointer<Model::Species> > species;
 
   double temp_rel_incr = 0.001;
 
   // base name
+  //
   std::string base_name = argv[1];
+  
   if(base_name.size() >= 4 && !base_name.compare(base_name.size() - 4, 4, ".inp", 4))
+    //
     base_name.resize(base_name.size() - 4);
 
   IO::KeyBufferStream from(argv[1]);
+  
   if(!from && base_name == argv[1]) {
     // try inp extension
+    //
     stemp = base_name + ".inp";
+    
     from.open(stemp.c_str());
   }
 
   IO::log.open((base_name + ".log").c_str());
   IO::out.open((base_name + ".dat").c_str());
+  IO::aux.open((base_name + ".aux").c_str());
 
   if(!from) {
+    //
     std::cerr << funame << "input file " << argv[1] << " is not found\n";
+    
     return 1;
   }
 
   std::string token, comment, line, name;
+  
   while(from >> token) {
+    //
     // model energy limit
+    //
     if(emax_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
@@ -89,88 +105,130 @@ int main (int argc, char* argv [])
       Model::set_energy_limit(dtemp * Phys_const::kcal);
     }
     // relative temperature increment
+    //
     else if(tincr_key == token) {
+      //
       if(!(from >> temp_rel_incr)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
 
       std::getline(from, comment);
 
       if(temp_rel_incr <= 0. || temp_rel_incr >= 1.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
     }
     // minimal interatomic distance
+    //
     else if(adm_bor_key == token || adm_ang_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp <= 0) {
+	//
         std::cerr << funame << token << ": out of range\n";
+	
         throw Error::Range();
       }
       
       if(adm_ang_key == token)
+	//
 	dtemp *= Phys_const::angstrom;
 
       Model::atom_dist_min = dtemp;
     }
     // species
+    //
     else if(spec_key == token) {
+      //
       if(!(from >> name)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
+      
       species.push_back(Model::new_species(from, name, Model::NOSTATES));
     }
     // temperature list
+    //
     else if(list_key == token) {
+      //
       if(temperature.size()) {
+	//
 	std::cerr << funame << "temperature list has been already defined\n";
+	
 	throw Error::Input();
       }
       IO::LineInput line_input(from);
+      
       while(line_input >> dtemp)
+	//
 	temperature.push_back( dtemp * Phys_const::kelv);
       
       if(!temperature.size()) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
     }
     // temperature grid
+    //
     else if(grid_key == token) {
+      //
       if(temperature.size()) {
+	//
 	std::cerr << funame << "temperature list has been already defined\n";
+	
 	throw Error::Input();
       }
 
       IO::LineInput line_input(from);
+      
       if(!(line_input >> dtemp >> itemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
 
       if(dtemp <= 0. || itemp <= 0) {
+	//
         std::cerr << funame << token << ": out of range\n";
+	
         throw Error::Range();
       }
 
       dtemp *=  Phys_const::kelv;
+      
       for(int i = 0; i < itemp; ++i)
+	//
 	temperature.push_back(double(i + 1) * dtemp);
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword: " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
@@ -178,27 +236,51 @@ int main (int argc, char* argv [])
   /*************************** CHECKING ******************************************/
 
   if(!temperature.size()) {
+    //
     std::cerr << funame << "temperature list has not been initialized\n";
+    
     throw Error::Init();
   }
 
   if(!species.size()) {
+    //
     std::cerr << funame << "no species\n";
+    
     throw Error::Init();
   }
 
   // add room temperature
-  temperature.push_back(298.2 * Phys_const::kelv);
+  //
+  const double room_temp = 298.2;
+  
+  temperature.push_back(room_temp * Phys_const::kelv);
 
   /***************** PARTITION FUNCTION CALCULATION AND OUTPUT *******************/
 
   const double volume_unit = Phys_const::cm * Phys_const::cm * Phys_const::cm;
 
-  //  IO::out << "Partition function (relative to the ground,1/cm^3):\n"
-  IO::out << "Natural log of the partition function and its derivatives:\n"
-	  << std::left << std::setw(5) << "T, K" << std::right;
+  const double entropy_unit = Phys_const::kelv / Phys_const::kcal * 1000.;
+  
+  IO::out << "Natural log of the partition function, its derivatives, entropy, and thermal capacity:\n";
+
+  IO::out << std::left << std::setw(5) << "T, K" << std::right;
+  
   for(int s = 0; s < species.size(); ++s)
-    IO::out << std::setw(13) << species[s]->name() << std::setw(26);
+    //
+    for(int i = 0; i < 5; ++i)
+      //
+      IO::out << std::setw(13) << species[s]->name();
+  
+  IO::out << "\n" << std::setw(5) << "";
+
+  for(int s = 0; s < species.size(); ++s)
+    //
+    IO::out << std::setw(13) << "Z_0"
+	    << std::setw(13) << "Z_1"
+	    << std::setw(13) << "Z_2"
+	    << std::setw(13) << "S, cal/mol/K"
+	    << std::setw(13) << "C, cal/mol/K";
+
   IO::out << "\n";
   
   for(int t = 0; t < temperature.size(); ++t) {
@@ -218,12 +300,13 @@ int main (int argc, char* argv [])
 
     double zz[3];
 
-    IO::out << std::left << std::setw(5) << temperature[t] / Phys_const::kelv << std::right; 
+    IO::out << std::left << std::setw(5) << temperature[t] / Phys_const::kelv << std::right;
+    
     for(int s = 0; s < species.size(); ++s) {
-      
+      //
       for(int i = 0; i < 3; ++i) {
 	//
-	dtemp = species[s]->weight(tt[i]) * std::pow(species[s]->mass() * tt[i] / 2. / M_PI, 1.5) * volume_unit;
+	dtemp = species[s]->weight(tt[i]) * std::pow(species[s]->mass() * tt[i] / 2. / M_PI, 1.5);
 
 	if(dtemp <= 0.) {
 	  //
@@ -235,7 +318,7 @@ int main (int argc, char* argv [])
 	zz[i] = std::log(dtemp);
       }
       
-      IO::out << std::setw(13) << zz[0]
+      IO::out << std::setw(13) << zz[0] + std::log(volume_unit)
 	      << std::setw(13) << (zz[2] - zz[1]) / 2. / temp_incr
 	      << std::setw(13) << (zz[2] + zz[1] - 2. * zz[0]) / temp_incr / temp_incr;
 
@@ -245,13 +328,15 @@ int main (int argc, char* argv [])
 	//
 	zz[i] *= tt[i] / Phys_const::kcal * 1000.;
 
-      // entropy, cal/mol/grad
+      // entropy, cal/mol/grad, at standard pressure
       //
-      IO::out << std::setw(13) << (zz[2] - zz[1]) / 2. / temp_incr;
+      IO::out << std::setw(13) << (zz[2] - zz[1]) / 2. / temp_incr
+	//
+	+ entropy_unit * (1. + std::log(temperature[t] / Phys_const::atm));
 
-      // thermal capacity, cal/mol/grad
+      // thermal capacity, cal/mol/grad, at constant pressure
       //
-      IO::out << std::setw(13) << (zz[2] + zz[1] - 2. * zz[0]) / temp_incr / temp_incr * tval;
+      IO::out << std::setw(13) << (zz[2] + zz[1] - 2. * zz[0]) / temp_incr / temp_incr * tval + entropy_unit;
 
       //IO::out << std::setw(13) << species[s]->weight(temperature[t]) 
       //* std::exp((species[s]->real_ground() - species[s]->ground())/ temperature[t])

@@ -24,7 +24,9 @@
 #include <ctime>
 #include <cstring>
 #include <cstdarg>
+#include <gsl/gsl_fft_real.h>
 
+#include "math.hh"
 #include "atom.hh"
 #include "model.hh"
 #include "units.hh"
@@ -39,6 +41,8 @@
 
 namespace Model {
 
+  bool checking = true;
+  
   SharedPointer<TimeEvolution> time_evolution;
 
   /********************************************************************************************
@@ -74,7 +78,9 @@ namespace Model {
   // buffer fraction
   //
   std::vector<double> _buffer_fraction;
+  
   double buffer_fraction (int i) { return _buffer_fraction[i]; }
+  
   int buffer_size () { return _buffer_fraction.size(); }
 
   std::vector<std::pair<int, int> > _escape_channel;
@@ -130,9 +136,21 @@ namespace Model {
   std::vector<std::pair<int ,int> >      _outer_connect;
 
   // well index
+  //
   std::map<std::string, int>        well_index;
 
   bool is_well (const std::string& w) { if(well_index.find(w) != well_index.end()) return true; return false; }
+
+  int well_by_name (const std::string& n)
+  {
+    std::map<std::string, int>::const_iterator it = well_index.find(n);
+
+    if(it == well_index.end())
+      //
+      return -1;
+
+    return it->second;
+  }
   
   int            well_size () { return            _well.size(); }
   int     bimolecular_size () { return     _bimolecular.size(); }
@@ -734,7 +752,6 @@ void Model::init (IO::KeyBufferStream& from)
       IO::log << IO::log_offset << "BIMOLECULAR: " << name << "\n";
       
       _bimolecular.push_back(new_bimolecular(from, name));
-      //_bimolecular.back()->set_name(name);
     }
     // new barrier
     //
@@ -784,6 +801,7 @@ void Model::init (IO::KeyBufferStream& from)
       IO::log << IO::log_offset << "BARRIER: " << name << "\n";
       
       barrier.push_back(new_species(from, name, NUMBER));
+      
       //barrier.back()->set_name(name);
     }
     // unknown keyword
@@ -802,7 +820,8 @@ void Model::init (IO::KeyBufferStream& from)
   
   /************************************* CHECKING *********************************************/
 
-  {
+  if(checking) {
+    //
     IO::Marker  input_marker("checking input", IO::Marker::ONE_LINE| IO::Marker::NOTIME);
 
     if(!from) {
@@ -1599,8 +1618,11 @@ void Model::init (IO::KeyBufferStream& from)
       double zz[3];
 
       // well partition functions and derivatives
+      //
       for(int w = 0; w < well_size(); ++w) {
+	//
 	for(int i = 0; i < 3; ++i)
+	  //
 	  zz[i] = std::log(well(w).weight(tt[i]) * std::pow(well(w).mass() * tt[i] / 2. / M_PI, 1.5) * bpu);
 
 	wout << std::setw(13) << zz[0]
@@ -1610,70 +1632,119 @@ void Model::init (IO::KeyBufferStream& from)
       }
 
       // bimolecular product partition functions
-      for(int p = 0; p < bimolecular_size(); ++p) 
+      //
+      for(int p = 0; p < bimolecular_size(); ++p)
+	//
 	if(!bimolecular(p).dummy())
+	  //
 	  for(int f = 0; f < 2; ++f) {
+	    //
 	    for(int i = 0; i < 3; ++i)
+	      //
 	      zz[i] = std::log(bimolecular(p).fragment_weight(f, tt[i]) * bpu);
 	  
 	    wout << std::setw(13) << zz[0]
+	      //
 		 << std::setw(13) << (zz[2] - zz[1]) / 2. / temp_incr
+	      //
 		 << std::setw(13) << (zz[2] + zz[1] - 2. * zz[0]) / temp_incr / temp_incr;
 	  }
+      
       wout << "\n";
+      
     }// temperature cycle
-  }
+    //
+  }//
 
   IO::log << IO::log_offset << "partition functions (relative to the ground level, units - 1/cm3):\n"
 	  << IO::log_offset << std::setw(5) << "T\\Q";
 
   // wells
+  //
   for(int w = 0; w < well_size(); ++w)
+    //
     IO::log << std::setw(13) << well(w).name();
+  
   // bimolecular products
+  //
   for(int p = 0; p < bimolecular_size(); ++p)
+    //
     if(!bimolecular(p).dummy())
+      //
       for(int f = 0; f < 2; ++f)
+	//
 	IO::log << std::setw(13) << bimolecular(p).fragment_name(f);
+  
   // inner barriers
+  //
   for(int b = 0; b < inner_barrier_size(); ++b)
+    //
     IO::log << std::setw(13) << inner_barrier(b).name();
+  
   // outer barriers
+  //
   for(int b = 0; b < outer_barrier_size(); ++b)
+    //
     IO::log << std::setw(13) << outer_barrier(b).name();
+  
   IO::log << "\n";
 
   // temperature cycle
+  //
   for(int t = 0; t < tsize; ++t) {
-    if(tmin > 0)
+    //
+    if(tmin > 0) {
+      //
       itemp = tmin;
+    }
     else
+      //
       itemp = tstep;
+    
     itemp += t * tstep;
+    
     const double tval = itemp * Phys_const::kelv;
 
     IO::log << IO::log_offset << std::setw(5) << itemp;
 
     // well partition functions and derivatives
+    //
     for(int w = 0; w < well_size(); ++w)
+      //
       IO::log << std::setw(13) << well(w).weight(tval) * std::pow(well(w).mass() * tval / 2. / M_PI, 1.5) * bpu;
+    
     // bimolecular product partition functions
-    for(int p = 0; p < bimolecular_size(); ++p) 
+    //
+    for(int p = 0; p < bimolecular_size(); ++p)
+      //
       if(!bimolecular(p).dummy())
+	//
 	for(int f = 0; f < 2; ++f)
+	  //
 	  IO::log << std::setw(13) << bimolecular(p).fragment_weight(f, tval) * bpu;
+    
     // inner barrier partition functions
+    //
     for(int b = 0; b < inner_barrier_size(); ++b)
-      IO::log << std::setw(13) << inner_barrier(b).weight(tval) 
+      //
+      IO::log << std::setw(13) << inner_barrier(b).weight(tval)
+	//
 	* std::exp((inner_barrier(b).real_ground() - inner_barrier(b).ground())/ tval)
+	//
 	* std::pow(inner_barrier(b).mass() * tval / 2. / M_PI, 1.5) * bpu;
 
     // outer barrier partition functions
+    //
     for(int b = 0; b < outer_barrier_size(); ++b)
-      IO::log << std::setw(13) << outer_barrier(b).weight(tval) 
+      //
+      IO::log << std::setw(13) << outer_barrier(b).weight(tval)
+	//
 	* std::exp((outer_barrier(b).real_ground() - outer_barrier(b).ground())/ tval)
+	//
 	* std::pow(outer_barrier(b).mass() * tval / 2. / M_PI, 1.5) * bpu;
+    
     IO::log << "\n";
+    //
   }// temperature cycle
 
   IO::log << IO::log_offset << "partition functions (relative to " << eref / Phys_const::kcal
@@ -1681,91 +1752,145 @@ void Model::init (IO::KeyBufferStream& from)
 	  << IO::log_offset << std::setw(5) << "T\\Q";
 
   // wells
+  //
   for(int w = 0; w < well_size(); ++w)
+    //
     IO::log << std::setw(13) << well(w).name();
+  
   // inner barriers
+  //
   for(int b = 0; b < inner_barrier_size(); ++b)
+    //
     IO::log << std::setw(13) << inner_barrier(b).name();
+  
   // outer barriers
+  //
   for(int b = 0; b < outer_barrier_size(); ++b)
+    //
     IO::log << std::setw(13) << outer_barrier(b).name();
+  
   IO::log << "\n";
 
   // temperature cycle
+  //
   for(int t = 0; t < tsize; ++t) {
-    if(tmin > 0)
+    //
+    if(tmin > 0) {
+      //
       itemp = tmin;
+    }
     else
+      //
       itemp = tstep;
+    
     itemp += t * tstep;
+    
     const double tval = itemp * Phys_const::kelv;
 
     IO::log << IO::log_offset << std::setw(5) << itemp;
 
     // well partition functions
+    //
     for(int w = 0; w < well_size(); ++w)
-      IO::log << std::setw(13) << well(w).weight(tval) 
+      //
+      IO::log << std::setw(13) << well(w).weight(tval)
+	//
 	* std::exp((eref - well(w).ground()) / tval)
+	//
 	* std::pow(well(w).mass() * tval / 2. / M_PI, 1.5) * bpu;
 
     // inner barrier partition functions
+    //
     for(int b = 0; b < inner_barrier_size(); ++b)
-      IO::log << std::setw(13) << inner_barrier(b).weight(tval) 
+      //
+      IO::log << std::setw(13) << inner_barrier(b).weight(tval)
+	//
 	* std::exp((eref - inner_barrier(b).ground())/ tval)
+	//
 	* std::pow(inner_barrier(b).mass() * tval / 2. / M_PI, 1.5) * bpu;
 
     // outer barrier partition functions
+    //
     for(int b = 0; b < outer_barrier_size(); ++b)
-      IO::log << std::setw(13) << outer_barrier(b).weight(tval) 
+      //
+      IO::log << std::setw(13) << outer_barrier(b).weight(tval)
+	//
 	* std::exp((eref - outer_barrier(b).ground())/ tval)
+	//
 	* std::pow(outer_barrier(b).mass() * tval / 2. / M_PI, 1.5) * bpu;
+    
     IO::log << "\n";
+    //
   }// temperature cycle
 
-  IO::log << IO::log_offset 
+  IO::log << IO::log_offset
+    //
 	  << "tunneling partition function correction factors &"
+    //
     " high pressure effective energy shifts (D), kcal/mol:\n"
+    //
 	  << IO::log_offset << std::setw(5) << "T\\B";
+  
   // inner barrier
+  //
   for(int b = 0; b < inner_barrier_size(); ++b)
-    IO::log << std::setw(13) << inner_barrier(b).name()
-	    << std::setw(13) << "D";
+    //
+    IO::log << std::setw(13) << inner_barrier(b).name() << std::setw(13) << "D";
+  
   // outer barrier
+  //
   for(int b = 0; b < outer_barrier_size(); ++b)
-    IO::log << std::setw(13) << outer_barrier(b).name()
-	    << std::setw(13) << "D";
+    //
+    IO::log << std::setw(13) << outer_barrier(b).name() << std::setw(13) << "D";
+  
   IO::log << "\n";
 
   // temperature cycle
+  //
   for(int t = 0; t < tsize; ++t) {
-    if(tmin > 0)
+    //
+    if(tmin > 0) {
+      //
       itemp = tmin;
+    }
     else
+      //
       itemp = tstep;
+    
     itemp += t * tstep;
+    
     const double tval = itemp * Phys_const::kelv;
 
     IO::log << IO::log_offset << std::setw(5) << itemp;
 
     // inner barrier
+    //
     for(int b = 0; b < inner_barrier_size(); ++b) {
-      dtemp = std::log(inner_barrier(b).tunnel_weight(tval)) * tval 
+      //
+      dtemp = std::log(inner_barrier(b).tunnel_weight(tval)) * tval
+	//
 	+ inner_barrier(b).real_ground() - inner_barrier(b).ground();
 
       IO::log << std::setw(13) << std::exp(dtemp / tval)
 	      << std::setw(13) << -dtemp / Phys_const::kcal;
     }
+    
     // outer barrier
+    //
     for(int b = 0; b < outer_barrier_size(); ++b) {
-      dtemp = std::log(outer_barrier(b).tunnel_weight(tval)) * tval 
+      //
+      dtemp = std::log(outer_barrier(b).tunnel_weight(tval)) * tval
+	//
 	+ outer_barrier(b).real_ground() - outer_barrier(b).ground();
       
       IO::log << std::setw(13) << std::exp(dtemp / tval)
 	      << std::setw(13) << -dtemp / Phys_const::kcal;
     }
+    
     IO::log << "\n";
+    //
   }// temperature cycle
-
+  //
 }// model initialization
 
 /********************************************************************************************
@@ -1828,49 +1953,73 @@ int Model::rotation_matrix_element (int m, int n, int p, double& fac)
 }
 
 // adjust 1D motion so that the angular and linear momenta dissapear
+//
 // center of mass is assumed to be at zero
-std::vector<D3::Vector> Model::adjusted_normal_mode 
-(const std::vector<Atom>& atom, const std::map<int, D3::Vector>& motion,  Lapack::Vector* avp)
+//
+std::vector<D3::Vector> Model::adjusted_normal_mode (const std::vector<Atom>& atom,
+						     const std::map<int, D3::Vector>& motion,
+						     Lapack::Vector* avp)
 {
   const char funame [] = "Model::adjusted_normal_mode: ";
 
   if(motion.begin()->first < 0 || motion.rbegin()->first >= atom.size()) {
+    //
     std::cerr << funame << "motion index out of range\n";
+    
     throw Error::Range();
   }
 
   double dtemp;
 
-  // linear and angular momenta
-  D3::Vector am; // angular momentum
-  D3::Vector lm;// linear  momentum
+  // angular momentum
+  //
+  D3::Vector am;
+
+  // linear  momentum
+  //
+  D3::Vector lm;
+  
   std::map<int, D3::Vector>::const_iterator mit;
+  
   for(mit = motion.begin(); mit != motion.end(); ++mit) {
+    //
     am += atom[mit->first].mass() * D3::vprod(atom[mit->first], mit->second);
+    
     lm += atom[mit->first].mass() * mit->second;
   }
 
   // total mass
+  //
   dtemp = 0.;
+  
   for(int a = 0; a < atom.size(); ++a)
+    //
     dtemp += atom[a].mass();
 
   // linear velocity
+  //
   lm /= dtemp;
 
   // inverted inertia moment matrix; center of mass is assumed to be at zero
+  //
   Lapack::SymmetricMatrix im = inertia_moment_matrix(atom).invert();
       
-  // angular velocity      
+  // angular velocity
+  //
   Lapack::Vector av = im * am;
   if(avp)
     *avp = av;
 
   // normal mode adjusted
+  //
   std::vector<D3::Vector> res(atom.size());
+  
   for(int a = 0; a < atom.size(); ++a)
+    //
     res[a] = D3::vprod(atom[a], av) - lm;
+  
   for(mit = motion.begin(); mit != motion.end(); ++mit)
+    //
     res[mit->first] += mit->second;
 
   return res;
@@ -1879,18 +2028,27 @@ std::vector<D3::Vector> Model::adjusted_normal_mode
 Lapack::SymmetricMatrix Model::inertia_moment_matrix(const std::vector<Atom>& atom)
 {
   double dtemp;
+  
   Lapack::SymmetricMatrix res(3);
+  
   res = 0.;
+  
   for(int i = 0; i < 3; ++i)
+    //
     for(int j = i; j < 3; ++j)
+      //
       for(std::vector<Atom>::const_iterator at = atom.begin(); at != atom.end(); ++at)
+	//
 	res(i, j) -= at->mass() * (*at)[i] * (*at)[j];
       
   dtemp = 0.;
+  
   for(int i = 0; i < 3; ++i)
+    //
     dtemp += res(i, i);
 
   for(int i = 0; i < 3; ++i)
+    //
     res(i, i) -= dtemp;
 
   return res;
@@ -1901,51 +2059,78 @@ void Model::shift_cm_to_zero(std::vector<Atom>& atom)
   D3::Vector vtemp;
 
   // shift the zero to the center of mass
+  //
   double mass = 0.;
+  
   for(std::vector<Atom>::const_iterator at = atom.begin(); at != atom.end(); ++at) {
+    //
     vtemp += at->mass() * (*at);
+    
     mass  += at->mass();
   }
+  
   vtemp /= mass;
+  
   for(std::vector<Atom>::iterator at = atom.begin(); at != atom.end(); ++at)
+    //
     *at -= vtemp;
 }
 
 // vibrational population inside given energy
+//
 std::vector<std::vector<int> > Model::population (double ener, const std::vector<double>& freq, int findex) 
 {
   const char funame [] = "Model::population: ";
 
   if(findex < 0 || findex > freq.size()) {
+    //
     std::cerr << funame << "index out of range\n";
+    
     throw Error::Range();
   }
 
   if(ener <= 0.) {
+    //
     std::cerr << funame << "negative energy\n";
+    
     throw Error::Range();
   }
 
   if(findex == freq.size())
-      return std::vector<std::vector<int> >(1); 
+    //
+    return std::vector<std::vector<int> >(1); 
 
   double f = freq[findex];
+  
   if(f <= 0.) {
+    //
     std::cerr << funame << findex << "-th frequency negative\n";
+    
     throw Error::Range();
   }
 
   ++findex;
+  
   std::vector<std::vector<int> > res;
+  
   std::vector<std::vector<int> > vv;
+  
   std::vector<std::vector<int> >::iterator vit;
+  
   int n = 0;
+  
   while(ener > 0.) {
+    //
     vv = population(ener, freq, findex);
+    
     for(vit = vv.begin(); vit != vv.end() ; ++vit)
+      //
       vit->insert(vit->begin(), n);
+    
     res.insert(res.end(), vv.begin(), vv.end());
+    
     ener -= f;
+    
     n++;
   }
   return res;
@@ -1957,30 +2142,43 @@ double Model::vibrational_sum (double ener, const Lapack::Vector& freq, double p
   const char funame [] = "Model::vibrational_sum: ";
 
   if(findex < 0 || findex > freq.size()) {
+    //
     std::cerr << funame << "index out of range\n";
+    
     throw Error::Range();
   }
 
   if(ener <= 0.) {
+    //
     std::cerr << funame << "negative energy\n";
+    
     throw Error::Range();
   }
 
   if(findex == freq.size())
+    //
     return std::pow(ener, power);
 
   double f = freq[findex];
+  
   if(f <= 0.) {
+    //
     std::cerr << funame << findex << "-th frequency negative\n";
+    
     throw Error::Range();
   }
 
   ++findex;
+  
   double res = 0.;
+  
   while(ener > 0.) {
+    //
     res += vibrational_sum(ener, freq, power, findex);
+    
     ener -= f;
   }
+  
   return res;
 }
 
@@ -1988,49 +2186,80 @@ void Model::read_geometry (IO::KeyBufferStream& from, std::vector<Atom>& atom, i
 {
   const char funame [] = "Model::read_geometry: ";
 
-  int itemp;
+  int    itemp;
+  
   double dtemp;
 
   // number of atoms
+  //
   IO::LineInput size_input(from);
-  size_input >> itemp;      
+  
+  size_input >> itemp;
+  
   if(!size_input) {
+    //
     std::cerr << funame << "cannot read number of atoms\n";
+    
     throw Error::Input();
   }
+  
   atom.resize(itemp);
+  
   // read atoms
+  //
   for(std::vector<Atom>::iterator at = atom.begin(); at != atom.end(); ++at) {
+    //
     IO::LineInput data_input(from);
+    
     if(!(data_input >> *at)) {
+      //
       std::cerr << funame << at - atom.begin() << "-th atom input failed\n";
+      
       throw Error::Input();
     } 
 
     switch(units) {
-    case ANGSTROM: 
+      //
+    case ANGSTROM:
+      //
       *at *= Phys_const::angstrom;
+      
       break;
+      
     case BOHR:
+      //
       break;
+      
     default:
+      //
       std::cerr << funame << "unknown units\n";
+      
       throw Error::Logic();
     }
   }
 
   // check interatomic distances
+  //
   for(int i = 0; i < atom.size(); ++i)
+    //
     for(int j = i + 1; j < atom.size(); ++j) {
+      //
       dtemp = vdistance(atom[i], atom[j]);
+      
       if(dtemp < atom_dist_min) {
-	std::cerr << funame << "the distance between the " 
-		  << i + 1 << " and " << j + 1 << "-th atoms = " 
+	//
+	std::cerr << funame << "the distance between the "
+	  //
+		  << i + 1 << " and " << j + 1 << "-th atoms = "
+	  //
 		  << dtemp << " bohr is less then " << atom_dist_min << " bohr: check the geometry\n";
+	
 	throw Error::Range();
       }
     }
+  
   // shift center of mass to zero
+  //
   shift_cm_to_zero(atom);
 }
 
@@ -2045,32 +2274,48 @@ SharedPointer<Model::Escape> Model::new_escape(IO::KeyBufferStream& from)
   KeyGroup NewEscapeModel;
 
   Key const_key("Constant");
-  Key   fit_key("Fit");
+  Key   fit_key("Fit"     );
   
   std::string token, comment;
+  
   while (from >> token) {
+    //
     // energy independent model
+    //
     if(const_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Escape>(new ConstEscape(from)); 
     }   
     // spline fit
+    //
     if(fit_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Escape>(new FitEscape(from)); 
     }   
     // unknown keyword
+    //
     if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       IO::log << std::flush;
+      
       throw Error::Init();
     }
   }  
 
   std::cerr << funame << "corrupted\n";
+  
   IO::log << std::flush;
+  
   throw Error::Input();
 }
 
@@ -2085,14 +2330,21 @@ SharedPointer<Model::Collision> Model::new_collision(IO::KeyBufferStream& from)
   
   std::string token, comment;
   while (from >> token) {
+    //
     // Lennard-Jones model
+    //
     if(lj_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Collision>(new LennardJonesCollision(from)); 
     }   
     // unknown keyword
+    //
     if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       std::cerr << "\n";
       IO::log << std::flush;
@@ -2101,7 +2353,9 @@ SharedPointer<Model::Collision> Model::new_collision(IO::KeyBufferStream& from)
   }  
 
   std::cerr << funame << "corrupted\n";
+  
   IO::log << std::flush;
+  
   throw Error::Input();
 }
 
@@ -2116,13 +2370,19 @@ SharedPointer<Model::Kernel> Model::new_kernel(IO::KeyBufferStream& from)
   
   std::string token, comment;
   while(from >> token) {
+    //
     // single exponential model
+    //
     if(exp_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Kernel>(new ExponentialKernel(from));
     }
     // unknown keyword
+    //
     if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
       Key::show_all(std::cerr);
       std::cerr << "\n";
@@ -2147,24 +2407,37 @@ SharedPointer<Model::Rotor> Model::new_rotor(IO::KeyBufferStream& from, const st
   Key umbr_key("Umbrella");
 
   std::string token, comment;
+  
   while(from >> token) {
+    //
     // hindered rotor model
+    //
     if(hind_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Rotor>(new HinderedRotor(from, atom));
     }
     // free rotor model
+    //
     if(free_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Rotor>(new FreeRotor(from, atom));
     }
     // umbrella mode model
+    //
     if(umbr_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Rotor>(new Umbrella(from, atom));
     }
-  // unknown keyword
+    // unknown keyword
+    //
     if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
       Key::show_all(std::cerr);
       std::cerr << "\n";
@@ -2174,7 +2447,9 @@ SharedPointer<Model::Rotor> Model::new_rotor(IO::KeyBufferStream& from, const st
   }
 
   std::cerr << funame << "corrupted\n";
+  
   IO::log << std::flush;
+  
   throw Error::Input();
 }
 
@@ -3963,9 +4238,9 @@ double Model::QuarticTunnel::action (double ener, int der) const
  ******************************** INTERNAL ROTATION DEFINITION ******************************
  ********************************************************************************************/
 
-void Model::InternalRotationBase::init (IO::KeyBufferStream& from) 
+void Model::InternalRotationDef::init (IO::KeyBufferStream& from) 
 {
-  const char funame [] = "Model::InternalRotationBase::init: ";
+  const char funame [] = "Model::InternalRotationDef::init: ";
 
   if(_isinit) {
     //
@@ -3976,7 +4251,7 @@ void Model::InternalRotationBase::init (IO::KeyBufferStream& from)
 
   _isinit = true;
 			   
-  KeyGroup InternalRotationBaseInit;
+  KeyGroup InternalRotationDefInit;
 
   Key group_key("Group"   );
   Key  axis_key("Axis"    );  
@@ -4102,15 +4377,15 @@ void Model::InternalRotationBase::init (IO::KeyBufferStream& from)
 
 }// Internal Rotation Base
 
-Model::InternalRotationBase::~InternalRotationBase ()
+Model::InternalRotationDef::~InternalRotationDef ()
 {
-  //IO::log << IO::log_offset << "Model::InternalRotationBase destroyed\n";
+  //IO::log << IO::log_offset << "Model::InternalRotationDef destroyed\n";
 }
 
 // rotating internal group around internal axis 
-std::vector<Atom> Model::InternalRotationBase::rotate (const std::vector<Atom>& atom, double angle) const
+std::vector<Atom> Model::InternalRotationDef::rotate (const std::vector<Atom>& atom, double angle) const
 {
-  const char funame [] = "Model::InternalRotationBase::rotate: ";
+  const char funame [] = "Model::InternalRotationDef::rotate: ";
 
   if(!_isinit) {
     std::cerr << funame << "not initialized\n";
@@ -4151,10 +4426,10 @@ std::vector<Atom> Model::InternalRotationBase::rotate (const std::vector<Atom>& 
 }
 
 // center of mass is assumed to be at zero
-std::vector<D3::Vector> Model::InternalRotationBase::normal_mode 
+std::vector<D3::Vector> Model::InternalRotationDef::normal_mode 
 (const std::vector<Atom>& atom, Lapack::Vector* avp) const
 {
-  const char funame [] = "Model::InternalRotationBase::normal_mode: ";
+  const char funame [] = "Model::InternalRotationDef::normal_mode: ";
 
   if(!_isinit) {
     std::cerr << funame << "not initialized\n";
@@ -4376,7 +4651,7 @@ void Model::Rotor::convolute(Array<double>& stat_grid, double ener_quant) const
  ********************************************************************************************/
 
 Model::RotorBase::RotorBase (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
-  :  Rotor(from, atom), InternalRotationBase(from)
+  :  Rotor(from, atom), InternalRotationDef(from)
 {
   const char funame [] = "Model::RotorBase::RotorBase: ";
 
@@ -4574,7 +4849,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
   // potential fourier expansions
   //
-  std::vector<std::map<int, double> > pot_four;
+  std::vector<Array<double> > pot_four;
 
   // reference frequencies
   //
@@ -4582,7 +4857,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
   
   // adiabatic frequencies fourier expansions
   //
-  std::vector<std::vector<std::map<int, double> > > freq_four;
+  std::vector<std::vector<Array<double> > > freq_four;
   
   // interpolation energy limit
   //
@@ -4692,9 +4967,9 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
 	// potential sampling
 	//
-	std::vector<double> pval(itemp);
-
-	for(int i = 0; i < pval.size(); ++i) {
+	pot_four[r].resize(itemp);
+	
+	for(int i = 0; i < pot_four[r].size(); ++i) {
 	  //
 	  if(!(from >> dtemp)) {
 	    //
@@ -4723,38 +4998,18 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 	    dtemp *= Phys_const::kjoul;
 
 	  
-	  pval[i] = dtemp;
+	  pot_four[r][i] = dtemp;
 	}
       
 	std::getline(from, comment);
       
 	// fourier transform
 	//
-	itemp = pval.size() % 2 ? pval.size() : pval.size() + 1;
-      
-	for(int i = 0; i < itemp; ++i)
-	  //
-	  for(int j = 0; j < pval.size(); ++j)
-	    //
-	    if(i % 2) {
-	      //
-	      pot_four[r][i] += pval[j] * std::sin(M_PI * double((i + 1)  * j) / double(pval.size()));
-	    }
-	    else
-	      //
-	      pot_four[r][i] += pval[j] * std::cos(M_PI * double(i * j) / double(pval.size()));
+	Math::DirectFFT fft(pot_four[r].size());
 
-	// normalization
-	//
-	for(int i = 0; i < pot_four[r].size(); ++i)
-	  //
-	  if(!i || i == pval.size()) {
-	    //
-	    pot_four[r][i] /= double(pval.size());
-	  }
-	  else
-	    //
-	    pot_four[r][i] /= double(pval.size()) / 2.;
+	fft(pot_four[r]);
+
+	Math::DirectFFT::normalize(pot_four[r]);
       }
     }
     // frequencies on the grid
@@ -4770,7 +5025,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
       std::getline(from, comment);
 
-      freq_four.push_back(std::vector<std::map<int, double> >(internal_rotation.size()));
+      freq_four.push_back(std::vector<Array<double> >(internal_rotation.size()));
   
       for(int r = 0; r < internal_rotation.size(); ++r) {
 	//
@@ -4794,20 +5049,24 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
 	//  sampling
 	//
-	std::vector<double> pval(itemp);
+	freq_four.back()[r].resize(itemp);
 	
-	for(int i = 0; i < pval.size(); ++i) {
+	for(int i = 0; i < freq_four.back()[r].size(); ++i) {
 	  //
 	  if(!(from >> dtemp)) {
 	    //
-	    std::cerr << funame << token << ": cannot read (" << freq_four.size() << ", " << r + 1 << ", " << i + 1 << ") frequency\n";
+	    std::cerr << funame << token << ": cannot read (" << freq_four.size() << ", "
+	      //
+		      << r + 1 << ", " << i + 1 << ") frequency\n";
 
 	    throw Error::Input();
 	  }
 
 	  if(dtemp <= 0.) {
 	    //
-	    std::cerr << funame << token << ":  (" << freq_four.size() << ", " << r + 1 << ", " << i + 1 << ") frequency not positive\n";
+	    std::cerr << funame << token << ":  (" << freq_four.size() << ", " << r + 1 << ", "
+	      //
+		      << i + 1 << ") frequency not positive\n";
 
 	    throw Error::Input();
 	  }
@@ -4822,43 +5081,25 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
 	  if(r && !i && dtemp != ref_freq.back()) {
 	    //
-	    std::cerr << funame << ref_freq.size() + 1 << "-th adiabatic frequency : first frequency value in all profiles should be the same\n";
+	    std::cerr << funame << ref_freq.size() + 1
+	      //
+		      << "-th adiabatic frequency : first frequency value in all profiles should be the same\n";
 
 	    throw Error::Range();
 	  }
 	  
-	  pval[i] = dtemp - ref_freq.back();
+	  freq_four.back()[r][i] = dtemp - ref_freq.back();
 	}
       
 	std::getline(from, comment);
 
 	// fourier transform
 	//
-	itemp = pval.size() % 2 ? pval.size() : pval.size() + 1;
-      
-	for(int i = 0; i < itemp; ++i)
-	  //
-	  for(int j = 0; j < pval.size(); ++j)
-	    //
-	    if(i % 2) {
-	      //
-	      freq_four.back()[r][i] += pval[j] * std::sin(M_PI * double((i + 1)  * j) / double(pval.size()));
-	    }
-	    else
-	      //
-	      freq_four.back()[r][i] += pval[j] * std::cos(M_PI * double(i * j) / double(pval.size()));
+	Math::DirectFFT fft(freq_four.back()[r].size());
 
-	// normalization
-	//
-	for(int i = 0; i < freq_four.back()[r].size(); ++i)
-	  //
-	  if(!i || i == pval.size()) {
-	    //
-	    freq_four.back()[r][i] /= double(pval.size());
-	  }
-	  else
-	    //
-	    freq_four.back()[r][i] /= double(pval.size()) / 2.;
+	fft(freq_four.back()[r]);
+
+	Math::DirectFFT::normalize(freq_four.back()[r]);
       }
     }
     // extrapolation step
@@ -5123,14 +5364,19 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
       for(int r = 0; r < internal_rotation.size(); ++r) {
 	//
-	std::map<int, double> eff_pot_four = pot_four[r];
+	std::vector<double> eff_pot_four = pot_four[r];
 
-	for(int f = 0; f < freq_four.size(); ++f)
+	for(int f = 0; f < freq_four.size(); ++f) {
 	  //
-	  for(std::map<int, double>::const_iterator cit = freq_four[f][r].begin(); cit != freq_four[f][r].end(); ++cit)
+	  if(freq_four[f][r].size() > eff_pot_four.size())
 	    //
-	    eff_pot_four[cit->first] += cit->second * (vib_state[v][f] + 0.5);
-
+	    eff_pot_four.resize(freq_four[f][r].size());
+	
+	  for(int i = 0; i < freq_four[f][r].size(); ++i)
+	    //
+	    eff_pot_four[i] += freq_four[f][r][i] * (vib_state[v][f] + 0.5);
+	}
+	
 	itemp = 0;
       
 	if(_flags & NOPRINT)
@@ -5267,19 +5513,22 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 	  //
 	  for(int r = 0; r < internal_rotation.size(); ++r)
 	    //
-	    for(std::map<int, double>::const_iterator cit = freq_four[f][r].begin(); cit != freq_four[f][r].end(); ++cit)
+	    for(int i = 0; i < freq_four[f][r].size(); ++i) {
 	      //
-	      if(!cit->first) {
+	      dtemp = freq_four[f][r][i];
+	      
+	      if(!i) {
 		//
-		loc_freq[f]  += cit->second;
+		loc_freq[f]  += dtemp;
 	      }
-	      else if(cit->first % 2) {
+	      else if(i % 2) {
 		//
-		loc_freq[f] += cit->second * std::sin((cit->first + 1) / 2 * angle_pos[r]);
+		loc_freq[f] += dtemp * std::cos((i + 1) / 2 * angle_pos[r]);
 	      }
 	      else
 		//
-		loc_freq[f] += cit->second * std::cos(cit->first / 2 * angle_pos[r]);
+		loc_freq[f] += dtemp * std::sin(i / 2 * angle_pos[r]);
+	    }
 
 	// local ground energy
 	//
@@ -5291,19 +5540,19 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
 	for(int r = 0; r < internal_rotation.size(); ++r)
 	  //
-	  for(std::map<int, double>::const_iterator cit = pot_four[r].begin(); cit != pot_four[r].end(); ++cit)
+	  for(int i = 0; i < pot_four[r].size(); ++i)
 	    //
-	    if(!cit->first) {
+	    if(!i) {
 	      //
-	      loc_ground += cit->second;
+	      loc_ground += pot_four[r][i];
 	    }
-	    else if(cit->first % 2) {
+	    else if(i % 2) {
 	      //
-	      loc_ground += cit->second * std::sin((cit->first + 1) / 2 * angle_pos[r]);
+	      loc_ground += pot_four[r][i] * std::cos((i + 1) / 2 * angle_pos[r]);
 	    }
 	    else
 	      //
-	      loc_ground += cit->second * std::cos(cit->first / 2 * angle_pos[r]);
+	      loc_ground += pot_four[r][i] * std::sin(i / 2 * angle_pos[r]);
 
 	// local states
 	//
@@ -5368,6 +5617,8 @@ int Model::HinderedRotor::weight_output_temperature_max  = 1000;
 int Model::HinderedRotor::weight_output_temperature_step = 100;
 
 double Model::HinderedRotor::weight_thres = 10.;
+
+double Model::HinderedRotor::min_ang_step = 1.;
 
 void Model::HinderedRotor::convolute(Array<double>& stat_grid, double ener_quant) const
 {
@@ -5435,9 +5686,9 @@ void Model::HinderedRotor::convolute(Array<double>& stat_grid, double ener_quant
   stat_grid = new_stat_grid; 
 }
 
-Model::HinderedRotor::HinderedRotor (const RotorBase& r, const std::map<int, double>& p, int f)
+Model::HinderedRotor::HinderedRotor (const RotorBase& r, const std::vector<double>& p, int f)
   //
-  : RotorBase(r), _pot_four(p), _flags(f), _ener_max(-1.)
+  : RotorBase(r), _pot_four(p), _flags(f), _ener_max(-1.), _use_akima(true), _use_slatec(false)
 {
   const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
 
@@ -5452,9 +5703,9 @@ Model::HinderedRotor::HinderedRotor (const RotorBase& r, const std::map<int, dou
   _init();
 }
 
-Model::HinderedRotor::HinderedRotor (const std::map<int, double>& p, double r, int s, int f)
+Model::HinderedRotor::HinderedRotor (const std::vector<double>& p, double r, int s, int f)
   //
-  : RotorBase(r, s), _pot_four(p), _flags(f), _ener_max(-1.)
+  : RotorBase(r, s), _pot_four(p), _flags(f), _ener_max(-1.), _use_akima(true), _use_slatec(false)
 {
   const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
 
@@ -5471,7 +5722,7 @@ Model::HinderedRotor::HinderedRotor (const std::map<int, double>& p, double r, i
 
 Model::HinderedRotor::HinderedRotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom, int f)
   //
-  : RotorBase(from, atom), _flags(f), _ener_max(-1.)
+  : RotorBase(from, atom), _flags(f), _ener_max(-1.), _use_akima(true), _use_slatec(false)
 {
   const char funame [] = "Model::HinderedRotor::HinderedRotor: ";
 
@@ -5485,6 +5736,612 @@ Model::HinderedRotor::HinderedRotor (IO::KeyBufferStream& from, const std::vecto
 
   _read(from);
   _init();
+}
+
+const Model::HinderedRotor::_Potential::_KeyType Model::HinderedRotor::_Potential::_key_type;
+
+int Model::HinderedRotor::_Potential::_KeyType::find (const std::string& key) const
+{
+  const_iterator cit = std::map<std::string, int>::find(key);
+
+  if(cit != end())
+    //
+    return cit->second;
+
+  return -1;
+}
+
+void Model::HinderedRotor::_Potential::_KeyType::print_keys (std::ostream& to) const
+{
+  for(const_iterator cit = begin(); cit != end(); ++cit) {
+    //
+    if(cit != begin())
+      //
+      to << ", ";
+
+    to << cit->first;
+  }
+
+  to << "\n";
+}
+
+// <m|f(p)|n> for m, n, and p harmonics. cos correspond to odd numbers, sin - to even ones
+//
+int Model::HinderedRotor::_rotation_matrix_element (int m, int n, int p, double& fac)
+{
+  if(!p) {
+    //
+    if(n == m) {
+      //
+      return 1;
+    }
+    
+    return 0;
+  }
+  
+  if(!m) {
+    //
+    if(n == p) {
+      //
+      fac /= M_SQRT2;
+
+      return 1;
+    }
+
+    return 0;
+  }
+  
+
+  if(!n) {
+    //
+    if(m == p) {
+      //
+      fac /= M_SQRT2;
+
+      return 1;
+    }
+
+    return 0;
+  }
+  
+  // all three fourier harmonics are cosines
+  //
+  if(m % 2 + n % 2 + p % 2 == 3) {
+    //
+    if(m + n + 1 == p || m + p + 1 == n || n + p + 1 == m) {
+      //
+      fac /= 2.;
+
+      return 1;
+    }
+
+    return 0;
+  }
+
+  // two fourier harmonics are sines and  one is cosine
+  //
+  if(m % 2 + n % 2 + p % 2 == 1) {
+    //
+    if(m % 2) {
+      //
+      std::swap(m, p);
+    }
+
+    if(n % 2) {
+      //
+      std::swap(n, p);
+    }
+
+    if(m == n + p + 1 || n == m + p + 1) {
+      //
+      fac /= 2.;
+
+      return 1;
+    }
+
+    if(p + 1 == m + n) {
+      //
+      fac /= -2.;
+
+      return 1;
+    }
+
+    return 0;
+  }
+  
+  return 0;
+}
+
+void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s) 
+{
+  const char funame [] = "Model::HinderedRotor::_Potential::init: ";
+
+  int           itemp;
+  double        dtemp;
+  std::string   stemp;
+  Array<double> vtemp;
+  
+  IO::Marker funame_marker(funame);
+
+  _isinit = true;
+
+  if(s < 1) {
+    //
+    std::cerr << funame << "wrong symmetry: " << s << "\n";
+
+    throw Error::Range();
+  }
+  
+  _symm = s;
+
+  IO::LineInput lin(from);
+
+  std::string token, comment;
+
+  if(!(lin >> stemp)) {
+    //
+    std::cerr << funame << "cannot read potential type\n";
+
+    throw Error::Input();
+  }
+
+  _type = _key_type.find(stemp);
+
+  if (_type < 0) {
+    //
+    std::cerr << funame << "unknown potential type: " << stemp << "\n"
+	      << "available types: ";
+
+    _key_type.print_keys(std::cerr);
+
+    throw Error::Range();
+  }
+
+  int data_size;
+
+  if(!(lin >> data_size)) {
+    //
+    std::cerr << funame << "cannot read data size\n";
+
+    throw Error::Input();
+  }
+
+  if(data_size <= 0) {
+    //
+    std::cerr << funame << "data size out of range: " << data_size << "\n";
+
+    throw Error::Range();
+  }
+
+  std::string energy_unit;
+
+  if(!(lin >> energy_unit))
+    //
+    energy_unit = "kcal/mol";
+  
+  // read data
+  //
+  std::vector<double> ang_val;
+
+  std::map<double, double> pot_map;
+
+  const double ang_max = 360. / symmetry();
+  
+  switch(type()) {
+    //
+  case FOURIER_EXPANSION:
+
+    _fourier.resize(data_size);
+
+    for(int i = 0; i < _fourier.size(); ++i) {
+      //
+      if(!(from >> dtemp)) {
+	//
+	std::cerr << funame << "cannot read " << i+1 << "data point\n";
+
+	throw Error::Input();
+      }
+
+      _fourier[i] = dtemp * Phys_const::str2fac(energy_unit);
+    }
+    
+    break;
+
+  default:
+    //
+    ang_val.resize(data_size);
+
+    for(int i = 0; i < ang_val.size(); ++i) {
+      //
+      if(!(from >> dtemp)) {
+	//
+	std::cerr << funame << "cannot read " << i+1 <<"-th angle\n";
+
+	throw Error::Input();
+      }
+
+      dtemp /= ang_max;
+	
+      if(!i && dtemp != 0.) {
+	//
+	dtemp = dtemp < 0. ? -dtemp: dtemp;
+
+	if(dtemp > 1.e-10) {
+	  //
+	  std::cerr << funame << "first point argument should be 0: " << dtemp << "\n";
+	  
+	  throw Error::Range();
+	}
+
+	dtemp = 0.;
+      }
+	  
+      if(dtemp < 0. || dtemp >= 1.) {
+	//
+	IO::log << IO::log_offset << "WARNING: "<< i + 1
+	  //
+		<< "-th angle is beyond the default angular range: [0 - " 
+	  //
+		<< ang_max  << "]: the shift is applied\n";
+	
+	dtemp -= std::floor(dtemp);
+      }
+
+      ang_val[i] = dtemp;
+    }
+      
+    for(int i = 0; i < ang_val.size(); ++i) {
+      //
+      if(!(from >> dtemp)) {
+	//
+	std::cerr << funame << "cannot read " << i+1 <<"-th energy value\n";
+
+	throw Error::Input();
+      }
+
+      if(pot_map.find(ang_val[i]) != pot_map.end()) {
+	//
+	std::cerr << funame << "duplicated argument: " << ang_val[i] * ang_max << "\n";
+
+	throw Error::Range();
+      }
+	  
+      pot_map[ang_val[i]] = dtemp * Phys_const::str2fac(energy_unit);
+    }
+
+    std::getline(from, comment);
+
+    for(std::map<double, double>::const_iterator cit = pot_map.begin(); cit != pot_map.end(); ++cit) {
+      //
+      if(cit != pot_map.begin() && cit->first - dtemp < min_ang_step / ang_max) {
+	//
+	std::cerr << funame << "successive angles are too close: "
+	  //
+		  << dtemp * ang_max << ", " << cit->first * ang_max << "\n";
+	
+	throw Error::Range();
+      }
+
+      dtemp = cit->first;
+    }
+
+    if(1. - pot_map.rbegin()->first + pot_map.begin()->first < min_ang_step / ang_max) {
+      //
+      std::cerr << funame << "boundary angles are too close: "
+	//
+		<< pot_map.begin()->first * ang_max << ", " << pot_map.rbegin()->first * ang_max << "\n";
+	  
+      throw Error::Range();
+    }
+      
+    if(pot_map.begin()->first != 0.) {
+      //
+      std::cerr << funame << "lower bound out of range: " << pot_map.begin()->first << "\n";
+
+      throw Error::Range();
+    }
+
+    if(type() == C_SPLINE || type() == AKIMA_SPLINE) {
+      //
+      dtemp = pot_map.begin()->second;
+
+      pot_map[1.] = dtemp;
+
+      itemp = Math::Spline::PERIODIC;
+	
+      if(type() == AKIMA_SPLINE)
+	//
+	itemp |= Math::Spline::AKIMA;
+	  
+      _spline.init(pot_map, itemp);
+    }
+  }
+  
+  KeyGroup HinderedRotorPotential;
+
+  Key  four_key("FourierExpansionSize");
+  
+  Key print_key("PrintPotential"      );
+
+  while(from >> token) {
+    //
+    // input end
+    //
+    if(IO::end_key() == token) {
+      //
+      std::getline(from, comment);
+
+      break;
+    }
+    // Fourier expansion size
+    //
+    else if(four_key == token) {
+      //
+      if(_fourier.size()) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+
+	throw Error::Range();
+      }
+      
+      if(!(from >> itemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(itemp < 3) {
+	//
+	std::cerr << funame << token << ": out of range: " << itemp << "\n";
+
+	throw Error::Range();
+      }
+
+      _fourier.resize(itemp % 2 ? itemp : itemp - 1);
+    }
+    // print potential
+    //
+    else if(print_key == token) {
+      //
+      lin.read_line(from);
+
+      if(!(lin >> _print_pot_size))
+	//
+	_print_pot_size = 100;
+
+      if(_print_pot_size < 0) {
+	//
+	std::cerr << funame << token << ": out of range: " << _print_pot_size << "\n";
+
+	throw Error::Range();
+      }
+    }
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      Key::show_all(std::cerr);
+      
+      std::cerr << "\n";
+      
+      throw Error::Init();
+    }
+    //
+  }// input cycle
+
+  if(!from) {
+    //
+    std::cerr << funame << "stream is corrupted\n";
+
+    throw Error::Input();
+  }
+
+  // Fourier coefficients
+  //
+  switch(type()) {
+    //
+  case FOURIER_EXPANSION:
+    //
+    if(!_fourier.size()) {
+      //
+      std::cerr << funame << "no sampling data\n";
+
+      throw Error::Init();
+    }
+    else {
+      //
+      // fourier transform
+      //
+      Math::DirectFFT fft(_fourier.size());
+
+      fft(_fourier);
+
+      Math::DirectFFT::normalize(_fourier);
+    }
+    
+    break;
+
+  case FOURIER_FIT:
+    //
+    std::cerr << funame << "not implemented yet, sorry\n";
+
+    throw Error::Init();
+    
+    // spline
+    //
+  default:
+    //
+    if(!_fourier.size())
+      //
+      break;
+
+    itemp = 2;
+
+    while(itemp < _fourier.size())
+      //
+      itemp *= 2;
+    
+    vtemp.resize(itemp);
+
+    for(int i = 0; i < vtemp.size(); ++i)
+      //
+      vtemp[i] = _spline((double)i / (double)vtemp.size());
+
+    gsl_fft_real_radix2_transform(vtemp, 1, vtemp.size());
+
+    _fourier[0] = vtemp[0] / vtemp.size();
+    
+    dtemp = vtemp.size() / 2;
+
+    for(int i = 1; i < _fourier.size(); ++i)
+      //
+      if(i % 2) {
+	//
+	_fourier[i] = vtemp[(i + 1) / 2] / dtemp;
+      }
+      else
+	//
+	_fourier[i] = -vtemp[vtemp.size() - i / 2] / dtemp;
+  }
+
+  // print potential
+  //
+  if(_print_pot_size) {
+    //
+    IO::log << IO::log_offset
+      //
+	    << std::setw(13) << "angle";
+
+    if(_spline.isinit())
+      //
+      IO::log << std::setw(13) << "V/Spl";
+
+    if(_fourier.size())
+      //
+      IO::log << std::setw(13) << "V/Four";
+	
+    IO::log << "\n" << IO::log_offset
+      //
+	    << std::setw(13) << "deg";
+    
+    if(_spline.isinit())
+      //
+      IO::log << std::setw(13) << energy_unit;
+
+    if(_fourier.size())
+      //
+      IO::log << std::setw(13) << energy_unit;
+
+    IO::log << "\n";
+
+    for(int i = 0; i < _print_pot_size; ++i) {
+      //
+      double x = (double)i / (double)_print_pot_size;
+
+      IO::log << IO::log_offset
+	//
+	      << std::setw(13) << std::floor(1000. * ang_max * x) / 1000.;
+
+      dtemp = 2. * M_PI / symmetry() * x;
+      
+      if(_spline.isinit())
+	//
+	IO::log << std::setw(13) << std::floor(1000. * _spline_value(dtemp) / Phys_const::str2fac(energy_unit)) / 1000.;
+
+      if(_fourier.size())
+	//
+	IO::log << std::setw(13) << std::floor(1000. * _fourier_value(dtemp) / Phys_const::str2fac(energy_unit)) / 1000.;
+	  
+      IO::log << "\n";
+    }//
+    //
+  }//print potential
+  //
+}//
+
+double Model::HinderedRotor::_Potential::operator() (double angle, int der) const
+{
+  if(type() == AKIMA_SPLINE || type() == C_SPLINE)
+    //
+    return _spline_value(angle, der);
+
+  return _fourier_value(angle, der);
+}
+
+double Model::HinderedRotor::_Potential::_spline_value (double angle, int der) const
+{
+  const char funame [] = "Model::HinderedRotor::_Potential::_spline_value: ";
+
+  if(!_spline.isinit()) {
+    //
+    std::cerr << funame << "spline not initialized\n";
+
+    throw Error::Init();
+  }
+
+  const double ang_max =  2. * M_PI / symmetry();
+
+  if(der) {
+    //
+    return _spline(angle / ang_max, der) / std::pow(ang_max, der);
+  }
+  else
+    //
+    return _spline(angle / ang_max);
+}
+
+double Model::HinderedRotor::_Potential::_fourier_value (double angle, int der) const
+{
+  const char funame [] = "Model::HinderedRotor::_Potential::_fourier_value: ";
+  
+  if(!_fourier.size()) {
+    //
+    std::cerr << funame << "Fourier expansion is not initialized\n";
+
+    throw Error::Init();
+  }
+  
+  double dtemp;
+  int    itemp;
+
+  double res = 0.;
+
+  if(!der)
+    //
+    res = _fourier[0];
+
+  for(int i = 1; i < _fourier.size(); ++i) {
+    //
+    dtemp = _fourier[i];
+
+    itemp = (i + 1) / 2 * symmetry();
+    
+    if(der)
+      //
+      dtemp *= std::pow(itemp, der);
+      
+    if((i + der) % 2) {
+      //
+      dtemp *= std::cos(itemp * angle);
+    }
+    else
+      //
+      dtemp *= std::sin(itemp * angle);
+
+
+    if((der + i % 2) / 2 % 2) {
+      //
+      res -= dtemp;
+    }
+    else
+      //
+      res += dtemp;
+  }
+
+  return res;
 }
 
 void Model::HinderedRotor::_read(IO::KeyBufferStream& from) 
@@ -5504,13 +6361,14 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
   KeyGroup HinderedRotorModel;
 
+  Key  pot_key("Potential");
+  
   Key  kcal_pot_key("Potential[kcal/mol]"       );
   Key  incm_pot_key("Potential[1/cm]"           );
   Key    kj_pot_key("Potential[kJ/mol]"         );
+  Key    slatec_key("UseSlatecSpline"           );
+  Key   cspline_key("UseCSpline"                );
   Key kcal_pspl_key("PotentialSpline[kcal/mol]" );
-  Key kcal_four_key("FourierExpansion[kcal/mol]");
-  Key incm_four_key("FourierExpansion[1/cm]"    );
-  Key   kj_four_key("FourierExpansion[kJ/mol]"  );
   Key kcal_emax_key("LevelEnergyMax[kcal/mol]"  );
   
   std::string token, line, comment;
@@ -5524,6 +6382,38 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       std::getline(from, comment);
 
       break;
+    }
+    // potential
+    //
+    else if(pot_key == token) {
+      //
+      _pot.init(from, symmetry());
+    }
+    // use Slatec spline code instead of GSL
+    //
+    else if(slatec_key == token) {
+      //
+      if(_pot_four.size()) {
+	//
+	std::cerr << funame << token << ": should be BEFORE potential definition\n";
+
+	throw Error::Init();
+      }
+      
+      _use_slatec = true;
+    }
+    // use c-spline instead of Akima spline
+    //
+    else if(cspline_key == token) {
+      //
+      if(_pot_four.size()) {
+	//
+	std::cerr << funame << token << ": should be BEFORE potential definition\n";
+
+	throw Error::Init();
+      }
+      
+      _use_akima = false;
     }
     // Maximal level energy
     //
@@ -5565,9 +6455,11 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	throw Error::Init();
       }
 
+      IO::LineInput lin(from);
+      
       // potential sampling size
       //
-      if(!(from >> itemp)) {
+      if(!(lin >> itemp)) {
 	//
 	std::cerr << funame << token << ": potential sampling size unreadable\n";
 
@@ -5576,127 +6468,364 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       
       if(itemp < 3) {
 	//
-	std::cerr << funame << token << ": potential spline size = " << itemp << " too small\n";
+	std::cerr << funame << token << ": potential spline size, " << itemp << ", is too small\n";
 
 	throw Error::Range();
       }
 
-      std::getline(from, comment);
-
       std::vector<double> ang_val(itemp);
 
+      // potential expansion size (optional)
+      //
+      if(lin >> itemp) {
+	//
+	if(itemp <= 0) {
+	  //
+	  std::cerr << funame << token << ": potential expansion size, " << itemp << ", is out of range\n";
+
+	  throw Error::Range();
+	}
+
+	if(!(itemp % 2))
+	  //
+	  ++itemp;
+      }
+      else
+	//
+	itemp = _ham_size_min;
+      
+      _pot_four.resize(itemp);
+
+      const double ang_max = 360. / symmetry();
+      
       // potential sampling
       //
       std::map<double, double> pot_map;
+
+      Slatec::Spline slatec_spl;
+
+      Math::Spline   gsl_spl;
       
-      const double ang_max = 360. / symmetry();
-      
-      for(int i = 0; i < ang_val.size(); ++i) {
+      double pot_min_val;
+
+      if(_use_slatec) {
 	//
-	if(!(from >> dtemp)) {
+	for(int i = 0; i < ang_val.size(); ++i) {
 	  //
-	  std::cerr << funame << token << ": cannot read " << i+1 <<"-th angle\n";
-
-	  throw Error::Input();
-	}
-
-	dtemp /= ang_max;
-	
-	if(dtemp < 0. || dtemp >= 1.) {
-	  //
-	  std::cerr << funame << token << ": WARNING: "<< i + 1
+	  if(!(from >> dtemp)) {
 	    //
-		    << "-th angle is beyond the default angular range: [0-"
+	    std::cerr << funame << token << ": cannot read " << i+1 <<"-th angle\n";
+
+	    throw Error::Input();
+	  }
+
+	  dtemp /= ang_max;
+	
+	  if(dtemp < -0.5 || dtemp >= 0.5) {
 	    //
-		    << ang_max << "]: the shift is applied\n";
+	    IO::log << IO::log_offset << "WARNING: "<< i + 1
+	      //
+		    << "-th angle is beyond the default angular range: [" << -ang_max / 2. << " - "
+	      //
+		    << ang_max / 2. << "]: the shift is applied\n";
 
-	  dtemp -= std::floor(dtemp);
+	    dtemp -= std::floor(dtemp);
+
+	    if(dtemp >= 0.5)
+	      //
+	      dtemp -= 1.;
+	  }
+
+	  ang_val[i] = dtemp;
 	}
-
-	ang_val[i] = dtemp;
-      }
       
-      for(int i = 0; i < ang_val.size(); ++i) {
-	//
-	if(!(from >> dtemp)) {
+	for(int i = 0; i < ang_val.size(); ++i) {
 	  //
-	  std::cerr << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
+	  if(!(from >> dtemp)) {
+	    //
+	    std::cerr << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
 
-	  throw Error::Input();
+	    throw Error::Input();
+	  }
+
+	  if(pot_map.find(ang_val[i]) != pot_map.end()) {
+	    //
+	    std::cerr << funame << token << ": duplicated argument: " << ang_val[i] * ang_max << "\n";
+
+	    throw Error::Range();
+	  }
+	  
+	  pot_map[ang_val[i]] = dtemp * Phys_const::kcal;
 	}
 
-	pot_map[ang_val[i]] = dtemp * Phys_const::kcal;
-      }
+	std::getline(from, comment);
 
-      std::getline(from, comment);
+	for(std::map<double, double>::const_iterator cit = pot_map.begin(); cit != pot_map.end(); ++cit) {
+	  //
+	  if(cit != pot_map.begin() && cit->first - dtemp < 1.e-3) {
+	    //
+	    std::cerr << funame << token << ": successive angles are too close: "
+	      //
+		      << dtemp * ang_max << ", " << cit->first * ang_max << "\n";
+
+	    throw Error::Range();
+	  }
+
+	  dtemp = cit->first;
+	}
+
+	if(1. - pot_map.rbegin()->first + pot_map.begin()->first < 1.e-3) {
+	  //
+	  std::cerr << funame << token << ": end angles are too close: "
+	    //
+		    << pot_map.begin()->first * ang_max << ", " << pot_map.rbegin()->first * ang_max << "\n";
+	  
+	  throw Error::Range();
+	}
       
-      const int offset = 2;
+	const int offset = 2;
       
-      itemp = pot_map.size() + 2 * offset;
+	itemp = pot_map.size() + 2 * offset;
 
-      Array<double> x(itemp), y(itemp);
+	Array<double> x(itemp), y(itemp);
 
-      int count = 0;
+	int count = 0;
 
-      for(std::map<double, double>::const_reverse_iterator rit = pot_map.rbegin(); count < offset; ++rit, ++count) {
-	//
-	itemp = offset - count - 1;
+	for(std::map<double, double>::const_reverse_iterator rit = pot_map.rbegin(); count < offset; ++rit, ++count) {
+	  //
+	  itemp = offset - count - 1;
 	
-	x[itemp] = rit->first - 1.;
+	  x[itemp] = rit->first - 1.;
 	
-	y[itemp] = rit->second;
-      }
+	  y[itemp] = rit->second;
+	}
       
-      for(std::map<double, double>::const_iterator fit = pot_map.begin(); fit != pot_map.end(); ++fit, ++count) {
-	//
-	x[count] = fit->first;
+	for(std::map<double, double>::const_iterator fit = pot_map.begin(); fit != pot_map.end(); ++fit, ++count) {
+	  //
+	  x[count] = fit->first;
 	
-	y[count] = fit->second;
-      }
+	  y[count] = fit->second;
+	}
       
-      for(std::map<double, double>::const_iterator fit = pot_map.begin(); count < x.size(); ++fit, ++count) {
-	//
-	x[count] = fit->first + 1.;
+	for(std::map<double, double>::const_iterator fit = pot_map.begin(); count < x.size(); ++fit, ++count) {
+	  //
+	  x[count] = fit->first + 1.;
 	
-	y[count] = fit->second;
-      }
+	  y[count] = fit->second;
+	}
       
-      Slatec::Spline sp(x, y, x.size());
+	slatec_spl.init(x, y, x.size());
 
-      Array<double> pval(_ham_size_min);
+	for(int i = 0; i < _pot_four.size(); ++i) {
+	  //
+	  dtemp  = (double)i / (double)_pot_four.size();
 
-      for(int i = 0; i < pval.size(); ++i)
+	  if(dtemp >= 0.5)
+	    //
+	    dtemp -= 1.;
+	
+	  dtemp = slatec_spl(dtemp);
+
+	  if(!i || dtemp < pot_min_val)
+	    //
+	    pot_min_val = dtemp;
+	
+	  if(dtemp < -0.1 * Phys_const::kcal) {
+	    //
+	    _pot_four[i] = -0.1 * Phys_const::kcal;
+	  }
+	  else {
+	    //
+	    _pot_four[i] = dtemp;
+	  }
+	}
+      }
+      // use GSL spline
+      //
+      else {
 	//
-	pval[i] = sp((double)i/(double)pval.size());
+	for(int i = 0; i < ang_val.size(); ++i) {
+	  //
+	  if(!(from >> dtemp)) {
+	    //
+	    std::cerr << funame << token << ": cannot read " << i+1 <<"-th angle\n";
+
+	    throw Error::Input();
+	  }
+
+	  dtemp /= ang_max;
+	
+	  if(!i && dtemp != 0.) {
+	    //
+	    dtemp = dtemp < 0. ? -dtemp: dtemp;
+
+	    if(dtemp > 1.e-10) {
+	      //
+	      std::cerr << funame << token << ": first point argument should be 0: " << dtemp << "\n";
+													      
+	      throw Error::Range();
+	    }
+
+	    dtemp = 0.;
+	  }
+	  
+	  if(dtemp < 0. || dtemp >= 1.) {
+	    //
+	    IO::log << IO::log_offset << "WARNING: "<< i + 1
+	      //
+		    << "-th angle is beyond the default angular range: [0 - " 
+	      //
+		    << ang_max  << "]: the shift is applied\n";
+
+	    dtemp -= std::floor(dtemp);
+	  }
+
+	  ang_val[i] = dtemp;
+	}
+      
+	for(int i = 0; i < ang_val.size(); ++i) {
+	  //
+	  if(!(from >> dtemp)) {
+	    //
+	    std::cerr << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
+
+	    throw Error::Input();
+	  }
+
+	  if(pot_map.find(ang_val[i]) != pot_map.end()) {
+	    //
+	    std::cerr << funame << token << ": duplicated argument: " << ang_val[i] * ang_max << "\n";
+
+	    throw Error::Range();
+	  }
+	  
+	  pot_map[ang_val[i]] = dtemp * Phys_const::kcal;
+	}
+
+	std::getline(from, comment);
+
+	for(std::map<double, double>::const_iterator cit = pot_map.begin(); cit != pot_map.end(); ++cit) {
+	  //
+	  if(cit != pot_map.begin() && cit->first - dtemp < 1.e-3) {
+	    //
+	    std::cerr << funame << token << ": successive angles are too close: "
+	      //
+		      << dtemp * ang_max << ", " << cit->first * ang_max << "\n";
+
+	    throw Error::Range();
+	  }
+
+	  dtemp = cit->first;
+	}
+
+	if(1. - pot_map.rbegin()->first + pot_map.begin()->first < 1.e-3) {
+	  //
+	  std::cerr << funame << token << ": end angles are too close: "
+	    //
+		    << pot_map.begin()->first * ang_max << ", " << pot_map.rbegin()->first * ang_max << "\n";
+	  
+	  throw Error::Range();
+	}
+      
+	if(pot_map.begin()->first != 0.) {
+	  //
+	  std::cerr << funame << token << ": lower bound out of range: " << pot_map.begin()->first << "\n";
+
+	  throw Error::Range();
+	}
+
+	dtemp = pot_map.begin()->second;
+
+	pot_map[1.] = dtemp;
+
+	itemp = Math::Spline::PERIODIC;
+	
+	if(_use_akima)
+	  //
+	  itemp |= Math::Spline::AKIMA;
+	  
+	gsl_spl.init(pot_map, itemp);
+
+	// discretization
+	//
+	for(int i = 0; i < _pot_four.size(); ++i) {
+	  //
+	  dtemp  = (double)i / (double)_pot_four.size();
+
+	  dtemp = gsl_spl(dtemp);
+
+	  if(!i || dtemp < pot_min_val)
+	    //
+	    pot_min_val = dtemp;
+	
+	  if(dtemp < -0.1 * Phys_const::kcal) {
+	    //
+	    _pot_four[i] = -0.1 * Phys_const::kcal;
+	  }
+	  else {
+	    //
+	    _pot_four[i] = dtemp;
+	  }
+	}
+      }
+      
+      IO::log << IO::log_offset << "potential spline minimal value[kcal/mol] = "
+	//
+	      << pot_min_val / Phys_const::kcal << "\n";
 
       // fourier transform
       //
-      dtemp = 0.;
-      
-      for(int i = 0; i < pval.size(); ++i)
-	//
-	dtemp += pval[i];
+      Math::DirectFFT fft(_pot_four.size());
 
-      _pot_four[0] = dtemp / (double)pval.size();
+      fft(_pot_four);
 
+      Math::DirectFFT::normalize(_pot_four);
       
-      for(int i = 1; i < pval.size(); ++i) {
+      IO::log << IO::log_offset
 	//
-	dtemp = 0.;
-	
-	if(i % 2) {
+	      << std::setw(13) << "angle"
+	//
+	      << std::setw(13) << "V/Spl"
+	//
+	      << std::setw(13) << "V/Four"
+	//
+	      << "\n"
+	//
+	      << IO::log_offset
+	//
+	      << std::setw(13) << "deg"
+	//
+	      << std::setw(13) << "kcal/mol"
+	//
+	      << std::setw(13) << "kcal/mol"
+	//
+	      << "\n";
+
+      const int imax = 100;
+      
+      for(int i = 0; i < imax; ++i) {
+	//
+	dtemp = (double)i / (double)imax;
+
+	IO::log << IO::log_offset
 	  //
-	  for(int j = 0; j < pval.size(); ++j)
+		<< std::setw(13) << std::floor(1000. * ang_max * dtemp) / 1000.;
+	
+	if(_use_slatec) {
+	  //
+	  if(dtemp >= 0.5)
 	    //
-	    dtemp += pval[j] * std::sin(M_PI * double((i + 1)  * j) / double(pval.size()));
+	    dtemp -= 1.;
+	
+	  IO::log << std::setw(13) << std::floor(1000. * slatec_spl(dtemp) / Phys_const::kcal) / 1000.;
 	}
 	else
-	    //
-	  for(int j = 0; j < pval.size(); ++j)
-	    //
-	    dtemp += pval[j] * std::cos(M_PI * double(i * j) / double(pval.size()));
-
-	_pot_four[i] = dtemp / (double)pval.size() * 2.;
+	  //
+	  IO::log << std::setw(13) << std::floor(1000. * gsl_spl(dtemp) / Phys_const::kcal) / 1000.;
+	  
+	IO::log << std::setw(13) << std::floor(1000. * potential(2. * M_PI / symmetry() * dtemp) / Phys_const::kcal) / 1000.
+	  //
+		<< "\n";
       }
     }
     // potential on the grid
@@ -5730,9 +6859,9 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
       // potential sampling
       //
-      std::vector<double> pval(itemp);
+      _pot_four.resize(itemp);
 
-      for(int i = 0; i < pval.size(); ++i) {
+      for(int i = 0; i < _pot_four.size(); ++i) {
 	//
 	if(!(from >> dtemp)) {
 	  //
@@ -5753,22 +6882,22 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	  //
 	  dtemp *= Phys_const::kjoul;
 
-	pval[i] = dtemp;
+	_pot_four[i] = dtemp;
       }
       
       std::getline(from, comment);
 
       // rough frequency estimate
       //
-      if(pval.size() == 1) {
+      if(_pot_four.size() == 1) {
 	//
 	dtemp = 0.;
       }
       else {
 	//
-	dtemp = 2. * M_PI / pval.size() / symmetry();
+	dtemp = 2. * M_PI / _pot_four.size() / symmetry();
 
-	dtemp = (pval[1] + pval.back() - 2. * pval[0]) / dtemp / dtemp * 2. * rotational_constant();
+	dtemp = (_pot_four[1] + _pot_four.back() - 2. * _pot_four[0]) / dtemp / dtemp * 2. * rotational_constant();
       }
 
       if(dtemp < 0.) {
@@ -5786,31 +6915,11 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       
       // fourier transform
       //
-      itemp = pval.size() % 2 ? pval.size() : pval.size() + 1;
-      
-      for(int i = 0; i < itemp; ++i)
-	//
-	for(int j = 0; j < pval.size(); ++j)
-	  //
-	  if(i % 2) {
-	    //
-	    _pot_four[i] += pval[j] * std::sin(M_PI * double((i + 1)  * j) / double(pval.size()));
-	  }
-	  else
-	    //
-	    _pot_four[i] += pval[j] * std::cos(M_PI * double(i * j) / double(pval.size()));
+      Math::DirectFFT fft(_pot_four.size());
 
-      // normalization
-      //
-      for(int i = 0; i < _pot_four.size(); ++i)
-	//
-	if(!i || i == pval.size()) {
-	  //
-	  _pot_four[i] /= double(pval.size());
-	}
-	else
-	  //
-	  _pot_four[i] /= double(pval.size()) / 2.;
+      fft(_pot_four);
+
+      Math::DirectFFT::normalize(_pot_four);
 
       IO::log << IO::log_offset << "Fourier Expansion Coefficients(kcal/mol):\n";
       
@@ -5822,14 +6931,17 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
       IO::log << IO::log_offset << funame << "Hindered Rotor Potential:\n";
       
-      IO::log << IO::log_offset 
-	      << std::setw(18) << "Angle[degrees]" 
+      IO::log << IO::log_offset
+	//
+	      << std::setw(18) << "Angle[degrees]"
+	//
 	      << std::setw(18) << "Energy[kcal/mol]"
+	//
 	      << "\n";
       
-      for(int i = 0; i < pval.size(); ++i) {
+      for(int i = 0; i < _pot_four.size(); ++i) {
 	//
-	dtemp = double(i) * 360. / double(pval.size() * symmetry());
+	dtemp = double(i) * 360. / double(_pot_four.size() * symmetry());
 	
 	IO::log << IO::log_offset 
 		<< std::setw(18) << dtemp
@@ -5839,86 +6951,6 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
 #endif
       
-    }
-    // potential fourier expansion
-    //
-    else if(kcal_four_key == token || incm_four_key == token || kj_four_key == token) {
-      //
-      if(_pot_four.size()) {
-	//
-	std::cerr << funame << "potential fourier expansion has been already defined\n";
-
-	throw Error::Init();
-      }
-      
-      // fourier expansion size
-      //
-      IO::LineInput size_input(from);
-      
-      int esize;
-      
-      if(!(size_input >> esize)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      
-      if(esize < 1) {
-	//
-	std::cerr << funame << token << ": should be positive\n";
-
-	throw Error::Range();
-      }
-      
-      // potential fourier expansion data
-      //
-      for(int i = 0; i < esize; ++i) {
-	//
-	IO::LineInput data_input(from);
-	
-	if(!(data_input >> itemp)) {
-	  //
-	  std::cerr << funame << token << i << "-th index is unreadable\n";
-	  
-	  throw Error::Input();
-	}
-	
-	if(itemp < 0) {
-	  //
-	  std::cerr << funame << token << ": negative index\n";
-	  
-	  throw Error::Init();
-	}
-	
-	if(_pot_four.find(itemp) != _pot_four.end()) {
-	  //
-	  std::cerr << funame << token << ": identical indices\n";
-	  
-	  throw Error::Init();
-	}
-	
-	if(!(data_input >> dtemp)) {
-	  //
-	  std::cerr << funame << token << i << "-th fourier coeficient is unreadable\n";
-
-	  throw Error::Input();
-	}
-
-	if(kcal_four_key == token)
-	  //
-	  dtemp *= Phys_const::kcal;
-	
-	if(incm_four_key == token)
-	  //
-	  dtemp *= Phys_const::incm;
-	
-	if(kj_four_key == token)
-	  //
-	  dtemp *= Phys_const::kjoul;
-
-	_pot_four[itemp] = dtemp;
-      }
     }
     // unknown keyword
     //
@@ -5970,20 +7002,6 @@ void Model::HinderedRotor::_init ()
     _ham_size_min = itemp;
   }
   
-  itemp = _pot_four.rbegin()->first;
-  
-  if(itemp % 2) {
-    //
-    itemp += 4;
-  }
-  else
-    //
-    itemp += 3;
-
-  if(itemp > _ham_size_min)
-    //
-    _ham_size_min = itemp;
-      
   if(_ham_size_max < _ham_size_min) {
     //
     std::cerr << funame << "requested Hamiltonian size (" << _ham_size_min <<") exceeds HamiltonSizeMax (" << _ham_size_max << ")/n";
@@ -6065,13 +7083,17 @@ void Model::HinderedRotor::_init ()
   }
 
   // maximum energy correction
+  //
   dtemp = _pot_grid[imax == _pot_grid.size() - 1 ? 0: imax + 1] -
+    //
     _pot_grid[imax == 0 ? _pot_grid.size() - 1 : imax - 1];
   
   a = _pot_grid[imax == _pot_grid.size() - 1 ? 0: imax + 1] +
+    //
     _pot_grid[imax == 0 ? _pot_grid.size() - 1 : imax - 1] - 2. * _pot_grid[imax];
 
   if(a < -1.e-5)
+    //
     _pot_max -= dtemp * dtemp / a / 8.;
 
   // minimum energy correction
@@ -6110,7 +7132,8 @@ void Model::HinderedRotor::_init ()
   }
   else {
     //
-    IO::log << IO::log_offset << funame 
+    IO::log << IO::log_offset
+      //
 	    << "WARNING: potential second derivative at the minimum is negative, assuming zero\n";
     
     freq_anal = 0.;
@@ -6122,7 +7145,10 @@ void Model::HinderedRotor::_init ()
     //
     IO::log << IO::log_offset << "effective rotational constant[1/cm]  = " 
 	    << rotational_constant() / Phys_const::incm << "\n";
-  
+
+    IO::log << IO::log_offset << "potential minimum angle[deg]         = "
+	    << imin * _grid_step * 180. / M_PI << "\n";
+      
     IO::log << IO::log_offset << "analytic  frequency at minimum[1/cm] = " 
 	    << freq_anal / Phys_const::incm << "\n";
     
@@ -6142,13 +7168,30 @@ void Model::HinderedRotor::_init ()
   
   // calculating energy levels in momentum space
   //
-  _set_energy_levels(_ham_size_min);
+  _fourier_space_energy_levels(_ham_size_min);
 
   IO::aux << "harmonic frequency = " << std::ceil(_freq_min / Phys_const::incm) << " 1/cm\n";
 
+  double ff0 = 2. * potential(0., 2) * rotational_constant();
+
+  if(ff0 < 0.) {
+    //
+    std::cerr << funame << "negative harmonic frequency at first point: "
+      //
+	      << -std::ceil(std::sqrt(-ff0) / Phys_const::incm) << " 1/cm\n";
+    
+    IO::log << IO::log_offset << "negative harmonic frequency at first point: "
+      //
+	      << -std::ceil(std::sqrt(-ff0) / Phys_const::incm) << " 1/cm\n";
+    
+    //throw Error::Range();
+
+    ff0 = -ff0;
+  }
+  
   IO::aux << "harmonic  frequency at first point = "
     //
-	  << std::ceil(std::sqrt(2. * potential(0., 2) * rotational_constant()) / Phys_const::incm) << " 1/cm\n";
+	  << std::ceil(std::sqrt(ff0) / Phys_const::incm) << " 1/cm\n";
   
   if(level_size() > 1)
     //
@@ -6227,7 +7270,8 @@ void Model::HinderedRotor::_init ()
 #ifdef DEBUG
 
   // calculating energy levels in real space
-  Lapack::Vector rl = real_space_energy_levels();
+  //
+  Lapack::Vector rl = _real_space_energy_levels();
 
   IO::log << IO::log_offset << "Energy Levels [kcal/mol]:\n";
   IO::log << IO::log_offset 
@@ -6290,7 +7334,7 @@ void  Model::HinderedRotor::set (double emax)
 
   if(hsize > _ham_size_max) {
     //
-    IO::log << IO::log_offset << funame << "WARNING: requested Hamiltonian size = " << hsize 
+    IO::log << IO::log_offset << "WARNING: requested Hamiltonian size = " << hsize 
 	    << " exceeds the current limit = " << _ham_size_max << "=> truncating\n";
     
     hsize = _ham_size_max;
@@ -6303,7 +7347,7 @@ void  Model::HinderedRotor::set (double emax)
   
   // setting quantum levels
   //
-  _set_energy_levels(hsize);
+  _fourier_space_energy_levels(hsize);
 
   
   if(!(_flags & NOPRINT)) {
@@ -6367,40 +7411,62 @@ double Model::HinderedRotor::potential (double angle, int der) const
   double dtemp;
 
   double res = 0.;
-  for(std::map<int, double>::const_iterator pit = _pot_four.begin(); pit != _pot_four.end(); ++pit)
-    if(pit->first) {
-      int n;
-      if(pit->first % 2)
-	n =  (pit->first + 1) / 2  * symmetry();
-      else
-	n =  pit->first / 2  * symmetry();
-
-      int fac = 1;
-      for(int i = 0; i < der; ++i)
-	fac *= n;
-
-      double (*f)(double);
-      if((pit->first + der) % 2)
-	f = std::sin;
-      else
-	f = std::cos;
-
-      dtemp = (double)fac * f((double)n * angle) * pit->second;
+  //
+  if(!der)
+    //
+    res = _pot_four[0];
+  
+  for(int i = 1; i < _pot_four.size(); ++i) {
+    //
+    dtemp = _pot_four[i];
       
-      if((der + 1 - pit->first % 2) / 2 % 2)
-	res -= dtemp;
-      else
-	res += dtemp;
+    int n = (i + 1) / 2  * symmetry();
+      
+    if((i + der) % 2) {
+      //
+      dtemp *= std::cos(n * angle);
     }
-    else if(!der)
-      res += pit->second;
+    else
+      //
+      dtemp *= std::sin(n * angle);
+
+    dtemp *= std::pow(n, der);
+    
+    if((der + i % 2) / 2 % 2) {
+      //
+      res -= dtemp;
+    }
+    else
+      //
+      res += dtemp;
+  }
 
   return res;
 }
 
-void Model::HinderedRotor::_set_energy_levels (int hsize) 
+Lapack::Vector Model::HinderedRotor::_real_space_energy_levels () const
 {
-  const char funame [] = "Model::HinderedRotor::_set_energy_levels: ";
+  double dtemp;
+
+  Lapack::SymmetricMatrix ham(_pot_grid.size());
+  
+  dtemp = 2. * rotational_constant() / _grid_step / _grid_step;
+  
+  ham = dtemp;
+  dtemp /= -2.;
+  for(int i = 0; i < ham.size(); ++i) {
+    ham(i, i) += _pot_grid[i];
+    if(i)
+      ham(i - 1, i) = dtemp;
+    else
+      ham(0, ham.size() - 1) = dtemp;
+  }
+  return ham.eigenvalues();
+}
+
+void Model::HinderedRotor::_fourier_space_energy_levels (int hsize) 
+{
+  const char funame [] = "Model::HinderedRotor::_fourier_space_energy_levels: ";
 
   int    itemp;
   double dtemp;
@@ -6409,66 +7475,55 @@ void Model::HinderedRotor::_set_energy_levels (int hsize)
   /************************************ setting Hamiltonian ************************************/
 
   Lapack::SymmetricMatrix ham(hsize);
+  
   ham = 0.;
 
-  /*
-  //kinetic energy contribution
-  for(int ml = 1; ml < hsize; ++ml) 
-    for(int nl = ml; nl < hsize; ++nl) {// ket state cycle
-
-      int ifac = ((ml + 1) / 2) * ((nl + 1) / 2) * symmetry() * symmetry();
-      int m = ml;
-      if(ml % 2)// sine
-	++m;
-      else {// cosine
-	--m;
-	ifac = -ifac;
-      }
-      int n = nl;
-      if(nl % 2)// sine
-	++n;
-      else {// cosine
-	--n;
-	ifac = -ifac;
-      }
-	
-      // fourier expansion cycle
-      for(std::map<int, double>::const_iterator  mit = _mobility.begin(); mit != _mobility.end(); ++mit) {
-	dtemp = mit->second * (double)ifac;
-	if(!rotation_matrix_element(m, n, mit->first, dtemp))
-	  ham(m, n) += dtemp;
-      }
-    }// ket state cycle
-  */
-
   // kinetic energy contribution
-  for(int i = 0; i < hsize; ++i) {
+  //
+  for(int i = 1; i < hsize; ++i) {
+    //
     dtemp = double((i + 1) / 2 * symmetry());
+    
     ham(i, i) = rotational_constant() * dtemp * dtemp;
   }
 
   // potential contribution
+  //
   for(int m = 0; m < hsize; ++m)
+    //
     for(int n = m; n < hsize; ++n)
-      for(std::map<int, double>::const_iterator pit = _pot_four.begin(); pit != _pot_four.end(); ++pit) {
-	dtemp = pit->second;
-	if(!rotation_matrix_element(m, n, pit->first, dtemp))
+      //
+      for(int i = 0; i < _pot_four.size(); ++i) {
+	//
+	dtemp = _pot_four[i];
+	
+	if(_rotation_matrix_element(m, n, i, dtemp))
+	  //
 	  ham(m, n) += dtemp;
       }
 
   Lapack::Vector el = ham.eigenvalues();
 
   // ground state energy
+  //
   _ground = el[0];
 
   // relative excited state energies
+  //
   _energy_level.clear();
+  
   _energy_level.reserve(hsize);
+  
   itemp = hsize / 2 * symmetry();
+  
   dtemp = rotational_constant() * double(itemp * itemp) + _pot_min;
+  
   for(int i = 0; i < hsize; ++i) {
+    //
     if(el[i] > dtemp)
+      //
       break;
+    
     _energy_level.push_back(el[i] - _ground);
   }
 }
@@ -6613,24 +7668,6 @@ int Model::HinderedRotor::semiclassical_states_number (double ener) const
   return res;
 }
 
-Lapack::Vector Model::HinderedRotor::real_space_energy_levels () const
-{
-  double dtemp;
-
-  Lapack::SymmetricMatrix ham(_pot_grid.size());
-  dtemp = 2. * rotational_constant() / _grid_step / _grid_step;
-  ham = dtemp;
-  dtemp /= -2.;
-  for(int i = 0; i < ham.size(); ++i) {
-    ham(i, i) += _pot_grid[i];
-    if(i)
-      ham(i - 1, i) = dtemp;
-    else
-      ham(0, ham.size() - 1) = dtemp;
-  }
-  return ham.eigenvalues();
-}
-
 void Model::HinderedRotor::integrate (Array<double>& states, double ener_step) const
 {
   int itemp;
@@ -6694,91 +7731,148 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
   double xrange = -1.; // coordinate variation range
 
   while(from >> token) {
+    //
     // end input
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // moving group definition
+    //
     else if(group_key == token) {
+      //
       if(group_def.size()) {
+	//
 	std::cerr << funame << token <<  ": already defined\n";
+	
 	throw Error::Init();
       }
+      
       IO::LineInput group_input(from);
+      
       while(group_input >> itemp) {
+	//
 	if(itemp < 1) {// Fortran indexing
+	  //
 	  std::cerr << funame << token << ": index out of range\n";
+	  
 	  throw Error::Range();
 	}
-	if(!group_def.insert(itemp - 1).second) { 
-	  std::cerr << funame << token << ": " << itemp 
+	
+	if(!group_def.insert(itemp - 1).second) {
+	  //
+	  std::cerr << funame << token << ": " << itemp
+	    //
 		    << "-th atom already has been used in umbrella group defininition\n";
+	  
 	  throw Error::Init();
 	}
       }
     }
     // umbrella plane definition
+    //
     else if(plan_key == token) {
+      //
       if(dir.size() || plan_def.size()) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Init();
       }
+      
       IO::LineInput plan_input(from);
+      
       set_temp.clear();
+      
       for(int i = 0; i < 3; ++i) {
+	//
 	if(!(plan_input >> itemp))  {
+	  //
 	  std::cerr << funame << token << ": corrupted";
+	  
 	  throw Error::Input();
 	}
+	
 	if(itemp < 1) {// Fortran indexing
+	  //
 	  std::cerr << funame << token << ": index out of range\n";
+	  
 	  throw Error::Range();
 	}
-	if(!set_temp.insert(itemp).second) { 
-	  std::cerr << funame << token << ": " << itemp 
+	
+	if(!set_temp.insert(itemp).second) {
+	  //
+	  std::cerr << funame << token << ": " << itemp
+	    //
 		    << "-th atom already has been used in the plane defininition\n";
+	  
 	  throw Error::Init();
 	}
+	
 	plan_def.push_back(itemp - 1);
       }
     }
     // umbrella motion direction
+    //
     else if(dir_key == token) {
+      //
       if(dir.size() || plan_def.size()) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Init();
       }
+      
       dir.resize(3);
+      
       IO::LineInput dir_input(from);
+      
       for(int i = 0; i < 3; ++i) {
+	//
 	if(!(dir_input >> dir[i]))  {
+	  //
 	  std::cerr << funame << token << ": corrupted";
+	  
 	  throw Error::Input();
 	}
       }
       normalize(dir, 3);
     }
     // reference atom
+    //
     else if(ref_key == token) {
+      //
       if(ref_def >= 0) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> ref_def)) {
+	//
 	std::cerr << funame << token << ": corrupted";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(ref_def-- < 1) {// Fortran indexing
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
     }
     // potential
+    //
     else if(kcal_pot_key == token || kj_pot_key == token || incm_pot_key == token) {
+      //
       // sampling size
+      //
       if(!(from >> itemp)) {
 	std::cerr << funame << token << ": sampling size is corrupted";
 	throw Error::Input();
@@ -6791,6 +7885,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       }
 
       // sampling data
+      //
       std::map<double, double> pot_data;
       for(int i = 0; i < itemp; ++i) {
 	IO::LineInput data_input(from);
@@ -6817,9 +7912,11 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       }
 
       // coordinate variation range
+      //
       xrange = pot_data.rbegin()->first - pot_data.begin()->first;
 
       // convert potential samplings into power expansion coefficients
+      //
       _pot_coef.resize(pot_data.size());
       Lapack::Vector xval(pot_data.size()); 
       std::map<double, double>::const_iterator pit;
@@ -6829,6 +7926,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       }
 
       // conversion matrix
+      //
       Lapack::Matrix xmat(xval.size(), xval.size());
       for(int i = 0; i < xval.size(); ++i) {
 	dtemp = 1.;
@@ -6841,11 +7939,13 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       _pot_coef = xmat.invert(_pot_coef);
 
       // potential at the sampling points
+      //
       IO::log << IO::log_offset << "potential[kcal/mol] at the sampling points:\n"
 	      << IO::log_offset
 	      << std::setw(7) << "X"
 	      << std::setw(7) << "V"
 	      << "\n" << std::setprecision(3) << std::fixed;
+      
       for(int i = 0; i < xval.size(); ++i)
 	IO::log << IO::log_offset 
 		<< std::setw(7) << xval[i] * xrange
@@ -6854,17 +7954,24 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       IO::log << std::setprecision(6) << std::resetiosflags(std::ios_base::floatfield);
     }    
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      //
       Key::show_all(std::cerr);
+      //
       std::cerr << "\n";
+      
       throw Error::Init();
-    }
-  } //while(from >> token);
+    }//
+    //
+  }//
   
   /******************************************* Checking *************************************************/
 
   // stream state
+  //
   if(!from) {
     std::cerr << funame << "input stream corrupted\n";
     throw Error::Input();
@@ -6906,111 +8013,174 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
   }
 
   if(plan_def.size())
+    //
     for(int i = 0; i < 3; ++i)
+      //
       if(plan_def[i] >= atom.size()) {
+	//
 	std::cerr << funame << i << "-th atom index in the umbrella plane definition is out of range\n";
+	
 	throw Error::Range();
       }
 
   /******************************************* Effective mass *************************************************/
 
   // umbrella motion direction
+  //
   if(plan_def.size()) {
+    //
     dir.resize(3);
+    
     dir = D3::vprod(atom[plan_def[1]] - atom[plan_def[0]], atom[plan_def[2]] - atom[plan_def[0]]);
+    
     normalize(dir, 3);
   }
 
   // umbrella motion
+  //
   std::map<int, D3::Vector> motion;
-  if(ref_def < 0)
+  
+  if(ref_def < 0) {
+    //
     for(std::set<int>::const_iterator  cit = group_def.begin(); cit != group_def.end(); ++cit)
+      //
       motion[*cit] = dir;
+  }
   else
+    //
     for(std::set<int>::const_iterator  cit = group_def.begin(); cit != group_def.end(); ++cit) {
+      //
       vtemp = dir;
+      
       dtemp = vdistance(atom[*cit], atom[ref_def], 3);
+      
       vtemp *= dtemp;
+      
       motion[*cit] = vtemp;
     }
 
   // adjust normal mode so that angular, and linear momenta disapear
+  //
   std::vector<D3::Vector> normal_mode = adjusted_normal_mode(atom, motion);  
 
-  // effective mass 
+  // effective mass
+  //
   _mass = 0.;
+  
   for(int a = 0; a < atom.size(); ++a)
+    //
     _mass += atom[a].mass() * vdot(normal_mode[a]);
 
   /******************************************* POTENTIAL *************************************************/
 
   if(ref_def < 0) {
+    //
     IO::log << IO::log_offset << "coordinate in the potential definition assumed to be in angstrom\n";
+    
     xrange *= Phys_const::angstrom;
   }
   else {
+    //
     IO::log << IO::log_offset << "coordinate in the potential definition assumed to be in angular degrees\n";
+    
     xrange *= M_PI / 180.;
   }
 
   // mass renormalization
+  //
   _mass *= xrange * xrange;
 
   // minimum potential energy and potential discretization
+  //
   _astep = 1. / double(_grid_size - 1);
+  
   _pot_grid.resize(_grid_size);
+  
   _freq_grid.resize(_grid_size);
 
   int imin;
+  
   double a = 0;
+  
   for(int i = 0; i < _grid_size; ++i, a += _astep) {
+    //
     // potential
+    //
     dtemp = potential(a);
-    _pot_grid[i] = dtemp; 
+    
+    _pot_grid[i] = dtemp;
+    
     if(!i || dtemp < _pot_min) {
+      //
       _pot_min = dtemp;
+      
       imin = i;
     }
+    
     // frequency
+    //
     dtemp = potential(a, 2);
-    if(dtemp < 0.)
+    
+    if(dtemp < 0.) {
+      //
       dtemp = -std::sqrt(- dtemp / _mass);
+    }
     else
+      //
       dtemp = std::sqrt(dtemp / _mass);
+    
     _freq_grid[i] = dtemp;
   }
 
   // numerical vibrational frequency
-  if(imin != 0 && imin != _grid_size - 1) {  
+  //
+  if(imin != 0 && imin != _grid_size - 1) {
+    //
     dtemp = _pot_grid[imin + 1] + _pot_grid[imin - 1] - 2. * _pot_min;
-    if(dtemp >= 0.)
+    
+    if(dtemp >= 0.) {
+      //
       dtemp = std::sqrt(dtemp / _mass) / _astep;
+    }
     else
+      //
       dtemp = -std::sqrt(- dtemp / _mass) / _astep;
+    
     IO::log << IO::log_offset << "numerical frequency at minimum [1/cm] = " << dtemp  / Phys_const::incm << "\n";    
   }
 
   // analytical vibrational frequency at the minimum
+  //
   dtemp = potential((double)imin * _astep, 2);
-  if(dtemp >= 0.)
+  
+  if(dtemp >= 0.) {
+    //
     dtemp = std::sqrt(dtemp / _mass);
+  }
   else
+    //
     dtemp = -std::sqrt(- dtemp / _mass);
+  
   IO::log << IO::log_offset << "analytic frequency at minimum [1/cm]  = " << dtemp / Phys_const::incm << "\n";
 
   // energy levels in momentum space
-  _set_energy_levels(_ham_size_min);
+  //
+  _fourier_space_energy_levels(_ham_size_min);
 
   IO::log << IO::log_offset << "minimum energy [kcal/mol]             = " 
 	  << _pot_min  / Phys_const::kcal << "\n";
+  
   IO::log << IO::log_offset << "number of quantum levels              = " 
 	  << level_size()  << "\n";
+  
   IO::log << IO::log_offset << "ground energy [kcal/mol]              = "
 	  << ground() / Phys_const::kcal << "\n";
+  
   IO::log << IO::log_offset << "highest level energy [kcal/mol]       = "
 	  << (_energy_level.back() + ground()) / Phys_const::kcal << "\n";
 
   // statistical weight output
+  //
   IO::log << IO::log_offset << "statistical weight (*** - deep tunneling regime):\n";
   IO::log << IO::log_offset 
 	  << std::setw(5) << "T, K" 
@@ -7033,10 +8203,15 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
   }
 
   // energy levels output
+  //
   itemp = level_size() < 10 ? level_size() : 10;
+  
   IO::log << IO::log_offset << itemp << " lowest excited states[kcal/mol]:" << std::setprecision(3);
+  
   for(int l = 1; l < itemp; ++l)
+    //
     IO::log  << " " << (energy_level(l) + ground()) / Phys_const::kcal;
+  
   IO::log << std::setprecision(6) << "\n";
 
 }// Umbrella
@@ -7060,45 +8235,59 @@ void Model::Umbrella::set (double ener_max)
   dtemp = ener_max + ground() - _pot_min;
 
   if(dtemp >= 0.)
+    //
     hsize = (int)std::ceil(std::sqrt(2. * dtemp * _mass)/ M_PI);
   
   if(hsize <= _ham_size_min)
+    //
     return;
 
   if(hsize > _ham_size_max) {
-    IO::log << IO::log_offset << "WARNING: requested Hamiltonian size = " << hsize 
+    //
+    IO::log << IO::log_offset << "WARNING: requested Hamiltonian size = " << hsize
+      //
 	    << " exceeds the current limit = " << _ham_size_max << "=> truncating\n";
+    
     hsize = _ham_size_max;
   }
   
   IO::log << IO::log_offset << "Hamiltonian Size = " << hsize << "\n";
   
   // setting quantum levels
-  _set_energy_levels(hsize);
+  //
+  _fourier_space_energy_levels(hsize);
 
 }
 
 
-void Model::Umbrella::_set_energy_levels (int hsize) 
+void Model::Umbrella::_fourier_space_energy_levels (int hsize) 
 {
-  const char funame [] = "Model::Umbrella::_set_energy_levels: ";
+  const char funame [] = "Model::Umbrella::_fourier_space_energy_levels: ";
 
   int    itemp;
   double dtemp;
 
   // setting  hamiltonian
+  //
   Lapack::SymmetricMatrix ham(hsize);
 
   for(int m = 0; m < hsize; ++m)
+    //
     for(int n = m; n < hsize; ++n) {
+      //
       dtemp = 0.;
+      
       for(int p = 1; p < _pot_coef.size(); ++p)
+	//
 	dtemp += _pot_coef[p] * (_integral(p, n - m) - _integral(p, m + n + 2));
+      
       ham(m, n) = dtemp;
     }
 
   for(int m = 0; m < hsize; ++m) {
+    //
     dtemp = M_PI * double(m + 1);
+    
     ham(m, m) += _pot_coef[0] + dtemp * dtemp / 2. / _mass;
   }
 
@@ -7786,7 +8975,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	break;
       case 2:
 	if(rcon[0] != rcon[1])
-	  IO::log << IO::log_offset << funame 
+	  IO::log << IO::log_offset
 		  << "WARNING: inertia moments for linear molecule read from input file differ\n";
 	_rdim = 2;
 	_factor /= rcon[0];
@@ -9057,8 +10246,9 @@ double Model::Rotd::weight (double temperature) const
  ******************************* INTERNAL ROTATION FOR MULTIROTOR ***************************
  ********************************************************************************************/
 
-Model::InternalRotation::InternalRotation (IO::KeyBufferStream& from) 
-  : InternalRotationBase(from), _msize(0), _wsize(0), _psize(0), _qmin(0), _qmax(0)
+Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from)
+  //
+  : InternalRotationDef(from), _msize(0), _wsize(0), _psize(0), _qmin(0), _qmax(0)
 {
   const char funame [] = "Model::InternalRotation::InternalRotation: ";
 
@@ -9284,7 +10474,7 @@ Model::InternalRotation::InternalRotation (IO::KeyBufferStream& from)
   //
 }// InternalRotation
 
-Model::InternalRotation::~InternalRotation ()
+Model::MultiRotor::InternalRotation::~InternalRotation ()
 {
   //std::cout << "Model::InternalRotation destroyed\n";
 }
@@ -12561,7 +13751,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     //
     for(int r = 0; r < internal_size(); ++r) {
       //
-      std::map<int, double> one_pot_four;
+      std::vector<double> one_pot_four(_pot_four_index.size(r));
 
       std::vector<int> pv(internal_size(), 0);
 
@@ -12573,10 +13763,19 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
 	pit_t pit = _pot_four.find(pl);
 
+	// different order of sin and cos in hindered rotor and multi-rotor
+	//
 	if(pit != _pot_four.end())
 	  //
-	  one_pot_four[n] = pit->second;
+	  if(n % 2) {
+	    //
+	    one_pot_four[n + 1] = pit->second;
+	  }
+	  else
+	    //
+	    one_pot_four[n - 1] = pit->second;
       }
+      
       
       // initializing one-dimensional rotor
       //
@@ -17099,7 +18298,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       std::getline(from, comment);
 
-      _internal_rotation.push_back(InternalRotationBase(from));
+      _internal_rotation.push_back(InternalRotationDef(from));
     }
     // numerical differentiation increment
     //
@@ -22902,33 +24101,45 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   }// input cycle
 
   if(!_default_kernel.size()) {
+    //
     std::cerr << funame << "default kernel(s) has not been defined yet\n";
+    
     throw Error::Init();
   }
 
   if(!_kernel.size()) {
+    //
     _kernel = _default_kernel;
   }
   else if(_kernel.size() != _default_kernel.size()) {
+    //
     std::cerr << funame << "number of kernels mismatch with the default\n";
+    
     throw Error::Init();
   }
 
   if(!_default_collision.size()) {
+    //
     std::cerr << funame << "default collision model has not been defined yet\n";
+    
     throw Error::Init();
   }
 
   if(!_collision.size()) {
+    //
     _collision = _default_collision;
   }
   else if(_collision.size() != _default_collision.size()) {
+    //
     std::cerr << funame << "number of collision models mismatch with the default\n";
+    
     throw Error::Init();
   }
 
   if(!_species) {
+    //
     std::cerr << funame << "species not inititalized\n";
+    
     throw Error::Init();
   }
 
