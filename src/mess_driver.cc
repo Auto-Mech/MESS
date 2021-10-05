@@ -90,6 +90,8 @@ int main (int argc, char* argv [])
   Key eval_max_key("ChemicalEigenvalueMax"      );
   Key eval_min_key("ChemicalEigenvalueMin"      );
   Key well_red_key("WellReductionThreshold"     );
+  Key    float_key("FloatType"                  );
+  Key red_corr_key("NoWellReductionCorrection"  );
   Key     calc_key("CalculationMethod"          );
   Key  rat_red_key("ReductionMethod"            );
   Key      wpm_key("WellPartitionMethod"        );
@@ -287,24 +289,36 @@ int main (int argc, char* argv [])
       }
     }
     // eigenvector output
+    //
     else if(evec_out_key == token) {
+      //
       if(MasterEquation::evec_out.is_open()) {
+	//
         std::cerr << funame << token << ": allready opened\n";
+	
         throw Error::Init();
-      }      
+      }
+      
       if(!(from >> stemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       MasterEquation::evec_out.open(stemp.c_str());
+      
       if(!MasterEquation::evec_out) {
+	//
         std::cerr << funame << token << ": cannot open " << stemp << " file\n";
+	
         throw Error::Input();
       }
     }
     // product energy distribution output
+    //
     else if(ped_out_key == token) {
       if(MasterEquation::ped_out.is_open()) {
 	std::cerr << funame << token << ": already opened\n";
@@ -644,13 +658,65 @@ int main (int argc, char* argv [])
     // chemical relaxation to collision frequency ratio
     //
     else if(well_red_key == token) {
+      //
       if(!(from >> MasterEquation::reduction_threshold)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
     }
+    // float type
+    //
+    else if(float_key == token) {
+      //
+#ifndef WITH_MPACK
+
+      std::cerr << funame << token << ": to use multiple precision the code should be compiled with WITH_MPACK macro defined\n";
+
+      throw Error::Logic();
+      
+#endif
+      
+      IO::LineInput lin(from);
+
+      if(!(lin >> stemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(stemp == "double") {
+	//
+	MasterEquation::float_type = MasterEquation::DOUBLE;
+      }
+      else if(stemp == "dd") {
+	//
+	MasterEquation::float_type = MasterEquation::DD;
+      }
+      else if(stemp == "qd") {
+	//
+	MasterEquation::float_type = MasterEquation::QD;
+      }
+      else {
+	//
+	std::cerr << funame << token << ": unknown type: " << stemp << ": available types: double (default), dd, qd\n";
+
+	throw Error::Init();
+      }
+    }
+    // no well reduction correction
+    //
+    else if(red_corr_key == token) {
+      //
+      MasterEquation::well_reduction_correction = false;
+
+      std::getline(from, comment);
+    }
     // maximal chemical eigenvalue
+    //
     else if(eval_max_key == token) {
       if(!(from >> MasterEquation::chemical_threshold)) {
         std::cerr << funame << token << ": corrupted\n";
@@ -659,19 +725,20 @@ int main (int argc, char* argv [])
       std::getline(from, comment);
     }
     // minumal chemical eigenvalue
+    //
     else if(eval_min_key == token) {
+      //
       if(!(from >> MasterEquation::min_chem_eval)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
+      
       std::getline(from, comment);
-
-      if(MasterEquation::min_chem_eval <= 0. || MasterEquation::min_chem_eval >= 1.) {
-        std::cerr << funame << token << ": out of range\n";
-        throw Error::Range();
-      }
     }
     // number of closest reductions to print
+    //
     else if(red_out_key == token) {
       if(!(from >> MasterEquation::red_out_num)) {
         std::cerr << funame << token << ": corrupted\n";
@@ -734,70 +801,96 @@ int main (int argc, char* argv [])
 	reduction_scheme.push_back(stemp);
     }
     // default chemical subspace size
+    //
     else if(def_chem_key == token) {
-      if(!(from >> itemp)) {
+      //
+      IO::LineInput lin(from);
+      
+      if(!(lin >> itemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       MasterEquation::set_default_chem_size(itemp);
     }
-    // hot energies 
+    // hot energies
+    //
     else if(hot_kcal_key == token || hot_incm_key == token || hot_kj_key == token) {
-      int line_size;
-      if(!(from >> line_size)) {
-	std::cerr << funame << token <<  ": cannot read number of input lines\n";
-	throw Error::Input();
-      }
+      //
+      IO::LineInput lin(from);
 
-      if(line_size <= 0) {
-	std::cerr << funame << token << ": negative number of input lines\n";
-	throw Error::Range();
-      }
-      std::getline(from, comment);
+      int count = -1;
 
-      for(int l = 0; l < line_size; ++l) {
-	IO::LineInput line_input(from);
-	std::string well_name;
-	if(!(line_input >> well_name)) {
-	  std::cerr << funame << token << ": " <<  l << "-th input line is corrupted\n";
-	  throw Error::Input();
-	}
+      lin >> count;
 
-	while(line_input >> dtemp) {
+      while(count) {
+	//
+	lin.read_line(from);
+	  
+	if(!(lin >> stemp)) // empty line
+	  //
+	  continue;
 
-	  if(hot_kcal_key == token)
+	if(IO::end_key() == stemp)
+	  //
+	  break;
+	
+	while(lin >> dtemp) {
+	  //
+	  if(hot_kcal_key == token) {
+	    //
 	    dtemp *= Phys_const::kcal;
-	  if(hot_incm_key == token)
+	  }
+	  else if(hot_incm_key == token) {
+	    //
 	    dtemp *= Phys_const::incm;
-	  if(hot_kj_key == token)
+	  }
+	  else if(hot_kj_key == token) {
+	    //
 	    dtemp *= Phys_const::kjoul;
-
-	  MasterEquation::hot_energy[well_name].push_back(dtemp);
+	  }
+	  
+	  MasterEquation::hot_energy[stemp].insert(dtemp);
 	}
 
-	if(!MasterEquation::hot_energy[well_name].size()) {
-	  std::cerr << funame << token << ": " <<  well_name << ": no energies\n";
+	if(!MasterEquation::hot_energy[stemp].size()) {
+	  //
+	  std::cerr << funame << token << ": " <<  stemp << ": no energies provided\n";
+	  
 	  throw Error::Init();
 	}
+
+	--count;
       }
     }
     // microscopic rates file
+    //
     else if(mic_rout_key == token) {
+      //
       if(!(from >> micro_rate_file)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
     }
     // microscopic rate energy maximum
+    //
     else if(mic_emax_key == token) {
+      //
       if(!(from >> micro_ener_max)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
 
       micro_ener_max *= Phys_const::kcal;
     }
     // microscopic rate energy minimum
+    //
     else if(mic_emin_key == token) {
       if(!(from >> micro_ener_min)) {
 	std::cerr << funame << token << ": corrupted\n";
@@ -885,66 +978,101 @@ int main (int argc, char* argv [])
   /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
 
   if(micro_rate_file.size()) {
-
+    //
     if(micro_ener_max <= micro_ener_min || micro_ener_step <= 0.) {
+      //
       std::cerr << funame << "microscopic rate output: out of range\n";
+      
       throw Error::Range();
     }
 
     std::ofstream micro_out(micro_rate_file.c_str());
+    
     if(!micro_out.is_open()) {
+      //
       std::cerr << funame << "microscopic rate output: cannot open " << micro_rate_file << " file\n";
+      
       throw Error::Open();
     }
 
     // well cycle
+    //
     for(int w = 0; w < Model::well_size(); ++w) {
+      //
       micro_out << std::setw(15) << "E, kcal/mol"
 		<< std::setw(15) << "D, mol/kcal";
 
       for(int b = 0; b < Model::inner_barrier_size(); ++b) {
+	//
 	const int w1 = Model::inner_connect(b).first;
+	
 	const int w2 = Model::inner_connect(b).second;
+	
 	if(w1 == w) {
+	  //
 	  stemp = Model::well(w).name() + "->" + Model::well(w2).name();
+	  
 	  micro_out << std::setw(15) << stemp;
 	}
 	else if(w2 == w) {
+	  //
 	  stemp = Model::well(w).name() + "->" + Model::well(w1).name();
+	  
 	  micro_out << std::setw(15) << stemp;
 	}
       }
 
       for(int b = 0; b < Model::outer_barrier_size(); ++b)
+	//
 	if(Model::outer_connect(b).first == w) {
+	  //
 	  const int p = Model::outer_connect(b).second;
+	  
 	  stemp = Model::well(w).name() + "->" + Model::bimolecular(p).name();
+	  
 	  micro_out << std::setw(15) << stemp;
 	}
+      
       micro_out << "\n";
 
       // energy cycle
+      //
       for(double ener = micro_ener_min; ener <= micro_ener_max; ener += micro_ener_step) {
+	//
 	double states = Model::well(w).states(ener);
+	
 	micro_out << std::setw(15) << ener   / Phys_const::kcal
 		  << std::setw(15) << states * Phys_const::kcal;
 
 	for(int b = 0; b < Model::inner_barrier_size(); ++b)
+	  //
 	  if(Model::inner_connect(b).first == w || Model::inner_connect(b).second == w)
-	    if(states != 0.)
+	    //
+	    if(states != 0.) {
+	      //
 	      micro_out << std::setw(15) << Model::inner_barrier(b).states(ener) / states / 2. / M_PI / Phys_const::herz;
+	    }
 	    else
+	      //
 	      micro_out << std::setw(15) << "***";
 
 	for(int b = 0; b < Model::outer_barrier_size(); ++b)
+	  //
 	  if(Model::outer_connect(b).first == w)
-	    if(states != 0.)
+	    //
+	    if(states != 0.) {
+	      //
 	      micro_out << std::setw(15) << Model::outer_barrier(b).states(ener) / states / 2. / M_PI / Phys_const::herz;
+	    }
 	    else
+	      //
 	      micro_out << std::setw(15) << "***";
+	
 	micro_out << "\n";
-      } // energy cycle
-    } // well cycle
+	//
+      }// energy cycle
+      //
+    }// well cycle
 
     // bimolecular density of states
     //
@@ -952,27 +1080,31 @@ int main (int argc, char* argv [])
     
     for(int p = 0; p < Model::bimolecular_size(); ++p)
       //
-      for(int f = 0; f < 2; ++f)
-	//
-	if(Model::bimolecular(p).mode(f) == Model::DENSITY)
-	  //
-	  itemp = 1;
-
-    if(itemp) {
-      //
-      micro_out << "Bimolecular fragments density of states:\n";
-
-      micro_out << std::setw(15) << "E, kcal/mol";
-    
-      for(int p = 0; p < Model::bimolecular_size(); ++p)
+      if(!Model::bimolecular(p).dummy())
 	//
 	for(int f = 0; f < 2; ++f)
 	  //
 	  if(Model::bimolecular(p).mode(f) == Model::DENSITY)
 	    //
-	    micro_out << std::setw(15) << Model::bimolecular(p).fragment_name(f);
+	    itemp = 1;
+
+    if(itemp) {
+      //
+      micro_out << "Bimolecular fragments density of states, mol/kcal:\n";
+
+      micro_out << std::setw(15) << "E, kcal/mol";
+    
+      for(int p = 0; p < Model::bimolecular_size(); ++p)
+	//
+	if(!Model::bimolecular(p).dummy())
+	  //
+	  for(int f = 0; f < 2; ++f)
+	    //
+	    if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+	      //
+	      micro_out << std::setw(15) << Model::bimolecular(p).fragment_name(f);
       
-	micro_out << "\n";
+      micro_out << "\n";
 
       for(double ener = micro_ener_min; ener <= micro_ener_max; ener += micro_ener_step) {
 	//
@@ -980,18 +1112,23 @@ int main (int argc, char* argv [])
       
 	for(int p = 0; p < Model::bimolecular_size(); ++p)
 	  //
-	  for(int f = 0; f < 2; ++f)
+	  if(!Model::bimolecular(p).dummy())
 	    //
-	    if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+	    for(int f = 0; f < 2; ++f)
 	      //
-	      micro_out << std::setw(15) << Model::bimolecular(p).states(f, ener) * Phys_const::kcal;
+	      if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+		//
+		micro_out << std::setw(15) << Model::bimolecular(p).states(f, ener) * Phys_const::kcal;
 
 	micro_out << "\n";
-      }
-    }
-  } // micro output
+      }//
+      //
+    }//
+    //
+  }// micro output
 
   if(Model::no_run())
+    //
     return 0;
   
   /*********** PRESSURE AND TEMPERATURE DEPENDENT RATE COEFFICIENTS CALCULATION*************/
@@ -1325,7 +1462,7 @@ int main (int argc, char* argv [])
 	IO::out << "\n";
       }
       
-      IO::out << std::setw(7) << "O-O";
+      IO::out << std::setw(9) << "O-O";
       
       for(int j = 0; j < spec_name.size(); ++j)
 	//

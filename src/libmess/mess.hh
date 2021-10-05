@@ -36,6 +36,11 @@ namespace MasterEquation {
 
   enum {TORR, BAR, ATM};
   extern int pressure_unit;
+
+  //
+  enum {DOUBLE, DD, QD};
+
+  extern int float_type;
   
   // reduction of species
   enum {DIAGONALIZATION, PROJECTION}; // possible reduction algorithms for low eigenvalue method
@@ -45,7 +50,8 @@ namespace MasterEquation {
   void set_default_chem_size (int);
 
   // capture probabilities
-  extern std::map<std::string, std::vector<double> > hot_energy;
+  //
+  extern std::map<std::string, std::set<double> > hot_energy;
 
   // product energy distributions
   extern std::ofstream ped_out;
@@ -58,6 +64,8 @@ namespace MasterEquation {
   extern double reduction_threshold;// maximal chemical eigenvalue to collision frequency ratio
   extern double      well_extension;
   extern double      well_ext_corr;
+
+  extern bool well_reduction_correction;
   
   void set_global_cutoff (double);
 

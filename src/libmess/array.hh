@@ -484,8 +484,9 @@ void ArrayWithDefault<T>::apply (const F& f)
  **************************************************************************/
 
 template <typename T>
-class Array
-{
+//
+class Array {
+  //
   int _capacity;
   int _size;
   T*  _begin;
@@ -507,6 +508,8 @@ public:
 
   template <typename V>
   explicit Array (const V&);
+
+  operator std::vector<T> () const;
 
   ~Array () { if(_begin) delete[] _begin; }
 
@@ -568,6 +571,20 @@ public:
 };// class Array
 
 template <typename T>
+//
+Array<T>::operator std::vector<T>() const
+{
+  std::vector<T> res(size());
+
+  for(int i = 0; i < size(); ++i)
+    //
+    res[i] = (*this)[i];
+
+  return res;
+}
+
+template <typename T>
+//
 int Array<T>::_compare (const Array& v) const
 {
   if(size() > v.size())

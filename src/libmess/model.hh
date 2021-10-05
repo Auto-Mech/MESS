@@ -37,9 +37,11 @@ namespace Model {
   enum {ANGSTROM, BOHR}; // distance units
 
   // minimal interatomic distance
+  //
   extern double atom_dist_min;
 
   // maximum energy to be used
+  //
   double  energy_limit () ;
   void set_energy_limit (double);
   bool is_energy_limit ();
@@ -55,6 +57,8 @@ namespace Model {
   void read_geometry (IO::KeyBufferStream&, std::vector<Atom>&, int =ANGSTROM);
 
   bool is_well (const std::string&);
+
+  int well_by_name (const std::string&);
   
   /********************************************************************************************
    ******************************************** READERS ***************************************
@@ -298,7 +302,7 @@ namespace Model {
    ******************************** INTERNAL ROTATION DEFINITION ******************************
    ********************************************************************************************/
 
-  class InternalRotationBase {
+  class InternalRotationDef {
     //
     std::set<int>      _group; // moving group definition
     
@@ -314,13 +318,13 @@ namespace Model {
     //
     void init(IO::KeyBufferStream&);
     
-    InternalRotationBase()                           : _isinit(false), _symmetry(1), _axis(-1, -1) {}
+    InternalRotationDef()                           : _isinit(false), _symmetry(1), _axis(-1, -1) {}
     
-    explicit InternalRotationBase(int s)             : _isinit(false), _symmetry(s), _axis(-1, -1) {}
+    explicit InternalRotationDef(int s)             : _isinit(false), _symmetry(s), _axis(-1, -1) {}
     
-    explicit InternalRotationBase (IO::KeyBufferStream& from) : _isinit(false), _symmetry(1), _axis(-1, -1) { init(from); }
+    explicit InternalRotationDef (IO::KeyBufferStream& from) : _isinit(false), _symmetry(1), _axis(-1, -1) { init(from); }
     
-    virtual ~InternalRotationBase ();
+    virtual ~InternalRotationDef ();
 
     int symmetry () const { return _symmetry; }
 
@@ -394,13 +398,13 @@ namespace Model {
 
   // rotational constant for free and hindered rotors
   //
-  class RotorBase : public Rotor, public InternalRotationBase  {
+  class RotorBase : public Rotor, public InternalRotationDef  {
     //
     double  _rotational_constant;    
 
   public:
 
-    RotorBase (double r, int s) : InternalRotationBase(s), _rotational_constant(r) {}
+    RotorBase (double r, int s) : InternalRotationDef(s), _rotational_constant(r) {}
     
     RotorBase (IO::KeyBufferStream&, const std::vector<Atom>&);
 
@@ -414,10 +418,13 @@ namespace Model {
    ********************************************************************************************/
 
   class FreeRotor : public RotorBase {
+    //
     int _level_size;
 
   public:
-    FreeRotor (IO::KeyBufferStream&, const std::vector<Atom>&) ;
+    //
+    FreeRotor (IO::KeyBufferStream&, const std::vector<Atom>&);
+    
     ~FreeRotor ();
 
     void set (double);
@@ -434,10 +441,101 @@ namespace Model {
    ********************************************************************************************/
 
   class HinderedRotor : public RotorBase {
+    //
+    // hindered rotor potential
+    //
+    class _Potential {
+      //
+    public:
+      //
+      enum {AKIMA_SPLINE, C_SPLINE, FOURIER_EXPANSION, FOURIER_FIT };
 
+    private:
+      //
+      // key-to-type map
+      //
+      class _KeyType : private std::map<std::string, int> {
+	//
+      public:
+	//
+	_KeyType () {
+	  //
+	  (*this)["akima_spline"     ] = AKIMA_SPLINE;
+	  
+	  (*this)["c_spline"         ] = C_SPLINE;
+	  
+	  (*this)["fourier_expansion"] = FOURIER_EXPANSION;
+	  
+	  (*this)["fourier_fit"      ] = FOURIER_FIT;
+	}
+	
+	void print_keys (std::ostream&) const;
+
+	int find (const std::string&) const;
+      };
+
+      static const _KeyType _key_type;
+      
+      int _type; // potential type
+
+      int _symm; // symmetry
+      
+      Math::Spline  _spline;
+
+      Array<double> _fourier;
+
+      bool _isinit;
+
+      int _print_pot_size;
+
+      double _spline_value (double, int =0) const;
+
+      double _fourier_value (double, int =0) const;
+      
+      //...
+
+      // no copies
+      //
+      _Potential            (const _Potential&);
+      
+      _Potential& operator= (const _Potential&);
+
+    public:
+      //
+      _Potential () :_isinit(false), _print_pot_size(0) {}
+
+      void init (IO::KeyBufferStream&, int);
+      
+      _Potential (IO::KeyBufferStream& from, int s) : _print_pot_size(0) { init(from, s); }
+
+      _Potential(const Array<double>& f, int s)
+	//
+	: _isinit(true), _type(FOURIER_EXPANSION), _symm(s), _fourier(f), _print_pot_size(0) {}
+
+      bool isinit () const { return _isinit; }
+
+      int type () const { return _type; }
+      
+      int symmetry () const { return _symm; }
+      
+      // value and derivatives
+      //
+      double operator() (double, int =0) const;
+
+      // Fourier expansion
+      //
+      int fourier_size () const { return _fourier.size(); }
+      
+      double fourier (int i) const { return _fourier[i]; }
+    };
+
+    _Potential                _pot;
+
+    static int _rotation_matrix_element (int, int, int, double&);
+    
     double                    _ground; // ground level energy
     std::vector<double> _energy_level; // energy levels relative to the ground
-    std::map<int, double>   _pot_four; // potential fourier expansion
+    Array<double>           _pot_four; // potential fourier expansion
 
     std::vector<double>  _pot_grid; // potential-on-the-grid
     std::vector<double> _freq_grid; // frequency-on-the-grid
@@ -450,12 +548,22 @@ namespace Model {
     
     double               _ener_max; // maximal level energy
     
-    void _set_energy_levels (int) ;
+    void _fourier_space_energy_levels (int);
+    Lapack::Vector _real_space_energy_levels () const;
+    
     void _read (IO::KeyBufferStream&);
     void _init ();
 
     int _flags;
 
+    //Akima vs. C-spline
+    //
+    bool _use_akima;
+
+    // Slatec vs GSL
+    //
+    bool _use_slatec;
+    
   public:
     //
     enum {NOPRINT = 1};
@@ -467,26 +575,32 @@ namespace Model {
     // switch from quantum to semiclassical partition function calculation
     //
     static double weight_thres;
-    
+
+    // minimal sampling angle step, degrees
+    //
+    static double min_ang_step;
+
     HinderedRotor (IO::KeyBufferStream&, const std::vector<Atom>&, int f = 0);
     
-    HinderedRotor (const RotorBase& r, const std::map<int, double>& p, int f = 0);
+    HinderedRotor (const RotorBase& r, const std::vector<double>& p, int f = 0);
     
-    HinderedRotor (const std::map<int, double>& p, double r, int s, int f = 0);
+    HinderedRotor (const std::vector<double>& p, double r, int s, int f = 0);
     
     ~HinderedRotor ();
 
     double                        potential           (double, int =0) const;
     int         semiclassical_states_number                   (double) const;
-    Lapack::Vector real_space_energy_levels                         () const;
     double                   quantum_weight                   (double) const;
     int            get_semiclassical_weight (double, double&, double&) const;
 
     // integrate local energy distribution over angle
+    //
     void integrate (Array<double>&, double) const;
+    
     double potential_minimum () { return _pot_min; }
 
     // virtual functions
+    //
     void set (double);
 
     double ground       ()       const;
@@ -540,35 +654,49 @@ namespace Model {
   
   class Umbrella : public Rotor {
 
-    double _ground;
+    double                    _ground;
+    
     std::vector<double> _energy_level;
 
-    double _mass;
-    Lapack::Vector _pot_coef;
+    double                      _mass;
+    
+    Lapack::Vector          _pot_coef;
 
     // discretization
+    //
     std::vector<double>  _pot_grid; // potential-on-the-grid
+    
     std::vector<double> _freq_grid; // frequency-on-the-grid
+    
     double                  _astep; // discretization step
+    
     double                _pot_min; // global potential energy minimum
     
     static double _integral(int p, int n);// \int_0^1 dx x^p cos(n\pi x)
-    void _set_energy_levels(int) ;
+    
+    void _fourier_space_energy_levels(int) ;
 
   public:
-    Umbrella (IO::KeyBufferStream&, const std::vector<Atom>&) ;
+    Umbrella (IO::KeyBufferStream&, const std::vector<Atom>&);
+    
     ~Umbrella ();
 
     double quantum_weight (double) const;
+    
     int get_semiclassical_weight (double, double&, double&) const;
+    
     double potential(double x, int der =0) const ;
 
     // virtual functions
+    //
     void set (double ener_max);
 
     double ground          () const; // ground energy
+    
     double energy_level (int) const; // energy levels relative to the ground
+    
     int    level_size      () const; // number of energy levels
+    
     double weight    (double) const; // statistical weight relative to the ground
   };
 
@@ -577,17 +705,22 @@ namespace Model {
    **************************************************************************************/
 
   class Core {
+    //
     int _mode;
+    
     Core ();
 
   protected:
+    //
     explicit Core(int m);
 
   public:
     virtual ~Core ();
 
     virtual double ground       () const =0;
+    
     virtual double weight (double) const =0; // statistical weight relative to the ground
+    
     virtual double states (double) const =0; // density or number of states relative to the ground
 
     int mode () const { return _mode; }
@@ -598,7 +731,9 @@ namespace Model {
     const char funame [] = "Model::Core::Core: ";
 
     if(mode() != NUMBER && mode() != DENSITY && mode() != NOSTATES) {
+      //
       std::cerr << funame << "wrong mode\n";
+      
       throw Error::Logic();
     }
   }
@@ -720,59 +855,29 @@ namespace Model {
   };
 
   /********************************************************************************************
-   ******************** INTERNAL ROTATION DEFINITION FOR MULTIROTOR CLASS *********************
-   ********************************************************************************************/
-
-  class InternalRotation : public InternalRotationBase {
-    int                _msize; // mass fourier expansion size;
-    int                _psize; // potential fourier expansion size
-    int                _wsize; // angular grid size
-    int                 _qmin; // minimum quantum state size
-    int                 _qmax; // maximum quantum state size
-
-  public:
-    //
-    InternalRotation (IO::KeyBufferStream&);
-    
-    ~InternalRotation ();
-
-    int      mass_fourier_size () const { return    _msize; }
-    int potential_fourier_size () const { return    _psize; }
-    int   weight_sampling_size () const { return    _wsize; }
-    int       quantum_size_min () const { return     _qmin; }
-    int       quantum_size_max () const { return     _qmax; }
-  };
-
-  /********************************************************************************************
    ******************************** INTERNAL ROTATION SAMPLING CLASS **************************
    ********************************************************************************************/
   
-    class MultiRotorSampling: public Core {
+    class MultiRotorWithBumps: public Core {
       //
-      std::vector<InternalRotation> _internal_rotation; // internal rotations description
+      // internal rotations description
+      //
+      std::vector<InternalRotationDef> _internal_rotation;
 
-      class Sampling {
-	//
-	double _weight_factor;
+      
+      // hindered rotors potential
+      //
+      std::vector<std::map<int, double> > _hr_pot;
 
-	double _pot_energy;
+      // hydrogen bond potential
+      //
+      // ...
 
-	std::vector<double> _frequency;
+      // repulsion potential
+      //
+      // ...
 
-	int _dof;
-
-      public:
-	//
-	Sampling (double wf, double pe, const std::vector<double>& f, int dof)
-	  : _weight_factor(wf), _pot_energy(pe), _frequency(f), _dof(dof) {}
-
-	double statistical_weight (double temperature) const;
-
-	double states (double energy, int mode) const;
-      };
-
-      std::vector<Sampling> _sampling;
-
+      
     };
 
   /********************************************************************************************
@@ -781,6 +886,28 @@ namespace Model {
 
   class MultiRotor: public Core {
     //
+    // Internal rotation for multirotor
+    //
+    class InternalRotation : public InternalRotationDef {
+      int                _msize; // mass fourier expansion size;
+      int                _psize; // potential fourier expansion size
+      int                _wsize; // angular grid size
+      int                 _qmin; // minimum quantum state size
+      int                 _qmax; // maximum quantum state size
+
+    public:
+      //
+      InternalRotation (IO::KeyBufferStream&);
+    
+      ~InternalRotation ();
+
+      int      mass_fourier_size () const { return    _msize; }
+      int potential_fourier_size () const { return    _psize; }
+      int   weight_sampling_size () const { return    _wsize; }
+      int       quantum_size_min () const { return     _qmin; }
+      int       quantum_size_max () const { return     _qmax; }
+    };
+
     std::vector<InternalRotation> _internal_rotation; // internal rotations description
 
     double  _external_symmetry; // external rotation symmetry number
@@ -922,36 +1049,51 @@ namespace Model {
    ********************************************************************************************/
 
   class Species {
+    //
     std::vector<Atom> _atom;
-    std::string _name;
-    int    _mode;
+    
+    std::string       _name;
+    
+    int               _mode;
 
     Species ();
 
   protected:
     //
     double _ground;
+    
     double _mass;
+    
     double _print_min, _print_max, _print_step;
 
     void _print () const;
 
-    Species (IO::KeyBufferStream&, const std::string&, int) ;
+    Species (IO::KeyBufferStream&, const std::string&, int);
+    
     Species (const std::string&, int);
     
   public:
 
     enum {CORE_WEIGHT,
+	  //
 	  HARMONIC_WEIGHT,
+	  //
 	  ANHARMONIC_WEIGHT,
+	  //
 	  HINDERED_ROTOR_WEIGHT,
+	  //
 	  ELECTRONIC_WEIGHT
     };
     
     virtual ~Species();
+    
+    // density or number of states of absolute energy
+    //
+    virtual double states (double) const =0;
 
-    virtual double states (double) const =0; // density or number of states of absolute energy
-    virtual double weight (double) const =0; // weight relative to the ground
+    // weight relative to the ground
+    //
+    virtual double weight (double) const =0;
 
     // free energy
     //
@@ -965,9 +1107,14 @@ namespace Model {
     //
     void esc_parameters (double temperature, double& e, double& s, double& c) const;
 
+    // ground state energy
+    //
     double ground () const { return _ground; }
+    
     virtual void shift_ground (double e) { _ground += e; }
+    
     virtual double real_ground () const { return _ground; }
+    
     virtual void init () {}
     
     double   mass () const ;
@@ -978,12 +1125,14 @@ namespace Model {
 
     virtual double tunnel_weight (double) const;
 
-    //void set_name (const std::string& n) { _name = n; }
     const std::string& name () const { return _name; }
 
     // radiational transitions
+    //
     virtual double   infrared_intensity (double, int) const;
+    
     virtual double oscillator_frequency (int)         const;
+    
     virtual int         oscillator_size ()            const;
   };
 
@@ -992,7 +1141,9 @@ namespace Model {
     const char funame [] = "Model::Species::Species: ";
     
     if(m != DENSITY && m != NUMBER && m !=  NOSTATES) {
+      //
       std::cerr << funame << "wrong mode\n";
+      
       throw Error::Logic();
     }
   }
@@ -1195,7 +1346,7 @@ namespace Model {
 
     // internal rotation definition for calculations without constrain optimization
     //
-    std::vector<InternalRotationBase> _internal_rotation;
+    std::vector<InternalRotationDef> _internal_rotation;
 
     // reference energy
     //
@@ -1443,7 +1594,9 @@ namespace Model {
   /************************************* UNION OF SPECIES **************************************/
 
   class UnionSpecies : public Species {
+    //
     std::vector<SharedPointer<Species> > _species;
+    
     typedef std::vector<SharedPointer<Species> >::const_iterator _Cit;
 
     double _real_ground;
@@ -1457,8 +1610,9 @@ namespace Model {
     void _set ();
 
   public:
-
+    //
     UnionSpecies  (IO::KeyBufferStream&, const std::string&, int);
+    
     UnionSpecies  (const std::vector<SharedPointer<Species> >&, const std::string&, int);
     
     ~UnionSpecies ();
@@ -1479,8 +1633,11 @@ namespace Model {
   /****************************************** VARIATIONAL BARRIER MODEL ************************************/
 
   class VarBarrier : public Species {
+    //
     std::vector<SharedPointer<RRHO> > _rrho;
+    
     SharedPointer<RRHO>               _outer;
+    
     SharedPointer<Tunnel>             _tunnel;
 
     double _real_ground;
@@ -1493,11 +1650,15 @@ namespace Model {
     Slatec::Spline _states;
 
     // two-transition-states model calculation method
+    //
     enum {STATISTICAL, DYNAMICAL};
+    
     int _tts_method;
 
   public:
-    VarBarrier (IO::KeyBufferStream& from, const std::string&) ;
+    //
+    VarBarrier (IO::KeyBufferStream& from, const std::string&);
+    
     ~VarBarrier ();
 
     double states (double) const;
@@ -1514,11 +1675,15 @@ namespace Model {
   /*********************************** ATOMIC FRAGMENT CLASS ***********************************/
 
   class AtomicSpecies : public Species {
+    //
     std::vector<double>                   _elevel; // electronic energy levels
+    
     std::vector<int>                      _edegen; // electronic level degeneracies
 
   public:
-    AtomicSpecies(IO::KeyBufferStream& from, const std::string&) ;
+    //
+    AtomicSpecies(IO::KeyBufferStream& from, const std::string&);
+    
     ~AtomicSpecies ();
 
     double weight (double) const;
@@ -1530,7 +1695,7 @@ namespace Model {
   /*********************************** ARRHENIUS  CLASS ***********************************/
 
   class Arrhenius : public Species {
-
+    //
     double _power;
     double _factor;
     double _ener;
@@ -1544,7 +1709,9 @@ namespace Model {
     Slatec::Spline _states;
 
   public:
-    Arrhenius(IO::KeyBufferStream& from, const std::string&) ;
+    //
+    Arrhenius(IO::KeyBufferStream& from, const std::string&);
+    
     ~Arrhenius ();
 
     double weight (double) const;
@@ -1562,14 +1729,21 @@ namespace Model {
 
   // bimolecular products
   class Bimolecular {
+    //
     bool _dummy;
+    
     std::vector<SharedPointer<Species> > _fragment;
+    
     double _weight_fac;
+    
     double _ground;
+    
     std::string _name;
 
   public:
-    Bimolecular (IO::KeyBufferStream&, const std::string&) ;
+    //
+    Bimolecular (IO::KeyBufferStream&, const std::string&);
+    
     ~Bimolecular ();
 
     bool     dummy       () const { return _dummy; }
@@ -1578,9 +1752,9 @@ namespace Model {
     void shift_ground (double);
 
     const std::string& fragment_name (int i) const { return _fragment[i]->name(); }
+    
     double fragment_weight (int, double) const;
 
-    //void set_name (const std::string& n) { _name = n; }
     const std::string& name () const { return _name; }
 
     int mode (int f) const {return _fragment[f]->mode(); }
@@ -1695,7 +1869,7 @@ namespace Model {
 
     double escape_rate (double, int) const;
 
-    void shift_ground (double) ;
+    void shift_ground (double);
 
     // radiation transitions
     //

@@ -36,7 +36,6 @@
 namespace MasterEquation {
   /*********************************** AUXILIARY OUTPUT *************************************/
 
-
   std::ofstream eval_out;// eigenvalues output
   int  red_out_num = 5; // number of reduction schemes to print 
 
@@ -47,6 +46,10 @@ namespace MasterEquation {
 
   /********************************* USER DEFINED PARAMETERS ********************************/
 
+  bool well_reduction_correction = true;
+
+  int float_type = DOUBLE;
+  
   // temperature
   //
   double                                                     _temperature     = -1.;
@@ -73,11 +76,11 @@ namespace MasterEquation {
   
   // smallest chemical eigenvalue
   //
-  double                                                     min_chem_eval     = 1.e-7;
+  double                                                     min_chem_eval     = -1.;
   
   // maximal chemical relaxation eigenvalue to collision frequency ratio
   //
-  double                                                     reduction_threshold    = 0.;
+  double                                                     reduction_threshold    = 10.;
   
   // species reduction algorithm for low-eigenvalue method
   //
@@ -202,15 +205,19 @@ namespace MasterEquation {
   //double kernel_fraction    (int i) { return _kernel_fraction[i];     }
 
   // cumulative number of states for each well
+  //
   std::vector<Array<double> >  cum_stat_num;
 
   // capture probabilities
-  std::map<std::string, std::vector<double> > hot_energy;
-  std::map<int, std::vector<int> >            hot_index;
-  int hot_energy_size;
+  //
+  std::map<std::string, std::set<double> > hot_energy;
+  
+  std::set<std::pair<int, int> > hot_index;
 
   // product energy distributions
+  //
   std::ofstream  ped_out;// product energy distribution output stream
+  
   std::vector<std::pair<int, int> > ped_pair; // product energy distribution reactants and products indices
 }
 
@@ -576,43 +583,70 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
   }
 
   // cumulative number of states for each well
+  //
   cum_stat_num.resize(Model::well_size());
+  
   for(int w = 0; w < Model::well_size(); ++w) {// well cycle
+    //
     itemp = 0;
+    
     for(int b = 0; b < Model::inner_barrier_size(); ++b)
+      //
       if(Model::inner_connect(b).first == w || Model::inner_connect(b).second == w)
+	//
 	itemp = inner_barrier(b).size() > itemp ? inner_barrier(b).size() : itemp;
+    
     for(int b = 0; b < Model::outer_barrier_size(); ++b)
+      //
       if(Model::outer_connect(b).first == w)
+	//
 	itemp = outer_barrier(b).size() > itemp ? outer_barrier(b).size() : itemp;
 
     cum_stat_num[w].resize(itemp);
     
     cum_stat_num[w] = 0.;
+    
     for(int b = 0; b < Model::inner_barrier_size(); ++b)
-      if(Model::inner_connect(b).first == w || Model::inner_connect(b).second == w) 
+      //
+      if(Model::inner_connect(b).first == w || Model::inner_connect(b).second == w)
+	//
 	for(int i = 0; i < inner_barrier(b).size(); ++i)
+	  //
 	  cum_stat_num[w][i] += inner_barrier(b).state_number(i);
+    
     for(int b = 0; b < Model::outer_barrier_size(); ++b)
-      if(Model::outer_connect(b).first == w) 
+      //
+      if(Model::outer_connect(b).first == w)
+	//
 	for(int i = 0; i < outer_barrier(b).size(); ++i)
+	  //
 	  cum_stat_num[w][i] += outer_barrier(b).state_number(i);
+    
   }// well cycle
 
 
   /************************************** OUTPUT ***************************************/
 
   if(evec_out.is_open()) {
+    //
     for(int w = 0; w < Model::well_size(); ++w)
+      //
       if(!w || well(w).size() > itemp)
+	//
 	itemp = well(w).size();
+    
     const int well_size_max = itemp;
     
     evec_out << "Temperature = " << temperature() / Phys_const::kelv << "K\n"
+      //
 	     <<"THERMAL DISTRIBUTIONS:\n"
+      //
 	     << std::setw(13) << "E, kcal/mol";
+    
     for(int w = 0; w < Model::well_size(); ++w)
+      //
       evec_out << std::setw(13) << Model::well(w).name();
+    
     evec_out << "\n";
     
     for(int i = 0; i < well_size_max; ++i) {
@@ -620,10 +654,15 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       evec_out << std::setw(13) << energy_bin(i) / Phys_const::kcal;
       
       for(int w = 0; w < Model::well_size(); ++w)
-	if(i < well(w).size())
+	//
+	if(i < well(w).size()) {
+	  //
 	  evec_out << std::setw(13) << well(w).state_density(i) * thermal_factor(i) / well(w).weight_sqrt();
+	}
 	else
+	  //
 	  evec_out << std::setw(13) << 0;
+      
       evec_out << "\n";
     }
     evec_out << "\n";    
@@ -632,6 +671,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
   IO::log << std::setprecision(3);
 
   if(Model::well_size()) {
+    //
     IO::log << IO::log_offset << "Bound Species (D1/D2 - density of states at dissociation energy (DE)/reference energy):\n"
 	    << IO::log_offset 
 	    << std::setw(5)  << "Name"
@@ -837,48 +877,34 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
   //
   if(hot_energy.size()) {
     //
-    // check if hot energy wells exist
-    //
-    std::map<std::string, std::vector<double> >::const_iterator hit;
-
-    for(hit = hot_energy.begin(); hit != hot_energy.end(); ++hit) {
+    hot_index.clear();
+    
+    for(std::map<std::string, std::set<double> >::const_iterator hit = hot_energy.begin(); hit != hot_energy.end(); ++hit) {
       //
-      if(!Model::is_well(hit->first)) {
+      const int w = Model::well_by_name(hit->first);
+      
+      // check if hot energy wells exist
+      //
+      if(w < 0) {
 	//
 	std::cerr << funame << hit->first << " well does not exist\n";
 
 	throw Error::Init();
       }
-    }
-    
-    hot_index.clear();
-    
-    hot_energy_size = 0;
-    
-
-    for(int w = 0; w < Model::well_size(); ++w) {
-      //
-      hit = hot_energy.find(Model::well(w).name());
       
-      if(hit != hot_energy.end())
+      for(std::set<double>::const_iterator it = hit->second.begin(); it != hit->second.end(); ++it) {
 	//
-	for(int i = 0; i < hit->second.size(); ++i) {
-	  //
-	  itemp = int((energy_reference() - hit->second[i]) / energy_step());
+	itemp = (energy_reference() - *it) / energy_step();
 	  
-	  if(itemp >= 0 && itemp < well(w).size()) {
-	    //
-	    hot_index[w].push_back(itemp);
-	    
-	    ++hot_energy_size;
-	  }
-	  else
-	    //
-	    IO::log << IO::log_offset << "WARNING: " << i <<"-th hot energy our of range\n";
-	}
-    }
+	if(itemp >= 0 && itemp < well(w).size())
+	  //
+	  hot_index.insert(std::make_pair(w, itemp));
+      }//
+      //
+    }//
+    //
   }// hot energies
-
+  //
 }
 
 /********************************************************************************************
@@ -905,7 +931,9 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
   hval += model.ground();
   
   IO::log << IO::log_offset << model.name() << " Well: average energy = "
+    //
 	  << std::ceil(hval / Phys_const::kcal * 10.) / 10.
+    //
 	  << " kcal/mol\n";
   
   /***************************** SETTING DENSITY OF STATES ************************************/
@@ -1015,6 +1043,7 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
   do {
     //
     _kernel.resize(size());
+    
     _kernel = 0.;
 
     Lapack::Matrix tmp_kernel(size());
@@ -1212,7 +1241,9 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
 	    
 	    tmp_kernel(e, itemp) = energy_transfer[i];
 
-	    tmp_kernel(itemp, e) = energy_transfer[i] * _state_density[e] / _state_density[itemp] / std::exp(i * energy_step() / temperature());
+	    tmp_kernel(itemp, e) = energy_transfer[i] * _state_density[e] / _state_density[itemp]
+	      //
+	      / std::exp(i * energy_step() / temperature());
 
 	    dtemp += tmp_kernel(e, itemp) + tmp_kernel(itemp, e);
 	  }
@@ -1251,11 +1282,14 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
 	  }
       }
       
-      if(_kernel.size() != size())
+      if(_kernel.size() != size()) {
 	//
 	break;
+      }
       else
+	//
 	_kernel += tmp_kernel;
+      //
     }//
     //
   } while(_kernel.size() != size());
@@ -1283,34 +1317,51 @@ void MasterEquation::Well::_set_crm_basis ()
   /**************** SETTING RELAXATION MODE BASIS & PARTITION FUNCTION ****************/
 
   _boltzman.resize(size());
+  
   _boltzman_sqrt.resize(size());
+  
   _crm_basis.resize(size(), size() - 1);
+  
   _crm_basis = 0.;
+  
   _weight = 0.;
+  
   std::vector<double> nfac(crm_size());
+  
   for(int i = 0; i < size(); ++i) {
+    //
     dtemp = state_density(i) * thermal_factor(i);
+    
     _boltzman[i] = dtemp;
+    
     _boltzman_sqrt[i] = std::sqrt(dtemp);
+    
     if(i) {
+      //
       itemp = i - 1;
+      
       _crm_basis(i, itemp) = - _weight;
+      
       nfac[itemp] = std::sqrt((_weight / dtemp + 1.) * _weight);
     }
+    
     for(int r = i; r < crm_size(); ++r)
+      //
       _crm_basis(i, r) = dtemp;
+    
     _weight += dtemp;    
   }
 
   for(int r = 0; r < crm_size(); ++r) {
+    //
     itemp = r + 2;
-    for(int i = 0; i < itemp; ++i) {
+    
+    for(int i = 0; i < itemp; ++i)
+      //
       _crm_basis(i, r) /= nfac[r];
-    }
   }
 
   _weight_sqrt = std::sqrt(_weight);
-
 }
 
 MasterEquation::Well::Well (const Model::Well& model)
@@ -1326,33 +1377,44 @@ MasterEquation::Well::Well (const Model::Well& model)
   std::clock_t start_time;
 
   _collision_factor = 0.;
+  
   _kernel_fraction.resize(Model::buffer_size());
+  
   for(int b = 0; b < Model::buffer_size(); ++b) {
+    //
     dtemp = (*model.collision(b))(temperature()) * Model::buffer_fraction(b);
+    
     _kernel_fraction[b] = dtemp;
+    
     _collision_factor += dtemp;
   }
 
   for(int b = 0; b < Model::buffer_size(); ++b)
+    //
     _kernel_fraction[b] /= _collision_factor;
 
-  _real_weight = model.weight(temperature()) * 
+  _real_weight = model.weight(temperature()) *
+    //
     std::exp((energy_reference() - model.ground()) / temperature());
 
   // state density
+  //
   start_time = std::clock();
 
   _set_state_density(model);
 
   IO::log << IO::log_offset << model.name() << " Well: density of states done, elapsed time[sec] = "
+    //
 	    << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
 
   // collisiona relaxation kernel
+  //
   start_time = std::clock();
 
   _set_kernel(model);
 
   IO::log << IO::log_offset << model.name() << " Well: collisional energy transfer kernel done, elapsed time[sec] = "
+    //
 	    << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
 
   // CRM basis
@@ -1362,6 +1424,7 @@ MasterEquation::Well::Well (const Model::Well& model)
   _set_crm_basis();
 
   IO::log << IO::log_offset << model.name() << " Well: relaxation modes basis done, elapsed time[sec] = "
+    //
 	    << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
 
   // collisional relaxation kernel in CRM basis
@@ -1421,18 +1484,25 @@ MasterEquation::Well::Well (const Model::Well& model)
   */
   
   // minimal collisional relaxation eigenvalue
+  //
   start_time = std::clock();
 
   vtemp = _crm_kernel.eigenvalues();
+  
   _min_relax_eval = vtemp.front();
+  
   _max_relax_eval = vtemp.back();
 
   IO::log << IO::log_offset << model.name() << " Well: relaxation eigenvalues done, elapsed time[sec] = "
-	    << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
+    //
+	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
 
   IO::log << IO::log_offset << model.name() << " Well: minimal relaxation eigenvalue = "
+    //
 	  << _min_relax_eval << "\n";
-  IO::log << IO::log_offset << model.name() << " Well: maximal relaxation eigenvalue = " 
+  
+  IO::log << IO::log_offset << model.name() << " Well: maximal relaxation eigenvalue = "
+    //
 	  << _max_relax_eval << "\n";
 
   /*
@@ -1513,28 +1583,41 @@ MasterEquation::Well::Well (const Model::Well& model)
 	le = le < size() ? le : size() - 1; 
 
 	dtemp = boltzman_sqrt(ue) / boltzman_sqrt(le);
+	
 	_radiation_rate(ue, le) -= rad_prob * dtemp;
+	
 	_radiation_rate(ue, ue) += rad_prob;
+	
 	_radiation_rate(le, le) += rad_prob * dtemp * dtemp;
 
 #pragma omp parallel for default(shared) schedule(dynamic)
 	
 	for(int r1 = 0; r1 < crm_size(); ++r1) {
+	  //
 	  for(int r2 = r1; r2 < crm_size(); ++r2)
+	    //
 	    _crm_radiation_rate(r1, r2) += rad_prob * boltzman(ue)
+	      //
 	      * (crm_bra(ue, r1) - crm_bra(le, r1))
+	      //
 	      * (crm_bra(ue, r2) - crm_bra(le, r2));
 	}
       }
     }
   }
   
-  IO::log << IO::log_offset << model.name() 
+  IO::log << IO::log_offset << model.name()
+    //
 	  << " Well:       grid size = " << size() << "\n"
-	  << IO::log_offset << model.name() 
+    //
+	  << IO::log_offset << model.name()
+    //
 	  << " Well:      real depth = " << int(model.ground() / Phys_const::incm) << " 1/cm\n"
-	  << IO::log_offset << model.name() 
+    //
+	  << IO::log_offset << model.name()
+    //
 	  << " Well: effective depth = "
+    //
 	  << int(energy_bin(size()) / Phys_const::incm) << " 1/cm\n";
 }
 
@@ -1552,38 +1635,57 @@ MasterEquation::Barrier::Barrier (const Model::Species& model)
   int new_size = (int)std::ceil((energy_reference() - model.ground()) / energy_step());
 
   if(is_global_cutoff) {
+    //
     itemp =(int)std::ceil((energy_reference() - global_cutoff) / energy_step());
+    
     new_size = itemp < new_size ? itemp : new_size;      
   }
 
   _state_number.resize(new_size);
+  
   resize_thermal_factor(new_size);
 
   double ener = energy_reference();
+  
   _weight = 0.;
+  
   for(int e = 0; e < size(); ++e, ener -= energy_step()) {
+    //
     dtemp = model.states(ener);
+    
     if(dtemp <= 0.) {
-      IO::log << IO::log_offset  << model.name() << " Barrier: nonpositive number of states at " 
+      //
+      IO::log << IO::log_offset  << model.name() << " Barrier: nonpositive number of states at "
+	//
 	      << ener / Phys_const::incm  << " 1/cm => truncating\n";
+      
       _state_number.resize(e);
+      
       break;
     }
+    
     _state_number[e] = dtemp;
+    
     _weight += dtemp * thermal_factor(e);
   }
+  
   _weight *= energy_step() / temperature();
 
   _real_weight = model.weight(temperature()) * std::exp((energy_reference() - model.ground()) / temperature());  
 
-  IO::log << IO::log_offset << model.name() 
+  IO::log << IO::log_offset << model.name()
+    //
 	  << " Barrier:        grid size = " << size() << "\n"
-	  << IO::log_offset << model.name() 
+    //
+	  << IO::log_offset << model.name()
+    //
 	  << " Barrier:      real height = " << int(model.ground() / Phys_const::incm) << " 1/cm\n"
-	  << IO::log_offset << model.name() 
+    //
+	  << IO::log_offset << model.name()
+    //
 	  << " Barrier: effective height = "
+    //
 	  << int(energy_bin(size()) / Phys_const::incm) << " 1/cm\n";
-
 }
 
 void MasterEquation::Barrier::truncate (int new_size) 
@@ -1591,24 +1693,34 @@ void MasterEquation::Barrier::truncate (int new_size)
   const char funame [] = "MasterEquation::Barrier::truncate: ";
 
   double dtemp;
+  
   if(new_size == size())
+    //
     return;
 
   if(new_size <= 0 || new_size > size()) {
-    std::cerr << funame << "out of range\n";
+    //
+    std::cerr << funame << "out of range: " << new_size << "\n";
+    
     throw Error::Range();
   }
 
   dtemp = 0.;
+  
   for(int i = new_size; i < size(); ++i)
+    //
     dtemp += _state_number[i] * thermal_factor(i);
+  
   dtemp *= energy_step() / temperature();
 
   _state_number.resize(new_size);
+  
   _weight -= dtemp;
   
   IO::log << IO::log_offset << funame << "grid size = " << size() << "\n"
+    //
 	  << IO::log_offset << funame << "real weight = " << _real_weight << "\n"
+    //
 	  << IO::log_offset << funame << "effective weight = " << _weight * energy_step() << "\n";
 }
 
@@ -1665,7 +1777,8 @@ void MasterEquation::low_eigenvalue_matrix (Lapack::SymmetricMatrix& k_11, Lapac
   Lapack::Vector vtemp;
   Lapack::Matrix mtemp;  
 
-  // total collisional relaxation modes dimension and index shifts for individual wells 
+  // total collisional relaxation modes dimension and index shifts for individual wells
+  //
   std::vector<int> well_shift(Model::well_size());
   itemp = 0;
   for(int w = 0; w < Model::well_size(); itemp += well(w++).crm_size())
@@ -1693,20 +1806,32 @@ void MasterEquation::low_eigenvalue_matrix (Lapack::SymmetricMatrix& k_11, Lapac
     IO::Marker work_marker("setting up kinetic matrices", IO::Marker::ONE_LINE);
 
     // k_11 initialization
+    //
     for(int b = 0; b < Model::inner_barrier_size(); ++b) {
-      int w1 = Model::inner_connect(b).first;
-      int w2 = Model::inner_connect(b).second;
+      //
+      const int& w1 = Model::inner_connect(b).first;
+      
+      const int& w2 = Model::inner_connect(b).second;
+      
       dtemp = 0.;
+      
       for(int i = 0; i < inner_barrier(b).size(); ++i)
+	//
 	dtemp += inner_barrier(b).state_number(i) * thermal_factor(i);
+      
       k_11(w1, w2) = - dtemp / 2. / M_PI / well(w1).weight_sqrt() / well(w2).weight_sqrt();
     }
   
     for(int w = 0; w < Model::well_size(); ++w) {
+      //
       dtemp = 0.;
+      
       for(int i = 0; i < cum_stat_num[w].size(); ++i)
+	//
 	dtemp += cum_stat_num[w][i] * thermal_factor(i);
+      
       dtemp /= 2. * M_PI * well(w).weight();
+      
       k_11(w, w) = dtemp;
       
       if(Model::well(w).escape_size()) {
@@ -1724,19 +1849,29 @@ void MasterEquation::low_eigenvalue_matrix (Lapack::SymmetricMatrix& k_11, Lapac
     }
 
     // k_21 initialization
+    //
     for(int b = 0; b < Model::inner_barrier_size(); ++b) {
+      //
       int w1 = Model::inner_connect(b).first;
-      int w2 = Model::inner_connect(b).second;    
+      
+      int w2 = Model::inner_connect(b).second;
+      
       vtemp.resize(inner_barrier(b).size());
+      
       for(int dir = 0; dir < 2; ++dir) {
+	//
 	if(dir)
+	  //
 	  std::swap(w1, w2);
 
 	for(int i = 0; i < inner_barrier(b).size(); ++i)
-	  vtemp[i] = inner_barrier(b).state_number(i) / 2. / M_PI / well(w1).state_density(i) 
+	  //
+	  vtemp[i] = inner_barrier(b).state_number(i) / 2. / M_PI / well(w1).state_density(i)
+	    //
 	    / well(w2).weight_sqrt();
 
 	for(int r = 0; r < well(w1).crm_size(); ++r)
+	  //
 	  k_21(r + well_shift[w1], w2) = -parallel_vdot(well(w1).crm_column(r), vtemp, vtemp.size()) ;
       }
     }
@@ -1752,29 +1887,44 @@ void MasterEquation::low_eigenvalue_matrix (Lapack::SymmetricMatrix& k_11, Lapac
 	  vtemp[i] = Model::well(w).escape_rate(energy_bin(i)) / well(w).weight_sqrt();
       }
       else {
+	//
 	vtemp.resize(cum_stat_num[w].size());
+	
 	vtemp = 0.;
       }
+      
       for(int i = 0; i < cum_stat_num[w].size(); ++i)
+	//
 	vtemp[i] += cum_stat_num[w][i] / 2. / M_PI / well(w).state_density(i) / well(w).weight_sqrt();
+      
       for(int r = 0; r < well(w).crm_size(); ++r)
+	//
 	k_21(r + well_shift[w], w) =  parallel_vdot(well(w).crm_column(r), vtemp, vtemp.size());
     }
 
     // k_22 initialization
     // nondiagonal isomerization
+    //
     for(int b = 0; b < Model::inner_barrier_size(); ++b) {
+      //
       int w1 = Model::inner_connect(b).first;
+      
       int w2 = Model::inner_connect(b).second;    
 
       vtemp.resize(inner_barrier(b).size());
+      
       for(int i = 0; i < inner_barrier(b).size(); ++i)
-	vtemp[i] = inner_barrier(b).state_number(i) / 2. / M_PI / well(w1).state_density(i) 
+	//
+	vtemp[i] = inner_barrier(b).state_number(i) / 2. / M_PI / well(w1).state_density(i)
+	  //
 	  / well(w2).state_density(i) / thermal_factor(i);
 
-      for(int r1 = 0; r1 < well(w1).crm_size(); ++r1) 
+      for(int r1 = 0; r1 < well(w1).crm_size(); ++r1)
+	//
 	for(int r2 = 0; r2 < well(w2).crm_size(); ++r2) {
+	  //
 	  k_22(r1 + well_shift[w1], r2 + well_shift[w2]) =
+	    //
 	    -triple_product(well(w1).crm_column(r1), well(w2).crm_column(r2), vtemp, vtemp.size());
 	}
     }
@@ -1804,55 +1954,78 @@ void MasterEquation::low_eigenvalue_matrix (Lapack::SymmetricMatrix& k_11, Lapac
 	vtemp[i] += cum_stat_num[w][i] / 2. / M_PI / dtemp / dtemp / thermal_factor(i);
       }
 
-      for(int r1 = 0; r1 < well(w).crm_size(); ++r1) 
+      for(int r1 = 0; r1 < well(w).crm_size(); ++r1)
+	//
 	for(int r2 = r1; r2 < well(w).crm_size(); ++r2) {
-	  k_22(r1 + well_shift[w], r2 + well_shift[w]) =  
+	  //
+	  k_22(r1 + well_shift[w], r2 + well_shift[w]) =
+	    //
 	    triple_product(well(w).crm_column(r1), well(w).crm_column(r2), vtemp, vtemp.size());
 	}
     }
 
-    // collisional energy transfer 
+    // collisional energy transfer
+    //
     for(int w = 0; w < Model::well_size(); ++w) {
 
 #pragma omp parallel for default(shared) schedule(dynamic)
 
       for(int r1 = 0; r1 < well(w).crm_size(); ++r1) {
+	//
 	for(int r2 = r1; r2 < well(w).crm_size(); ++r2)
-	  k_22(r1 + well_shift[w], r2 + well_shift[w]) +=  well(w).collision_frequency() * 
+	  //
+	  k_22(r1 + well_shift[w], r2 + well_shift[w]) +=  well(w).collision_frequency() *
+	    //
 	    well(w).crm_kernel(r1, r2);
       }
     }
 
     // radiational transitions contribution
-    for(int w = 0; w < Model::well_size(); ++w) 
+    //
+    for(int w = 0; w < Model::well_size(); ++w)
+      //
       if(well(w).radiation()) {
 
 #pragma omp parallel for default(shared) schedule(dynamic)
 	
 	for(int r1 = 0; r1 < well(w).crm_size(); ++r1) {
+	  //
 	  for(int r2 = r1; r2 < well(w).crm_size(); ++r2)
-	    k_22(r1 + well_shift[w], r2 + well_shift[w]) +=  
-	    well(w).crm_radiation_rate(r1, r2);
+	    //
+	    k_22(r1 + well_shift[w], r2 + well_shift[w]) +=
+	      //
+	      well(w).crm_radiation_rate(r1, r2);
 	}
       }
 
-    // bimolecular number of states 
+    // bimolecular number of states
+    //
     for(int b = 0; b < Model::outer_barrier_size(); ++b) {
+      //
       const int w = Model::outer_connect(b).first;
+      
       const int p = Model::outer_connect(b).second;
 
       // chemical modes
+      //
       dtemp = 0.;
+      
       for(int i = 0; i < outer_barrier(b).size(); ++i)
+	//
 	dtemp += outer_barrier(b).state_number(i) * thermal_factor(i);
+      
       k_13(w, p) = dtemp / 2. / M_PI / well(w).weight_sqrt();
     
       // relaxation modes
+      //
       vtemp.resize(outer_barrier(b).size());
+      
       for(int i = 0; i < outer_barrier(b).size(); ++i)
+	//
 	vtemp[i] = outer_barrier(b).state_number(i) / 2. / M_PI / well(w).state_density(i);
     
       for(int r = 0; r < well(w).crm_size(); ++r)
+	//
 	k_23(r + well_shift[w], p) = parallel_vdot(well(w).crm_column(r), vtemp, vtemp.size());
     }
   }
@@ -1861,17 +2034,23 @@ void MasterEquation::low_eigenvalue_matrix (Lapack::SymmetricMatrix& k_11, Lapac
 
   {
     IO::Marker work_marker("inverting kinetic matrices", IO::Marker::ONE_LINE);
+    
     Lapack::Cholesky l_22(k_22);
+    
     l_21 = l_22.invert(k_21);
 
     // well-to-well rate coefficients
+    //
     k_11 -= Lapack::SymmetricMatrix(k_21.transpose() * l_21);
 
+    // bimolecular-to-bimolecular rate coefficients
+    //
     if(Model::bimolecular_size()) {
-      // bimolecular-to-bimolecular rate coefficients
+      //
       k_33 = Lapack::SymmetricMatrix(k_23.transpose() * l_22.invert(k_23)); 
 
       // well-to-bimolecular rate coefficients
+      //
       k_13 -= l_21.transpose() * k_23;
     }
   }
@@ -1926,23 +2105,32 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
   const int crm_size = itemp;
 
   // hot distribution
+  //
   Lapack::Matrix hot_chem;
-  if(hot_energy_size) {
-    hot_chem.resize(hot_energy_size, Model::well_size());
+  
+  if(hot_index.size()) {
+    //
+    hot_chem.resize(hot_index.size(), Model::well_size());
+    
     hot_chem = 0.;
+    
     vtemp.resize(crm_size);
     
-    std::map<int, std::vector<int> >::const_iterator hit;
     int count = 0;
-    for(hit = hot_index.begin(); hit != hot_index.end(); ++hit)
-      for(int i = 0; i < hit->second.size(); ++i, ++count) {
-	hot_chem(count, hit->first) = 1. / well(hit->first).weight_sqrt();
+    
+    for(std::set<std::pair<int, int> >::const_iterator hit = hot_index.begin(); hit != hot_index.end(); ++hit, ++count) {
+      //
+      hot_chem(count, hit->first) = 1. / well(hit->first).weight_sqrt();
 	
-	vtemp = 0.;
-	itemp = 0;
-	for(int r = 0; r < well(hit->first).crm_size(); ++r) 
-	  vtemp[r + well_shift[hit->first]] = well(hit->first).crm_bra(hit->second[i], r); 
-	hot_chem.row(count) -= vtemp * l_21;
+      vtemp = 0.;
+      
+      itemp = 0;
+      
+      for(int r = 0; r < well(hit->first).crm_size(); ++r)
+	//
+	vtemp[r + well_shift[hit->first]] = well(hit->first).crm_bra(hit->second, r);
+      
+      hot_chem.row(count) -= vtemp * l_21;
       }  
   }
   
@@ -2406,293 +2594,6 @@ void MasterEquation::sequential_method (std::map<std::pair<int, int>, double>& r
     //...
     ++bit;
   }
-}
-
-/********************************************************************************************
- ********************************** WELL REDUCTION METHOD ***********************************
- ********************************************************************************************/
-
-// fast horizontal relaxation eigenvectors/eigenvalues are removed from ME
-// and used only for bimolecular-to-bimolecular contributions
-
-struct KineticBasis {
-  int active_size;
-  Lapack::Vector eigenvalue;
-  Lapack::Matrix eigenvector;
-  std::map<int, int> well_index_map;
-  std::vector<int>   index_well_map;
-};
-
-void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double>& rate_data, Partition& well_partition, int flags)
-  
-{
-  const char funame [] = "MasterEquation::well_reduction_method: ";
-
-  static const double machine_eps = 1.e-14;
-
-  if(!isset()) {
-    std::cerr << funame << "reactive complex is not set\n";
-    throw Error::Init();
-  }
-
-  rate_data.clear();
-
-  IO::Marker funame_marker(funame);
-  
-  IO::log << IO::log_offset << "Pressure = ";
-  switch(pressure_unit) {
-  case BAR:
-    IO::log << pressure() / Phys_const::bar << " bar";
-    break;
-  case TORR:
-    IO::log << pressure() / Phys_const::tor << " torr";
-    break;
-  case ATM:
-    IO::log << pressure() / Phys_const::atm << " atm";
-    break;
-  }
-  IO::log << "\t Temperature = "
-	  << temperature() / Phys_const::kelv << " K\n";
-  //<< IO::log_offset << "collision frequency = " 
-  //<< MasterEquation::collision_frequency() / Phys_const::herz
-  //<< " 1/sec\n";
-
-  int                 itemp;
-  double              dtemp;
-  bool                btemp;
-  std::string         stemp;
-  Lapack::Vector      vtemp;
-  Lapack::Matrix      mtemp;
-
-  for(int w = 0; w < Model::well_size(); ++w) {
-    //
-    if(!w || well(w).size() > itemp)
-      //
-      itemp = well(w).size();
-  }
-  
-  const int ener_index_max = itemp;
-
-  /******************************** PARTITIONING THE WELLS ************************************/
-
-  std::vector<KineticBasis> kinetic_basis(ener_index_max);
-
-  {// kinetically active basis
-
-    IO::Marker well_part_marker("kinetically active basis");
-
-    for(int e = 0; e < ener_index_max; ++e) {// energy cycle
-      //
-      // available energy bins
-      //
-      std::vector<int> well_array;
-     
-      std::map<int, int> well_index;
-      
-      for(int w = 0; w < Model::well_size(); ++w) {
-	//
-	if(well(w).size() > e) {
-	  //
-	  well_index[w] = well_array.size();
-	  
-	  well_array.push_back(w);
-	}
-      }
-
-      kinetic_basis[e].well_index_map = well_index;
-      
-      kinetic_basis[e].index_well_map = well_array;
-
-      // microcanonical kinetic matrix
-      //
-      Lapack::SymmetricMatrix km(well_array.size());
-      km = 0.;
-
-      // nondiagonal isomerization contribution
-      //
-      for(int b = 0; b < Model::inner_barrier_size(); ++b) {
-	//
-	if(e < inner_barrier(b).size()) {
-	  //
-	  int w1 = Model::inner_connect(b).first;
-	  
-	  int w2 = Model::inner_connect(b).second;
-      
-	  std::map<int, int>::const_iterator p1 = well_index.find(w1);
-	  
-	  std::map<int, int>::const_iterator p2 = well_index.find(w2);
-      
-	  if(p1 == well_index.end() || p2 == well_index.end()) {
-	    //
-	    std::cerr << funame << "no density of states for wells connected with " 
-		      << Model::inner_barrier(b).name() << " barrier at "
-		      <<  energy_bin(e) / Phys_const::kcal 
-		      << " kcal/mol\n";
-	    
-	    throw Error::Logic();
-	  }
-
-	  km(p1->second, p2->second) -= inner_barrier(b).state_number(e) / 2. / M_PI
-	    //
-	    / std::sqrt(well(w1).state_density(e) * well(w2).state_density(e));
-	}
-      }
-
-      // diagonal isomerization contribution
-      //
-      for(int i = 0; i < well_array.size(); ++i) {
-	//
-	int w = well_array[i];
-	
-	if(e < cum_stat_num[w].size())
-	  //
-	  km(i, i) = cum_stat_num[w][e] / 2. / M_PI / well(w).state_density(e);
-	
-	if(Model::well(w).escape_size())
-	  //
-	  km(i, i) += Model::well(w).escape_rate(energy_bin(i));
-      }
-
-      // relaxation eigenvalues
-      //
-      Lapack::Matrix evec(well_array.size());
-      
-      Lapack::Vector eval = km.eigenvalues(&evec);
-
-      kinetic_basis[e].eigenvalue  = eval;
-      
-      kinetic_basis[e].eigenvector = evec;
-      
-      // kinetically active subspace
-      //
-      for(itemp = 0; itemp < well_array.size(); ++itemp) {
-	//
-	int w = well_array[itemp];
-	
-	if(eval[itemp] > well(w).collision_frequency() * reduction_threshold)
-	  //
-	  break;
-      }
-      
-      kinetic_basis[e].active_size = itemp;
-      //
-    }//energy cycle
-    //
-  }// kinetically active basis
-
-
-  // global united species indexing
-  //
-  std::vector<int> well_shift(ener_index_max);
-  
-  itemp = 0;
-  
-  for(int e = 0; e < ener_index_max; itemp += kinetic_basis[e++].active_size)
-    //
-    well_shift[e] = itemp;
-  
-  const int global_size = itemp;
-
-  // global kinetic matrix size without reduction
-  //
-  itemp = 0;
-  //
-  for(int w = 0; w < Model::well_size(); ++w)
-    //
-    itemp += well(w).size();
-
-  IO::log << IO::log_offset << "original kinetic matrix size = " << itemp << "\n";
-  
-  IO::log << IO::log_offset << "reduced  kinetic matrix size = " << global_size << "\n";
-
-  /************************************************************************************* 
-   ********************************* KINETIC MATRIX ************************************
-   *************************************************************************************/
-
-  // kinetic relaxation matrix
-  //
-  Lapack::SymmetricMatrix kin_mat(global_size);
-  
-  kin_mat = 0.;
-  
-  // diagonal chemical relaxation
-  //
-  itemp = 0;
-  
-  for(int e = 0; e < ener_index_max; ++e) {
-    //
-    for(int l = 0; l < kinetic_basis[e].active_size; ++l, ++itemp) {
-      //
-      kin_mat(itemp, itemp) = kinetic_basis[e].eigenvalue[l];
-    }
-  }
-    
-  // collisional energy relaxation
-  //
-  for(int e1 = 0; e1 < ener_index_max; ++e1) {
-    //
-    for(int e2 = e1; e2 < ener_index_max; ++e2) {
-      //
-      for(int l1 = 0; l1 < kinetic_basis[e1].active_size; ++l1) {
-	//
-	for(int l2 = 0; l2 < kinetic_basis[e2].active_size; ++l2) {
-	  //
-	  if(e1 == e2 && l2 < l1)
-	    //
-	    continue;
-
-	  dtemp = 0.;
-	  
-	  for(int w = 0; w < Model::well_size(); ++w) {
-	    //
-	    std::map<int, int>::const_iterator i1 = kinetic_basis[e1].well_index_map.find(w);
-
-	    std::map<int, int>::const_iterator i2 = kinetic_basis[e2].well_index_map.find(w);
-	    
-	    itemp = e2 - e1;
-	    
-	    if(i1 != kinetic_basis[e1].well_index_map.end() &&
-	       //
-	       i2 != kinetic_basis[e2].well_index_map.end() &&
-	       //
-	       itemp < well(w).kernel_bandwidth) {
-	      //
-	      dtemp +=  well(w).kernel(e1, e2) * well(w).collision_frequency()
-		//
-		* well(w).boltzman_sqrt(e1) / well(w).boltzman_sqrt(e2)
-		//
-		* kinetic_basis[e1].eigenvector(i1->second, l1)
-		//
-		* kinetic_basis[e2].eigenvector(i2->second, l2);
-	    }
-	  }
-	  
-	  kin_mat(well_shift[e1] + l1, well_shift[e2] + l2) = dtemp;
-	  //
-	}// l2 cycle
-	//
-      }// l1 cycle
-      //
-    }// e2 cycle
-    //
-  }// e1 cycle
-
-  /******************** DIAGONALIZING THE GLOBAL KINETIC RELAXATION MATRIX ********************/
-
-  Lapack::Vector eigenval;
-  
-  Lapack::Matrix global_eigen(global_size);
-
-  {
-    IO::Marker solve_marker("diagonalizing global relaxation matrix", IO::Marker::ONE_LINE);
-    //
-    eigenval = kin_mat.eigenvalues(&global_eigen);
-  }
-
-  /************************************* EIGENVECTOR WELL POPULATION ****************************/
-
-  
-  
 }
 
 void MasterEquation::well_reduction_method_old (std::map<std::pair<int, int>, double>& rate_data, Partition& thermal_well_partition, int flags)
@@ -3418,7 +3319,9 @@ void MasterEquation::well_reduction_method_old (std::map<std::pair<int, int>, do
     }
 
     // eigenvector projection on the chemical subspace
+    //
     Lapack::Matrix eigen_pop(global_size, Model::well_size());
+    
     eigen_pop = 0.;
   
     for(int e = 0; e < well_size_max; ++e) {
@@ -3720,20 +3623,1706 @@ void MasterEquation::well_reduction_method_old (std::map<std::pair<int, int>, do
 }
 
 /********************************************************************************************
+ ********************************** WELL REDUCTION METHOD ***********************************
+ ********************************************************************************************/
+
+// fast horizontal relaxation eigenvectors/eigenvalues are removed from ME
+//
+// and used only for bimolecular-to-bimolecular contributions
+
+struct KineticBasis {
+  //
+  int active_size;
+  
+  Lapack::Vector eigenvalue;
+  
+  Lapack::Matrix eigenvector;
+  
+  std::map<int, int> well_index_map;
+  
+  std::vector<int>   index_well_map;
+
+  int size () const { return eigenvalue.size(); }
+};
+
+void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double>& rate_data,
+					    //
+					    Partition& well_partition,
+					    //
+					    int flags)
+  
+{
+  const char funame [] = "MasterEquation::well_reduction_method: ";
+
+  static const double machine_eps = 1.e-14;
+
+  if(!isset()) {
+    std::cerr << funame << "reactive complex is not set\n";
+    throw Error::Init();
+  }
+
+  rate_data.clear();
+
+  IO::Marker funame_marker(funame);
+  
+  IO::log << IO::log_offset << "Pressure = ";
+  switch(pressure_unit) {
+  case BAR:
+    IO::log << pressure() / Phys_const::bar << " bar";
+    break;
+  case TORR:
+    IO::log << pressure() / Phys_const::tor << " torr";
+    break;
+  case ATM:
+    IO::log << pressure() / Phys_const::atm << " atm";
+    break;
+  }
+  IO::log << "\t Temperature = "
+	  << temperature() / Phys_const::kelv << " K\n";
+  //<< IO::log_offset << "collision frequency = " 
+  //<< MasterEquation::collision_frequency() / Phys_const::herz
+  //<< " 1/sec\n";
+
+  int                 itemp;
+  double              dtemp;
+  bool                btemp;
+  std::string         stemp;
+  Lapack::Vector      vtemp;
+  Lapack::Matrix      mtemp;
+
+  for(int w = 0; w < Model::well_size(); ++w) {
+    //
+    if(!w || well(w).size() > itemp)
+      //
+      itemp = well(w).size();
+  }
+  
+  const int ener_index_max = itemp;
+
+  /******************************** PARTITIONING THE WELLS ************************************/
+
+  std::vector<KineticBasis> kinetic_basis(ener_index_max);
+
+  {// kinetically active basis
+
+    IO::Marker well_part_marker("kinetically active basis");
+
+    for(int e = 0; e < ener_index_max; ++e) {// energy cycle
+      //
+      // available energy bins
+      //
+      std::vector<int> well_array;
+     
+      std::map<int, int> well_index;
+      
+      for(int w = 0; w < Model::well_size(); ++w)
+	//
+	if(e < well(w).size()) {
+	  //
+	  well_index[w] = well_array.size();
+	  
+	  well_array.push_back(w);
+	}
+
+      kinetic_basis[e].well_index_map = well_index;
+      
+      kinetic_basis[e].index_well_map = well_array;
+
+      // microcanonical kinetic matrix
+      //
+      Lapack::SymmetricMatrix km(well_array.size());
+      
+      km = 0.;
+
+      // nondiagonal isomerization contribution
+      //
+      for(int b = 0; b < Model::inner_barrier_size(); ++b) {
+	//
+	if(e < inner_barrier(b).size()) {
+	  //
+	  int w1 = Model::inner_connect(b).first;
+	  
+	  int w2 = Model::inner_connect(b).second;
+      
+	  std::map<int, int>::const_iterator p1 = well_index.find(w1);
+	  
+	  std::map<int, int>::const_iterator p2 = well_index.find(w2);
+      
+	  if(p1 == well_index.end() || p2 == well_index.end()) {
+	    //
+	    std::cerr << funame << "no density of states for wells connected with "
+	      //
+		      << Model::inner_barrier(b).name() << " barrier at "
+	      //
+		      <<  energy_bin(e) / Phys_const::kcal
+	      //
+		      << " kcal/mol\n";
+	    
+	    throw Error::Logic();
+	  }
+
+	  km(p1->second, p2->second) -= inner_barrier(b).state_number(e) / 2. / M_PI
+	    //
+	    / std::sqrt(well(w1).state_density(e) * well(w2).state_density(e));
+	}
+      }
+
+      // diagonal isomerization contribution
+      //
+      for(int i = 0; i < well_array.size(); ++i) {
+	//
+	int w = well_array[i];
+	
+	if(e < cum_stat_num[w].size())
+	  //
+	  km(i, i) = cum_stat_num[w][e] / 2. / M_PI / well(w).state_density(e);
+	
+	if(Model::well(w).escape_size())
+	  //
+	  km(i, i) += Model::well(w).escape_rate(energy_bin(e));
+      }
+
+      // relaxation eigenvalues
+      //
+      Lapack::Matrix evec(well_array.size());
+
+      Lapack::Vector eval;
+
+#ifdef WITH_MPACK
+      
+      eval = Mpack::dd_eigenvalues(km, &evec);
+
+#else
+
+      eval = km.eigenvalues(&evec);
+
+#endif
+      
+      kinetic_basis[e].eigenvalue  = eval;
+      
+      kinetic_basis[e].eigenvector = evec;
+      
+      // kinetically active subspace
+      //
+      for(itemp = 0; itemp < well_array.size(); ++itemp) {
+	//
+	int w = well_array[itemp];
+	
+	if(eval[itemp] > well(w).collision_frequency() * reduction_threshold)
+	  //
+	  break;
+      }
+      
+      kinetic_basis[e].active_size = itemp;
+      //
+    }//energy cycle
+    //
+  }// kinetically active basis
+
+
+  // global united species indexing
+  //
+  std::vector<int> well_shift(ener_index_max);
+  
+  itemp = 0;
+  
+  for(int e = 0; e < ener_index_max; itemp += kinetic_basis[e++].active_size)
+    //
+    well_shift[e] = itemp;
+  
+  const int global_size = itemp;
+
+  // global kinetic matrix size without reduction
+  //
+  itemp = 0;
+  //
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    itemp += well(w).size();
+
+  IO::log << IO::log_offset << "original kinetic matrix size = " << itemp << "\n";
+  
+  IO::log << IO::log_offset << "reduced  kinetic matrix size = " << global_size << "\n";
+
+  /************************************************************************************* 
+   ********************************* KINETIC MATRIX ************************************
+   *************************************************************************************/
+
+  // kinetic relaxation matrix
+  //
+  Lapack::SymmetricMatrix kin_mat(global_size);
+  
+  kin_mat = 0.;
+  
+  // diagonal chemical relaxation
+  //
+  for(int e = 0; e < ener_index_max; ++e) {
+    //
+    for(int l = 0; l < kinetic_basis[e].active_size; ++l) {
+      //
+      itemp = well_shift[e] + l;
+      
+      kin_mat(itemp, itemp) = kinetic_basis[e].eigenvalue[l];
+    }
+  }
+    
+  // collisional energy relaxation
+  //
+  for(int e1 = 0; e1 < ener_index_max; ++e1) {
+    //
+    for(int e2 = e1; e2 < ener_index_max; ++e2) {
+      //
+      for(int l1 = 0; l1 < kinetic_basis[e1].active_size; ++l1) {
+	//
+	for(int l2 = 0; l2 < kinetic_basis[e2].active_size; ++l2) {
+	  //
+	  if(e1 == e2 && l2 < l1)
+	    //
+	    continue;
+
+	  dtemp = 0.;
+	  
+	  for(int w = 0; w < Model::well_size(); ++w) {
+	    //
+	    std::map<int, int>::const_iterator i1 = kinetic_basis[e1].well_index_map.find(w);
+
+	    std::map<int, int>::const_iterator i2 = kinetic_basis[e2].well_index_map.find(w);
+	    
+	    itemp = e2 - e1;
+	    
+	    if(i1 != kinetic_basis[e1].well_index_map.end() &&
+	       //
+	       i2 != kinetic_basis[e2].well_index_map.end() &&
+	       //
+	       itemp < well(w).kernel_bandwidth) {
+	      //
+	      dtemp +=  well(w).kernel(e1, e2) * well(w).collision_frequency()
+		//
+		* well(w).boltzman_sqrt(e1) / well(w).boltzman_sqrt(e2)
+		//
+		* kinetic_basis[e1].eigenvector(i1->second, l1)
+		//
+		* kinetic_basis[e2].eigenvector(i2->second, l2);
+	    }
+	  }
+	  
+	  kin_mat(well_shift[e1] + l1, well_shift[e2] + l2) += dtemp;
+	  //
+	}// l2 cycle
+	//
+      }// l1 cycle
+      //
+    }// e2 cycle
+    //
+  }// e1 cycle
+
+  /******************** DIAGONALIZING THE GLOBAL KINETIC RELAXATION MATRIX ********************/
+
+  Lapack::Vector eigenval;
+  
+  Lapack::Matrix global_eigen(global_size);
+
+  {
+    IO::Marker solve_marker("diagonalizing global relaxation matrix", IO::Marker::ONE_LINE);
+    //
+#ifdef WITH_MPACK
+    
+    switch(float_type) {
+      //
+    case DOUBLE:
+	//
+	eigenval = kin_mat.eigenvalues(&global_eigen);
+
+	break;
+
+      case DD:
+	//
+	eigenval = Mpack::dd_eigenvalues(kin_mat, &global_eigen);
+
+	break;
+	
+      case QD:
+	//
+	eigenval = Mpack::qd_eigenvalues(kin_mat, &global_eigen);
+
+	break;
+
+      default:
+	//
+	std::cerr << funame << "unknown case\n";
+
+	throw Error::Logic();
+      }
+#else
+    
+    	eigenval = kin_mat.eigenvalues(&global_eigen);
+
+#endif
+  }
+
+  // eigenvectors projection on thermal subspace;
+  //
+  Lapack::Matrix eigen_pop(global_size, Model::well_size());
+
+  for(int l = 0; l < global_size; ++l) {
+    //
+    for(int w = 0; w < Model::well_size(); ++w) {
+      //
+      double prod = 0.;
+      
+      for(int e = 0; e < well(w).size(); ++e) {
+	//
+	std::map<int, int>::const_iterator wit = kinetic_basis[e].well_index_map.find(w);
+
+	if(wit == kinetic_basis[e].well_index_map.end()) {
+	  //
+	  std::cerr << funame << "well is not in the kinetic basis space\n";
+
+	  throw Error::Logic();
+	}
+
+	dtemp = 0.;
+	
+	for(int k = 0; k < kinetic_basis[e].active_size; ++k)
+	  //
+	  dtemp += global_eigen(well_shift[e] + k, l) * kinetic_basis[e].eigenvector(wit->second, k);
+
+	prod += dtemp * well(w).boltzman_sqrt(e);
+      }
+      
+      eigen_pop(l, w) = prod / well(w).weight_sqrt();
+    }//
+    //
+  }// thermal
+  
+  // eigenvectors projection on the bimolecular subspace;
+  //
+  Lapack::Matrix eigen_bim;
+
+  if(Model::bimolecular_size()) {
+    //
+    eigen_bim.resize(global_size, Model::bimolecular_size());
+
+    eigen_bim = 0.;
+  
+    for(int l = 0; l < global_size; ++l)
+      //
+      for(int b = 0; b < Model::outer_barrier_size(); ++b) {
+	//
+	const int w = Model::outer_connect(b).first;
+      
+	const int p = Model::outer_connect(b).second;
+
+	for(int e = 0; e < outer_barrier(b).size(); ++e) {
+	  //
+	  std::map<int, int>::const_iterator cit = kinetic_basis[e].well_index_map.find(w);
+
+	  if(cit == kinetic_basis[e].well_index_map.end()) {
+	    //
+	    std::cerr << funame << "well is not in the kinetic basis space\n";
+
+	    throw Error::Logic();
+	  }
+
+	  dtemp = 0.;
+	
+	  for(int k = 0; k < kinetic_basis[e].active_size; ++k) {
+	    //
+	    dtemp += global_eigen(well_shift[e] + k, l) * kinetic_basis[e].eigenvector(cit->second, k);
+	  }
+
+	  eigen_bim(l, p) += dtemp * outer_barrier(b).state_number(e) / 2. / M_PI * thermal_factor(e) / well(w).boltzman_sqrt(e);
+	}
+      }
+    //
+  }// bimolecular
+  
+  // eigenvectors projection on the escape subspace;
+  //
+  Lapack::Matrix eigen_escape;
+
+  if(Model::escape_size()) {
+    //
+    eigen_escape.resize(global_size, Model::escape_size());
+
+    eigen_escape = 0.;
+  
+    for(int l = 0; l < global_size; ++l)
+      //
+      for(int s = 0; s < Model::escape_size(); ++s) {
+	//
+	const int w = Model::escape_channel(s).first;
+
+	const int c = Model::escape_channel(s).second;
+      
+	for(int e = 0; e < well(w).size(); ++e) {
+	  //
+	  std::map<int, int>::const_iterator cit = kinetic_basis[e].well_index_map.find(w);
+
+	  if(cit == kinetic_basis[e].well_index_map.end()) {
+	    //
+	    std::cerr << funame << "well is not in the kinetic basis space\n";
+
+	    throw Error::Logic();
+	  }
+
+	  dtemp = 0.;
+	
+	  for(int k = 0; k < kinetic_basis[e].active_size; ++k) {
+	    //
+	    dtemp += global_eigen(well_shift[e] + k, l) * kinetic_basis[e].eigenvector(cit->second, k);
+	  }
+
+	  eigen_escape(l, s) += dtemp * Model::well(w).escape_rate(energy_bin(e), c)  * well(w).boltzman_sqrt(e);
+	}
+      }
+    //
+  }// escape
+
+  // eigenvectors at hot energies
+  //
+  Lapack::Matrix eigen_hot;
+  
+  if(hot_index.size()) {
+    //
+    eigen_hot.resize(global_size, hot_index.size());
+    
+    int count = 0;
+    
+    for(std::set<std::pair<int, int> >::const_iterator hit = hot_index.begin(); hit != hot_index.end(); ++hit, ++count) {
+      //
+      const int w = hit->first;
+
+      const int e = hit->second;
+	
+      std::map<int, int>::const_iterator cit = kinetic_basis[e].well_index_map.find(w);
+
+      if(cit == kinetic_basis[e].well_index_map.end()) {
+	//
+	std::cerr << funame << "well is not in the kinetic basis space\n";
+	
+	throw Error::Logic();
+      }
+
+	
+      for(int l = 0; l < global_size; ++l) {
+	//
+	dtemp = 0.;
+	
+	for(int k = 0; k < kinetic_basis[e].active_size; ++k)
+	  //
+	  dtemp += global_eigen(well_shift[e] + k, l) * kinetic_basis[e].eigenvector(cit->second, k);
+
+	dtemp /= well(w).boltzman_sqrt(e);
+	  
+	eigen_hot(l, count) = dtemp;
+      }//
+      //
+    }//
+    //
+  }// hot energies
+
+  /************************************* EIGENVECTOR OUTPUT *****************************************/
+
+  const double min_relax_eval = eigenval[Model::well_size()];
+  
+  const double max_relax_eval = eigenval.back();
+
+  std::vector<double> relaxation_projection(Model::well_size());
+  
+  for(int l = 0; l < Model::well_size(); ++l)
+    //
+    relaxation_projection[l] = 1. - vdot(eigen_pop.row(l));
+
+ 
+  IO::log << std::setprecision(3)
+    //
+	  << IO::log_offset << "eigenvector populations normalized:\n"
+    //
+	  << IO::log_offset
+    //
+	  << std::setw(5)  << "L"
+    //
+	  << std::setw(10) << "*R"
+    //
+	  << std::setw(10) << "*P";
+  
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::log << std::setw(10) << Model::well(w).name();
+  
+  IO::log << "\n";
+
+  // maximal population
+  //
+  for(int l = 0; l < Model::well_size(); ++l) {
+    //
+    double pos_pop = 0.;
+    
+    double neg_pop = 0.;
+    
+    for(int w = 0; w < Model::well_size(); ++w) {
+      //
+      dtemp = eigen_pop(l, w) * well(w).weight_sqrt();
+      
+      if(dtemp > 0.) {
+	//
+	pos_pop += dtemp;
+      }
+      if(dtemp < 0.)
+	//
+	neg_pop += dtemp;
+    }
+    
+    double max_pop = pos_pop > -neg_pop ? pos_pop : neg_pop;
+    
+    IO::log << IO::log_offset
+      //
+	    << std::setw(5)  << l
+      //
+	    << std::setw(10) << eigenval[l] / min_relax_eval
+      //
+	    << std::setw(10) << relaxation_projection[l];
+    
+    for(int w = 0; w < Model::well_size(); ++w) {
+      //
+      dtemp = eigen_pop(l, w) * well(w).weight_sqrt() / max_pop;
+      
+      IO::log << std::setw(10);
+      
+      if(dtemp > .01 || dtemp < -.01) {
+	//
+	IO::log << dtemp;
+      }
+      else
+	//
+	IO::log << 0;
+    }
+    
+    IO::log << "\n";
+  }
+
+  IO::log << IO::log_offset
+    //
+	  << "*R - eigenvalue over the relaxation limit\n"
+    //
+	  << IO::log_offset
+    //
+	  << "*P - eigenvector projection squared on the relaxation subspace (= 1 -F_ne)\n";
+  
+  IO::log << IO::log_offset << "eigenvector projections:\n"
+    //
+	  << IO::log_offset << std::setw(5)  << "L" << std::setw(10) << "*Q" << std::setw(10) << "*P";
+
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::log << std::setw(10) << Model::well(w).name();
+  
+  IO::log << "\n";
+
+  for(int l = 0; l < Model::well_size(); ++l) {
+    //
+    IO::log << IO::log_offset
+      //
+	    << std::setw(5)  << l
+      //
+	    << std::setw(10) << eigenval[l] / well(0).collision_frequency()
+      //
+	    << std::setw(10) << relaxation_projection[l];
+    
+    for(int w = 0; w < Model::well_size(); ++w)
+      //
+      IO::log << std::setw(10) << eigen_pop(l,w);
+    
+    IO::log << "\n";
+  }
+  
+  IO::log << IO::log_offset
+    //
+	  << std::setw(5) << "*Z"
+    //
+	  << std::setw(10) << "---"
+    //
+	  << std::setw(10) << "---";
+  
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::log << std::setw(10) << well(w).weight_sqrt();
+  
+  IO::log << "\n";
+
+  IO::log << IO::log_offset
+    //
+	  << "*Q - eigenvalue over the collision frequency in first well\n"
+    //
+	  << IO::log_offset
+    //
+	  << "*P - eigenvector projection squared on the relaxation subspace (= 1 - F_ne)\n"
+    //
+	  << IO::log_offset
+    //
+	  << "*Z - well partition function square root\n"
+    //
+	  << std::setprecision(6);
+
+  /********************************** CHEMICAL SUBSPACE DIMENSION ****************************************/
+
+  //
+  // predefined chemical subspace dimension
+  //
+  if(_default_chem_size >= 0) {
+    //
+    itemp = _default_chem_size;
+  }
+  //
+  // default partitioning scheme
+  //
+  else if(default_partition.size()) {
+    //
+    itemp = default_partition.size();
+  }
+  //
+  // absolute eigenvalue threshold
+  //
+  else if(chemical_threshold > 1.) {
+    //
+    for(itemp = 0; itemp < Model::well_size(); ++itemp)
+      //
+      if(min_relax_eval / eigenval[itemp]  < chemical_threshold)
+	//
+	break;
+  }
+  //
+  // relaxation projection threshold
+  //
+  else if(chemical_threshold < 1. && chemical_threshold > 0.) {
+    //
+    for(itemp = 0; itemp < Model::well_size(); ++itemp)
+      //
+      if(relaxation_projection[itemp] > chemical_threshold)
+	//
+	break;
+  }
+  //
+  // relative eigenvalue threshold
+  //
+  else if(chemical_threshold < -1. ) {
+    //
+    for(itemp = Model::well_size(); itemp > 0; --itemp)
+      //
+      if(eigenval[itemp] / eigenval[itemp - 1] > - chemical_threshold)
+	//
+	break;
+  }
+  //
+  else
+    //
+    itemp = Model::well_size();
+	
+  const int chem_size = itemp;
+
+  if(chem_size != Model::well_size())
+    //
+    IO::log << IO::log_offset << "dimension of the chemical subspace = " << chem_size << "\n";
+
+  /***** PARTITIONING THE GLOBAL PHASE SPACE INTO THE CHEMICAL AND COLLISIONAL SUBSPACES *****/
+
+  // collisional relaxation eigenvalues and eigenvectors
+  //
+  const int relax_size = global_size - chem_size;
+  
+  Lapack::Vector relax_lave(relax_size);
+  
+  for(int r = 0; r < relax_size; ++r) {
+    //
+    itemp = r + chem_size;
+
+    relax_lave[r] = 1. / eigenval[itemp];
+  }
+      
+  // bimolecular-to-bimolecular rate coefficients
+  //
+  const double bru = Phys_const::cm * Phys_const::cm * Phys_const::cm * Phys_const::herz;
+
+  if(Model::bimolecular_size()) {
+    //
+    Lapack::SymmetricMatrix bb_rate(Model::bimolecular_size());
+    
+    for(int i = 0; i < Model::bimolecular_size(); ++i)
+      //
+      for(int j = i; j < Model::bimolecular_size(); ++j)
+	//
+    	bb_rate(i, j) = triple_product(&eigen_bim(chem_size, i), &eigen_bim(chem_size, j), relax_lave, relax_size);
+
+    // high eigenvalue contribution
+    //
+    vtemp.resize(Model::bimolecular_size());
+    
+    for(int e = 0; e < ener_index_max; ++e)
+      //
+      for(int k = kinetic_basis[e].active_size; k < kinetic_basis[e].size(); ++k) {
+	//
+	vtemp = 0.;
+	
+	for(int b = 0; b < Model::outer_barrier_size(); ++b) {
+	  //
+	  const int p = Model::outer_connect(b).second;
+
+	  if(e >= outer_barrier(b).size())
+	    //
+	    continue;
+	  
+	  std::map<int, int>::const_iterator bit = kinetic_basis[e].well_index_map.find(Model::outer_connect(b).first);
+
+	  if(bit == kinetic_basis[e].well_index_map.end()) {
+	    //
+	    std::cerr << funame << "bimolecular-to-bimolecular: logic error 1\n";
+	    
+	    throw Error::Logic();
+	  }
+	    
+	  vtemp[p] += kinetic_basis[e].eigenvector(bit->second, k)
+	    //
+	    * outer_barrier(b).state_number(e) / 2. / M_PI
+	    //
+	    * thermal_factor(e) / well(bit->first).boltzman_sqrt(e);
+	}
+	
+	for(int i = 0; i < Model::bimolecular_size(); ++i)
+	  //
+	  for(int j = i; j < Model::bimolecular_size(); ++j)
+	    //
+	    bb_rate(i, j) += vtemp[i] * vtemp[j] / kinetic_basis[e].eigenvalue[k];
+      }
+
+    
+    for(int i = 0; i < Model::bimolecular_size(); ++i) {
+      //
+      if(Model::bimolecular(i).dummy())
+	//
+	continue;
+      
+      for(int j = 0; j < Model::bimolecular_size(); ++j) {
+	//
+	// bimolecular reactant loss
+	//
+	if(i == j) {
+	  //
+	  dtemp = 0.;
+	    
+	  for(int b = 0; b < Model::outer_barrier_size(); ++b)
+	    //
+	    if(Model::outer_connect(b).second == i)
+	      //
+	      for(int e = 0; e < outer_barrier(b).size(); ++e)
+		//
+		dtemp += outer_barrier(b).state_number(e) * thermal_factor(e);
+	    
+	  dtemp /= 2. * M_PI;
+	    
+	  dtemp -= bb_rate(i, i);
+	}
+	// crossrate
+	//
+	else
+	  //
+	  dtemp = bb_rate(i, j);
+
+	dtemp *= energy_step() / bimolecular(i).weight() / bru;
+	  
+	rate_data[std::make_pair(Model::well_size() + i, Model::well_size() + j)] = dtemp; 
+      }
+    }
+    
+    // bimolecular-to-escape rate coefficients
+    //
+    for(int s = 0; s < Model::escape_size(); ++s) {
+      //
+      const int& w = Model::escape_channel(s).first; // escape well
+
+      const int& c = Model::escape_channel(s).second; // escape channel
+	    
+      vtemp = 0.;
+	    
+      // high eigenvalue contribution
+      //
+      for(int e = 0; e < well(w).size(); ++e) {
+	//
+	std::map<int, int>::const_iterator sit = kinetic_basis[e].well_index_map.find(w);
+
+	if(sit == kinetic_basis[e].well_index_map.end()) {
+	  //
+	  std::cerr << funame << "bimolecular-to-escape: logic error 1\n";
+	    
+	  throw Error::Logic();
+	}
+
+	for(int b = 0; b < Model::outer_barrier_size(); ++b) {
+	  //
+	  const int& p = Model::outer_connect(b).second;
+
+	  if(e >= outer_barrier(b).size() || Model::bimolecular(p).dummy())
+	    //
+	    continue;
+
+	  std::map<int, int>::const_iterator bit = kinetic_basis[e].well_index_map.find(Model::outer_connect(b).first);
+	    
+	  if(bit == kinetic_basis[e].well_index_map.end()) {
+	    //
+	    std::cerr << funame << "bimolecular-to-escape: logic error 2\n";
+	      
+	    throw Error::Logic();
+	  }
+
+	  dtemp = 0.;
+	    
+	  for(int k = kinetic_basis[e].active_size; k < kinetic_basis[e].size(); ++k) {
+	    //
+	    dtemp += kinetic_basis[e].eigenvector(sit->second, k)
+	      //
+	      * kinetic_basis[e].eigenvector(bit->second, k)
+	      //
+	      / kinetic_basis[e].eigenvalue[k];
+	  }
+
+	  dtemp *= Model::well(sit->first).escape_rate(energy_bin(e), c)
+	    //
+	    * well(sit->first).boltzman_sqrt(e)
+	    //
+	    * outer_barrier(b).state_number(e) / 2. / M_PI
+	    //
+	    * thermal_factor(e) / well(bit->first).boltzman_sqrt(e);
+
+	  vtemp[p] += dtemp;
+	}
+      }
+	
+      for(int p = 0; p < Model::bimolecular_size(); ++p) {
+	//
+	if(Model::bimolecular(p).dummy())
+	  //
+	  continue;
+	  
+	dtemp = vtemp[p] + triple_product(&eigen_bim(chem_size, p), &eigen_escape(chem_size, s), relax_lave, relax_size);
+
+	dtemp *= energy_step() / bimolecular(p).weight() / bru;
+	    
+	rate_data[std::make_pair(Model::well_size() + p, Model::well_size() + Model::bimolecular_size() + s)] = dtemp; 
+      }
+    }
+  }
+
+  /*************************************** BOUND SPECIES *******************************************/
+
+  std::vector<int>  group_index;
+  
+  Lapack::Matrix m_direct;
+  
+  std::vector<double>      weight;
+  
+  std::vector<double> real_weight;
+
+  if(chem_size) {
+    //
+    // projection of the chemical eigenvectors onto the thermal subspace
+    //
+    Lapack::Matrix pop_chem(Model::well_size(), chem_size);
+    
+    for(int l = 0; l < chem_size; ++l)
+      //
+      pop_chem.column(l) = eigen_pop.row(l);
+
+#ifdef DEBUG
+
+    IO::log << IO::log_offset << "orthogonality check starts\n";
+      
+    IO::log_offset.increase();
+
+    proj = 0.;
+      
+    for(int l = 0; l < chem_size; ++l) {
+      //
+      // normalize
+      //
+      //normalize(&pop_chem(0, l), Model::well_size());
+      //
+      for(int m = 0; m < l; ++m) {
+	//
+	dtemp = vdot(pop_chem.column(l), pop_chem.column(m));
+	  
+	dtemp = dtemp >= 0. ? dtemp : -dtemp;
+	  
+	proj = dtemp > proj ? dtemp : proj;
+      }
+    }
+
+    IO::log << IO::log_offset << "maximal scalar product of different chemical eigenvectors = "
+      //
+	    << proj << "\n";
+
+    for(int l = 0; l < chem_size; ++l) {
+      //
+      dtemp = vdot(pop_chem.column(l));
+	
+      if(!l || dtemp < proj)
+	//
+	proj = dtemp;
+    }
+
+    IO::log << IO::log_offset << "minimal chemical eigenvector square = "
+      //
+	    << proj << "\n";
+
+    for(int l = 0; l < chem_size; ++l) {
+      //
+      dtemp = vdot(pop_chem.column(l));
+	
+      if(!l || dtemp > proj)
+	//
+	proj = dtemp;
+    }
+
+    IO::log << IO::log_offset << "maximal chemical eigenvector square = "
+      //
+	    << proj << "\n";
+
+    IO::log_offset.decrease();
+      
+    IO::log << IO::log_offset << "orthogonality check done\n";
+    
+
+#endif
+
+    // partitioning wells into equilibrated groups
+    //
+    if(default_partition.size()) {
+      //
+      // default reduction scheme
+      //
+      well_partition = default_partition;
+
+      IO::log << IO::log_offset << "using default reduction scheme, projection error = "
+	//
+	      << (double)chem_size - well_partition.projection(pop_chem) << "\n";
+    
+      // convert chemical eigenvectors in the new basis
+      //
+      pop_chem = well_partition.basis().transpose() * pop_chem;
+    }
+    else if(chem_size == Model::well_size()) {
+      //
+      // no partitioning
+      //
+      well_partition.resize(Model::well_size());
+      
+      for(int w = 0; w < Model::well_size(); ++w)
+	//
+	well_partition[w].insert(w);
+
+      IO::log << IO::log_offset << "projection error = "
+	//
+	      << (double)chem_size - well_partition.projection(pop_chem) << "\n";
+    }
+    else {
+      //
+      // well partitioning
+      //
+      Group bimolecular_group;
+      
+      dtemp = well_partition_method(pop_chem, well_partition, bimolecular_group, std::vector<double>());
+
+      // convert chemical eigenvectors in the new basis
+      //
+      pop_chem = well_partition.basis().transpose() * pop_chem;
+    }
+
+    group_index = well_partition.group_index();
+    weight      = well_partition.weight();
+    real_weight = well_partition.real_weight();
+
+    // auxiliary output
+    //
+    IO::aux << "number of species = " << well_partition.size() << "\n";
+    
+    for(int p = 0; p < well_partition.size(); ++p) {
+      //
+      std::multimap<double, int> ww_map;
+      
+      for(Git git = well_partition[p].begin(); git != well_partition[p].end(); ++git)
+	//
+	ww_map.insert(std::make_pair(well(*git).real_weight(),*git));
+
+      for(std::multimap<double, int>::const_reverse_iterator mit = ww_map.rbegin(); mit != ww_map.rend(); ++mit)
+	//
+	IO::aux << std::setw(15) << Model::well(mit->second).name();
+
+      IO::aux << "\n";
+      
+      for(std::multimap<double, int>::const_reverse_iterator mit = ww_map.rbegin(); mit != ww_map.rend(); ++mit)
+	//
+	IO::aux << std::setw(15) << mit->first;
+      
+      IO::aux << "\n";
+    }
+    // output
+    //
+    if(chem_size != Model::well_size()) {
+      //
+      IO::log << IO::log_offset << "species:\n"
+	//
+	      << IO::log_offset << std::setw(2) << "#"  << std::setw(15)
+	//
+	      << "assigned name" << IO::first_offset
+	//
+	      << "group\n";
+      
+      for(Pit g = well_partition.begin(); g != well_partition.end(); ++g) {
+	//
+	itemp = g - well_partition.begin();
+	
+	IO::log << IO::log_offset << std::setw(2) << itemp << std::setw(15)
+	  //
+		<< Model::well(group_index[itemp]).name() << IO::first_offset;
+	
+	for(Git w = g->begin(); w != g->end(); ++w) {
+	  //
+	  if(w != g->begin())
+	    //
+	    IO::log << "+";
+	  
+	  IO::log << Model::well(*w).name();
+	}
+	
+	IO::log << "\n";
+      }
+    }
+
+    m_direct = pop_chem;
+    
+    Lapack::Matrix m_inverse = m_direct.invert();
+
+    Lapack::Matrix one(m_direct * m_inverse);
+    
+    one.diagonal() -= 1.;
+    
+    double val_max = -1.;
+    
+    for(int i = 0; i < one.size1(); ++i)
+      //
+      for(int j = 0; j < one.size2(); ++j) {
+	//
+	dtemp = one(i, j);
+	
+	dtemp = dtemp < 0. ? -dtemp : dtemp;
+	
+	if(dtemp > epsilon && dtemp > val_max)
+	  //
+	  val_max = dtemp;
+      }
+    
+    if(val_max > 0.)
+      //
+      IO::log << IO::log_offset << funame
+	//
+	      << "WARNING: matrix inversion error = " << val_max
+	//
+	      << " exceeds numerical accuracy = " << epsilon
+	//
+	      << "\n";
+  
+    // well-to-well rate coefficients
+    //
+    Lapack::Matrix ww_rate(chem_size);
+    
+    ww_rate = 0.;
+    
+    for(int i = 0; i < chem_size; ++i)
+      //
+      for(int j = 0; j < chem_size; ++j)
+	//
+	for(int l = 0; l < chem_size; ++l)
+	  //
+	  ww_rate(i, j) += m_direct(j, l) * m_inverse(l, i) * eigenval[l];
+
+    //
+    // correction for the transitions between low and high eigenstates
+    //
+    if(well_reduction_correction) {
+      //
+      for(int l = 0; l < chem_size; ++l) {
+	//
+	for(int w = 0; w < Model::well_size(); ++w) {
+	  //
+	  for(int e1 = 0; e1 < well(w).size(); ++e1) {
+	    //
+	    std::map<int, int>::const_iterator i1 = kinetic_basis[e1].well_index_map.find(w);
+	  
+	    if(i1 == kinetic_basis[e1].well_index_map.end()) {
+	      //
+	      std::cerr << funame << "well_reduction_correction: logic error 1\n";
+
+	      throw Error::Logic();
+	    }
+	  
+	    dtemp = 0.;
+	
+	    for(int k = 0; k < kinetic_basis[e1].active_size; ++k)
+	      //
+	      dtemp += global_eigen(well_shift[e1] + k, l) * kinetic_basis[e1].eigenvector(i1->second, k);
+	 
+	    const double proj = dtemp;
+
+	    itemp = e1 + well(w).kernel_bandwidth;
+
+	    const int e2_max = itemp < well(w).size() ? itemp : well(w).size();
+	  
+	    itemp = e1 - well(w).kernel_bandwidth + 1;
+
+	    for(int e2 = itemp > 0 ? itemp : 0; e2 < e2_max; ++e2) {
+	      //
+	      std::map<int, int>::const_iterator i2 = kinetic_basis[e2].well_index_map.find(w);
+
+	      if(i2 == kinetic_basis[e2].well_index_map.end()) {
+		//
+		std::cerr << funame << "well_reduction_correction: logic error 2\n";
+
+		throw Error::Logic();
+	      }
+
+	      for(int b = 0; b < Model::outer_barrier_size(); ++b) {
+		//
+		if(e2 >= outer_barrier(b).size())
+		  //
+		  continue;
+
+		const int p = Model::outer_connect(b).second;
+		
+		std::map<int, int>::const_iterator bit = kinetic_basis[e2].well_index_map.find(Model::outer_connect(b).first);
+		  
+		if(bit == kinetic_basis[e2].well_index_map.end()) {
+		  //
+		  std::cerr << funame << "well_reduction_correction: logic error 3\n";
+
+		  throw Error::Logic();
+		}
+
+		dtemp = 0.;
+	      
+		for(int k = kinetic_basis[e2].active_size; k < kinetic_basis[e2].size(); ++k)
+		  //
+		  dtemp += kinetic_basis[e2].eigenvector(i2->second, k)
+		    //
+		    * kinetic_basis[e2].eigenvector(bit->second, k)
+		    //
+		    / kinetic_basis[e2].eigenvalue[k];
+
+		eigen_bim(l, p) -= dtemp * proj
+		  //
+		  * well(w).kernel(e1, e2) * well(w).collision_frequency()
+		  //
+		  * well(w).boltzman_sqrt(e1) / well(w).boltzman_sqrt(e2)
+		  //
+		  * outer_barrier(b).state_number(e2) / 2. / M_PI
+		  //
+		  * thermal_factor(e2) / well(bit->first).boltzman_sqrt(e2);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+    
+    // well-to-bimolecular rate coefficients
+    //
+    Lapack::Matrix wb_rate, bw_rate;
+    
+    if(Model::bimolecular_size()) {
+      //
+      wb_rate.resize(chem_size, Model::bimolecular_size());
+      
+      for(int w = 0; w < chem_size; ++w)
+	//
+	for(int p = 0; p < Model::bimolecular_size(); ++p)
+	  //
+	  wb_rate(w, p) = vdot(m_inverse.column(w), &eigen_bim(0, p));
+
+      // bimolecular-to-well rate coefficients
+      //
+      bw_rate.resize(Model::bimolecular_size(), chem_size);
+      
+      for(int p = 0; p < Model::bimolecular_size(); ++p)
+	//
+	for(int w = 0; w < chem_size; ++w)
+	  //
+	  bw_rate(p, w) = vdot(m_direct.row(w), &eigen_bim(0, p));
+    }
+  
+    // output
+    //
+    IO::log << std::setprecision(2)
+      //
+	    << IO::log_offset << "Wa->Wb/Wb->Wa rate constants ratios:\n"
+      //
+	    << IO::log_offset << std::setw(5) << "Wb\\Wa";
+    
+    for(int i = 0; i < chem_size; ++i)
+      //
+      IO::log << std::setw(10) << Model::well(group_index[i]).name();
+    
+    IO::log << "\n";
+    
+    for(int j = 0; j < chem_size; ++j) {
+      //
+      IO::log << IO::log_offset << std::setw(5) << Model::well(group_index[j]).name();
+      
+      for(int i = 0; i < chem_size; ++i)
+	//
+	if(i != j) {
+	  //
+	  if(ww_rate(j, i) != 0.) {
+	    //
+	    IO::log << std::setw(10) << ww_rate(i, j) / ww_rate(j, i);
+	  }
+	  else
+	    //
+	    IO::log << std::setw(10) << "***";
+	}
+	else
+	  //
+	  IO::log << std::setw(10) << "1";
+      
+      IO::log << "\n";
+    }
+    
+    if(Model::bimolecular_size()) {
+      //
+      IO::log << IO::log_offset << "W->P/P->W rate constants ratios:\n"
+	//
+	      << IO::log_offset << std::setw(5) << "P\\W";
+      
+      for(int w = 0; w < chem_size; ++w)
+	//
+	IO::log << std::setw(10) << Model::well(group_index[w]).name();
+      
+      IO::log << "\n";
+    
+      for(int p = 0; p < Model::bimolecular_size(); ++p) {
+	//
+	IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).name();
+	
+	for(int w = 0; w < chem_size; ++w)
+	  //
+	  if(bw_rate(p, w) != 0.) {
+	    //
+	    IO::log << std::setw(10) << wb_rate(w, p) / bw_rate(p, w);
+	  }
+	  else
+	    //
+	    IO::log << std::setw(10) << "***";
+	
+	IO::log << "\n";
+      }
+    }
+
+    IO::log << std::setprecision(6);
+
+    // well-to-well rate coefficients
+    //
+    for(int i = 0; i < chem_size; ++i)
+      //
+      for(int j = 0; j < chem_size; ++j) {
+	//
+	dtemp = ww_rate(i, j) * std::sqrt(weight[i] * weight[j]) * energy_step() / real_weight[i] / Phys_const::herz;
+	
+	if(i != j)
+	  //
+	  dtemp = -dtemp;
+	
+	rate_data[std::make_pair(group_index[i], group_index[j])] = dtemp; 	
+      }
+
+    // well-to-escape rate coefficients
+    //
+    if(Model::escape_size())
+      //
+      for(int w = 0; w < chem_size; ++w)
+	//
+	for(int e = 0; e < Model::escape_size(); ++e) {
+	  //
+	  dtemp = vdot(m_inverse.column(w), &eigen_escape(0, e))
+	    //
+	    * std::sqrt(weight[w]) * energy_step() / real_weight[w] / Phys_const::herz;
+	  
+	  rate_data[std::make_pair(group_index[w], Model::well_size() +
+				   //
+				   Model::bimolecular_size() + e)] = dtemp;
+	}
+
+    // well-to-bimolecular rate coefficients
+    //
+    for(int w = 0; w < chem_size; ++w)
+      //
+      for(int p = 0; p < Model::bimolecular_size(); ++p) {
+	//
+	dtemp = wb_rate(w, p) * std::sqrt(weight[w]) * energy_step() / real_weight[w] / Phys_const::herz;
+	
+	rate_data[std::make_pair(group_index[w], Model::well_size() + p)] = dtemp;
+      }
+    
+    // bimolecular-to-well rate coefficients
+    //
+    for(int p = 0; p < Model::bimolecular_size(); ++p)
+      //
+      if(bimolecular(p).weight() > 0.)
+	//
+	for(int w = 0; w < chem_size; ++w) {
+	  //
+	  dtemp = bw_rate(p, w) * std::sqrt(weight[w]) * energy_step() / bimolecular(p).weight() / bru;
+	  
+	  rate_data[std::make_pair(Model::well_size() + p, group_index[w])] = dtemp;
+	}
+  }
+
+  // hot energies branching ratios
+  //
+  if(hot_index.size()) {
+    //
+    IO::log << IO::log_offset << "branching ratios:\n"
+      //
+	    << IO::log_offset
+      //
+	    << std::setw(5)  << "Well"
+      //
+	    << std::setw(13) << "E, kcal/mol";
+    
+    for(int w = 0; w < chem_size; ++w)
+      //
+      IO::log << std::setw(13) << Model::well(group_index[w]).name();
+
+    for(int p = 0; p < Model::bimolecular_size(); ++p)
+      //
+      IO::log << std::setw(13) << Model::bimolecular(p).name();
+
+    for(int s = 0; s < Model::escape_size(); ++s)
+      //
+      IO::log << std::setw(13) << Model::escape_name(s);
+    
+    IO::log << std::setw(13) << "total" << "\n";
+    
+    int count = 0;
+    
+    for(std::set<std::pair<int, int> >::const_iterator hit = hot_index.begin(); hit != hot_index.end(); ++hit, ++count) {
+      //
+      const int w = hit->first;
+
+      const int e = hit->second;
+
+      std::map<int, int>::const_iterator wit = kinetic_basis[e].well_index_map.find(w);
+
+      if(wit == kinetic_basis[e].well_index_map.end()) {
+	//
+	std::cerr << funame << "hot energies: logic error 1\n";
+
+	throw Error::Logic();
+      }
+      
+      IO::log << IO::log_offset
+	//
+	      << std::setw(5)  << Model::well(w).name()
+	//
+	      << std::setw(13) << energy_bin(e) / Phys_const::kcal;
+
+      double tot = 0.;
+      
+      // bound species
+      //
+      for(int c = 0; c < chem_size; ++c) {
+	//
+	dtemp = vdot(m_direct.row(c), &eigen_hot(0, count)) * std::sqrt(weight[c]);
+	
+	IO::log << std::setw(13) << dtemp;
+
+	tot += dtemp;
+      }
+      
+      // bimolecular products
+      //
+      vtemp.resize(Model::bimolecular_size());
+
+      vtemp = 0.;
+      
+      for(int b = 0; b < Model::outer_barrier_size(); ++b) {
+	//
+	if(e >= outer_barrier(b).size())
+	  //
+	  continue;
+
+	const int p = Model::outer_connect(b).second;
+	
+	std::map<int, int>::const_iterator bit = kinetic_basis[e].well_index_map.find(Model::outer_connect(b).first);
+
+	if(bit == kinetic_basis[e].well_index_map.end()) {
+	  //
+	  std::cerr << funame << "hot energies: logic error 2\n";
+
+	  throw Error::Logic();
+	}
+      
+	dtemp = 0.;
+	
+	for(int k = kinetic_basis[e].active_size; k < kinetic_basis[e].size(); ++k)
+	  //
+	  dtemp += kinetic_basis[e].eigenvector(wit->second, k)
+	    //
+	    * kinetic_basis[e].eigenvector(bit->second, k)
+	    //
+	    / kinetic_basis[e].eigenvalue[k];
+
+	vtemp[p] += dtemp / well(wit->first).boltzman_sqrt(e)
+	  //
+	  * outer_barrier(b).state_number(e) / 2. / M_PI
+	  //
+	  * thermal_factor(e) / well(bit->first).boltzman_sqrt(e);
+      }
+      
+      for(int p = 0; p < Model::bimolecular_size(); ++p) {
+	//
+	dtemp = vtemp[p]
+	  //
+	  + triple_product(&eigen_bim(chem_size, p), &eigen_hot(chem_size, count), relax_lave, relax_size);
+	
+	IO::log << std::setw(13) << dtemp;
+
+	tot += dtemp;
+      }
+
+      // escape products
+      //
+      for(int s = 0; s < Model::escape_size(); ++s) {
+	//
+	std::map<int, int>::const_iterator sit = kinetic_basis[e].well_index_map.find(Model::escape_channel(s).first);
+
+	dtemp = 0.;
+	
+	if(sit != kinetic_basis[e].well_index_map.end()) {
+	  //
+	  for(int k = kinetic_basis[e].active_size; k < kinetic_basis[e].size(); ++k) {
+	    //
+	    dtemp += kinetic_basis[e].eigenvector(wit->second, k)
+	      //
+	      * kinetic_basis[e].eigenvector(sit->second, k)
+	      //
+	      / kinetic_basis[e].eigenvalue[k];
+	  }
+
+	  dtemp *= Model::well(sit->first).escape_rate(energy_bin(e), Model::escape_channel(s).second)
+	    //
+	    * well(sit->first).boltzman_sqrt(e) / well(wit->first).boltzman_sqrt(e);
+	}
+	
+	dtemp += triple_product(&eigen_escape(chem_size, s), &eigen_hot(chem_size, count), relax_lave, relax_size);
+	
+	IO::log << std::setw(13) << dtemp;
+
+	tot += dtemp;
+      }
+      
+      IO::log << std::setw(13) << tot << "\n";
+    }
+  }
+
+  // prompt isomerization
+  //
+  IO::log << IO::log_offset << "prompt isomerization/dissociation:\n";
+
+  IO::log << IO::log_offset << std::setw(7) << "W\\W,P,E";
+
+  if(chem_size)
+    //
+    for(int w = 0; w < Model::well_size(); ++w)
+      //
+      IO::log << std::setw(13) << Model::well(w).name();
+
+  IO::log << std::setw(13) << "Total Diss.";
+
+  for(int p = 0; p < Model::bimolecular_size(); ++p)
+    //
+    IO::log << std::setw(13) << Model::bimolecular(p).name();
+
+  for(int e = 0; e < Model::escape_size(); ++e)
+    //
+    IO::log << std::setw(13) << Model::escape_name(e);
+    
+  IO::log << "\n";
+
+  for(int w = 0; w < Model::well_size(); ++w) {
+    //
+    IO::log << IO::log_offset << std::setw(7) << Model::well(w).name();
+
+    double diss = 1.;
+
+    if(chem_size)
+      //
+      for(int v = 0; v < Model::well_size(); ++v) {
+	//
+	dtemp = 0.;
+
+	for(int l = 0; l < chem_size; ++l)
+	  //
+	  dtemp += eigen_pop(l, w) * eigen_pop(l, v);
+
+	// renormalization
+	//
+	if(v == w)
+	  //
+	  dtemp = 1. - dtemp;
+      
+	dtemp *= well(v).weight_sqrt() * well(w).weight_sqrt() * energy_step() / well(w).real_weight();
+
+	if(v == w)
+	  //
+	  dtemp = 1. - dtemp;
+      
+	diss -= dtemp;
+
+	IO::log << std::setw(13) << dtemp;
+      }
+
+    IO::log << std::setw(13) << diss;
+
+    // bimolecular products
+    //
+    vtemp.resize(Model::bimolecular_size());
+
+    vtemp = 0.;
+
+    for(int e = 0; e < well(w).size(); ++e) {
+      //
+      std::map<int, int>::const_iterator wit = kinetic_basis[e].well_index_map.find(w);
+
+      if(wit == kinetic_basis[e].well_index_map.end()) {
+	//
+	std::cerr << funame << "prompt isomerization: logic error 1\n";
+
+	throw Error::Logic();
+      }
+      
+      for(int b = 0; b < Model::outer_barrier_size(); ++b) {
+	//
+	if(e >= outer_barrier(b).size())
+	  //
+	  continue;
+
+	const int p = Model::outer_connect(b).second;
+	
+	std::map<int, int>::const_iterator bit = kinetic_basis[e].well_index_map.find(Model::outer_connect(b).first);
+
+	if(bit == kinetic_basis[e].well_index_map.end()) {
+	  //
+	  std::cerr << funame << "prompt isomerizaion: logic error 2\n";
+
+	  throw Error::Logic();
+	}
+      
+	dtemp = 0.;
+	
+	for(int k = kinetic_basis[e].active_size; k < kinetic_basis[e].size(); ++k)
+	  //
+	  dtemp += kinetic_basis[e].eigenvector(wit->second, k)
+	    //
+	    * kinetic_basis[e].eigenvector(bit->second, k)
+	    //
+	    / kinetic_basis[e].eigenvalue[k];
+
+	vtemp[p] += dtemp * well(wit->first).boltzman_sqrt(e)
+	  //
+	  * outer_barrier(b).state_number(e) / 2. / M_PI
+	  //
+	  * thermal_factor(e) / well(bit->first).boltzman_sqrt(e);
+      }
+    }
+    
+    for(int p = 0; p < Model::bimolecular_size(); ++p) {
+      //
+      dtemp = vtemp[p] + well(w).weight_sqrt()
+	//
+	* triple_product(&eigen_bim(chem_size, p), &eigen_pop(chem_size, w), relax_lave, relax_size);
+
+      IO::log << std::setw(13) << dtemp	* energy_step() / well(w).real_weight();
+    }
+
+    // escape products
+    //
+    for(int s = 0; s < Model::escape_size(); ++s) {
+      //
+      double corr = 0.;
+    
+      for(int e = 0; e < well(w).size(); ++e) {
+	//
+	std::map<int, int>::const_iterator wit = kinetic_basis[e].well_index_map.find(w);
+	
+	if(wit == kinetic_basis[e].well_index_map.end()) {
+	  //
+	  std::cerr << funame << "prompt isomerization: logic error 3\n";
+	  
+	  throw Error::Logic();
+	}
+      
+	std::map<int, int>::const_iterator sit = kinetic_basis[e].well_index_map.find(Model::escape_channel(s).first);
+
+	if(sit != kinetic_basis[e].well_index_map.end()) {
+	  //
+	  dtemp = 0.;
+	
+	  for(int k = kinetic_basis[e].active_size; k < kinetic_basis[e].size(); ++k) {
+	    //
+	    dtemp += kinetic_basis[e].eigenvector(wit->second, k)
+	      //
+	      * kinetic_basis[e].eigenvector(sit->second, k)
+	      //
+	      / kinetic_basis[e].eigenvalue[k];
+	  }
+
+	  dtemp *= Model::well(sit->first).escape_rate(energy_bin(e), Model::escape_channel(s).second)
+	    //
+	    * well(sit->first).boltzman_sqrt(e) * well(wit->first).boltzman_sqrt(e);
+
+	  corr += dtemp;
+	}
+      }
+
+      dtemp = corr + well(w).weight_sqrt()
+	//
+	* triple_product(&eigen_escape(chem_size, s), &eigen_pop(chem_size, w), relax_lave, relax_size);
+      
+      IO::log << std::setw(13) << dtemp * energy_step() / well(w).real_weight();
+    }
+    
+    IO::log << "\n";
+  }
+
+  IO::log << "\n";
+}
+
+/********************************************************************************************
  ************ THE DIRECT DIAGONALIZATION OF THE GLOBAL KINETIC RELAXATION MATRIX ************
  ********************************************************************************************/
 
 void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>, double>& rate_data,
+						    //
 						    Partition& well_partition, int flags)
   
 {
   const char funame [] = "MasterEquation::direct_diagonalization_method: ";
 
   // bimolecular rate units
+  //
   const double bru = Phys_const::cm * Phys_const::cm * Phys_const::cm * Phys_const::herz;
 
   if(!isset()) {
+    //
     std::cerr << funame << "reactive complex is not set\n";
+    
     throw Error::Init();
   }
 
@@ -3778,7 +5367,9 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	    << "\n";
 
   if(evec_out.is_open()) {
+    //
     evec_out << "Pressure = ";
+    
     switch(pressure_unit) {
     case BAR:
       evec_out << pressure() / Phys_const::bar << " bar";
@@ -3790,8 +5381,8 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       evec_out << pressure() / Phys_const::atm << " atm";
       break;
     }
-    evec_out << "\t Temperature = "
-	     << temperature() / Phys_const::kelv << " K\n";
+    
+    evec_out << "\t Temperature = " << temperature() / Phys_const::kelv << " K\n";
   }
 
   rate_data.clear();
@@ -3811,17 +5402,19 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   std::vector<int> well_shift(Model::well_size());
   
   itemp = 0;
-  for(int w = 0; w < Model::well_size(); ++w) {
+  
+  for(int w = 0; w < Model::well_size(); itemp += well(w++).size())
+    //
     well_shift[w] = itemp;
-    itemp += well(w).size();
-  }
+
   const int global_size = itemp;
 
-  //  if(global_size >= 
   IO::log << IO::log_offset << "global relaxation matrix dimension = " << global_size << "\n";
 
   for(int w = 0; w < Model::well_size(); ++w)
+    //
     if(!w || well(w).size() > itemp)
+      //
       itemp = well(w).size();
   
   const int well_size_max = itemp;
@@ -3829,13 +5422,19 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   /********************************* SETTING GLOBAL MATRICES *********************************/
 
   // kinetic relaxation matrix
+  //
   Lapack::SymmetricMatrix kin_mat(global_size); // kinetic relaxation matrix
+  
   kin_mat = 0.;
 
   // bimolecular product vectors
+  //
   Lapack::Matrix global_bim;
+  
   if(Model::bimolecular_size()) {
+    //
     global_bim.resize(global_size,  Model::bimolecular_size());
+    
     global_bim = 0.;
   }
 
@@ -3888,17 +5487,9 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
       if(Model::well(w).escape_size())
 	//
-	for(int i = 0; i < well(w).size(); ++i) {
+	for(int i = 0; i < well(w).size(); ++i)
 	  //
-	  dtemp = Model::well(w).escape_rate(energy_bin(i));
-	  
-	  //if(dtemp != 0.)
-	  //std::cerr << "energy[kcal/mol] = "
-	  //	      << (energy_reference() - (double)i * energy_step()) / Phys_const::kcal
-	  //	      << "   escape rate[Hz] = " << dtemp / Phys_const::herz << "\n";
-	  
-	  kin_mat(i + well_shift[w], i + well_shift[w]) += dtemp;
-	}
+	  kin_mat(i + well_shift[w], i + well_shift[w]) += Model::well(w).escape_rate(energy_bin(i));
     }
 
     // collision relaxation contribution
@@ -3956,15 +5547,15 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     
     // well escape
     //
-    for(int count = 0; count < Model::escape_size(); ++count) {
+    for(int e = 0; e < Model::escape_size(); ++e) {
       //
-      const int ew = Model::escape_channel(count).first;
+      const int ew = Model::escape_channel(e).first;
 
-      const int ei = Model::escape_channel(count).second;
+      const int ei = Model::escape_channel(e).second;
       
       for(int i = 0; i < well(ew).size(); ++i)
 	//
-	global_escape(i + well_shift[ew], count) = Model::well(ew).escape_rate(energy_bin(i), ei) * well(ew).boltzman_sqrt(i);
+	global_escape(i + well_shift[ew], e) = Model::well(ew).escape_rate(energy_bin(i), ei) * well(ew).boltzman_sqrt(i);
       //
     }//
     //
@@ -3979,8 +5570,41 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   {
     IO::Marker solve_marker("diagonalizing global relaxation matrix", IO::Marker::ONE_LINE);
 
-    eigenval = kin_mat.eigenvalues(&eigen_global);
+#ifdef WITH_MPACK
     
+    switch(float_type) {
+      //
+    case DOUBLE:
+	//
+	eigenval = kin_mat.eigenvalues(&eigen_global);
+
+	break;
+
+      case DD:
+	//
+	eigenval = Mpack::dd_eigenvalues(kin_mat, &eigen_global);
+
+	break;
+	
+      case QD:
+	//
+	eigenval = Mpack::qd_eigenvalues(kin_mat, &eigen_global);
+
+	break;
+
+      default:
+	//
+	std::cerr << funame << "unknown case\n";
+
+	throw Error::Logic();
+    }
+
+#else
+
+    eigenval = kin_mat.eigenvalues(&eigen_global);
+
+#endif
+
     eigen_global = eigen_global.transpose();
   }
 
@@ -4517,24 +6141,20 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   //
   Lapack::Matrix eigen_hot;
   
-  if(hot_energy_size) {
+  if(hot_index.size()) {
     //
-    eigen_hot.resize(global_size, hot_energy_size);
-    
-    std::map<int, std::vector<int> >::const_iterator hit;
+    eigen_hot.resize(global_size, hot_index.size());
     
     int count = 0;
     
-    for(hit = hot_index.begin(); hit != hot_index.end(); ++hit)
+    for(std::set<std::pair<int, int> >::const_iterator hit = hot_index.begin(); hit != hot_index.end(); ++hit, ++count) {
       //
-      for(int i = 0; i < hit->second.size(); ++i, ++count) {
+      for(int l = 0; l < global_size; ++l)
 	//
-	for(int l = 0; l < global_size; ++l)
+	eigen_hot(l, count) = eigen_global(l, well_shift[hit->first] + hit->second)
 	  //
-	  eigen_hot(l, count) = eigen_global(l, well_shift[hit->first] + hit->second[i])
-	    //
-	    / well(hit->first).boltzman_sqrt(hit->second[i]);
-      }
+	  / well(hit->first).boltzman_sqrt(hit->second);
+    }
   }
 
   std::vector<double> relaxation_projection(Model::well_size());
@@ -5144,12 +6764,10 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	//
 	// Hot energies-to-escape channels distribution
 	//
-	if(hot_energy_size) {
+	if(hot_index.size()) {
 	  //
 	  ped_out << "Hot-to-escape product energy distributions:\n";
 
-	  std::map<int, std::vector<int> >::const_iterator hit;
-	  
 	  for(int e = 0; e < Model::escape_size(); ++e) {
 	    //
 	    const int ew = Model::escape_channel(e).first;
@@ -5158,55 +6776,53 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
 	    vtemp.resize(well(ew).size());
 	    
-	    for(hit = hot_index.begin(); hit != hot_index.end(); ++hit) {
+	    for(std::set<std::pair<int, int> >::const_iterator hit = hot_index.begin(); hit != hot_index.end(); ++hit) {
 	      //
 	      const int hw = hit->first;
 	      
-	      for(int hi = 0; hi < hit->second.size(); ++hi) {
+	      const int he = hit->second;
+		
+	      ped_out << "Hot[" << Model::well(hw).name() << ", E = "
 		//
-		const int he = hit->second[hi];
-		
-		ped_out << "Hot[" << Model::well(hw).name() << ", E = "
-		  //
-			<< energy_bin(he) / Phys_const::kcal << " kcal/mol] ---> "
-		  //
-			<< Model::escape_name(e) << "\n\n";
-
-		double nfac;
-		
-		for(int i = 0; i < well(ew).size(); ++i) {
-		  //
-		  dtemp = triple_product(&eigen_global(chem_size, he + well_shift[hw]), relax_lave, 
-					 &eigen_global(chem_size, i  + well_shift[ew]), relax_size)
-		    //
-		    * Model::well(ew).escape_rate(energy_bin(i), ei) * well(ew).boltzman_sqrt(i);
-
-		  vtemp[i] = dtemp;
-		  
-		  if(!i || std::fabs(dtemp) > std::fabs(nfac))
-		    //
-		    nfac = dtemp;
-		}
-		
-		vtemp /= nfac;
-		
-		// output
+		      << energy_bin(he) / Phys_const::kcal << " kcal/mol] ---> "
 		//
-		ped_out << std::setw(13) << "E, kcal/mol" << std::setw(13) << "PED, a.u." << "\n";
+		      << Model::escape_name(e) << "\n\n";
 
-		for(int i = 0; i < well(ew).size(); ++i) {
+	      double nfac;
+		
+	      for(int i = 0; i < well(ew).size(); ++i) {
+		//
+		dtemp = triple_product(&eigen_global(chem_size, he + well_shift[hw]), relax_lave,
+				       //
+				       &eigen_global(chem_size, i  + well_shift[ew]), relax_size)
 		  //
-		  dtemp = energy_bin(i) / Phys_const::kcal;
+		  * Model::well(ew).escape_rate(energy_bin(i), ei) * well(ew).boltzman_sqrt(i);
+		
+		vtemp[i] = dtemp;
 		  
-		  ped_out << std::setw(13) << dtemp << std::setw(13) << vtemp[i] << "\n";
-		}
-
-		ped_out << "\n";
+		if(!i || std::fabs(dtemp) > std::fabs(nfac))
+		  //
+		  nfac = dtemp;
 	      }
+		
+	      vtemp /= nfac;
+		
+	      // output
+	      //
+	      ped_out << std::setw(13) << "E, kcal/mol" << std::setw(13) << "PED, a.u." << "\n";
+
+	      for(int i = 0; i < well(ew).size(); ++i) {
+		//
+		dtemp = energy_bin(i) / Phys_const::kcal;
+		  
+		ped_out << std::setw(13) << dtemp << std::setw(13) << vtemp[i] << "\n";
+	      }
+
+	      ped_out << "\n";
 	    }
 	  }
 	}
-	//
+	
 	// bimolecular-to-escape product energy distributions
 	//
 	ped_out << "Bimolecular-to-escape product energy distributions:\n";
@@ -5272,7 +6888,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
 	// output
 	//
-	ped_out<< std::setw(13) << "E, kcal/mol";
+	ped_out << std::setw(13) << "E, kcal/mol";
 	
 	for(int p = 0; p < Model::bimolecular_size(); ++p)
 	  //
@@ -5300,34 +6916,35 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
       // hot product energy distributions
       //
-      if(hot_energy_size) {
+      if(hot_index.size()) {
 	//
 	ped_out << "Hot product energy distributions:\n\n";
 
 	// dimension
+	//
 	itemp = 0;
+	
 	for(int b = 0; b < Model::outer_barrier_size(); ++b)
+	  //
 	  if(outer_barrier(b).size() > itemp)
+	    //
 	    itemp = outer_barrier(b).size();
       
 	ener_index_max = itemp;
+	//
 	mtemp.resize(itemp, Model::bimolecular_size());
 
 	// hot energy cycle
 	//
 	int count = 0;
 	
-	std::map<int, std::vector<int> >::const_iterator hit;
-	
-	for(hit = hot_index.begin(); hit != hot_index.end(); ++hit)
+	for(std::set<std::pair<int, int> >::const_iterator hit = hot_index.begin(); hit != hot_index.end(); ++hit, ++count) {
 	  //
-	  for(int i = 0; i < hit->second.size(); ++i, ++count) {
+	  ped_out << "Initial well: "<< Model::well(hit->first).name()
+	      //
+		  << "   Initial energy[kcal/mol] = " << energy_bin(hit->second) / Phys_const::kcal
 	    //
-	    ped_out << "Initial well: "<< Model::well(hit->first).name()
-	      //
-		    << "   Initial energy[kcal/mol] = " << energy_bin(hit->second[i]) / Phys_const::kcal
-	      //
-		    << "\n";
+		  << "\n";
 
 	    // distribution
 	    //
@@ -5745,7 +7362,46 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 				   //
 				   Model::bimolecular_size() + e)] = dtemp;
 	}
-  
+
+    // output of steady state distributions associated with individual wells
+    //
+    IO::aux << "steady state distributions:\n";
+    
+    for(int g = 0; g < chem_size; ++g) {
+      //
+      IO::aux << "Initial well: " << Model::well(group_index[g]).name() << "\n";
+
+      IO::aux  << std::setw(13) << "E, kcal/mol";
+
+      for(int w = 0; w < Model::well_size(); ++w)
+	//
+	IO::aux << std::setw(13) << Model::well(w).name();
+
+      IO::aux << "\n";
+
+      for(int i = 0; i < well_size_max; ++i) {
+	//
+	IO::aux << std::setw(13) << energy_bin(i) / Phys_const::kcal;
+
+	for(int w = 0; w < Model::well_size(); ++w) {
+	  //
+	  if(i < well(w).size()) {
+	    //
+	    IO::aux << std::setw(13) << vdot(m_inverse.column(g), &eigen_global(0, i + well_shift[w]))
+	      //
+	      * well(w).boltzman_sqrt(i) / std::sqrt(weight[g]);
+	  }
+	  else
+	    //
+	    IO::aux<< std::setw(13) << "0";
+	}
+
+	IO::aux << "\n";
+      }
+
+      IO::aux << "\n";
+    }
+    
     // well-to-bimolecular rate coefficients
     //
     for(int w = 0; w < chem_size; ++w)
@@ -5931,9 +7587,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   // hot distribution branching ratios
   //
-  IO::log << IO::log_offset << "hot energies # = " << hot_energy_size << "\n";
-  
-  if(hot_energy_size) {
+  if(hot_index.size()) {
     //
     IO::log << IO::log_offset << "Hot distribution branching ratios:\n"
       //
@@ -5957,19 +7611,15 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     
     IO::log << "\n";
     
-    std::map<int, std::vector<int> >::const_iterator hit;
-    
     int count = 0;
     
-    for(hit = hot_index.begin(); hit != hot_index.end(); ++hit)
-      //
-      for(int i = 0; i < hit->second.size(); ++i, ++count) {
+    for(std::set<std::pair<int, int> >::const_iterator hit = hot_index.begin(); hit != hot_index.end(); ++hit, ++count) {
 	//
 	IO::log << IO::log_offset
 	  //
 		<< std::setw(5)  << Model::well(hit->first).name()
 	  //
-		<< std::setw(13) << energy_bin(hit->second[i]) / Phys_const::kcal;
+		<< std::setw(13) << energy_bin(hit->second) / Phys_const::kcal;
 	
 	for(int w = 0; w < chem_size; ++w)
 	  //
@@ -5993,25 +7643,9 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   // prompt isomerization
   //
-  
-  // check real versus effective weights
-  //
-  /*
-  IO::log << IO::log_offset << "effective weight / real weight:";
-
-  for(int w = 0; w < Model::well_size(); ++w)
-    //
-    IO::log << "   " << well(w).weight() * energy_step() / well(w).real_weight();
-
-  IO::log << "\n";
-
-  IO::log << IO::log_offset << "energy step = " << energy_step() << "\n";
-
-  */
-  
   IO::log << IO::log_offset << "prompt isomerization/dissociation:\n";
 
-  IO::log << IO::log_offset << std::setw(7) << "W\\W,P";
+  IO::log << IO::log_offset << std::setw(7) << "W\\W,P,E";
 
   if(chem_size)
     //
@@ -6072,7 +7706,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 						 //
 						 relax_lave, relax_size) * energy_step()
 	//
-	* well(w).weight_sqrt() / well(w). real_weight();
+	* well(w).weight_sqrt() / well(w).real_weight();
 
     for(int e = 0; e < Model::escape_size(); ++e)
       //
@@ -6080,7 +7714,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 						 //
 						 relax_lave, relax_size) * energy_step()
 	//
-	* well(w).weight_sqrt() / well(w). real_weight();
+	* well(w).weight_sqrt() / well(w).real_weight();
       
     IO::log << "\n";
   }
