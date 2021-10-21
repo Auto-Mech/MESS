@@ -1,25 +1,26 @@
-# cmd: conda build . -c auto-mech
+# cmd: conda build . -c auto-mech -c conda-forge
 package:
     name: mess
-    version: "1.12.0"
+    version: "1.14.0"
 
 source:
     path: .
 
 requirements:
      build:
-         - cmake
-         - gcc_linux-64
-         - gfortran_linux-64
-         - blas
-         - openblas # [linux]
-         - slatec
-         - mpack
+         - auto-mech::slatec
+         - auto-mech::mpack
+         - conda-forge::cmake=3.21.3
+         - conda-forge::gcc_linux-64=7.5.0
+         - conda-forge::gfortran_linux-64=7.5.0
+         - conda-forge::blas
+         - conda-forge::openblas # [linux]
+         - conda-forge::gsl=2.7
      run:
-         - cmake
-         - gcc_linux-64
-         - gfortran_linux-64
-         - blas
-         - openblas # [linux]
-         - slatec
-         - mpack
+         - auto-mech::slatec
+         - auto-mech::mpack
+         - conda-forge::cmake=3.21.3
+         - conda-forge::gcc_linux-64=7.5.0
+         - conda-forge::gfortran_linux-64=7.5.0
+         - conda-forge::openblas # [linux]
+         - conda-forge::gsl=2.7
