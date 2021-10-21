@@ -10,6 +10,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
 find_library(SLATEC REQUIRED NAMES slatec libslatec)
+find_package(GSL REQUIRED)
 # MPACK
 find_library(QD REQUIRED NAMES qd libqd libqd.a)
 find_library(MBLAS_QD REQUIRED NAMES mblas_qd libmblas_qd)
@@ -19,6 +20,7 @@ find_library(MLAPACK_DD REQUIRED NAMES mlapack_dd libmlapack_dd)
 message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
 message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
 message(STATUS "Found SLATEC: ${SLATEC_LIBRARIES}")
+message(STATUS "Found GSL: ${GSL_LIBRARIES}")
 message(STATUS "Found QD: ${QD}")
 message(STATUS "Found MBLAS_QD: ${MBLAS_QD}")
 message(STATUS "Found MBLAS_DD: ${MBLAS_DD}")
@@ -62,17 +64,21 @@ add_executable(messabs ${PROJECT_SOURCE_DIR}/src/abstraction.cc)
 add_executable(messsym ${PROJECT_SOURCE_DIR}/src/symmetry_number.cc)
 
 target_link_libraries(mess
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${MLAPACK_QD} ${MLAPACK_DD}
-    ${MBLAS_QD} ${MBLAS_DD} ${QD} ${SLATEC} ${CMAKE_DL_LIBS})
+    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
+    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
+    ${SLATEC} ${CMAKE_DL_LIBS})
 target_link_libraries(messpf
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${MLAPACK_QD} ${MLAPACK_DD}
-    ${MBLAS_QD} ${MBLAS_DD} ${QD} ${SLATEC} ${CMAKE_DL_LIBS})
+    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
+    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
+    ${SLATEC} ${CMAKE_DL_LIBS})
 target_link_libraries(messabs
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${MLAPACK_QD} ${MLAPACK_DD}
-    ${MBLAS_QD} ${MBLAS_DD} ${QD} ${SLATEC} ${CMAKE_DL_LIBS})
+    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
+    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
+    ${SLATEC} ${CMAKE_DL_LIBS})
 target_link_libraries(messsym
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${MLAPACK_QD} ${MLAPACK_DD}
-    ${MBLAS_QD} ${MBLAS_DD} ${QD} ${SLATEC} ${CMAKE_DL_LIBS})
+    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
+    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
+    ${SLATEC} ${CMAKE_DL_LIBS})
 
 install(TARGETS mess DESTINATION bin)
 install(TARGETS messpf DESTINATION bin)
