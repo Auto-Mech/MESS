@@ -54,8 +54,9 @@ namespace Symmetry {
    ******************************** SPATIAL SYMMETRY OPERATIONS ***********************************
    ************************************************************************************************/
 
-  // spatial symmetry element: rotation and inversion 
-  class SpaceElement : private Quaternion {
+  // spatial symmetry element: rotation and inversion
+  //
+  class SpaceElement : public Quaternion {
     bool       _inversion;
     D3::Matrix _rmatrix;
 
@@ -66,7 +67,7 @@ namespace Symmetry {
 
     SpaceElement (const D3::Matrix& m, int = 0)          ;
 
-    operator const Quaternion& () const { return *this; }
+    //operator const Quaternion& () const { return *this; }
 
     const double& operator[] (int i) const { return Quaternion::operator[](i); }
 

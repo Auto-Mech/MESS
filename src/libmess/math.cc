@@ -353,7 +353,7 @@ double Math::MinimumSearch::find (double x1, double step, double* xp)
   }// x2 < x0 < x1, y1 >= y0 <= y2 situation
 }
 
-void Math::Spline::init (const std::map<double, double>& data, int t) throw(Error::General)
+void Math::Spline::init (const std::map<double, double>& data, int t)
 {
   const char funame [] = "Math::Spline::init:";
   
@@ -425,7 +425,7 @@ void Math::Spline::init (const std::map<double, double>& data, int t) throw(Erro
   gsl_spline_init(_spline, x, y, data.size());
 }
 
-double Math::Spline::operator() (double arg, int der) const throw(Error::General)
+double Math::Spline::operator() (double arg, int der) const
 {
   const char funame [] = "Math::Spline::operator(): ";
 

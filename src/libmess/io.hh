@@ -208,9 +208,15 @@ namespace IO {
 
     std::ostream* _to;
 
+    bool          _isinit;
+
   public:
     //
-    Marker(const char*, int =0, std::ostream* =0);
+    Marker () : _isinit(false) {}
+    
+    void init (const char*, int =0, std::ostream* =0);
+    
+    Marker    (const char*, int =0, std::ostream* =0);
     
     ~Marker ();
     
@@ -221,6 +227,8 @@ namespace IO {
     };
   };
 
+  inline Marker::Marker (const char* h, int f, std::ostream* o) : _isinit(false) { init(h, f, o); }
+  
   /****************************************************************************************
    ************************************ STRING CONVERTER **********************************
    ****************************************************************************************/

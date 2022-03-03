@@ -67,17 +67,15 @@ int main (int argc, char* argv [])
   KeyGroup Main;
 
   Key    model_key("Model"                      );
+  Key prec_out_key("OutPrecision"               );
+  Key prec_log_key("LogPrecision"               );
   Key bar_pres_key("PressureList[bar]"          );
   Key tor_pres_key("PressureList[torr]"         );
   Key atm_pres_key("PressureList[atm]"          );
   Key     temp_key("TemperatureList[K]"         );
-  Key    estep_key("EnergyStep[1/cm]"           );
   Key     etot_key("EnergyStepOverTemperature"  );
   Key     xtot_key("ExcessEnergyOverTemperature");
-  Key ref_incm_key("ReferenceEnergy[1/cm]"      );
-  Key ref_kcal_key("ReferenceEnergy[kcal/mol]"  );
-  Key   ref_kj_key("ReferenceEnergy[kJ/mol]"    );
-  Key cut_kcal_key("GlobalCutoff[kcal/mol]"     );
+  Key ener_cut_key("EnergyCutoffOverTemperature");
   Key cut_incm_key("GlobalCutoff[1/cm]"         );
   Key   cut_kj_key("GlobalCutoff[kJ/mol]"       );
   Key     emax_key("ModelEnergyLimit[kcal/mol]" );
@@ -91,7 +89,6 @@ int main (int argc, char* argv [])
   Key eval_min_key("ChemicalEigenvalueMin"      );
   Key well_red_key("WellReductionThreshold"     );
   Key    float_key("FloatType"                  );
-  Key red_corr_key("NoWellReductionCorrection"  );
   Key     calc_key("CalculationMethod"          );
   Key  rat_red_key("ReductionMethod"            );
   Key      wpm_key("WellPartitionMethod"        );
@@ -122,11 +119,7 @@ int main (int argc, char* argv [])
   std::vector<std::string> reduction_scheme;
   std::vector<double> pressure;
   std::vector<double> temperature;
-  double estep  = -1.; // energy step
-  double etot   = -1.; // energy step over temperature
   double xtot   = -1.; // exsess energy over temperature
-  double eref;
-  bool iseref = false;
   MasterEquation::Method method = MasterEquation::direct_diagonalization_method;
   std::string micro_rate_file;
   double micro_ener_max  = 0.;
@@ -186,6 +179,8 @@ int main (int argc, char* argv [])
 	  
 	  throw Error::Input();
 	}
+
+	IO::log << std::setprecision(Model::log_precision);
       }
 
       // default rate output
@@ -202,6 +197,8 @@ int main (int argc, char* argv [])
 	  
 	  throw Error::Input();
 	}
+
+	IO::out << std::setprecision(Model::out_precision);
       }
 
       // global energy limit check
@@ -215,17 +212,61 @@ int main (int argc, char* argv [])
 
       // main initialization
       //
-      try {
+      //try {
 	//
 	Model::init(from);
-      }  
-      catch(Error::General) {
+	//}  
+      //catch(Error::General) {
 	//
-	IO::log << std::flush;
+	//IO::log << std::flush;
 	
-	throw;
-      }
+	//throw;
+      //}
       break;
+    }
+    // out stream precision
+    //
+    else if(prec_out_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> itemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(itemp < 2 || itemp > 10) {
+	//
+	std::cerr << funame << token << ": out of range[2-10]: " << itemp << "\n";
+
+	throw Error::Range();
+      }
+
+      Model::out_precision = itemp;
+    }
+    // log stream precision
+    //
+    else if(prec_log_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> itemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+
+      if(itemp < 2 || itemp > 6) {
+	//
+	std::cerr << funame << token << ": out of range[2-6]: " << itemp << "\n";
+
+	throw Error::Range();
+      }
+
+      Model::log_precision = itemp;
     }
     // rate output
     //
@@ -247,30 +288,47 @@ int main (int argc, char* argv [])
       std::getline(from, comment);
 
       IO::out.open(stemp.c_str());
+      
       if(!IO::out) {
+	//
         std::cerr << funame << token << ": cannot open " << stemp << " file\n";
+	
         throw Error::Input();
       }
+      
+      IO::out << std::setprecision(Model::out_precision);
     }
     // log output
+    //
     else if(log_out_key == token) {
+      //
       if(IO::log.is_open()) {
+	//
         std::cerr << funame << token << ": allready opened\n";
+	
         throw Error::Init();
       }      
       if(!(from >> stemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
 
       IO::log.open(stemp.c_str());
+      
       if(!IO::log) {
+	//
         std::cerr << funame << token << ": cannot open " << stemp << " file\n";
+	
         throw Error::Input();
       }
+      
+      IO::log << std::setprecision(Model::log_precision);
     }
     // eigenvalue output
+    //
     else if(eval_out_key == token) {
       if(MasterEquation::eval_out.is_open()) {
         std::cerr << funame << token << ": allready opened\n";
@@ -425,96 +483,92 @@ int main (int argc, char* argv [])
       for(std::set<double>::const_iterator it = data.begin(); it != data.end(); ++it)
 	pressure.push_back(*it);
     }
-    // energy step
-    else if(estep_key == token) {
-      if(estep > 0. || etot > 0.) {
-	std::cerr << funame << "energy step has been already defined\n";
-	throw Error::Input();
-      }
-      if(!(from >> estep)) {
-        std::cerr << funame << token << ": corrupted\n";
-        throw Error::Input();
-      }
-      std::getline(from, comment);
-
-      if(estep <= 0.) {
-	std::cerr << funame << token << ": should be positive\n";
-	throw Error::Range();
-      }
-      estep *= Phys_const::incm;
-    }
     // energy step over temperature
+    //
     else if(etot_key == token) {
-      if(estep > 0. || etot > 0.) {
-	std::cerr << funame << "energy step has been already defined\n";
+      //
+      if(MasterEquation::energy_step_over_temperature > 0.) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Input();
       }
-      if(!(from >> etot)) {
+      
+      if(!(from >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
+      
       std::getline(from, comment);
 
-      if(etot <= 0.) {
-	std::cerr << funame << token << ": should be positive\n";
+      if(dtemp <= 0. || dtemp >= 1.) {
+	//
+	std::cerr << funame << token << ": out of range: [0, 1]\n";
+	
 	throw Error::Range();
       }
+
+      MasterEquation::energy_step_over_temperature = dtemp;
     }
     // excess energy over temperature
+    //
     else if(xtot_key == token) {
-      if(xtot > 0. || iseref) {
+      //
+      if(xtot > 0.) {
+	//
 	std::cerr << funame << "reference energy has been already defined\n";
+	
 	throw Error::Input();
       }
+      
       if(!(from >> xtot)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(xtot <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
     }
-    // reference energy
-    else if(ref_incm_key == token || ref_kcal_key == token || ref_kj_key == token) {
-      if(xtot > 0. || iseref) {
-	std::cerr << funame << "reference energy has been already defined\n";
-	throw Error::Input();
-      }
-      iseref = true;
-      if(!(from >> eref)) {
-        std::cerr << funame << token << ": corrupted\n";
-        throw Error::Input();
-      }
-      std::getline(from, comment);
-      
-      if(ref_incm_key == token)
-	eref *= Phys_const::incm;
-      if(ref_kcal_key == token)
-	eref *= Phys_const::kcal;
-      if(ref_kj_key == token)
-	eref *= Phys_const::kjoul;
-    }
-    // global energy cutoff
-    else if(cut_incm_key == token || cut_kcal_key == token || cut_kj_key == token) {
-      if(!(from >> dtemp)) {
-        std::cerr << funame << token << ": corrupted\n";
-        throw Error::Input();
-      }
-      std::getline(from, comment);
-      
-      if(cut_incm_key == token)
-	dtemp *= Phys_const::incm;
-      if(cut_kcal_key == token)
-	dtemp *= Phys_const::kcal;
-      if(cut_kj_key == token)
-	dtemp *= Phys_const::kjoul;
+    // energy cutoff over temperature (inactive)
+    //
+    else if(ener_cut_key == token) {
+      //
+      if(MasterEquation::energy_cutoff_over_temperature > 0.) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
 
-      MasterEquation::set_global_cutoff(dtemp);
+	throw Error::Init();
+      }
+      
+      if(!(from >> dtemp)) {
+	//
+        std::cerr << funame << token << ": corrupted\n";
+	
+        throw Error::Input();
+      }
+      std::getline(from, comment);
+      
+      if(dtemp <= 0.) {
+	//
+        std::cerr << funame << token << ": should be positive\n";
+	
+        throw Error::Range();
+      }
+	
+      MasterEquation::energy_cutoff_over_temperature = dtemp;
     }
     // model energy limit
+    //
     else if(emax_key == token) {
       if(!(from >> dtemp)) {
         std::cerr << funame << token << ": corrupted\n";
@@ -543,22 +597,30 @@ int main (int argc, char* argv [])
       Model::atom_dist_min = dtemp;
     }
     // maximum tunneling exponent
+    //
     else if(xtun_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp <= 0.) {
+	//
         std::cerr << funame << token << ": should be positive\n";
+	
         throw Error::Range();
       }
 
       Model::Tunnel::set_action_max(dtemp);
     }
     // calculation method
+    //
     else if(calc_key == token) {
+      //
       if(!(from >> stemp)) {
         std::cerr << funame << token << ": corrupted\n";
         throw Error::Input();
@@ -707,19 +769,14 @@ int main (int argc, char* argv [])
 	throw Error::Init();
       }
     }
-    // no well reduction correction
-    //
-    else if(red_corr_key == token) {
-      //
-      MasterEquation::well_reduction_correction = false;
-
-      std::getline(from, comment);
-    }
     // maximal chemical eigenvalue
     //
     else if(eval_max_key == token) {
+      //
       if(!(from >> MasterEquation::chemical_threshold)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
@@ -728,7 +785,7 @@ int main (int argc, char* argv [])
     //
     else if(eval_min_key == token) {
       //
-      if(!(from >> MasterEquation::min_chem_eval)) {
+      if(!(from >> MasterEquation::chemical_tolerance)) {
 	//
         std::cerr << funame << token << ": corrupted\n";
 	
@@ -960,12 +1017,14 @@ int main (int argc, char* argv [])
     throw Error::Input();
   }
 
-  if(estep <= 0. && etot <= 0.) {
-    std::cerr << funame << "energy step has not been initialized\n";
+  if(MasterEquation::energy_step_over_temperature < 0.) {
+    //
+    std::cerr << funame << "energy step over temperature has not been initialized\n";
+    
     throw Error::Input();
   }
 
-  if(xtot < 0. && !iseref)
+  if(xtot < 0.)
     //
     std::cerr << funame << "WARNING: reference energy has not been initialized: using the default\n";
 
@@ -1133,18 +1192,8 @@ int main (int argc, char* argv [])
   
   /*********** PRESSURE AND TEMPERATURE DEPENDENT RATE COEFFICIENTS CALCULATION*************/
 
-  if(estep > 0.)
-    //
-    etot = estep / *temperature.begin();
-
-  if(iseref) {
-    //
-    eref += Model::energy_shift();
-    
-    xtot = (eref - Model::maximum_barrier_height()) / *temperature.begin();
-  }
-
   if(MasterEquation::eval_out.is_open()) {
+    //
     MasterEquation::eval_out << "*F - collisional frequency\n"
 			     << "*Q - minimal relaxational eigenvalue\n"
 			     << "*E - eigenvalue\n"
@@ -1202,6 +1251,26 @@ int main (int argc, char* argv [])
   for(int p = 0; p < Model::bimolecular_size(); ++p)
     spec_name.push_back(Model::bimolecular(p).name());
 
+  for(int i = 0; i < spec_name.size(); ++i)
+    //
+    if(!i || spec_name[i].size() > itemp)
+      //
+      itemp = spec_name[i].size();
+
+  const int max_spec_size = itemp > 8 ? itemp : 8;
+
+  std::vector<int> spec_field(spec_name.size());
+
+  for(int i = 0; i < spec_name.size(); ++i)
+    //
+    spec_field[i] = Model::out_precision + 7 > spec_name[i].size() + 1 ? Model::out_precision + 7 : spec_name[i].size() + 1;
+
+  std::vector<int> escape_field(Model::escape_size());
+  
+  for(int e = 0; e < Model::escape_size(); ++e)
+    //
+    escape_field[e] = Model::out_precision + 7 > Model::escape_name(e).size() + 1 ? Model::out_precision + 7 : Model::escape_name(e).size() + 1;
+	
   IO::out << "Unimolecular Rate Units: 1/sec;  Bimolecular Rate Units: cm^3/sec\n\n"
 	  << "______________________________________________________________________________________\n\n"
 	  << "Species-Species Rate Tables:\n\n";
@@ -1213,12 +1282,9 @@ int main (int argc, char* argv [])
     IO::Marker rate_marker("rate calculation");
 
     for(It t = temperature.begin(); t != temperature.end(); ++t) {// temperature cycle
+      
       MasterEquation::set_temperature(*t);
 
-      // energy step
-      //
-      MasterEquation::set_energy_step(nearbyint(*t * etot / Phys_const::incm) * Phys_const::incm);
-      
       // reference energy
       //
       itemp = 0;
@@ -1241,29 +1307,46 @@ int main (int argc, char* argv [])
       capture.push_back(capture_data);
 
       // output
+      //
       IO::out << "Temperature = " << *t / Phys_const::kelv  << " K\n\n";
+      
       IO::out << "High Pressure Rate Coefficients:\n\n"
-	      << std::left << std::setw(8) << "From\\To" << std::right;
+	//
+	      << std::left << std::setw(max_spec_size) << "From\\To" << std::right;
+      
       for(int j = 0; j < spec_name.size(); ++j)
-	IO::out << std::setw(13) << spec_name[j];
+	//
+	IO::out << std::setw(spec_field[j]) << spec_name[j];
+      
       IO::out << "\n";
+      
       for(int i = 0; i < spec_name.size(); ++i) {
-	IO::out << std::left << std::setw(8) << spec_name[i] << std::right;
+	//
+	IO::out << std::left << std::setw(max_spec_size) << spec_name[i] << std::right;
+	
 	for(int j = 0; j < spec_name.size(); ++j) {
+	  //
 	  ptemp = std::make_pair(i, j);
+	  
 	  if(rate_data.find(ptemp) != rate_data.end())
-	    IO::out << std::setw(13) << rate_data[ptemp];
+	    //
+	    IO::out << std::setw(spec_field[j]) << rate_data[ptemp];
 	  else
-	    IO::out << std::setw(13) << "***";
+	    //
+	    IO::out << std::setw(spec_field[j]) << "***";
 	}
 	IO::out << "\n";
       }
       IO::out << "\n";
 
       // pressure dependent rate coefficients
+      //
       for(It p = pressure.begin(); p != pressure.end(); ++p) {// pressure cycle
+	//
 	MasterEquation::set_pressure(*p);
+	
 	// rate calculation
+	//
 	if(method) {
 	  well_partition.push_back(MasterEquation::Partition());
 	  method(rate_data, well_partition.back(), 0);
@@ -1271,6 +1354,7 @@ int main (int argc, char* argv [])
 	}
 
 	// output
+	//
 	IO::out << "Temperature = " << *t / Phys_const::kelv <<  " K    Pressure = ";
 	switch(MasterEquation::pressure_unit) {
 	case MasterEquation::BAR:
@@ -1285,21 +1369,21 @@ int main (int argc, char* argv [])
 	}
 	IO::out << "\n\n";
 	
-	IO::out << std::left << std::setw(8) << "From\\To" << std::right;
+	IO::out << std::left << std::setw(max_spec_size) << "From\\To" << std::right;
 	
 	for(int j = 0; j < spec_name.size(); ++j)
 	  //
-	  IO::out << std::setw(13) << spec_name[j];
+	  IO::out << std::setw(spec_field[j]) << spec_name[j];
 
 	for(int e = 0; e < Model::escape_size(); ++e)
 	  //
-	  IO::out << std::setw(13) << Model::escape_name(e);
+	  IO::out << std::setw(escape_field[e]) << Model::escape_name(e);
 	
 	IO::out << "\n";
 
 	for(int i = 0; i < spec_name.size(); ++i) {
 	  //
-	  IO::out << std::left << std::setw(8) << spec_name[i] << std::right;
+	  IO::out << std::left << std::setw(max_spec_size) << spec_name[i] << std::right;
 	  
 	  for(int j = 0; j < spec_name.size(); ++j) {
 	    //
@@ -1307,11 +1391,11 @@ int main (int argc, char* argv [])
 	    
 	    if(rate_data.find(ptemp) != rate_data.end()) {
 	      //
-	      IO::out << std::setw(13) << rate_data[ptemp];
+	      IO::out << std::setw(spec_field[j]) << rate_data[ptemp];
 	    }
 	    else
 	      //
-	      IO::out << std::setw(13) << "***";
+	      IO::out << std::setw(spec_field[j]) << "***";
 	  }
 	  // escape rates
 	  //
@@ -1321,11 +1405,11 @@ int main (int argc, char* argv [])
 	    
 	    if(rate_data.find(ptemp) != rate_data.end()) {
 	      //
-	      IO::out << std::setw(13) << rate_data[ptemp];
+	      IO::out << std::setw(escape_field[e]) << rate_data[ptemp];
 	    }
 	    else
 	      //
-	      IO::out << std::setw(13) << "***";
+	      IO::out << std::setw(escape_field[e]) << "***";
 	  }
 	
 	  IO::out << "\n";
@@ -1342,40 +1426,63 @@ int main (int argc, char* argv [])
   // }
 
   // Output
+  //
   IO::out << "______________________________________________________________________________________\n\n"
 	  << "High Pressure Rate Coefficients (Temperature-Species Rate Tables):\n\n";
 
   for(int i = 0; i < spec_name.size(); ++i) {
+    //
+    IO::out << "Reactant = " << spec_name[i] << "\n";
+    
     IO::out << std::setw(7) << "T(K)";
-    for(int j = 0; j < spec_name.size(); ++j) {
-      stemp = spec_name[i] + "->" + spec_name[j];
-      IO::out << std::setw(13) << stemp;
-    }
+    
+    for(int j = 0; j < spec_name.size(); ++j)
+      //
+      IO::out << std::setw(spec_field[j]) << spec_name[j];
+    
     IO::out << "\n";
+    
     for(int t = 0; t < temperature.size(); ++t) {
-      IO::out << std::setw(7) << temperature[t] / Phys_const::kelv; 
+      //
+      IO::out << std::setw(7) << temperature[t] / Phys_const::kelv;
+      
       for(int j = 0; j < spec_name.size(); ++j)
+	//
 	if(hp_rate_coef[t].find(std::make_pair(i, j)) != hp_rate_coef[t].end())
-	  IO::out << std::setw(13) << hp_rate_coef[t][std::make_pair(i, j)];
+	  //
+	  IO::out << std::setw(spec_field[j]) << hp_rate_coef[t][std::make_pair(i, j)];
 	else
-	  IO::out << std::setw(13) << "***";
+	  //
+	  IO::out << std::setw(spec_field[j]) << "***";
+      
       IO::out << "\n";
     }
     IO::out << "\n";
   }
   
   IO::out << "Capture/Escape Rate Coefficients:\n\n";
+  
   IO::out << std::setw(7) << "T(K)";
+  
   for(int i = 0; i < spec_name.size(); ++i)
-    IO::out << std::setw(13) << spec_name[i];
+    //
+    IO::out << std::setw(spec_field[i]) << spec_name[i];
+  
   IO::out << "\n";
+  
   for(int t = 0; t < temperature.size(); ++t) {
-    IO::out << std::setw(7) << temperature[t] / Phys_const::kelv; 
+    
+    IO::out << std::setw(7) << temperature[t] / Phys_const::kelv;
+    
     for(int i = 0; i < spec_name.size(); ++i)
+      //
       if(capture[t].find(i) != capture[t].end())
-	IO::out << std::setw(13) << capture[t][i];
+	//
+	IO::out << std::setw(spec_field[i]) << capture[t][i];
       else
-	IO::out << std::setw(13) << "***";
+	//
+	IO::out << std::setw(spec_field[i]) << "***";
+    
     IO::out << "\n";
   }
   IO::out << "\n";
@@ -1384,10 +1491,13 @@ int main (int argc, char* argv [])
 	  << "Pressure-Species Rate Tables:\n\n";
 
   // pressure dependence
+  //
   for(int i = 0; i < spec_name.size(); ++i) {
+    //
     for(int t = 0; t < temperature.size(); ++t) {
       // title
-      IO::out << "   Temperature = " << temperature[t] / Phys_const::kelv << " K\n\n";
+      IO::out << "Reactant = " << spec_name[i] << "   Temperature = " << temperature[t] / Phys_const::kelv << " K\n\n";
+      
       IO::out << std::setw(9);
       switch(MasterEquation::pressure_unit) {
       case MasterEquation::BAR:
@@ -1400,22 +1510,25 @@ int main (int argc, char* argv [])
 	IO::out << "P(atm)";
 	break;
       }
+      
       for(int j = 0; j < spec_name.size(); ++j)
-	if(j != i) {
-	  stemp = spec_name[i] + "->" + spec_name[j];
-	  IO::out << std::setw(13) << stemp;
-	}
-      IO::out << std::setw(13) << spec_name[i] + "->";
+	//
+	if(j != i)
+	  //
+	  IO::out << std::setw(spec_field[j]) << spec_name[j];
+
+      IO::out << std::setw(Model::out_precision + 7) << "Loss";
 
       // escape
       //
       for(int e = 0; e < Model::escape_size(); ++e)
 	//
-	IO::out << std::setw(13) << Model::escape_name(e);
+	IO::out << std::setw(escape_field[e]) << Model::escape_name(e);
       
       IO::out << "\n";
 
       // rates
+      //
       for(int p = 0; p < pressure.size(); ++p) {
 	IO::out << std::setw(9);
 	switch(MasterEquation::pressure_unit) {
@@ -1430,20 +1543,27 @@ int main (int argc, char* argv [])
 	  break;
 	}
 	itemp = p + t * pressure.size();
+	
 	// to products
+	//
 	for(int j = 0; j < spec_name.size(); ++j)
 	  if(j != i) {
+	    //
 	    if(rate_coef[itemp].find(std::make_pair(i, j)) != rate_coef[itemp].end())
-	      IO::out << std::setw(13) << rate_coef[itemp][std::make_pair(i, j)];
+	      //
+	      IO::out << std::setw(spec_field[j]) << rate_coef[itemp][std::make_pair(i, j)];
 	    else
-	      IO::out << std::setw(13) << "***";
+	      //
+	      IO::out << std::setw(spec_field[j]) << "***";
 	  }
 	// reactant loss
 	//
 	if(rate_coef[itemp].find(std::make_pair(i, i)) != rate_coef[itemp].end())
-	  IO::out << std::setw(13) << rate_coef[itemp][std::make_pair(i, i)];
+	  //
+	  IO::out << std::setw(Model::out_precision + 7) << rate_coef[itemp][std::make_pair(i, i)];
 	else
-	  IO::out << std::setw(13) << "***";
+	  //
+	  IO::out << std::setw(Model::out_precision + 7) << "***";
 	
 	// escape rates
 	//
@@ -1453,11 +1573,11 @@ int main (int argc, char* argv [])
 	  
 	  if(rate_coef[itemp].find(ptemp) != rate_coef[itemp].end()) {
 	    //
-	    IO::out << std::setw(13) << rate_coef[itemp][ptemp];
+	    IO::out << std::setw(escape_field[e]) << rate_coef[itemp][ptemp];
 	  }
 	  else
 	    //
-	    IO::out << std::setw(13) << "***";
+	    IO::out << std::setw(escape_field[e]) << "***";
 	}
 	IO::out << "\n";
       }
@@ -1468,14 +1588,17 @@ int main (int argc, char* argv [])
 	//
 	if(j != i) {
 	  if(hp_rate_coef[t].find(std::make_pair(i, j)) != hp_rate_coef[t].end())
-	    IO::out << std::setw(13) << hp_rate_coef[t][std::make_pair(i, j)];
+	    IO::out << std::setw(spec_field[j]) << hp_rate_coef[t][std::make_pair(i, j)];
 	  else
-	    IO::out << std::setw(13) << "***";
+	    IO::out << std::setw(spec_field[j]) << "***";
 	}
+      
       if(capture[t].find(i) != capture[t].end())
-	IO::out << std::setw(13) << capture[t][i];
+	//
+	IO::out << std::setw(Model::out_precision + 7) << capture[t][i];
       else
-	IO::out << std::setw(13) << "***";
+	//
+	IO::out << std::setw(Model::out_precision + 7) << "***";
       IO::out << "\n\n";
     }
   }
@@ -1484,10 +1607,12 @@ int main (int argc, char* argv [])
 	  << "Temperature-Species Rate Tables:\n\n";
 
   // temperature dependence
+  //
   for(int i = 0; i < spec_name.size(); ++i) {
+    //
     for(int p = 0; p < pressure.size(); ++p) {
       // title
-      IO::out << "   Pressure = ";
+      IO::out << "Reactant = " << spec_name[i] << "   Pressure = ";
       switch(MasterEquation::pressure_unit) {
       case MasterEquation::BAR:
 	IO::out << pressure[p] / Phys_const::bar << " bar\n\n";
@@ -1500,19 +1625,22 @@ int main (int argc, char* argv [])
 	break;
       }
       IO::out << std::setw(7) << "T(K)";
+      //
       for(int j = 0; j < spec_name.size(); ++j)
-	if(j != i) {
-	  stemp = spec_name[i] + "->" + spec_name[j];
-	  IO::out << std::setw(13) << stemp;
-	}
-      IO::out << std::setw(13) << spec_name[i] + "->"
-	      << std::setw(13) << "Capture";
+	//
+	if(j != i)
+	  //
+	  IO::out << std::setw(spec_field[j]) << spec_name[j];
+      
+      IO::out << std::setw(Model::out_precision + 7) << "Loss"
+	//
+	      << std::setw(Model::out_precision + 7) << "Capture";
 
       // escape
       //
       for(int e = 0; e < Model::escape_size(); ++e)
 	//
-	IO::out << std::setw(13) << Model::escape_name(e);
+	IO::out << std::setw(escape_field[e]) << Model::escape_name(e);
       
       IO::out << "\n";
 
@@ -1525,23 +1653,36 @@ int main (int argc, char* argv [])
 	itemp = p + t * pressure.size();
 	
 	// to products
+	//
 	for(int j = 0; j < spec_name.size(); ++j)
+	  //
 	  if(j != i) {
+	    //
 	    if(rate_coef[itemp].find(std::make_pair(i, j)) != rate_coef[itemp].end())
-	      IO::out << std::setw(13) << rate_coef[itemp][std::make_pair(i, j)];
+	      //
+	      IO::out << std::setw(spec_field[j]) << rate_coef[itemp][std::make_pair(i, j)];
 	    else
-	      IO::out << std::setw(13) << "***";
+	      //
+	      IO::out << std::setw(spec_field[j]) << "***";
 	  }
+	
 	// reactant loss
+	//
 	if(rate_coef[itemp].find(std::make_pair(i, i)) != rate_coef[itemp].end())
-	  IO::out << std::setw(13) << rate_coef[itemp][std::make_pair(i, i)];
+	  //
+	  IO::out << std::setw(Model::out_precision + 7) << rate_coef[itemp][std::make_pair(i, i)];
 	else
-	  IO::out << std::setw(13) << "***";
+	  //
+	  IO::out << std::setw(Model::out_precision + 7) << "***";
+	
 	// capture
+	//
 	if(capture[t].find(i) != capture[t].end())
-	  IO::out << std::setw(13) << capture[t][i];
+	  //
+	  IO::out << std::setw(Model::out_precision + 7) << capture[t][i];
 	else
-	  IO::out << std::setw(13) << "***";
+	  //
+	  IO::out << std::setw(Model::out_precision + 7) << "***";
 
 	// escape rates
 	//
@@ -1551,11 +1692,11 @@ int main (int argc, char* argv [])
 	  
 	  if(rate_coef[itemp].find(ptemp) != rate_coef[itemp].end()) {
 	    //
-	    IO::out << std::setw(13) << rate_coef[itemp][ptemp];
+	    IO::out << std::setw(escape_field[e]) << rate_coef[itemp][ptemp];
 	  }
 	  else
 	    //
-	    IO::out << std::setw(13) << "***";
+	    IO::out << std::setw(escape_field[e]) << "***";
 	}
 	
 	IO::out << "\n";
@@ -1578,7 +1719,7 @@ int main (int argc, char* argv [])
 
 	IO::out << std::left << std::setw(7) << "P\\T" << std::right;
 	for(int t = 0; t < temperature.size(); ++t)
-	  IO::out << std::setw(13) << temperature[t] / Phys_const::kelv; 
+	  IO::out << std::setw(Model::out_precision + 7) << temperature[t] / Phys_const::kelv; 
 	IO::out << "\n";
 
 	for(int p = 0; p < pressure.size(); ++p) {
@@ -1598,18 +1739,18 @@ int main (int argc, char* argv [])
 	  for(int t = 0; t < temperature.size(); ++t) {
 	    itemp = p + t * pressure.size();
 	    if(rate_coef[itemp].find(proc) != rate_coef[itemp].end())
-	      IO::out << std::setw(13) << rate_coef[itemp][proc];
+	      IO::out << std::setw(Model::out_precision + 7) << rate_coef[itemp][proc];
 	    else
-	      IO::out << std::setw(13) << "***";
+	      IO::out << std::setw(Model::out_precision + 7) << "***";
 	  }
 	  IO::out << "\n";
 	}
 	IO::out << std::left << std::setw(7) << "O-O" << std::right;
 	for(int t = 0; t < temperature.size(); ++t)
 	  if(hp_rate_coef[t].find(proc) != hp_rate_coef[t].end())
-	    IO::out << std::setw(13) << hp_rate_coef[t][proc];
+	    IO::out << std::setw(Model::out_precision + 7) << hp_rate_coef[t][proc];
 	  else
-	    IO::out << std::setw(13) << "***";
+	    IO::out << std::setw(Model::out_precision + 7) << "***";
 	IO::out << "\n\n";
       }
 
@@ -1621,7 +1762,7 @@ int main (int argc, char* argv [])
 
     IO::out << std::left << std::setw(7) << "P\\T" << std::right;
     for(int t = 0; t < temperature.size(); ++t)
-      IO::out << std::setw(13) << temperature[t] / Phys_const::kelv; 
+      IO::out << std::setw(Model::out_precision + 7) << temperature[t] / Phys_const::kelv; 
     IO::out << "\n";
 
     for(int p = 0; p < pressure.size(); ++p) {
@@ -1641,18 +1782,18 @@ int main (int argc, char* argv [])
       for(int t = 0; t < temperature.size(); ++t) {
 	itemp = p + t * pressure.size();
 	if(rate_coef[itemp].find(std::make_pair(i, i)) != rate_coef[itemp].end())
-	  IO::out << std::setw(13) << rate_coef[itemp][std::make_pair(i, i)];
+	  IO::out << std::setw(Model::out_precision + 7) << rate_coef[itemp][std::make_pair(i, i)];
 	else
-	  IO::out << std::setw(13) << "***";
+	  IO::out << std::setw(Model::out_precision + 7) << "***";
       }
       IO::out << "\n";
     }
     IO::out << std::left << std::setw(7) << "O-O" << std::right;
     for(int t = 0; t < temperature.size(); ++t)
       if(capture[t].find(i) != capture[t].end())
-	IO::out << std::setw(13) << capture[t][i];
+	IO::out << std::setw(Model::out_precision + 7) << capture[t][i];
       else
-	IO::out << std::setw(13) << "***";
+	IO::out << std::setw(Model::out_precision + 7) << "***";
     IO::out << "\n\n";
   }// species cycle
 

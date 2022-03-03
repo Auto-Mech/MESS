@@ -223,9 +223,27 @@ void IO::LineInput::read_line(std::istream& from)
  ************************************ INPUT MARKER **********************************
  ************************************************************************************/
 
-IO::Marker::Marker(const char* h, int f, std::ostream* out) 
-  : _header(h), _start_time(std::time(0)),_start_cpu(std::clock()), _flags(f)
+void IO::Marker::init(const char* h, int f, std::ostream* out)
 {
+  const char funame [] = "IO::Marker::init: ";
+  
+  if(_isinit) {
+    //
+    std::cerr << funame << "already initialized\n";
+
+    throw Error::Init();
+  }
+
+  _isinit = true;
+  
+  _header = h;
+
+  _start_time = std::time(0);
+
+  _start_cpu = std::clock();
+
+  _flags = f;
+
   // only master node can print
   //
   if(mpi_rank)
@@ -266,10 +284,10 @@ IO::Marker::~Marker ()
 {
   // only master node can print
   //
-  if(mpi_rank)
+  if(!_isinit || mpi_rank)
     //
     return;
-
+  
   if(!(_flags & ONE_LINE)) {
     //
     log_offset.decrease();
