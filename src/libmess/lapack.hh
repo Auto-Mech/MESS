@@ -160,13 +160,16 @@ namespace Lapack {
 
   // Fortran style indexing
   class Matrix : private RefArr<double> {
+    //
     SharedPointer<int_t> _size1;
+    
     SharedPointer<int_t> _size2;
 
     void _check_dim   (const Matrix&) const ;
     void _check_index (int_t, int_t)  const ;
 
   protected:
+    //
     Matrix (const Matrix&, int_t);// copy constructor by value
 
   public:
@@ -184,6 +187,8 @@ namespace Lapack {
 
     Matrix copy () const { return Matrix(*this, 0); }
 
+    Matrix (const SymmetricMatrix& m);
+    
     const double&  operator() (int_t, int_t) const ;
     double&        operator() (int_t, int_t)       ;
 
@@ -231,6 +236,10 @@ namespace Lapack {
     // null space of the matrix
     //
     Matrix kernel () const;
+
+    // eigenvalues
+    //
+    Vector    eigenvalues (Matrix* =0) const;
   };
   
   Vector operator* (const double*, const Matrix&) ;

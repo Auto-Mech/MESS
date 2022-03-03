@@ -19,6 +19,7 @@
 #include<vector>
 #include<set>
 #include<map>
+#include<list>
 //#include<multiset>
 
 #include "graph_omp.hh"
@@ -36,6 +37,12 @@ namespace Model {
   enum {DENSITY, NUMBER, NOSTATES};// calculated properties
   enum {ANGSTROM, BOHR}; // distance units
 
+  extern int log_precision;
+
+  extern int out_precision;
+
+  int name_size_max ();
+  
   // minimal interatomic distance
   //
   extern double atom_dist_min;
@@ -77,7 +84,7 @@ namespace Model {
   SharedPointer<Tunnel>      new_tunnel         (IO::KeyBufferStream&);
   SharedPointer<Escape>      new_escape         (IO::KeyBufferStream&);
   SharedPointer<Bimolecular> new_bimolecular    (IO::KeyBufferStream&, const std::string&);
-  SharedPointer<Species>     new_species        (IO::KeyBufferStream&, const std::string&, int);
+  SharedPointer<Species>     new_species        (IO::KeyBufferStream&, const std::string&, int, std::pair<bool, double> = std::make_pair(false, 0.));
   SharedPointer<Rotor>       new_rotor          (IO::KeyBufferStream&, const std::vector<Atom>&);
   SharedPointer<Core>        new_core           (IO::KeyBufferStream&, const std::vector<Atom>&, int);
 
@@ -94,12 +101,17 @@ namespace Model {
   };
 
   class LennardJonesCollision : public Collision {
+    //
     double _frequency_factor;
+    
     double _epsilon;
 
     double _omega_22_star (double) const;
+    
   public:
-    LennardJonesCollision (IO::KeyBufferStream&) ;
+    //
+    LennardJonesCollision (IO::KeyBufferStream&);
+    
     ~LennardJonesCollision ();
 
     double operator () (double) const;
@@ -155,15 +167,16 @@ namespace Model {
    **************************************************************************************/
 
   class Tunnel {
+    //
     double        _wtol;// statistical weight tolerance
     
     static double _action_max; // maximum 
 
-    double        _freq;// imaginary frequency
+    double        _freq; // imaginary frequency
     
   protected:
     //
-    double        _cutoff;// cutoff energy
+    double        _cutoff; // cutoff energy
     
     double          _efac;// entanglement correction
     
@@ -183,7 +196,10 @@ namespace Model {
 
     double  cutoff () const { return _cutoff; }
 
+    void set_cutoff (double c) { _cutoff = c; }
+
     static double  action_max               () { return _action_max; }
+    
     static void    set_action_max (double val) { _action_max = val; }
 
     double  factor (double) const; // tunneling factor
@@ -1115,6 +1131,8 @@ namespace Model {
     
     virtual double real_ground () const { return _ground; }
     
+    double thermal_energy (double temperature) const { double e, s, c; esc_parameters(temperature, e, s, c); return ground() + e; }
+    
     virtual void init () {}
     
     double   mass () const ;
@@ -1414,7 +1432,7 @@ namespace Model {
     //
     enum { REF = 1, DOS = 2, NOHESS = 4 };
     
-    MonteCarlo (IO::KeyBufferStream&, const std::string&, int);
+    MonteCarlo (IO::KeyBufferStream&, const std::string&, int, std::pair<bool, double> = std::make_pair(false, 0.));
     
     ~MonteCarlo ();
     
@@ -1499,7 +1517,7 @@ namespace Model {
 
   public:
     //
-    MonteCarloWithDummy (IO::KeyBufferStream&, const std::string&, int);
+    MonteCarloWithDummy (IO::KeyBufferStream&, const std::string&, int, std::pair<bool, double> = std::make_pair(false, 0.));
     
     ~MonteCarloWithDummy ();
     
@@ -1534,22 +1552,32 @@ namespace Model {
     
     double _real_ground;
 
+    double _ground_shift;
+
     // interpolation
+    //
+    double     _ener_quant; // interpolation energy step
     double           _emax; // interpolation energy maximum
     double           _nmax; // extrapolation power value
+
+    Array<double>  _stat_grid;
     Slatec::Spline _states;
 
     // radiative transitions
+    //
     std::vector<Slatec::Spline> _occ_num; // average occupation numbers for vibrational modes
     std::vector<double>     _occ_num_der; // occupation number derivatives (for extrapolation)
     std::vector<double>         _osc_int; // oscillator strength (infrared intensities)
     
     // graph perturbation theory
+    //
     Graph::Expansion  _graphex;
     void _init_graphex (std::istream&);
 
   public:
-    RRHO (IO::KeyBufferStream&, const std::string&, int) ;
+    //
+    RRHO (IO::KeyBufferStream&, const std::string&, int, std::pair<bool, double> = std::make_pair(false, 0.));
+    
     ~RRHO ();
 
     double states (double) const; // density or number of states of absolute energy
@@ -1569,10 +1597,17 @@ namespace Model {
 
   /********************* READ DENSITY OF STATES FROM THE FILE AND INTERPOLATE ****************/
   
-  class ReadSpecies : public Species {    
-    Array<double>   _ener; // relative energy on the grid
-    Array<double> _states; // density/number of states on the grid
-    int _mode;
+  class ReadSpecies : public Species {
+    //
+    // relative energy on the grid
+    //
+    Array<double>   _ener;
+
+    // density/number of states on the grid
+    //
+    Array<double> _states;
+    
+    //int           _mode;
 
     Slatec::Spline _spline;
     double _emin, _emax;
@@ -1583,7 +1618,9 @@ namespace Model {
     double _dtol; // absolute DoS    tolerance
     
   public:
-    ReadSpecies (std::istream&, const std::string&, int) ;
+    //
+    ReadSpecies (std::istream&, const std::string&, int, std::pair<bool, double> = std::make_pair(false, 0.));
+    
     ~ReadSpecies ();
 
     double states (double) const;
@@ -1602,16 +1639,17 @@ namespace Model {
     double _real_ground;
 
     // radiational transitions
+    //
     std::vector<int> _osc_shift;
     std::vector<int> _osc_spec_index;
 
-    void _read (IO::KeyBufferStream&, const std::string&, int);
+    void _read (IO::KeyBufferStream&, const std::string&, int, std::pair<bool, double>);
 
     void _set ();
 
   public:
     //
-    UnionSpecies  (IO::KeyBufferStream&, const std::string&, int);
+    UnionSpecies  (IO::KeyBufferStream&, const std::string&, int, std::pair<bool, double> = std::make_pair(false, 0.));
     
     UnionSpecies  (const std::vector<SharedPointer<Species> >&, const std::string&, int);
     
@@ -1657,7 +1695,7 @@ namespace Model {
 
   public:
     //
-    VarBarrier (IO::KeyBufferStream& from, const std::string&);
+    VarBarrier (IO::KeyBufferStream& from, const std::string&, std::pair<bool, double>);
     
     ~VarBarrier ();
 
@@ -1826,6 +1864,7 @@ namespace Model {
   class ThermoChemistry {
     //
   public:
+    //
     ThermoChemistry(std::istream&) ;
 
     void print (std::ostream&);
@@ -1833,13 +1872,15 @@ namespace Model {
 
   class Well {
     //
-    SharedPointer<Species>   _species;
+    SharedPointer<Species>                 _species;
     
     std::vector<SharedPointer<Kernel> >     _kernel;
     
     std::vector<SharedPointer<Collision> >  _collision;
     
-    std::vector<SharedPointer<Escape> >  _escape;
+    std::vector<SharedPointer<Escape> >     _escape;
+
+    void _assert_spec() const;
 
   public:
     //
@@ -1847,20 +1888,24 @@ namespace Model {
 
     Well (const std::vector<Well>&);
 
-    //SharedPointer<Species>      species ()       { return _species; }
-    //ConstSharedPointer<Species> species () const { return _species; }
+    const Kernel&       kernel (int i)   const { return *_kernel[i]; }
+    
+    const Collision& collision (int i)   const { return *_collision[i]; }
 
-    ConstSharedPointer<Kernel>    kernel    (int i)  const { return _kernel[i]; }
-    ConstSharedPointer<Collision> collision (int i)  const { return _collision[i]; }
-
-    //void             set_name (const std::string&) ;
-    const std::string&   name () const;
-    double             ground () const;
-    double             weight (double) const;
-    double             states (double) const;
-    double               mass () const;
-    void  esc_parameters (double, double&, double&, double&) const; // energy, entropy, thermal capacity
-
+    const std::string&   name ()         const { _assert_spec(); return _species->name(); }
+    
+    double             ground ()         const { _assert_spec(); return _species->ground(); }
+    
+    double             weight (double t) const { _assert_spec(); return _species->weight(t); }
+    
+    double             states (double e) const { _assert_spec(); return _species->states(e); }
+    
+    double               mass ()         const { _assert_spec(); return _species->mass(); }
+    
+    void  esc_parameters (double t, double& e, double& s, double& c) const { _assert_spec(); return _species->esc_parameters(t, e, s, c); }
+    
+    double thermal_energy (double t) const { _assert_spec(); return _species->thermal_energy(t); }
+    
     int  escape_size () const { return _escape.size(); }
 
     const std::string& escape_name (int i) const { return _escape[i]->name(); }
@@ -1873,9 +1918,9 @@ namespace Model {
 
     // radiation transitions
     //
-    double oscillator_frequency (int num) const;
+    double oscillator_frequency (int num) const { _assert_spec(); return _species->oscillator_frequency(num); }
     
-    int         oscillator_size ()        const;
+    int         oscillator_size ()        const { _assert_spec(); return _species->oscillator_size(); }
 
     // radiation down-transition probability
     //
@@ -1886,39 +1931,24 @@ namespace Model {
     double well_ext_cap;
   };
 
-  inline double Well::oscillator_frequency (int num) const 
+  inline void Well::_assert_spec() const
   {
-    const char funame [] = "Model::Well::oscillator_frequency: ";
-    
+    const char funame [] = "Model::Well::_assert_spec: ";
+	
     if(!_species) {
+      //
       std::cerr << funame << "not initialized\n";
+      
       throw Error::Init();
     }
-
-    return _species->oscillator_frequency(num);
-  }
-
-  inline int Well::oscillator_size () const
-  { 
-    const char funame [] = "Model::Well::oscillator_size: ";
-    
-    if(!_species) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    return _species->oscillator_size();
   }
 
   inline void Well::shift_ground (double e) 
   {
     const char funame [] = "Model::Well::shift_ground: ";
 
-    if(!_species) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
+    _assert_spec();
+    
     _species->shift_ground(e);
 
     for(int i = 0; i < _escape.size(); ++i)
@@ -1926,96 +1956,90 @@ namespace Model {
       _escape[i]->shift_ground(e);
   }
 
-  inline const std::string& Well::name () const 
-  {
-    const char funame [] = "Model::Well::name: ";
-
-    if(!_species) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    return _species->name();
-  }
-
-  inline double Well::ground () const 
-  {
-    const char funame [] = "Model::Well::ground: ";
-
-    if(!_species) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    return _species->ground();
-  }
-
-  inline void Well::esc_parameters (double t, double& e, double& s, double& c) const 
-  {
-    const char funame [] = "Model::Well::esc_parameters: ";
-
-    if(!_species) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    _species->esc_parameters(t, e, s, c);
-  }
-
-  inline double Well::mass () const 
-  {
-    const char funame [] = "Model::Well::mass: ";
-
-    if(!_species) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    return _species->mass();
-  }
-
-  inline double Model::Well::weight (double t) const 
-  {
-    const char funame [] = "Model::Well::weight: ";
-
-    if(!_species) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    return _species->weight(t);
-  }
-
-  inline double Well::states (double e) const 
-  {
-    const char funame [] = "Model::Well::states: ";
-
-    if(!_species) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    return _species->states(e);
-  }
-
   /********************************************************************************************
    **************************************** GLOBAL OBJECTS ************************************
    ********************************************************************************************/
+
+  extern std::set<std::string> well_exclude_group;
+
+  // main initialization
+  //
   void init (IO::KeyBufferStream& from) ;
   bool isinit ();
 
+  // reset the model on the base of the new lumping scheme
+  //
+  void reset (const std::vector<std::set<int> >& = std::vector<std::set<int> >());
+
+  // print the wells, barriers, etc.
+  //
+  void print ();
+  
   bool no_run ();
   
+  int    buffer_size ();
+  double buffer_fraction (int);
+  
+  ConstSharedPointer<Collision>  collision      (int);
+  ConstSharedPointer<Kernel>     default_kernel (int);
+
   int            well_size ();
   int     bimolecular_size ();
   int   inner_barrier_size ();
   int   outer_barrier_size ();
 
-  int buffer_size ();
-  double buffer_fraction (int);
-  ConstSharedPointer<Collision>  collision (int);
-  ConstSharedPointer<Kernel> default_kernel (int);
+  inline void assert_well (int w)
+  {
+    const char funame [] = "Model::assert_well: ";
+    
+    if(w >= 0 && w < well_size())
+      //
+      return;
 
+    std::cerr << funame << "well index out of range: " << w << "\n";
+
+    throw Error::Range();
+  }
+  
+  inline void assert_inner (int b)
+  {
+    const char funame [] = "Model::assert_inner: ";
+    
+    if(b >= 0 && b < inner_barrier_size())
+      //
+      return;
+
+    std::cerr << funame << "inner barrier index out of range: " << b << "\n";
+
+    throw Error::Range();
+  }
+  
+  inline void assert_outer (int b)
+  {
+    const char funame [] = "Model::assert_outer: ";
+    
+    if(b >= 0 && b < outer_barrier_size())
+      //
+      return;
+
+    std::cerr << funame << "outer barrier index out of range: " << b << "\n";
+
+    throw Error::Range();
+  }
+  
+  inline void assert_bimolecular (int p)
+  {
+    const char funame [] = "Model::assert_bimolecular: ";
+    
+    if(p >= 0 && p < bimolecular_size())
+      //
+      return;
+
+    std::cerr << funame << "bimolecular index out of range: " << p << "\n";
+
+    throw Error::Range();
+  }
+  
   const Well&                            well (int w);
   const Bimolecular&              bimolecular (int p);
   const Species&                inner_barrier (int b);
@@ -2023,10 +2047,290 @@ namespace Model {
   const std::pair<int, int>&    inner_connect (int b);
   const std::pair<int, int>&    outer_connect (int b);
 
+  enum {UNKNOWN, INNER, OUTER, WELL, BIMOLECULAR};
+
+  typedef std::pair<int, int> spec_t;
+  
+  // well/bimolecular/inner/outer name output
+  //
+  inline const std::string& species_name (spec_t p)
+  {
+    const char funame [] = "Model::species_name: ";
+    
+    const int& type = p.first;
+
+    const int& index = p.second;
+    
+    switch(type) {
+      //
+    case WELL:
+      //
+      return well(index).name();
+
+    case BIMOLECULAR:
+      //
+      return bimolecular(index).name();
+      
+    case INNER:
+      //
+      return inner_barrier(index).name();
+      
+    case OUTER:
+      //
+      return outer_barrier(index).name();
+
+    default:
+      //
+      std::cerr << funame << "unknown type: " << type << "\n";
+
+      throw Error::Logic();
+    }
+  }
+  
+  inline  void assert_spec (spec_t p)
+  {
+    const char funame [] = "Model::assert_spec: ";
+    
+    const int& type = p.first;
+
+    const int& index = p.second;
+    
+    switch(type) {
+      //
+    case WELL:
+      //
+      assert_well(index);
+
+      break;
+      //
+    case BIMOLECULAR:
+      //
+      assert_bimolecular(index);
+
+      break;
+      //
+    case INNER:
+      //
+      assert_inner(index);
+
+      break;
+      //
+    case OUTER:
+      //
+      assert_outer(index);
+
+      break;
+      //
+    default:
+      //
+      std::cerr << funame << "unknown type: " << type << "\n";
+
+      throw Error::Logic();
+    }
+  }
+  
+  inline std::ostream& operator<< (std::ostream& to, spec_t p) { return to << species_name(p); }
+  
+  inline IO::LogOut&   operator<< (IO::LogOut&   to, spec_t p) { return to << species_name(p); }
+  
+  // well group state density
+  //
+  double state_density (const std::set<int>& g, double e);
+
+  // well group weight
+  //
+  double weight        (const std::set<int>& g, double t);
+
+  // well group ground energy
+  //
+  double ground        (const std::set<int>& g, int* = 0);
+
+  // barrier thermal energy
+  //
+  inline double thermal_energy (spec_t b, double temperature)
+  {
+    const char funame [] = "Model::thermal_energy: ";
+    
+    switch(b.first) {
+      //
+    case Model::INNER:
+      //
+      return Model::inner_barrier(b.second).thermal_energy(temperature);
+    
+    case Model::OUTER:
+      //
+      return Model::outer_barrier(b.second).thermal_energy(temperature);
+    
+    default:
+      //
+      std::cerr << funame << "wrong dissociation barrier type: " << b.first << "\n";
+    
+      throw Error::Logic();
+    }
+  }
+  
+  // barrier (real) ground energy
+  //
+  inline double real_ground (spec_t b)
+  {
+    const char funame [] = "Model::real_ground: ";
+    
+    switch(b.first) {
+      //
+    case Model::INNER:
+      //
+      return Model::inner_barrier(b.second).real_ground();
+    
+    case Model::OUTER:
+      //
+      return Model::outer_barrier(b.second).real_ground();
+    
+    default:
+      //
+      std::cerr << funame << "wrong dissociation barrier type: " << b.first << "\n";
+    
+      throw Error::Logic();
+    }
+  }
+  
+  //                  energy - barrier map
+  //
+  //                    energy - barrier
+  //                      |        |
+  //                      |        |
+  typedef std::multimap<double, spec_t > emap_t;
+
+  emap_t  ground_energy_map ();
+
+  emap_t thermal_energy_map (double);
+
+  // reaction definition
+  //
+  typedef std::set<spec_t> reac_t;
+
+  inline void assert_reac(const reac_t& r)
+  {
+    if(r.size() != 2) {
+      //
+      std::cerr << "Model::assert: wrong number of reactants: " << r.size() << "\n";
+
+      throw Error::Logic();
+    }
+  }
+    
+  inline std::ostream& operator<< (std::ostream& to, const reac_t& r)
+  {
+    assert_reac(r);
+
+    to << *r.begin() << " <---> " << *r.rbegin();
+
+    return to;
+  }
+
+  inline std::ostream& operator<< (std::ostream& to, const std::list<reac_t>& reactions)
+  {
+    for(std::list<reac_t>::const_iterator r = reactions.begin(); r != reactions.end(); ++r)
+      //
+      to << IO::log_offset << std::setw(name_size_max()) << *r << "\n";
+
+    return to;
+  }
+  
+  inline IO::LogOut& operator<< (IO::LogOut& to, const reac_t&            r) { (std::ostream&)to << r; return to; }
+
+  inline IO::LogOut& operator<< (IO::LogOut& to, const std::list<reac_t>& r) { (std::ostream&)to << r; return to; }
+
+  //                 barrier - reaction map
+  //
+  // rate-limiting barrier ------ reactions list
+  //                 |                 |
+  //                 |                 |
+  typedef std::map<spec_t, std::list<reac_t> > rmap_t;
+
+  rmap_t  barrier_reaction_map (const emap_t& emap);
+
+  inline rmap_t  barrier_reaction_map (double temperature) { return barrier_reaction_map(thermal_energy_map(temperature)); }
+
+  inline rmap_t  barrier_reaction_map ()                   { return barrier_reaction_map(ground_energy_map()); }
+
+  // chemical graph
+  //
+  struct ChemGraph {
+    //
+    std::set<int> well_set;
+
+    std::set<int> inner_set;
+
+    std::set<int> outer_set;
+
+    std::list<ChemGraph> factorize () const;
+
+    int split (double, std::list<ChemGraph>* = 0) const;
+
+    ChemGraph operator+ (const ChemGraph&) const;
+
+    ChemGraph subgraph (const std::set<int>&) const;
+
+    bool does_include (const std::set<int>&) const;
+
+    std::set<int> connected_to (int);
+    
+    void assert () const;
+
+    void assert (spec_t s) const;
+
+    bool is_connected () const { assert(); if(factorize().size() == 1) return true; return false; }
+    
+    ChemGraph& operator+= (const ChemGraph&);
+
+    emap_t  ground_energy_map () const;
+    
+    emap_t thermal_energy_map (double t) const;
+
+    ChemGraph () {}
+
+    explicit ChemGraph (double);
+
+    ChemGraph (double, double);
+
+    explicit ChemGraph (const std::set<int>&);
+  };
+
+  std::ostream& operator<< (std::ostream&, const ChemGraph&);
+
+  inline IO::LogOut& operator<< (IO::LogOut& to, const ChemGraph& g) { (std::ostream&)to << g; return to; }
+
+  // kinetic landscape
+  //
+  typedef std::map<spec_t, std::list<ChemGraph> > landscape_t;
+
+  landscape_t        kinetic_landscape (const emap_t& emap);
+  
+  inline landscape_t kinetic_landscape (double temperature) { return kinetic_landscape(thermal_energy_map(temperature)); }
+  
+  inline landscape_t kinetic_landscape ()                   { return kinetic_landscape(ground_energy_map()); }
+  
+  //                            bound groups of wells
+  //
+  //                        wells group --- dissociation barrier
+  //                              |              |
+  //                              |              |
+  typedef std::list<std::pair<std::set<int>, spec_t > > bound_t;
+
+  bound_t        bound_groups (const emap_t&);
+
+  inline bound_t bound_groups (double temperature) { return bound_groups(thermal_energy_map(temperature)); }
+
+  inline bound_t bound_groups ()                   { return bound_groups(ground_energy_map()); }
+
+  std::vector<double> dissociation_energy_map (double temperature);
+  
   double  maximum_barrier_height ();
 
   // energy shift
+  //
   extern std::string reactant; // bimolecular species to use as an energy reference
+  
   double energy_shift ();
 
   /********************************************************************************
@@ -2062,6 +2366,18 @@ namespace Model {
   };
 
   extern SharedPointer<TimeEvolution> time_evolution;
+
+  // well group output
+  //
+  std::ostream& operator<< (std::ostream&, const std::set<int>&);
+
+  inline IO::LogOut& operator<< (IO::LogOut& to, const std::set<int>& g) { (std::ostream&)to << g; return to; }
+
+  // well partition output
+  //
+  std::ostream& operator<< (std::ostream&, const std::vector<std::set<int> >&);
+  
+  inline IO::LogOut& operator<< (IO::LogOut& to, const std::vector<std::set<int> >& p) { (std::ostream&)to << p; return to; }
 
 }// namespace Model
 

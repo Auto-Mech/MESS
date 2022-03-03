@@ -113,18 +113,33 @@ namespace Error {
   class   Eof: public File{}; // End-of-file encountered
 
   // Math errors
+  //
   class Math: public General {};
+  
   // Indexing errors
+  //
   class Range: public General {};
+  
   // Search errors
+  //
   class Find: public General {};
+  
   // Initialization errors
+  //
   class Init: public General {};
+  
   // Run errors
+  //
   class Run: public General {};
+  
   // Logic errors
+  //
   class Logic: public General {};
 
+  // Lapack errors (including Mpack)
+  //
+  class Lapack: public General {};
+  
   class Molpro: public General, private std::string {
 
   public:

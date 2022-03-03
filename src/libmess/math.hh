@@ -162,7 +162,7 @@ namespace Math {
 
     Spline () : _spline(0) {}
     
-    void init (const std::map<double, double>& data, int type =0) throw(Error::General);
+    void init (const std::map<double, double>& data, int type =0);
 
     explicit Spline (const std::map<double, double>& data, int type =0);
 
@@ -170,7 +170,7 @@ namespace Math {
 
     bool isinit () const { return _spline; };
 
-    double operator() (double, int =0) const throw(Error::General);
+    double operator() (double, int =0) const;
   };
 
   inline Spline::Spline (const std::map<double, double>& data, int type) : _spline(0) { init(data, type); }

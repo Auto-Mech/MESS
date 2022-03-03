@@ -162,6 +162,100 @@ Lapack::Vector Lapack::Vector::operator* (const SymmetricMatrix& m)
  ************************** Matrix ******************************
  ****************************************************************/
 
+Lapack::Vector Lapack::Matrix::eigenvalues (Matrix* evec) const
+{
+  const char funame [] = "Lapack::Matrix::eigenvalues: ";
+
+  if(!isinit()) {
+    //
+    std::cerr << funame << "not initialized\n";
+
+    throw Error::Init();
+  }
+
+  if(size1() != size2()) {
+    //
+    std::cerr << funame << "not square: "<< size1() << ", " << size2() << "\n";
+
+    throw Error::Init();
+  }
+
+  char jobz = 'N';
+  //
+  if(evec)
+    //
+    jobz = 'V';
+
+  Matrix sm = copy();
+
+  Vector res(size());
+
+  int_t lwork, info = 0;
+
+  //work space query
+  //
+  lwork = -1;
+
+  Array<double> work(1);
+
+  dsyev_(jobz, 'U', size(), sm, size(), res, work, lwork, info);
+
+  // matrix diagonalization
+  //
+  lwork = std::max((int)1, (int)work[0]);
+
+  work.resize(lwork);
+
+  dsyev_(jobz, 'U', size(), sm, size(), res, work, lwork, info);
+
+  if(info < 0) {
+    //
+    std::cerr << funame << "dsyev: " << -info << "-th argument has illegal value\n";
+
+    throw Error::Logic();
+  }
+  else if(info > 0) {
+    //
+    std::cerr << funame << "dsyev: " << info 
+       //
+              << "-th off-diagonal  elements  of intermediate tridiagonal form did not converge to zero\n";
+
+    throw Error::Lapack();
+  }
+
+  if(evec)
+    //
+    *evec = sm;
+
+  return res;
+}
+
+Lapack::Matrix::Matrix (const SymmetricMatrix& m)
+{
+  const char funame [] = "Lapack::Matrix::Matrix: ";
+
+  if(!m.isinit())
+    //
+    return;
+
+  resize(m.size());
+
+  double dtemp;
+
+  int n = m.size() * m.size();
+
+#pragma omp parallel for default(shared)  schedule(static)
+
+  for(int k = 0; k < n; ++k) {
+    //
+    int i = k / m.size();
+
+    int j = k % m.size();
+
+    (*this)(i, j) = m(i, j);
+  }
+}
+
 Lapack::Matrix Lapack::Matrix::transpose () const
 {
   const char funame [] = "Lapack::Matrix::transpose: ";
@@ -172,9 +266,20 @@ Lapack::Matrix Lapack::Matrix::transpose () const
   }
   
   Matrix res(size2(), size1());
-  for(int_t i = 0; i < size1(); ++i) {
-    res.column(i) = row(i);
+
+  int n = size1() * size2();
+
+#pragma omp parallel for default(shared)  schedule(static)
+
+  for(int k = 0; k < n; ++k) {
+    //
+    int i = k / size2();
+
+    int j = k % size2();
+
+    res(j, i) = (*this)(i, j);
   }
+  
   return res;
 }
 
@@ -183,18 +288,36 @@ Lapack::Matrix Lapack::Matrix::operator* (const Matrix& m) const
   const char funame [] = "Lapack::Matrix::operator*: ";
 
   if(!isinit() || !m.isinit()) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
   if(size2() != m.size1()) {
+    //
     std::cerr << funame << "dimensions mismatch\n";
+    
     throw Error::Range();
   }
 
   Matrix res(size1(), m.size2());
-  dgemm_('N', 'N', size1(), m.size2(), size2(), 1., 
-	 *this, size1(), m, m.size1(), 0., res, size1());
+
+  int n = size1() * m.size2();
+
+#pragma omp parallel for default(shared)  schedule(static)
+
+  for(int k = 0; k < n; ++k) {
+    //
+    int i = k / m.size2();
+
+    int j = k % m.size2();
+
+    res(i, j) = vdot(row(i), m.column(j));
+  }
+  
+  //dgemm_('N', 'N', size1(), m.size2(), size2(), 1., 
+  //*this, size1(), m, m.size1(), 0., res, size1());
 
   return res;
 }
@@ -233,7 +356,14 @@ Lapack::Vector Lapack::Matrix::operator* (const double* v) const
   }
 
   Vector res(size1());
-  dgemv_('N', size1(), size2(), 1.,  *this, size1(), v, 1, 0., res, 1);
+  
+#pragma omp parallel for default(shared)  schedule(static)
+
+  for(int i = 0; i < size1(); ++i)
+    //
+    res[i] = vdot(row(i), v);
+    
+  //dgemv_('N', size1(), size2(), 1.,  *this, size1(), v, 1, 0., res, 1);
   return res;
 }
 
@@ -247,13 +377,20 @@ Lapack::Vector Lapack::operator* (const double* v, const Matrix& m)
   }
 
   Vector res(m.size2());
-  dgemv_('T', m.size1(), m.size2(), 1., m, m.size1(), v, 1, 0., res, 1);
-  //for(int_t i = 0; i < m.size2(); ++i)
-  //res[i] = m.column(i) * v;
+
+#pragma omp parallel for default(shared)  schedule(static)
+
+  for(int i = 0; i < m.size2(); ++i)
+    //
+    res[i] = vdot(m.column(i), v);
+  
+  //dgemv_('T', m.size1(), m.size2(), 1., m, m.size1(), v, 1, 0., res, 1);
+  
   return res;
 }
 
 // inverse matrix
+//
 Lapack::Matrix Lapack::Matrix::invert () const 
 {
   const char funame [] = "Lapack::Matrix::invert: ";
@@ -316,6 +453,7 @@ Lapack::Matrix Lapack::Matrix::invert () const
 }
 
 // solve linear equations
+//
 Lapack::Vector Lapack::Matrix::invert (const Vector& v) const 
 {
   const char funame [] = "Lapack::Matrix::invert: ";
@@ -359,6 +497,7 @@ Lapack::Vector Lapack::Matrix::invert (const Vector& v) const
 }
 
 // solve linear equations
+//
 Lapack::Matrix Lapack::Matrix::invert (const Matrix& m) const 
 {
   const char funame [] = "Lapack::Matrix::invert: ";
@@ -602,18 +741,26 @@ Lapack::Vector Lapack::BandMatrix::eigenvalues (Matrix* evec)
 	  work, lwork, iwork, liwork, info);
  
   if(!info)
+    //
     return res;
 
   else if(info < 0) {
-    std::cerr << funame << "dsbevd: " << -info 
+    //
+    std::cerr << funame << "dsbevd: " << -info
+      //
 	      << "-th argument has an illegal value\n";
-    throw Error::Range();
+    
+    throw Error::Logic();
   }
   else {
-    std::cerr << funame << "dsbevd: " << info 
+    //
+    std::cerr << funame << "dsbevd: " << info
+      //
 	      << "-th off-diagonal  elements  of an "
+      //
       "intermediate tridiagonal form did not converge to zero\n";
-    throw Error::Math();
+    
+    throw Error::Lapack();
   }
 }
 
@@ -667,20 +814,23 @@ Lapack::Vector Lapack::SymmetricMatrix::operator* (const Vector& v) const
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
   if(!isinit() || !v.isinit()) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
   if(size() != v.size()) {
-    std::cerr << funame << "the dimensions are different:"
-	      << " vector_size = " << v.size()
-	      << " matrix_size = " << size()
-	      << "\n";
+    //
+    std::cerr << funame << "the dimensions are different: " << v.size() << ", " << size() << "\n";
+    
     throw Error::Range();
   }
   
   Vector res(size());
+  
   dspmv_('U', size(),  1.,  *this, v, 1, 0., res, 1);
+  
   return res;
 }
 
@@ -689,15 +839,16 @@ Lapack::Vector Lapack::SymmetricMatrix::operator* (ConstSlice<double> v) const
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
   if(!isinit()) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
   if(size() != v.size()) {
-    std::cerr << funame << "the dimensions are different:"
-	      << " vector_size = " << v.size()
-	      << " matrix_size = " << size()
-	      << "\n";
+    //
+    std::cerr << funame << "the dimensions are different:" << v.size() << ", " << size() << "\n";
+    
     throw Error::Range();
   }
   
@@ -802,25 +953,39 @@ Lapack::Vector Lapack::SymmetricMatrix::eigenvalues (Matrix* evec)
   Vector res(size());
   Vector work(3 * size());
   int_t info = 0;
+  
   if(!evec) {
+    //
     dspev_('N', 'U', size(), sm, res, 0, size(), work, info);
   }
   else {
+    //
     evec->resize(size());
+    
     dspev_('V', 'U', size(), sm, res, *evec, size(), work, info);
   }
+  
   if(!info)
+    //
     return res;
+  
   else if(info < 0) {
-    std::cerr << funame << "dspev: " << -info 
+    //
+    std::cerr << funame << "dspev: " << -info
+      //
 	      << "-th argument has an illegal value\n";
-    throw Error::Range();
+    
+    throw Error::Logic();
   }
   else {
-    std::cerr << funame << "dspev: " << info 
+    //
+    std::cerr << funame << "dspev: " << info
+      //
 	      << "-th off-diagonal  elements  of an "
+      //
       "intermediate tridiagonal form did not converge to zero\n";
-    throw Error::Math();
+    
+    throw Error::Lapack();
   }
 }
 
@@ -1638,24 +1803,37 @@ Lapack::Vector Lapack::HermitianMatrix::eigenvalues (ComplexMatrix* evec)
   int_t info = 0;
   
   if(!evec) {
+    //
     zhpev_('N', 'U', size(), cp, res,     0, size(), work, rwork, info);
   }
   else {
+    //
     evec->resize(size());
+    
     zhpev_('V', 'U', size(), cp, res, *evec, size(), work, rwork, info);
   }
+  
   if(!info)
+    //
     return res;
+  
   else if(info < 0) {
-    std::cerr << funame << "zhpev: " << -info 
+    //
+    std::cerr << funame << "zhpev: " << -info
+      //
 	      << "-th argument has an illegal value\n";
-    throw Error::Range();
+    
+    throw Error::Logic();
   }
   else {
-    std::cerr << funame << "zhpev: " << info 
+    //
+    std::cerr << funame << "zhpev: " << info
+      //
 	      << "-th off-diagonal  elements  of an "
+      //
       "intermediate tridiagonal form did not converge to zero\n";
-    throw Error::Math();
+    
+    throw Error::Lapack();
   }
 }
 
