@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 
-mkdir build
+mkdir -p build
 cd build
-
 
 echo $PREFIX
 
 export CFLAGS="${CFLAGS} -I${CONDA_PREFIX}/include"
-export CXXFLAGS="${CXXFLAGS} -I${CONDA_PREFIX}/include -DWITH_MPACK"
+export CXXFLAGS="${CXXFLAGS} -I${CONDA_PREFIX}/include -I${CONDA_PREFIX}/include/mpack -DWITH_MPACK"
 
 cmake .. -DCMAKE_INSTALL_PREFIX=$PREFIX -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX
 

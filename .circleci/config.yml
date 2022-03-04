@@ -15,7 +15,7 @@ jobs:
               name: Build the code
               command: |
                   source activate mess-env
-                  bash debug/build.sh
+                  bash build.sh
           - run:
               name: Test the code
               command: |
