@@ -40,6 +40,7 @@ add_library(messlibs
     ${PROJECT_SOURCE_DIR}/src/libmess/graph_common.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/lapack.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/mpack.cc
+    ${PROJECT_SOURCE_DIR}/src/libmess/mpack_dd.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/permutation.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/graph_omp.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/linpack.cc
@@ -59,11 +60,16 @@ add_library(messlibs
     ${PROJECT_SOURCE_DIR}/src/libmess/trajectory.cc)
 
 add_executable(mess ${PROJECT_SOURCE_DIR}/src/mess_driver.cc)
+add_executable(mess-v2 ${PROJECT_SOURCE_DIR}/src/mess_test.cc)
 add_executable(messpf ${PROJECT_SOURCE_DIR}/src/partition_function.cc)
 add_executable(messabs ${PROJECT_SOURCE_DIR}/src/abstraction.cc)
 add_executable(messsym ${PROJECT_SOURCE_DIR}/src/symmetry_number.cc)
 
 target_link_libraries(mess
+    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
+    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
+    ${SLATEC} ${CMAKE_DL_LIBS})
+target_link_libraries(mess-v2
     messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
     ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
     ${SLATEC} ${CMAKE_DL_LIBS})
@@ -81,6 +87,7 @@ target_link_libraries(messsym
     ${SLATEC} ${CMAKE_DL_LIBS})
 
 install(TARGETS mess DESTINATION bin)
+install(TARGETS mess-v2 DESTINATION bin)
 install(TARGETS messpf DESTINATION bin)
 install(TARGETS messabs DESTINATION bin)
 install(TARGETS messsym DESTINATION bin)
