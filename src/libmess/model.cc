@@ -2272,11 +2272,6 @@ void Model::init (IO::KeyBufferStream& from)
     throw Error::Init();
   }
 
-  if(!IO::out.is_open()) {
-    std::cerr << funame  << "output stream is not open\n";
-    throw Error::Init();
-  }      
-
   if(!IO::log.is_open()) {
     std::cerr << funame  << "log stream is not open\n";
     throw Error::Init();
@@ -3191,22 +3186,54 @@ void Model::init (IO::KeyBufferStream& from)
       _bimolecular[p]->shift_ground(_energy_shift);
   }
 
-  print();
+  //print();
 }
 
-void Model::print () {
+void Model::pes_print () {
   //
-  const char funame [] = "Model::print: ";
+  const char funame [] = "Model::pes_print: ";
 
   double dtemp;
   int    itemp;
   bool   btemp;
+
+  int well_width = 0;
+  
+  for(int w = 0; w < well_size(); ++w)
+    //
+    if(!w || well(w).name().size() > well_width)
+      //
+      well_width = well(w).name().size();
+  
+  int bim_width = 0;
+  
+  for(int p = 0; p < bimolecular_size(); ++p)
+    //
+    if(!p || bimolecular(p).name().size() > bim_width)
+      //
+      bim_width = bimolecular(p).name().size();
+  
+  int inner_width = 0;
+  
+  for(int b = 0; b < inner_barrier_size(); ++b)
+    //
+    if(!b || inner_barrier(b).name().size() > inner_width)
+      //
+      inner_width = inner_barrier(b).name().size();
+  
+  int outer_width = 0;
+  
+  for(int b = 0; b < outer_barrier_size(); ++b)
+    //
+    if(!b || outer_barrier(b).name().size() > outer_width)
+      //
+      outer_width = outer_barrier(b).name().size();
   
   /************************************** OUTPUT ***************************************/
 
   IO::out << "Wells (G - ground energy, D - dissociation limit, kcal/mol):\n" << IO::first_offset
     //
-	  << std::setw(5) << "Name"
+	  << std::setw(well_width) << "W"
     //
 	  << std::setw(out_precision + 7) << "G"
     //
@@ -3218,7 +3245,7 @@ void Model::print () {
     //
     IO::out << IO::first_offset
       //
-	    << std::setw(5) << well(w).name()
+	    << std::setw(well_width) << well(w).name()
       //
 	    << std::setw(out_precision + 7) << well(w).ground() / Phys_const::kcal
       //
@@ -3232,7 +3259,7 @@ void Model::print () {
     //
     IO::out << "Bimolecular Products (G - ground energy, kcal/mol):\n" << IO::first_offset
       //
-	    << std::setw(10) << "Name"
+	    << std::setw(bim_width) << "P"
       //
 	    << std::setw(out_precision + 7) << "G"
       //
@@ -3242,7 +3269,7 @@ void Model::print () {
       //
       IO::out << IO::first_offset
 	//
-	      << std::setw(10) << bimolecular(p).name()
+	      << std::setw(bim_width) << bimolecular(p).name()
 	//
 	      << std::setw(out_precision + 7);
 	
@@ -3265,15 +3292,15 @@ void Model::print () {
     IO::out << "Well-to-Bimolecular Barriers (H/G - barrier height/well depth, kcal/mol)\n"
 	    << IO::first_offset
       //
-	    << std::setw(5) << "Name"
+	    << std::setw(outer_width) << "B"
       //
 	    << std::setw(out_precision + 7) << "H"
       //
-	    << std::setw(5) << "Well"
+	    << std::setw(well_width) << "W"
       //
 	    << std::setw(out_precision + 7) << "G"
       //
-	    << "  " << "Product" << "\n";
+	    << std::setw(bim_width) << "P" << "\n";
     
     for(int b = 0; b < outer_barrier_size(); ++b) {
       //
@@ -3283,15 +3310,15 @@ void Model::print () {
       
       IO::out << IO::first_offset
 	//
-	      << std::setw(5) << outer_barrier(b).name()
+	      << std::setw(outer_width) << outer_barrier(b).name()
 	//
 	      << std::setw(out_precision + 7) << outer_barrier(b).real_ground() / Phys_const::kcal
 	//
-	      << std::setw(5) << well(w).name()
+	      << std::setw(well_width) << well(w).name()
 	//
 	      << std::setw(out_precision + 7) << well(w).ground() / Phys_const::kcal
 	//
-	      << "  " << bimolecular(p).name() << "\n";
+	      << std::setw(bim_width) << bimolecular(p).name() << "\n";
     }
 	
     IO::out << "\n";
@@ -3301,15 +3328,15 @@ void Model::print () {
     //
     IO::out << "Well-to-Well Barriers (H/G - barrier height/well depth, kcal/mol):\n" << IO::first_offset
       //
-	    << std::setw(5) << "Name"
+	    << std::setw(inner_width) << "B"
       //
 	    << std::setw(out_precision + 7) << "H"
       //
-	    << std::setw(5) << "Well"
+	    << std::setw(well_width) << "W"
       //
 	    << std::setw(out_precision + 7) << "G1"
       //
-	    << std::setw(5) << "Well"
+	    << std::setw(well_width) << "W"
       //
 	    << std::setw(out_precision + 7) << "G2"
       //
@@ -3323,15 +3350,15 @@ void Model::print () {
       
       IO::out << IO::first_offset
 	//
-	      << std::setw(5) << inner_barrier(b).name()
+	      << std::setw(inner_width) << inner_barrier(b).name()
 	//
 	      << std::setw(out_precision + 7) << inner_barrier(b).real_ground() / Phys_const::kcal
 	//
-	      << std::setw(5) << well(w1).name()
+	      << std::setw(well_width) << well(w1).name()
 	//
 	      << std::setw(out_precision + 7) << well(w1).ground() / Phys_const::kcal
 	//
-	      << std::setw(5) << well(w2).name()
+	      << std::setw(well_width) << well(w2).name()
 	//
 	      << std::setw(out_precision + 7) << well(w2).ground() / Phys_const::kcal
 	//
@@ -3362,7 +3389,16 @@ void Model::print () {
   }
     
   IO::out << "________________________________________________________________________________________\n\n";
+}
 
+void Model::pf_print () {
+  //
+  const char funame [] = "Model::pf_print: ";
+
+  double dtemp;
+  int    itemp;
+  bool   btemp;
+  
   /*******************************************************************************************************
    *********************************** PARTITION FUNCTIONS OUTPUT ****************************************
    *******************************************************************************************************/
