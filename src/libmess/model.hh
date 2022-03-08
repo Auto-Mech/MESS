@@ -1973,7 +1973,9 @@ namespace Model {
 
   // print the wells, barriers, etc.
   //
-  void print ();
+  void pes_print ();
+  
+  void pf_print ();
   
   bool no_run ();
   

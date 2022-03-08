@@ -36,7 +36,7 @@ struct Reactant : public std::pair<int, int> {
 
   bool dummy () const;
   
-  const std::string& name () const;
+  std::string name () const;
 
   double weight (double) const;
 };
@@ -52,7 +52,7 @@ std::ostream& operator<< (std::ostream& to, const std::pair<Reactant, Reactant>&
   return to << s;
 }
 
-const std::string& Reactant::name () const
+std::string Reactant::name () const
 {
   const char funame [] = "Reactant::name: ";
   
@@ -60,11 +60,11 @@ const std::string& Reactant::name () const
     //
   case Model::WELL:
     //
-    return Model::well(second).name();
+    return "W" + IO::String(second);
 
   case Model::BIMOLECULAR:
     //
-    return Model::bimolecular(second).name();
+    return "P" + IO::String(second);
 
   default:
     //
@@ -123,13 +123,35 @@ double Reactant::weight (double t) const
     throw Error::Logic();
   }
 }
-    
-struct RateData: public std::map<std::pair<int, int>, std::map<std::set<std::pair<int, int> >, double> > {
+
+class DoublePositive {
   //
-  double rate (int t, int p, Reactant r1, Reactant r2) const;
+  double _val;
+  
+public:
+  //
+  DoublePositive (double d) : _val(d) {};
+
+  DoublePositive operator/ (double d) const { return _val / d; }
+
+  friend std::ostream& operator<< (std::ostream&, const DoublePositive&);
 };
 
-double RateData::rate (int t, int p, Reactant r1, Reactant r2) const
+std::ostream& operator<< (std::ostream& to, const DoublePositive& d)
+{
+  if(d._val > 0.)
+    //
+    return to << d._val;
+ 
+  return to << "***";
+}
+
+struct RateData: public std::map<std::pair<int, int>, std::map<std::set<std::pair<int, int> >, double> > {
+  //
+  DoublePositive rate (int t, int p, Reactant r1, Reactant r2) const;
+};
+
+DoublePositive RateData::rate (int t, int p, Reactant r1, Reactant r2) const
 {
   const char funame [] = "RateData:rate: ";
   
@@ -148,13 +170,13 @@ double RateData::rate (int t, int p, Reactant r1, Reactant r2) const
 
   rr.insert(r2);
   
-   std::map<std::set<std::pair<int, int> >, double>::const_iterator j = i->second.find(rr);
+  std::map<std::set<std::pair<int, int> >, double>::const_iterator j = i->second.find(rr);
 
   if(j != i->second.end())
     //
     return j->second;
 
-  return 0.;
+  return -1.;
 }
 
 int main (int argc, char* argv [])
@@ -223,18 +245,6 @@ int main (int argc, char* argv [])
 
   // output streams
   //
-  IO::out.open((base_name + ".out").c_str());
-  
-  if(!IO::out.is_open()) {
-    //
-    std::cerr << funame << "cannot open rate output file: " << base_name + ".out" << "\n";
-
-    throw Error::Init();
-  }
-
-  IO::out << std::setprecision(Model::out_precision);
-	
-
   IO::log.open((base_name + ".log").c_str());
 
   if(!IO::log.is_open()) {
@@ -279,6 +289,7 @@ int main (int argc, char* argv [])
   Key ener_win_key("EnergyWindowOverTemperature");
   Key     emax_key("ModelEnergyLimit[kcal/mol]" );
   Key  adm_bor_key("AtomDistanceMin[bohr]"      );
+  Key     rout_key("RateOutput"                 );
   Key  adm_ang_key("AtomDistanceMin[angstrom]"  );
   Key     xtun_key("TunnelingActionCutoff"      );
   Key well_cut_key("WellCutoff"                 );
@@ -384,7 +395,7 @@ int main (int argc, char* argv [])
 
       Model::out_precision = itemp;
 
-      IO::out << std::setprecision(itemp);
+      //IO::out << std::setprecision(itemp);
     }
     // log stream precision
     //
@@ -409,6 +420,35 @@ int main (int argc, char* argv [])
       Model::log_precision = itemp;
 
       IO::log << std::setprecision(itemp);
+    }
+    // custom rate output
+    //
+    else if(rout_key == token) {
+      //
+      if(IO::out.is_open()) {
+	//
+        std::cerr << funame << token << ": allready opened\n";
+	
+        throw Error::Input();
+      }
+
+      IO::LineInput lin(from);
+      
+      if(!(lin >> stemp)) {
+	//
+        std::cerr << funame << token << ": bad input\n";
+	
+        throw Error::Input();
+      }
+      
+      IO::out.open(stemp.c_str());
+      
+      if(!IO::out) {
+	//
+        std::cerr << funame << token << ": cannot open " << stemp << " file\n";
+	
+        throw Error::Input();
+      }
     }
     // eigenvalue output
     //
@@ -1653,10 +1693,30 @@ int main (int argc, char* argv [])
     //
   }// micro output
 
+  // default rate output
+  //
+  if(!IO::out.is_open()) {
+    //
+    IO::out.open((base_name + ".out").c_str());
+  
+    if(!IO::out.is_open()) {
+      //
+      std::cerr << funame << "cannot open rate output file: " << base_name + ".out" << "\n";
+
+      throw Error::Init();
+    }
+  }
+
+  IO::out << std::setprecision(Model::out_precision);
+
+  Model::pes_print();
+
+  Model::pf_print();
+
   if(Model::no_run())
     //
     return 0;
-  
+
   /*********** PRESSURE AND TEMPERATURE DEPENDENT RATE COEFFICIENTS CALCULATION*************/
 
   // units
@@ -2068,6 +2128,22 @@ int main (int argc, char* argv [])
   const int first = 7;
 
   int start, count;
+
+  IO::out << "Well Names Translation:\n";
+
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::out << std::setw(3) << Reactant(Model::WELL, w) << "  " << Model::well(w).name() << "\n";
+
+  IO::out << "End\n";
+  
+  IO::out << "Bimolecular Names Translation:\n";
+
+  for(int p = 0; p < Model::bimolecular_size(); ++p)
+    //
+    IO::out << std::setw(3) << Reactant(Model::BIMOLECULAR, p) << "  " << Model::bimolecular(p).name() << "\n";
+
+  IO::out << "End\n";
   
   IO::out << "Unimolecular Rate Units: 1/sec;  Bimolecular Rate Units: cm^3/sec\n\n"
     //
@@ -2083,7 +2159,7 @@ int main (int argc, char* argv [])
       
     if(!Model::bimolecular(p).dummy())
       //
-      IO::out << std::setw(width) << Model::bimolecular(p).name();
+      IO::out << std::setw(width) << Reactant(Model::BIMOLECULAR, p);
   }
   
   IO::out << "\n";
@@ -2118,9 +2194,9 @@ int main (int argc, char* argv [])
       
     const int& w2 = Model::inner_connect(b).first;
       
-    IO::out << std::setw(width) << Model::well(w1).name() + "->" + Model::well(w2).name();
+    IO::out << std::setw(width) << std::make_pair(Reactant(Model::WELL, w1), Reactant(Model::WELL, w2));
     
-    IO::out << std::setw(width) << Model::well(w2).name() + "->" + Model::well(w1).name();
+    IO::out << std::setw(width) << std::make_pair(Reactant(Model::WELL, w2), Reactant(Model::WELL, w1));
   }
   
   IO::out << "\n";
@@ -2275,11 +2351,11 @@ int main (int argc, char* argv [])
 	
 	IO::out << std::left << std::setw(first) << "T" << std::right;
 
-	count = first;
-	
-	for(i = start; count < count_max && i < reactant.size(); ++i, count += width)
+	for(i = start, count = first; count < count_max && i < reactant.size(); ++i, count += width)
 	  //
-	  IO::out << std::setw(width) << reactant[i];
+	  if(i != r)
+	    //
+	    IO::out << std::setw(width) << reactant[i];
 
 	IO::out << "\n";
 	    
@@ -2290,11 +2366,11 @@ int main (int argc, char* argv [])
 
 	  IO::out << std::left << std::setw(first) << int(temperature[t] / Phys_const::kelv) << std::right;
 	
-	  count = first;
-	    
-	  for(i = start; count < count_max && i < reactant.size() ; ++i, count += width)
+	  for(i = start, count = first; count < count_max && i < reactant.size() ; ++i, count += width)
 	    //
-	    IO::out << std::setw(width) << storage.rate(t, p, reactant[r], reactant[i]) / weight;
+	    if(i != r)
+	      //
+	      IO::out << std::setw(width) << storage.rate(t, p, reactant[r], reactant[i]) / weight;
 
 	  IO::out << "\n";
 	}
@@ -2358,11 +2434,11 @@ int main (int argc, char* argv [])
 
 	IO::out << std::left << std::setw(first) << stemp << std::right;
 	
-	count = first;
-	
-	for(i = start; count < count_max && i < reactant.size(); ++i, count += width)
+	for(i = start, count = first; count < count_max && i < reactant.size(); ++i, count += width)
 	  //
-	  IO::out << std::setw(width) << reactant[i];
+	  if(i != r)
+	    //
+	    IO::out << std::setw(width) << reactant[i];
 
 	IO::out << "\n";
 	    
@@ -2399,11 +2475,11 @@ int main (int argc, char* argv [])
 
 	  IO::out << std::right;
 	
-	  count = first;
-	    
-	  for(i = start; count < count_max && i < reactant.size() ; ++i, count += width)
+	  for(i = start, count = first; count < count_max && i < reactant.size() ; ++i, count += width)
 	    //
-	    IO::out << std::setw(width) << storage.rate(t, p, reactant[r], reactant[i]) / weight;
+	    if(i != r)
+	      //
+	      IO::out << std::setw(width) << storage.rate(t, p, reactant[r], reactant[i]) / weight;
 
 	  IO::out << "\n";
 	}
