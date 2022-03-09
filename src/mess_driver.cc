@@ -1190,6 +1190,22 @@ int main (int argc, char* argv [])
     //
     return 0;
   
+  IO::out << "Well Names Translation:\n";
+
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::out << std::setw(3) << "W" + IO::String(w) << "  " << Model::well(w).name() << "\n";
+
+  IO::out << "End\n";
+  
+  IO::out << "Bimolecular Names Translation:\n";
+
+  for(int p = 0; p < Model::bimolecular_size(); ++p)
+    //
+    IO::out << std::setw(3) << "P" + IO::String(p) << "  " << Model::bimolecular(p).name() << "\n";
+
+  IO::out << "End\n";
+  
   /*********** PRESSURE AND TEMPERATURE DEPENDENT RATE COEFFICIENTS CALCULATION*************/
 
   if(MasterEquation::eval_out.is_open()) {
@@ -1246,10 +1262,14 @@ int main (int argc, char* argv [])
   std::vector<std::map<int, double> > capture;
 
   std::vector<std::string> spec_name;
+  
   for(int w = 0; w < Model::well_size(); ++w)
-    spec_name.push_back(Model::well(w).name());
+    //
+    spec_name.push_back("W" + IO::String(w));
+  
   for(int p = 0; p < Model::bimolecular_size(); ++p)
-    spec_name.push_back(Model::bimolecular(p).name());
+    //
+    spec_name.push_back("P" + IO::String(p));
 
   for(int i = 0; i < spec_name.size(); ++i)
     //

@@ -394,8 +394,6 @@ int main (int argc, char* argv [])
       }
 
       Model::out_precision = itemp;
-
-      //IO::out << std::setprecision(itemp);
     }
     // log stream precision
     //
@@ -1426,20 +1424,6 @@ int main (int argc, char* argv [])
     throw Error::Init();
   }
 
-  if(MasterEquation::reference_temperature < 0.) {
-    //
-    std::cerr << funame << rtem_key << ": reference temperature has not been initialized\n";
-    
-    throw Error::Init();
-  }
-
-  if(MasterEquation::reference_pressure < 0.) {
-    //
-    std::cerr << funame << rpres_key << ": reference pressure has not been initialized\n";
-    
-    throw Error::Init();
-  }
-
   if(MasterEquation::energy_step_over_temperature < 0.) {
     //
     std::cerr << funame << etot_key << ": energy step over temperature has not been initialized: suggested value: 0.2\n";
@@ -1539,6 +1523,52 @@ int main (int argc, char* argv [])
     //
     MasterEquation::set_ped_pair(ped_spec);
 
+
+  if(MasterEquation::reference_temperature < 0.)
+    //
+    IO::log << IO::log_offset << "WARNING: reference temperature has not been initialized\n";
+
+  if(MasterEquation::reference_pressure < 0.)
+    //
+    IO::log << IO::log_offset << "WARNING: reference pressure has not been initialized\n";
+    
+  // setting reference lumping scheme
+  //
+  if(!Model::lump_scheme.size() && !Model::well_exclude_group.size() &&
+     //
+     MasterEquation::reference_temperature > 0. && MasterEquation::reference_pressure > 0.) {
+    //
+    IO::log << IO::log_offset << "setting reference lumping scheme:\n";
+    
+    std::pair<std::list<std::set<int> >, std::set<int> > lumping_scheme =
+      //
+      MasterEquation::ReactiveComplex::lumping_scheme(MasterEquation::reference_temperature, MasterEquation::reference_pressure);
+
+      IO::log << "\n";
+      
+      IO::log << IO::log_offset << "reference lumping scheme:";
+
+      for(std::list<std::set<int> >::const_iterator g = lumping_scheme.first.begin(); g != lumping_scheme.first.end(); ++g)
+	//
+	IO::log << "  " << *g;
+
+      IO::log << "\n";
+      
+      IO::log << IO::log_offset << "reference exclude group: " << lumping_scheme.second << "\n\n";
+
+    for(std::set<int>::const_iterator i = lumping_scheme.second.begin(); i != lumping_scheme.second.end(); ++i)
+      //
+      Model::well_exclude_group.insert(Model::well(*i).name());
+
+    std::vector<std::set<int> > wp;
+
+    for(std::list<std::set<int> >::const_iterator i = lumping_scheme.first.begin(); i != lumping_scheme.first.end(); ++i)
+      //
+      wp.push_back(*i);
+
+    Model::reset(wp);
+  }
+    
   /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
 
   if(micro_rate_file.size()) {
