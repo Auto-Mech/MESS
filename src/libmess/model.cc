@@ -164,6 +164,10 @@ namespace Model {
   //
   std::set<std::string> well_exclude_group;
 
+  // lumping scheme
+  //
+  std::list<std::string>  lump_scheme;
+
   bool is_well (const std::string& w) { if(well_index.find(w) != well_index.end()) return true; return false; }
 
   int well_by_name (const std::string& n)
@@ -2325,8 +2329,6 @@ void Model::init (IO::KeyBufferStream& from)
   
   // lumping scheme
   //
-  std::list<std::string>  lump_scheme;
-
   while(from >> token) {
     //
     // end input
