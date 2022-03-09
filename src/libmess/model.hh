@@ -1962,6 +1962,8 @@ namespace Model {
 
   extern std::set<std::string> well_exclude_group;
 
+  extern std::list<std::string>  lump_scheme;
+
   // main initialization
   //
   void init (IO::KeyBufferStream& from) ;
