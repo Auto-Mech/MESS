@@ -19,10 +19,10 @@
 #include<cmath>
 #include <sys/resource.h>
 
-#include "libmess/mess.hh"
-#include "libmess/key.hh"
-#include "libmess/units.hh"
-#include "libmess/io.hh"
+#include "mess.hh"
+#include "key.hh"
+#include "units.hh"
+#include "io.hh"
 
 
 //auxiliary structures for rate constants storage and output
@@ -2222,7 +2222,7 @@ int main (int argc, char* argv [])
     //
     const int& w1 = Model::inner_connect(b).first;
       
-    const int& w2 = Model::inner_connect(b).first;
+    const int& w2 = Model::inner_connect(b).second;
       
     IO::out << std::setw(width) << std::make_pair(Reactant(Model::WELL, w1), Reactant(Model::WELL, w2));
     
@@ -2239,7 +2239,7 @@ int main (int argc, char* argv [])
       //
       const int& w1 = Model::inner_connect(b).first;
       
-      const int& w2 = Model::inner_connect(b).first;
+      const int& w2 = Model::inner_connect(b).second;
       
       IO::out << std::setw(width) << temperature[t] / 2. / M_PI / Phys_const::herz * Model::inner_barrier(b).weight(temperature[t])
 	  //

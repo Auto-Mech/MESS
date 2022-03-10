@@ -3206,6 +3206,8 @@ void Model::pes_print () {
     if(!w || well(w).name().size() > well_width)
       //
       well_width = well(w).name().size();
+
+  ++well_width;
   
   int bim_width = 0;
   
@@ -3214,6 +3216,8 @@ void Model::pes_print () {
     if(!p || bimolecular(p).name().size() > bim_width)
       //
       bim_width = bimolecular(p).name().size();
+
+  ++bim_width;
   
   int inner_width = 0;
   
@@ -3222,6 +3226,8 @@ void Model::pes_print () {
     if(!b || inner_barrier(b).name().size() > inner_width)
       //
       inner_width = inner_barrier(b).name().size();
+
+  ++inner_width;
   
   int outer_width = 0;
   
@@ -3230,6 +3236,8 @@ void Model::pes_print () {
     if(!b || outer_barrier(b).name().size() > outer_width)
       //
       outer_width = outer_barrier(b).name().size();
+
+  ++outer_width;
   
   /************************************** OUTPUT ***************************************/
 
@@ -3292,6 +3300,7 @@ void Model::pes_print () {
   if(outer_barrier_size()) {
     //
     IO::out << "Well-to-Bimolecular Barriers (H/G - barrier height/well depth, kcal/mol)\n"
+      //
 	    << IO::first_offset
       //
 	    << std::setw(outer_width) << "B"
@@ -3334,11 +3343,11 @@ void Model::pes_print () {
       //
 	    << std::setw(out_precision + 7) << "H"
       //
-	    << std::setw(well_width) << "W"
+	    << std::setw(well_width) << "W1"
       //
 	    << std::setw(out_precision + 7) << "G1"
       //
-	    << std::setw(well_width) << "W"
+	    << std::setw(well_width) << "W2"
       //
 	    << std::setw(out_precision + 7) << "G2"
       //
