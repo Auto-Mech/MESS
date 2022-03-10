@@ -19,10 +19,10 @@
 #include<cmath>
 #include <sys/resource.h>
 
-#include "libmess/mess.hh"
-#include "libmess/key.hh"
-#include "libmess/units.hh"
-#include "libmess/io.hh"
+#include "mess.hh"
+#include "key.hh"
+#include "units.hh"
+#include "io.hh"
 
 int main (int argc, char* argv [])
 {
@@ -1185,6 +1185,10 @@ int main (int argc, char* argv [])
     }//
     //
   }// micro output
+
+  Model::pes_print();
+
+  Model::pf_print();
 
   if(Model::no_run())
     //
