@@ -13,16 +13,16 @@
         Library General Public License for more details.
 */
 
-#include<iostream>
-#include<fstream>
-#include<sstream>
-#include<cmath>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <cmath>
 #include <sys/resource.h>
 
-#include "mess.hh"
-#include "key.hh"
-#include "units.hh"
-#include "io.hh"
+#include "libmess/mess.hh"
+#include "libmess/key.hh"
+#include "libmess/units.hh"
+#include "libmess/io.hh"
 
 int main (int argc, char* argv [])
 {
