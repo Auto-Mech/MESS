@@ -13,19 +13,19 @@ find_library(SLATEC REQUIRED NAMES slatec libslatec)
 find_package(GSL REQUIRED)
 # MPACK
 find_library(QD REQUIRED NAMES qd libqd libqd.a)
-find_library(MBLAS_QD REQUIRED NAMES mblas_qd libmblas_qd)
-find_library(MBLAS_DD REQUIRED NAMES mblas_dd libmblas_dd)
-find_library(MLAPACK_QD REQUIRED NAMES mlapack_qd libmlapack_qd)
-find_library(MLAPACK_DD REQUIRED NAMES mlapack_dd libmlapack_dd)
+# find_library(MBLAS_QD REQUIRED NAMES mblas_qd libmblas_qd)
+# find_library(MBLAS_DD REQUIRED NAMES mblas_dd libmblas_dd)
+# find_library(MLAPACK_QD REQUIRED NAMES mlapack_qd libmlapack_qd)
+# find_library(MLAPACK_DD REQUIRED NAMES mlapack_dd libmlapack_dd)
 message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
 message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
 message(STATUS "Found SLATEC: ${SLATEC_LIBRARIES}")
 message(STATUS "Found GSL: ${GSL_LIBRARIES}")
 message(STATUS "Found QD: ${QD}")
-message(STATUS "Found MBLAS_QD: ${MBLAS_QD}")
-message(STATUS "Found MBLAS_DD: ${MBLAS_DD}")
-message(STATUS "Found MLAPACK_QD: ${MLAPACK_QD}")
-message(STATUS "Found MLAPACK_DD: ${MLAPACK_DD}")
+# message(STATUS "Found MBLAS_QD: ${MBLAS_QD}")
+# message(STATUS "Found MBLAS_DD: ${MBLAS_DD}")
+# message(STATUS "Found MLAPACK_QD: ${MLAPACK_QD}")
+# message(STATUS "Found MLAPACK_DD: ${MLAPACK_DD}")
 
 add_library(messlibs
     ${PROJECT_SOURCE_DIR}/src/libmess/atom.cc
@@ -39,8 +39,8 @@ add_library(messlibs
     ${PROJECT_SOURCE_DIR}/src/libmess/units.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/graph_common.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/lapack.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/mpack.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/mpack_dd.cc
+    # ${PROJECT_SOURCE_DIR}/src/libmess/mpack.cc
+    # ${PROJECT_SOURCE_DIR}/src/libmess/mpack_dd.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/permutation.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/graph_omp.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/linpack.cc
@@ -67,24 +67,29 @@ add_executable(messsym ${PROJECT_SOURCE_DIR}/src/symmetry_number.cc)
 
 target_link_libraries(mess
     messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
-    ${SLATEC} ${CMAKE_DL_LIBS})
+    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
+    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+)
 target_link_libraries(mess-v2
     messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
-    ${SLATEC} ${CMAKE_DL_LIBS})
+    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
+    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+)
 target_link_libraries(messpf
     messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
-    ${SLATEC} ${CMAKE_DL_LIBS})
+    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
+    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+)
 target_link_libraries(messabs
     messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
-    ${SLATEC} ${CMAKE_DL_LIBS})
+    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
+    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+)
 target_link_libraries(messsym
     messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD} ${QD}
-    ${SLATEC} ${CMAKE_DL_LIBS})
+    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
+    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+)
 
 install(TARGETS mess DESTINATION bin)
 install(TARGETS mess-v2 DESTINATION bin)
