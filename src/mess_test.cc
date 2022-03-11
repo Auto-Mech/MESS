@@ -19,10 +19,10 @@
 #include<cmath>
 #include <sys/resource.h>
 
-#include "mess.hh"
-#include "key.hh"
-#include "units.hh"
-#include "io.hh"
+#include "libmess/mess.hh"
+#include "libmess/key.hh"
+#include "libmess/units.hh"
+#include "libmess/io.hh"
 
 
 //auxiliary structures for rate constants storage and output
@@ -1810,10 +1810,13 @@ int main (int argc, char* argv [])
 
       // well lumping
       //
-      std::pair<std::list<std::set<int> >, std::set<int> > lumping_scheme = MasterEquation::ReactiveComplex::lumping_scheme(*ti, *pi);
+      std::pair<std::list<std::set<int> >, std::set<int> > lumping_scheme =
+	//
+	MasterEquation::ReactiveComplex::lumping_scheme(*ti, *pi, MasterEquation::ReactiveComplex::NOPRINT);
 
-      IO::log << "\n";
+      //IO::log << "\n";
       
+      /*
       IO::log << IO::log_offset << "lumping scheme:";
 
       for(std::list<std::set<int> >::const_iterator g = lumping_scheme.first.begin(); g != lumping_scheme.first.end(); ++g)
@@ -1823,7 +1826,8 @@ int main (int argc, char* argv [])
       IO::log << "\n";
       
       IO::log << IO::log_offset << "exclude group: " << lumping_scheme.second << "\n\n";
-
+      */
+      
       // well extension cap for qualified wells from well lumping scheme
       //
       if(MasterEquation::well_extension >= 0.) {
@@ -1871,7 +1875,15 @@ int main (int argc, char* argv [])
 
 	if(mg.size()) {
 	  //
-	  IO::log << IO::log_offset << "adding well extension caps for the ";
+	  IO::log << IO::log_offset << "adding well extension ";
+
+	  if(mg.size() != 1) {
+	    //
+	    IO::log << "caps for the ";
+	  }
+	  else
+	    //
+	    IO::log << "cap for the ";
 	
 	  for(std::set<int>::const_iterator w = mg.begin(); w != mg.end(); ++w) {
 	    //
@@ -1881,11 +1893,20 @@ int main (int argc, char* argv [])
 	    
 	    IO::log << Model::well(*w).name();
 	  }
+
+	  if(mg.size() != 1) {
+	    //
+	    IO::log << " wells";
+	  }
+	  else
+	    //
+	    IO::log << " well";
 	  
-	  IO::log << " well(s)\n\n";
+	  IO::log << "\n\n";
 	}
       }
-      
+
+      /*
       IO::log << IO::log_offset << "Temperature = " << int(*ti / Phys_const::kelv) << " K"  << "   Pressure = ";
   
       switch(MasterEquation::pressure_unit) {
@@ -1910,6 +1931,7 @@ int main (int argc, char* argv [])
       }
       
       IO::log << "\n\n";
+      */
 
       data_t rate_data;
 
@@ -2345,7 +2367,7 @@ int main (int argc, char* argv [])
 	//
 	continue;
 	
-      IO::out << "Pressure = ";
+      IO::out << "Reactant = " << reactant[r] << "   Pressure = ";
       
       switch(MasterEquation::pressure_unit) {
 	//
@@ -2371,7 +2393,7 @@ int main (int argc, char* argv [])
 	throw Error::Logic();
       }
       
-      IO::out << "   Reactant = " << reactant[r] << "\n\n";
+      IO::out << "\n\n";
 
       start = 0;
 
@@ -2426,8 +2448,8 @@ int main (int argc, char* argv [])
 	
       const double weight = reactant[r].weight(temperature[t]);
 
-      IO::out << "Temperature = " << int(temperature[t] / Phys_const::kelv) << " K   Reactant = " << reactant[r] << "\n\n";
-
+      IO::out << "Reactant = " << reactant[r] << "   Temperature = " << int(temperature[t] / Phys_const::kelv) << " K\n\n";
+      
       start = 0;
 
       while(start < reactant.size()) {
