@@ -1145,6 +1145,8 @@ namespace Model {
 
     const std::string& name () const { return _name; }
 
+    std::string short_name () const;
+
     // radiational transitions
     //
     virtual double   infrared_intensity (double, int) const;
@@ -1795,6 +1797,8 @@ namespace Model {
 
     const std::string& name () const { return _name; }
 
+    std::string short_name () const;
+
     int mode (int f) const {return _fragment[f]->mode(); }
     
     double states (int f, double e) const { return _fragment[f]->states(e); }
@@ -1892,6 +1896,8 @@ namespace Model {
     
     const Collision& collision (int i)   const { return *_collision[i]; }
 
+    std::string   short_name ()         const { _assert_spec(); return _species->short_name(); }
+    
     const std::string&   name ()         const { _assert_spec(); return _species->name(); }
     
     double             ground ()         const { _assert_spec(); return _species->ground(); }
@@ -2057,7 +2063,7 @@ namespace Model {
   
   // well/bimolecular/inner/outer name output
   //
-  inline const std::string& species_name (spec_t p)
+  inline std::string species_name (spec_t p)
   {
     const char funame [] = "Model::species_name: ";
     
@@ -2069,19 +2075,19 @@ namespace Model {
       //
     case WELL:
       //
-      return well(index).name();
+      return well(index).short_name();
 
     case BIMOLECULAR:
       //
-      return bimolecular(index).name();
+      return bimolecular(index).short_name();
       
     case INNER:
       //
-      return inner_barrier(index).name();
+      return inner_barrier(index).short_name();
       
     case OUTER:
       //
-      return outer_barrier(index).name();
+      return outer_barrier(index).short_name();
 
     default:
       //

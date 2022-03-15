@@ -159,6 +159,10 @@ namespace Model {
   // bimolecular index
   //
   std::map<std::string, int> bimolecular_index;
+
+  std::map<std::string, int> inner_index;
+  
+  std::map<std::string, int> outer_index;
   
   // exclude wells from the reaction list
   //
@@ -346,7 +350,7 @@ std::ostream& Model::operator<< (std::ostream& to, const std::set<int>& g)
       //
       to << "+";
       
-    to << well(*w).name();
+    to << well(*w).short_name();
   }
 
   return to;
@@ -382,7 +386,7 @@ std::ostream& Model::operator<< (std::ostream& to, const ChemGraph& cg)
       //
       to << "+";
 	    
-    to << Model::well(*w).name();
+    to << Model::well(*w).short_name();
   }
 
   to << ", ";
@@ -393,7 +397,7 @@ std::ostream& Model::operator<< (std::ostream& to, const ChemGraph& cg)
       //
       to << "+";
 	    
-    to << inner_barrier(*w).name();
+    to << inner_barrier(*w).short_name();
   }
 
   if(!cg.inner_set.size())
@@ -408,7 +412,7 @@ std::ostream& Model::operator<< (std::ostream& to, const ChemGraph& cg)
       //
       to << "+";
 	    
-    to << outer_barrier(*w).name();
+    to << outer_barrier(*w).short_name();
   }
   
   if(!cg.outer_set.size())
@@ -1557,7 +1561,20 @@ void Model::reset (const std::vector<std::set<int> >& well_partition)
     for(int w = 0; w < well_size(); ++w)
       //
       well_index[well(w).name()] = w;
+
   }
+
+  inner_index.clear();
+
+  for(int b = 0; b < inner_barrier_size(); ++b)
+    //
+    inner_index[inner_barrier(b).name()] = b;
+
+  outer_index.clear();
+
+  for(int b = 0; b < outer_barrier_size(); ++b)
+    //
+    outer_index[outer_barrier(b).name()] = b;
 
   /**********************************************************************************************
    **************************************** NAME SIZE MAX ***************************************
@@ -18417,6 +18434,27 @@ void Model::MultiRotor::rotational_energy_levels () const
  *********** ABSTRACT CLASS REPRESENTING WELL, BARRIER, AND BIMOLECULAR FRAGMENT ************
  ********************************************************************************************/
 
+std::string Model::Species::short_name () const
+{
+  const char funame [] = "Model::Species::short_name: ";
+
+  if(well_index.find(name()) != well_index.end())
+    //
+    return "W" + IO::String(well_index[name()]);
+
+  if(inner_index.find(name()) != inner_index.end())
+    //
+    return "B" + IO::String(inner_index[name()]);
+
+  if(outer_index.find(name()) != outer_index.end())
+    //
+    return "C" + IO::String(outer_index[name()]);
+
+  std::cerr << funame << "unknown species: " << name();
+
+  throw Error::Init();
+}
+
 Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m) 
   : _name(n), _mode(m), _mass(-1.), _print_step(-1.), _ground(0.)
 {
@@ -26012,6 +26050,19 @@ void Model::AtomicSpecies::shift_ground (double e)
 /********************************************************************************************
  ************************************ BIMOLECULAR MODEL *************************************
  ********************************************************************************************/
+
+std::string Model::Bimolecular::short_name () const
+{
+  const char funame [] = "Model::Bimolecular::short_name: ";
+
+  if(bimolecular_index.find(name()) != bimolecular_index.end())
+    //
+    return "P" + IO::String(bimolecular_index[name()]);
+
+  std::cerr << funame << "unknown species: " << name();
+
+  throw Error::Init();
+}
 
 Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n) 
   : _name(n), _dummy(false)
