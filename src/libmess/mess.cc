@@ -12292,15 +12292,15 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       //
 	    << std::setw(5)  << "Well"
       //
-	    << std::setw(Model::log_precision + 7) << "E, kcal/mol";
+	    << std::setw(Model::log_precision + 7) << "E, kcal";
     
     for(int w = 0; w < chem_size; ++w)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).short_name();
 
     for(int p = 0; p < Model::bimolecular_size(); ++p)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
 
     for(int e = 0; e < Model::escape_size(); ++e)
       //
@@ -12314,7 +12314,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       //
       IO::log << IO::log_offset
 	//
-	      << std::setw(5)  << Model::well(hit->first).name()
+	      << std::setw(5)  << Model::well(hit->first).short_name()
 	//
 	      << std::setw(Model::log_precision + 7) << energy_bin(hit->second) / Phys_const::kcal;
 	
@@ -12348,13 +12348,13 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     //
     for(int w = 0; w < Model::well_size(); ++w)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
 
   IO::log << std::setw(Model::log_precision + 7) << "Total Diss.";
 
   for(int p = 0; p < Model::bimolecular_size(); ++p)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
 
   for(int e = 0; e < Model::escape_size(); ++e)
     //
@@ -12364,7 +12364,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   for(int w = 0; w < Model::well_size(); ++w) {
     //
-    IO::log << IO::log_offset << std::setw(7) << Model::well(w).name();
+    IO::log << IO::log_offset << std::setw(7) << Model::well(w).short_name();
 
     double diss = 1.;
 
