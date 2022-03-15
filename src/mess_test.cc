@@ -361,16 +361,8 @@ int main (int argc, char* argv [])
 
       // main initialization
       //
-      try {
-	//
-	Model::init(from);
-      }  
-      catch(Error::General) {
-	//
-	IO::log << std::flush;
-	
-	throw;
-      }
+      Model::init(from);
+      
       break;
     }
     // out stream precision
@@ -1531,7 +1523,7 @@ int main (int argc, char* argv [])
   if(MasterEquation::reference_pressure < 0.)
     //
     IO::log << IO::log_offset << "WARNING: reference pressure has not been initialized\n";
-    
+
   // setting reference lumping scheme
   //
   if(!Model::lump_scheme.size() && !Model::well_exclude_group.size() &&
@@ -1568,7 +1560,45 @@ int main (int argc, char* argv [])
 
     Model::reset(wp);
   }
-    
+
+  IO::log << IO::log_offset << "Translation Tables:\n";
+
+  if(Model::well_size()) {
+    //
+    IO::log << IO::log_offset << "Wells:\n";
+
+    for(int i = 0; i < Model::well_size(); ++i)
+      //
+      IO::log << IO::log_offset << std::setw(5) << Model::well(i).short_name() << "  " << Model::well(i).name() << "\n";
+  }
+  
+  if(Model::bimolecular_size()) {
+    //
+    IO::log << IO::log_offset << "Bimolecular:\n";
+
+    for(int i = 0; i < Model::bimolecular_size(); ++i)
+      //
+      IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(i).short_name() << "  " << Model::bimolecular(i).name() << "\n";
+  }
+  
+  if(Model::inner_barrier_size()) {
+    //
+    IO::log << IO::log_offset << "Inner Barriers:\n";
+
+    for(int i = 0; i < Model::inner_barrier_size(); ++i)
+      //
+      IO::log << IO::log_offset << std::setw(5) << Model::inner_barrier(i).short_name() << "  " << Model::inner_barrier(i).name() << "\n";
+  }
+  
+  if(Model::outer_barrier_size()) {
+    //
+    IO::log << IO::log_offset << "Outer Barriers:\n";
+
+    for(int i = 0; i < Model::outer_barrier_size(); ++i)
+      //
+      IO::log << IO::log_offset << std::setw(5) << Model::outer_barrier(i).short_name() << "  " << Model::outer_barrier(i).name() << "\n";
+  }
+  
   /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
 
   if(micro_rate_file.size()) {
@@ -1891,7 +1921,7 @@ int main (int argc, char* argv [])
 	      //
 	      IO::log << ", ";
 	    
-	    IO::log << Model::well(*w).name();
+	    IO::log << Model::well(*w).short_name();
 	  }
 
 	  if(mg.size() != 1) {
@@ -2081,7 +2111,7 @@ int main (int argc, char* argv [])
 	      //
 	      stemp += "+";
 
-	    stemp += Model::well(*w).name();
+	    stemp += Model::well(*w).short_name();
 	  }
 
 	  if(stemp.size() > itemp)
@@ -2099,14 +2129,14 @@ int main (int argc, char* argv [])
 	      //
 	      stemp += "+";
 
-	    stemp += Model::well(*w).name();
+	    stemp += Model::well(*w).short_name();
 	  }
 
 	  IO::log << IO::log_offset << std::setw(itemp) << stemp << ":";
 
 	  for(std::map<int, double>::const_iterator bfi = dbi->second.begin(); bfi != dbi->second.end(); ++bfi)
 	    //
-	    IO::log << "  " << bfi->second << "/" << Model::well(bfi->first).name();
+	    IO::log << "  " << bfi->second << "/" << Model::well(bfi->first).short_name();
 
 	  IO::log << "\n";
 	}
@@ -2139,7 +2169,7 @@ int main (int argc, char* argv [])
 	    //
 	    IO::log << ", ";
 	    
-	  IO::log << Model::well(*w).name();
+	  IO::log << Model::well(*w).short_name();
 	}
 
 	IO::log << " well(s) are missing\n\n";

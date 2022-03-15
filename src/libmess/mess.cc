@@ -411,9 +411,9 @@ void MasterEquation::set_ped_pair(const std::vector<std::string>& ped_spec)
     //
     IO::log << IO::log_offset << "   "
       //
-	    << std::setw(5) << Model::bimolecular(ped_pair[i].first).name()
+	    << Model::bimolecular(ped_pair[i].first).name()
       //
-	    << " -> "  << Model::bimolecular(ped_pair[i].second).name() << "\n";
+	    << "->"  << Model::bimolecular(ped_pair[i].second).name() << "\n";
 }
 
 /***************************************** DEFAULT REDUCTION SCHEME *************************************************/
@@ -428,11 +428,17 @@ void MasterEquation::set_default_partition(const std::vector<std::string>& schem
   int spec;
 
   std::set<int> pool;
+  
   for(std::vector<std::string>::const_iterator g = scheme.begin(); g != scheme.end(); ++g) {
+    //
     Group group;
+    
     start = 0;
+    
     while(start < g->size()) {
+      //
       next = g->size();
+      
       for(int w = 0; w < Model::well_size(); ++w) {
 	itemp = g->find(Model::well(w).name(), start);
 	if(itemp < next || (itemp == next && itemp < g->size() &&
@@ -900,7 +906,7 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
   
     for(int w = 0; w < well_size(); ++w)
       //
-      IO::log << std::setw(7) << well_model(w).name();
+      IO::log << std::setw(7) << well_model(w).short_name();
   
     IO::log << "\n";
 
@@ -1089,9 +1095,9 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
       //
     case Model::INNER:
       //
-      IO::log << IO::log_offset << "rate-limiting barrier " << Model::inner_barrier(control_barrier.second).name() << ": "
+      IO::log << IO::log_offset << "rate-limiting barrier " << Model::inner_barrier(control_barrier.second).short_name() << ": "
 	//
-	      <<  rg1  << "<--"  << Model::inner_barrier(control_barrier.second).name() << "-->" << rg2   << "\n";
+	      <<  rg1  << "<--"  << Model::inner_barrier(control_barrier.second).short_name() << "-->" << rg2   << "\n";
     
       IO::log << IO::log_offset << "reactive groups: " << rg1.well_set << ", " << rg2.well_set << "\n";
 
@@ -1107,11 +1113,11 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
 	   //
 	   rg2.well_set.find(Model::inner_connect(*bi).first) != rg2.well_set.end())
 	  //
-	  IO::log << "  " << Model::well(Model::inner_connect(*bi).first).name() << "<--"
+	  IO::log << "  " << Model::well(Model::inner_connect(*bi).first).short_name() << "<--"
 	    //
-		  << Model::inner_barrier(*bi).name() << "-->"
+		  << Model::inner_barrier(*bi).short_name() << "-->"
 	    //
-		  << Model::well(Model::inner_connect(*bi).second).name();
+		  << Model::well(Model::inner_connect(*bi).second).short_name();
       
       IO::log << "\n";
       
@@ -1146,15 +1152,15 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
       //
     case Model::OUTER:
       //
-      IO::log << IO::log_offset << "rate-limiting barrier " <<  Model::outer_barrier(control_barrier.second).name() << ": "
+      IO::log << IO::log_offset << "rate-limiting barrier " <<  Model::outer_barrier(control_barrier.second).short_name() << ": "
 	//
-	      << rg1  << "<--" << Model::outer_barrier(control_barrier.second).name() << "-->"
+	      << rg1  << "<--" << Model::outer_barrier(control_barrier.second).short_name() << "-->"
 	//
-	      << Model::bimolecular(Model::outer_connect(control_barrier.second).second).name() << "\n";
+	      << Model::bimolecular(Model::outer_connect(control_barrier.second).second).short_name() << "\n";
       
       IO::log << IO::log_offset << "reactive groups: " << rg1.well_set << ", "
 	//
-	      << Model::bimolecular(Model::outer_connect(control_barrier.second).second).name()
+	      << Model::bimolecular(Model::outer_connect(control_barrier.second).second).short_name()
 	//
 	      << "\n";
       
@@ -1166,11 +1172,11 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
 	   //
 	   Model::outer_connect(*bi).second == Model::outer_connect(control_barrier.second).second)
 	  //
-	  IO::log << "  " << Model::well(Model::outer_connect(*bi).first).name() << "<--"
+	  IO::log << "  " << Model::well(Model::outer_connect(*bi).first).short_name() << "<--"
 	    //
-		  << Model::outer_barrier(*bi).name() << "-->"
+		  << Model::outer_barrier(*bi).short_name() << "-->"
 	    //
-		  << Model::bimolecular(Model::outer_connect(*bi).second).name();
+		  << Model::bimolecular(Model::outer_connect(*bi).second).short_name();
 
       IO::log << "\n";
       
@@ -1303,13 +1309,13 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
 
       if(!(flags & NOPRINT))
 	//
-	IO::log << IO::log_offset << "rate-limiting barrier " << Model::inner_barrier(b).name()
+	IO::log << IO::log_offset << "rate-limiting barrier " << Model::inner_barrier(b).short_name()
 	  //
-		<< ": " <<  rg1 << "(" << Model::well(w1).name() << ")" << "<--"
+		<< ": " <<  rg1 << "(" << Model::well(w1).short_name() << ")" << "<--"
 	  //
-		<< Model::inner_barrier(b).name()
+		<< Model::inner_barrier(b).short_name()
 	  //
-		<< "-->" << rg2 << "(" << Model::well(w2).name() << ")" << "\n";
+		<< "-->" << rg2 << "(" << Model::well(w2).short_name() << ")" << "\n";
     
       // bound groups associated with the rate-limiting barrier
       //
@@ -1451,11 +1457,11 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
 
       if(!(flags & NOPRINT))
 	//
-	IO::log << IO::log_offset << "rate-limiting barrier " <<  Model::outer_barrier(b).name() << ": "
+	IO::log << IO::log_offset << "rate-limiting barrier " <<  Model::outer_barrier(b).short_name() << ": "
 	  //
-		<< rg1 << "(" << Model::well(w1).name() << ")" << "<--" << Model::outer_barrier(b).name() << "-->"
+		<< rg1 << "(" << Model::well(w1).short_name() << ")" << "<--" << Model::outer_barrier(b).short_name() << "-->"
 	  //
-		<< Model::bimolecular(Model::outer_connect(b).second).name() << "\n";
+		<< Model::bimolecular(Model::outer_connect(b).second).short_name() << "\n";
       
       int g;
 	
@@ -1546,7 +1552,7 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
 
 	for(std::map<int, int>::const_iterator p = rate_data._bim_index_map.begin(); p != rate_data._bim_index_map.end(); ++p)
 	  //
-	  IO::log << "  " << Model::bimolecular(p->first).name() << "/" << p->second;
+	  IO::log << "  " << Model::bimolecular(p->first).short_name() << "/" << p->second;
 
 	IO::log << "\n";
 	
@@ -2041,7 +2047,7 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
 
 		for(std::map<int, double>::iterator w = rate_data.bf[owp[g]].begin(); w !=  rate_data.bf[owp[g]].end(); ++w)
 		  //
-		  IO::log << "  " << w->second << "/" << Model::well(w->first).name();
+		  IO::log << "  " << w->second << "/" << Model::well(w->first).short_name();
 
 		IO::log << "\n";
 	      }
@@ -2165,7 +2171,7 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
 
 		for(std::map<int, double>::iterator w = rate_data.bf[owp[g]].begin(); w !=  rate_data.bf[owp[g]].end(); ++w)
 		  //
-		  IO::log << "  " << w->second << "/" << Model::well(w->first).name();
+		  IO::log << "  " << w->second << "/" << Model::well(w->first).short_name();
 
 		IO::log << "\n";
 	      }
@@ -2301,7 +2307,7 @@ MasterEquation::ReactiveComplex::RateData MasterEquation::ReactiveComplex::well_
 
       for(int p = 0; p < bimolecular_size(); ++p) {
 	//
-	IO::log << IO::log_offset << std::setw(6) << bimolecular(p).name();
+	IO::log << IO::log_offset << std::setw(6) << bimolecular(p).short_name();
 	
 	for(int g = 0; g < chem_size; ++g)
 	  //
@@ -2480,7 +2486,7 @@ void MasterEquation::ReactiveComplex::init (double _t, double _p, double _r, dou
 
     for(std::set<int>::const_iterator w = _g.well_set.begin(); w != _g.well_set.end(); ++w)
       //
-      IO::log << " " << Model::well(*w).name();
+      IO::log << " " << Model::well(*w).short_name();
 
     IO::log << "\n";
 
@@ -2490,9 +2496,9 @@ void MasterEquation::ReactiveComplex::init (double _t, double _p, double _r, dou
 
       for(std::set<int>::const_iterator b = _g.inner_set.begin(); b != _g.inner_set.end(); ++b)
 	//
-	IO::log << " " << Model::well(Model::inner_connect(*b).first).name() << "<--"
+	IO::log << " " << Model::well(Model::inner_connect(*b).first).short_name() << "<--"
 	  //
-		<< Model::inner_barrier(*b).name() << "-->" << Model::well(Model::inner_connect(*b).second).name();
+		<< Model::inner_barrier(*b).short_name() << "-->" << Model::well(Model::inner_connect(*b).second).short_name();
 
       IO::log << "\n";
     }
@@ -2503,9 +2509,9 @@ void MasterEquation::ReactiveComplex::init (double _t, double _p, double _r, dou
 
       for(std::set<int>::const_iterator b = _g.outer_set.begin(); b != _g.outer_set.end(); ++b)
 	//
-	IO::log << " " << Model::well(Model::outer_connect(*b).first).name() << "<--"
+	IO::log << " " << Model::well(Model::outer_connect(*b).first).short_name() << "<--"
 	  //
-		<< Model::outer_barrier(*b).name() << "-->" << Model::bimolecular(Model::outer_connect(*b).second).name();
+		<< Model::outer_barrier(*b).short_name() << "-->" << Model::bimolecular(Model::outer_connect(*b).second).short_name();
 
       IO::log << "\n";
     }
@@ -2514,7 +2520,7 @@ void MasterEquation::ReactiveComplex::init (double _t, double _p, double _r, dou
 
     for(std::set<int>::const_iterator w = _g.well_set.begin(); w != _g.well_set.end(); ++w) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::well(*w).name()
+      IO::log << IO::log_offset << std::setw(5) << Model::well(*w).short_name()
 	//
 	      << " well:    thermal energy = "  << std::setw(7) 
 	//
@@ -2539,7 +2545,7 @@ void MasterEquation::ReactiveComplex::init (double _t, double _p, double _r, dou
   
     for(std::set<int>::const_iterator b = _g.inner_set.begin(); b != _g.inner_set.end(); ++b) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::inner_barrier(*b).name()
+      IO::log << IO::log_offset << std::setw(5) << Model::inner_barrier(*b).short_name()
 	//
 	      << " barrier: thermal energy = "  << std::setw(7) 
 	//
@@ -2555,7 +2561,7 @@ void MasterEquation::ReactiveComplex::init (double _t, double _p, double _r, dou
   
     for(std::set<int>::const_iterator b = _g.outer_set.begin(); b != _g.outer_set.end(); ++b) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::outer_barrier(*b).name()
+      IO::log << IO::log_offset << std::setw(5) << Model::outer_barrier(*b).short_name()
 	//
 	      << " barrier: thermal energy = " << std::setw(7) 
 	//
@@ -3016,11 +3022,11 @@ std::map<std::pair<int, int>, double> MasterEquation::ReactiveComplex::propagate
 
     for(int w = 0; w < well_size(); ++w)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(index_to_well(w)).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(index_to_well(w)).short_name();
   
     for(int p = 0; p < _bim_index_map.size(); ++p)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(index_to_bim(p)).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(index_to_bim(p)).short_name();
 
     IO::log << std::setw(Model::log_precision + 7) << "total" << "\n";
   }
@@ -3087,7 +3093,7 @@ std::map<std::pair<int, int>, double> MasterEquation::ReactiveComplex::propagate
     
     if(!(flags & NOPRINT))
       //
-      IO::log << "  " << vtemp[w] << "/" << Model::well(itemp).name();
+      IO::log << "  " << vtemp[w] << "/" << Model::well(itemp).short_name();
     
     res[std::make_pair((int)Model::WELL, itemp)] = CONVERT_DD(vtemp[w]);
   }
@@ -3100,7 +3106,7 @@ std::map<std::pair<int, int>, double> MasterEquation::ReactiveComplex::propagate
     
     if(!(flags & NOPRINT))
       //
-      IO::log << "  " << escape[p] << "/" << Model::bimolecular(itemp).name();
+      IO::log << "  " << escape[p] << "/" << Model::bimolecular(itemp).short_name();
     
     res[std::make_pair((int)Model::BIMOLECULAR, itemp)] = CONVERT_DD(escape[p]);
   }
@@ -3955,7 +3961,7 @@ void MasterEquation::ReactiveComplex::Well::set (double temperature, double ener
 
       if(!(flags & NOPRINT))
 	//
-	IO::log << IO::log_offset << std::setw(4) << model.name() << " well: well extension: base energy = "
+	IO::log << IO::log_offset << std::setw(4) << model.short_name() << " well: well extension: base energy = "
 	  //
 		<< std::ceil(base_ener / Phys_const::kcal * 10.) / 10.  << " kcal/mol"
 
@@ -4002,7 +4008,7 @@ void MasterEquation::ReactiveComplex::Well::set (double temperature, double ener
 
       if(!(flags & NOPRINT))
 	//
-	IO::log << IO::log_offset << std::setw(4) << model.name()  << " well: WARNING: nonpositive density at "
+	IO::log << IO::log_offset << std::setw(4) << model.short_name()  << " well: WARNING: nonpositive density at "
 	  //
 		<< std::ceil(ener / Phys_const::kcal * 10.) / 10. << " kcal/mol: truncating\n";
 
@@ -4043,7 +4049,7 @@ void MasterEquation::ReactiveComplex::Well::set (double temperature, double ener
   
   if(!(flags & NOPRINT))
     //
-    IO::log << IO::log_offset << std::setw(4) << model.name() << " well: size = " << std::setw(4) << size() << "\n";
+    IO::log << IO::log_offset << std::setw(4) << model.short_name() << " well: size = " << std::setw(4) << size() << "\n";
 
 #endif
   
@@ -4271,7 +4277,7 @@ void MasterEquation::ReactiveComplex::Barrier::set (double temperature, double e
   
   if(!(flags & NOPRINT))
     //
-    IO::log << IO::log_offset << std::setw(4) << model.name() << " barrier: size = " << std::setw(4) << size() << "\n";
+    IO::log << IO::log_offset << std::setw(4) << model.short_name() << " barrier: size = " << std::setw(4) << size() << "\n";
 
 #endif
 }
@@ -4885,7 +4891,7 @@ std::set<int> MasterEquation::ReactiveComplex::RateData::add_rate_data (std::map
 	//
 	if(well_extension >= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << "WARNING: " << Model::well(w1).name() << " and " << Model::well(w2).name()
+	  IO::log << IO::log_offset << funame << "WARNING: " << Model::well(w1).short_name() << " and " << Model::well(w2).short_name()
 	    //
 		  << " reactants belong to the same " << well_partition[wgi1->second]
 	    //
@@ -5287,7 +5293,7 @@ void MasterEquation::ReactiveComplex::branching_fraction(double  temperature, do
     
       for(std::map<int, double>::const_iterator i = bf.begin(); i != bf.end(); ++i)
 	//
-	IO::log << "  " << i->second << "/" << Model::well(i->first).name();
+	IO::log << "  " << i->second << "/" << Model::well(i->first).short_name();
       
       IO::log << "\n";
     }
@@ -5331,7 +5337,7 @@ void MasterEquation::ReactiveComplex::branching_fraction(double  temperature, do
 
       for(std::map<int, double>::const_iterator i = res.begin(); i != res.end(); ++i)
 	//
-	IO::log << "  " << i->second << "/" << Model::well(i->first).name();
+	IO::log << "  " << i->second << "/" << Model::well(i->first).short_name();
       
       IO::log << "\n";
     }
@@ -5351,7 +5357,7 @@ void MasterEquation::ReactiveComplex::branching_fraction(double  temperature, do
 
     for(std::map<int, double>::const_iterator i = res.begin(); i != res.end(); ++i)
       //
-      IO::log << "  " << i->second << "/" << Model::well(i->first).name();
+      IO::log << "  " << i->second << "/" << Model::well(i->first).short_name();
 
     IO::log << "\n";
   }
@@ -9963,9 +9969,9 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       
       for(int ped = 0; ped < ped_pair.size(); ++ ped)
 	//
-	ped_out << std::setw(13) << Model::bimolecular(ped_pair[ped].first).name() + "->"
+	ped_out << std::setw(13) << Model::bimolecular(ped_pair[ped].first).short_name() + "->"
 	  //
-	  + Model::bimolecular(ped_pair[ped].second).name();
+	  + Model::bimolecular(ped_pair[ped].second).short_name();
       
       ped_out << "\n";
 
@@ -11435,9 +11441,9 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
       for(int ped = 0; ped < ped_pair.size(); ++ ped)
 	//
-	ped_out << std::setw(13) << Model::bimolecular(ped_pair[ped].first).name() + "->"
+	ped_out << std::setw(13) << Model::bimolecular(ped_pair[ped].first).short_name() + "->"
 	  //
-	  + Model::bimolecular(ped_pair[ped].second).name();
+	  + Model::bimolecular(ped_pair[ped].second).short_name();
       
       ped_out << "\n";
 
@@ -11478,7 +11484,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	      
 	      const int he = hit->second;
 		
-	      ped_out << "Hot[" << Model::well(hw).name() << ", E = "
+	      ped_out << "Hot[" << Model::well(hw).short_name() << ", E = "
 		//
 		      << energy_bin(he) / Phys_const::kcal << " kcal/mol] ---> "
 		//
@@ -11592,7 +11598,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	    //
 	    for(int e = 0; e < Model::escape_size(); ++e)
 	      //
-	      ped_out << std::setw(13) << Model::bimolecular(p).name() + "->" + Model::escape_name(e);
+	      ped_out << std::setw(13) << Model::bimolecular(p).short_name() + "->" + Model::escape_name(e);
 	    
 	ped_out << "\n";
 
@@ -11636,7 +11642,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	
 	for(std::set<std::pair<int, int> >::const_iterator hit = hot_index.begin(); hit != hot_index.end(); ++hit, ++count) {
 	  //
-	  ped_out << "Initial well: "<< Model::well(hit->first).name()
+	  ped_out << "Initial well: "<< Model::well(hit->first).short_name()
 	    //
 		  << "   Initial energy[kcal/mol] = " << energy_bin(hit->second) / Phys_const::kcal
 	    //
@@ -11678,7 +11684,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	    
 	  for(int p = 0; p < Model::bimolecular_size(); ++p)
 	    //
-	    ped_out << std::setw(13) << Model::bimolecular(p).name();
+	    ped_out << std::setw(13) << Model::bimolecular(p).short_name();
 	    
 	  ped_out << "\n";
 	
@@ -12171,9 +12177,9 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	  
 	  for(int p = 0; p < Model::bimolecular_size(); ++p)
 	    //
-	    ped_out << std::setw(13) << Model::well(group_index[ww]).name() + "->"
+	    ped_out << std::setw(13) << Model::well(group_index[ww]).short_name() + "->"
 	      //
-	      + Model::bimolecular(p).name();
+	      + Model::bimolecular(p).short_name();
 	  
 	  ped_out << "\n";
 
@@ -12251,7 +12257,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	  //
 	  for(int e = 0; e < Model::escape_size(); ++e)
 	    //
-	    ped_out << std::setw(13) << Model::well(group_index[w]).name() + "->" + Model::escape_name(e);
+	    ped_out << std::setw(13) << Model::well(group_index[w]).short_name() + "->" + Model::escape_name(e);
 	
 	ped_out << "\n";
       
