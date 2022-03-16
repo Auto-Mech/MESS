@@ -378,19 +378,45 @@ int main (int argc, char* argv [])
     // product energy distribution output
     //
     else if(ped_out_key == token) {
+      //
       if(MasterEquation::ped_out.is_open()) {
+	//
 	std::cerr << funame << token << ": already opened\n";
+	
 	throw Error::Open();
       }
+      
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       MasterEquation::ped_out.open(stemp.c_str());
+      
       if(!MasterEquation::ped_out.is_open()) {
+	//
 	std::cerr << funame << token << ": cannot open the " << stemp << " file\n";
+	
 	throw Error::Open();
       }
+      
+      MasterEquation::ped_out << "Well Names Translation:\n";
+
+      for(int w = 0; w < Model::well_size(); ++w)
+	//
+	MasterEquation::ped_out << std::setw(3) << Model::well(w).short_name() << "  " << Model::well(w).name() << "\n";
+
+      MasterEquation::ped_out << "End\n";
+  
+      MasterEquation::ped_out << "Bimolecular Names Translation:\n";
+
+      for(int p = 0; p < Model::bimolecular_size(); ++p)
+	//
+	MasterEquation::ped_out << std::setw(3) << Model::bimolecular(p).short_name() << "  " << Model::bimolecular(p).name() << "\n";
+
+      MasterEquation::ped_out << "End\n";
     }
     // reactants and products for product energy distribution output
     else if(ped_spec_key == token) {
@@ -1054,6 +1080,22 @@ int main (int argc, char* argv [])
       throw Error::Open();
     }
 
+    micro_out << "Well Names Translation:\n";
+
+    for(int w = 0; w < Model::well_size(); ++w)
+      //
+      micro_out << std::setw(3) << Model::well(w).short_name() << "  " << Model::well(w).name() << "\n";
+
+    micro_out << "End\n";
+  
+    micro_out << "Bimolecular Names Translation:\n";
+    
+    for(int p = 0; p < Model::bimolecular_size(); ++p)
+      //
+      micro_out << std::setw(3) << Model::bimolecular(p).short_name() << "  " << Model::bimolecular(p).name() << "\n";
+
+    micro_out << "End\n";
+  
     // well cycle
     //
     for(int w = 0; w < Model::well_size(); ++w) {
@@ -1069,13 +1111,13 @@ int main (int argc, char* argv [])
 	
 	if(w1 == w) {
 	  //
-	  stemp = Model::well(w).name() + "->" + Model::well(w2).name();
+	  stemp = Model::well(w).short_name() + "->" + Model::well(w2).short_name();
 	  
 	  micro_out << std::setw(15) << stemp;
 	}
 	else if(w2 == w) {
 	  //
-	  stemp = Model::well(w).name() + "->" + Model::well(w1).name();
+	  stemp = Model::well(w).short_name() + "->" + Model::well(w1).short_name();
 	  
 	  micro_out << std::setw(15) << stemp;
 	}
@@ -1087,7 +1129,7 @@ int main (int argc, char* argv [])
 	  //
 	  const int p = Model::outer_connect(b).second;
 	  
-	  stemp = Model::well(w).name() + "->" + Model::bimolecular(p).name();
+	  stemp = Model::well(w).short_name() + "->" + Model::bimolecular(p).short_name();
 	  
 	  micro_out << std::setw(15) << stemp;
 	}
@@ -1161,7 +1203,7 @@ int main (int argc, char* argv [])
 	    //
 	    if(Model::bimolecular(p).mode(f) == Model::DENSITY)
 	      //
-	      micro_out << std::setw(15) << Model::bimolecular(p).fragment_name(f);
+	      micro_out << std::setw(15) << Model::bimolecular(p).short_name() + "_" + IO::String(f);
       
       micro_out << "\n";
 
@@ -1198,7 +1240,7 @@ int main (int argc, char* argv [])
 
   for(int w = 0; w < Model::well_size(); ++w)
     //
-    IO::out << std::setw(3) << "W" + IO::String(w) << "  " << Model::well(w).name() << "\n";
+    IO::out << std::setw(3) << Model::well(w).short_name() << "  " << Model::well(w).name() << "\n";
 
   IO::out << "End\n";
   
@@ -1206,9 +1248,25 @@ int main (int argc, char* argv [])
 
   for(int p = 0; p < Model::bimolecular_size(); ++p)
     //
-    IO::out << std::setw(3) << "P" + IO::String(p) << "  " << Model::bimolecular(p).name() << "\n";
+    IO::out << std::setw(3) << Model::bimolecular(p).short_name() << "  " << Model::bimolecular(p).name() << "\n";
 
   IO::out << "End\n";
+  
+  IO::log << "Well Names Translation:\n";
+
+  for(int w = 0; w < Model::well_size(); ++w)
+    //
+    IO::log << std::setw(3) << Model::well(w).short_name() << "  " << Model::well(w).name() << "\n";
+
+  IO::log << "End\n";
+  
+  IO::log << "Bimolecular Names Translation:\n";
+
+  for(int p = 0; p < Model::bimolecular_size(); ++p)
+    //
+    IO::log << std::setw(3) << Model::bimolecular(p).short_name() << "  " << Model::bimolecular(p).name() << "\n";
+
+  IO::log << "End\n";
   
   /*********** PRESSURE AND TEMPERATURE DEPENDENT RATE COEFFICIENTS CALCULATION*************/
 
@@ -1635,17 +1693,25 @@ int main (int argc, char* argv [])
   for(int i = 0; i < spec_name.size(); ++i) {
     //
     for(int p = 0; p < pressure.size(); ++p) {
-      // title
+      //
       IO::out << "Reactant = " << spec_name[i] << "   Pressure = ";
+      
       switch(MasterEquation::pressure_unit) {
+	//
       case MasterEquation::BAR:
+	//
 	IO::out << pressure[p] / Phys_const::bar << " bar\n\n";
+	
 	break;
       case MasterEquation::TORR:
+	//
 	IO::out << pressure[p] / Phys_const::tor << " torr\n\n";
+	
 	break;
       case MasterEquation::ATM:
+	//
 	IO::out << pressure[p] / Phys_const::atm << " atm\n\n";
+	
 	break;
       }
       IO::out << std::setw(7) << "T(K)";
