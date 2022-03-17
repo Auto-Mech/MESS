@@ -402,21 +402,6 @@ int main (int argc, char* argv [])
 	throw Error::Open();
       }
       
-      MasterEquation::ped_out << "Well Names Translation:\n";
-
-      for(int w = 0; w < Model::well_size(); ++w)
-	//
-	MasterEquation::ped_out << std::setw(3) << Model::well(w).short_name() << "  " << Model::well(w).name() << "\n";
-
-      MasterEquation::ped_out << "End\n";
-  
-      MasterEquation::ped_out << "Bimolecular Names Translation:\n";
-
-      for(int p = 0; p < Model::bimolecular_size(); ++p)
-	//
-	MasterEquation::ped_out << std::setw(3) << Model::bimolecular(p).short_name() << "  " << Model::bimolecular(p).name() << "\n";
-
-      MasterEquation::ped_out << "End\n";
     }
     // reactants and products for product energy distribution output
     else if(ped_spec_key == token) {
@@ -1062,6 +1047,25 @@ int main (int argc, char* argv [])
 
   /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
 
+  if(MasterEquation::ped_out.is_open()) {
+    //
+    MasterEquation::ped_out <<  "Well Names Translation:\n";
+
+    for(int w = 0; w < Model::well_size(); ++w)
+      //
+      MasterEquation::ped_out << std::setw(3) << Model::well(w).short_name() << "  " << Model::well(w).name() << "\n";
+
+    MasterEquation::ped_out << "End\n";
+  
+    MasterEquation::ped_out << "Bimolecular Names Translation:\n";
+
+    for(int p = 0; p < Model::bimolecular_size(); ++p)
+      //
+      MasterEquation::ped_out << std::setw(3) << Model::bimolecular(p).short_name() << "  " << Model::bimolecular(p).name() << "\n";
+
+    MasterEquation::ped_out << "End\n";
+  }
+  
   if(micro_rate_file.size()) {
     //
     if(micro_ener_max <= micro_ener_min || micro_ener_step <= 0.) {
