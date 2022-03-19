@@ -24188,8 +24188,6 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
     //
     _ground_shift = ground_min.second - _ground;
 
-    _ground = ground_min.second;
-    
     if(_ground_shift > ground_shift_max) {
       //
       std::cerr << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
@@ -24202,6 +24200,8 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
     }
     else {
       //
+      _ground = ground_min.second;
+    
       IO::log << IO::log_offset << name() << " barrier ground state energy, "  << _ground / Phys_const::kcal
 	//
 		<< " kcal/mol, is lower than the ground state of the well it connects to, by "
@@ -25322,7 +25322,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       
       IO::log << IO::log_offset << _rrho.size() + 1 << "-th RRHO:\n";
       
-      _rrho.push_back(SharedPointer<RRHO>(new RRHO(from, n, NUMBER, ground_min)));
+      _rrho.push_back(SharedPointer<RRHO>(new RRHO(from, n, NUMBER)));
     }
     // outer barrier
     //
@@ -25581,15 +25581,32 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
 
   // is inner barrier submerged
   //
+  double ground_shift = -1.;
+  
   if(ground_min.first && _ground < ground_min.second) {
     //
-    std::cerr << funame << "ground state energy, "
+    ground_shift = ground_min.second - _ground;
+    
+    if(ground_shift > ground_shift_max) {
       //
-	      << std::ceil(_ground / Phys_const::kcal * 10.) / 10. << " kcal/mol, is less than ground state energy minimum, "
+      std::cerr << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
+	//
+		<< " kcal/mol, is lower than the ground state of the well it connects to, by "
+	//
+		<< ground_shift / Phys_const::kcal << " kcal/mol\n";
+
+      throw Error::Range();
+    }
+    else {
       //
-	      << std::ceil(ground_min.second / Phys_const::kcal * 10.) / 10. << " kcal/mol\n";
-      
-    throw Error::Range();
+      IO::log << IO::log_offset << name() << " barrier ground state energy, "  << _ground / Phys_const::kcal
+	//
+		<< " kcal/mol, is lower than the ground state of the well it connects to, by "
+	//
+		<< ground_shift / Phys_const::kcal << " kcal/mol: truncating the barrier\n";
+
+      _ground = ground_min.second;
+    }
   }
 
   // states density for inner barrier
@@ -25635,7 +25652,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
 
   // tunneling correcton
   //
-  if(_tunnel && (!ground_min.first || _ground > ground_min.second)) {
+  if(_tunnel && (!ground_min.first || ground_shift < 0.)) {
     //
     dtemp = _ground - _tunnel->cutoff();
       
