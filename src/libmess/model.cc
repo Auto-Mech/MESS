@@ -24192,21 +24192,21 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       std::cerr << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
 	//
-		<< " kcal/mol, is lower than the ground state of the well it connects to, by "
+		<< " kcal/mol, is lower than the ground state of the well it connects to, " 
 	//
-		<< _ground_shift / Phys_const::kcal << " kcal/mol\n";
+		<< ground_min.second / Phys_const::kcal << " kcal/mol\n";
 
       throw Error::Range();
     }
     else {
       //
-      _ground = ground_min.second;
-    
       IO::log << IO::log_offset << name() << " barrier ground state energy, "  << _ground / Phys_const::kcal
 	//
-		<< " kcal/mol, is lower than the ground state of the well it connects to, by "
+		<< " kcal/mol, is lower than the ground state of the well it connects to, "
 	//
-		<< _ground_shift / Phys_const::kcal << " kcal/mol: truncating the barrier\n";
+		<<  ground_min.second / Phys_const::kcal << " kcal/mol: truncating the barrier\n";
+      
+      _ground = ground_min.second;
     }
   }
 
@@ -25591,9 +25591,9 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       //
       std::cerr << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
 	//
-		<< " kcal/mol, is lower than the ground state of the well it connects to, by "
+		<< " kcal/mol, is lower than the ground state of the well it connects to, "
 	//
-		<< ground_shift / Phys_const::kcal << " kcal/mol\n";
+		<< ground_min.second / Phys_const::kcal << " kcal/mol\n";
 
       throw Error::Range();
     }
@@ -25601,9 +25601,9 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       //
       IO::log << IO::log_offset << name() << " barrier ground state energy, "  << _ground / Phys_const::kcal
 	//
-		<< " kcal/mol, is lower than the ground state of the well it connects to, by "
+		<< " kcal/mol, is lower than the ground state of the well it connects to, "
 	//
-		<< ground_shift / Phys_const::kcal << " kcal/mol: truncating the barrier\n";
+		<< ground_min.second / Phys_const::kcal << " kcal/mol: truncating the barrier\n";
 
       _ground = ground_min.second;
     }
