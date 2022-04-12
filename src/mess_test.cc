@@ -1561,47 +1561,8 @@ int main (int argc, char* argv [])
     Model::reset(wp);
   }
 
-  if(Model::use_short_names) {
-    //
-    IO::log << IO::log_offset << "Translation Tables:\n";
+  Model::names_translation(IO::log);
 
-    if(Model::well_size()) {
-      //
-      IO::log << IO::log_offset << "Wells:\n";
-
-      for(int i = 0; i < Model::well_size(); ++i)
-	//
-	IO::log << IO::log_offset << std::setw(5) << Model::well(i).short_name() << "  " << Model::well(i).name() << "\n";
-    }
-  
-    if(Model::bimolecular_size()) {
-      //
-      IO::log << IO::log_offset << "Bimolecular:\n";
-
-      for(int i = 0; i < Model::bimolecular_size(); ++i)
-	//
-	IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(i).short_name() << "  " << Model::bimolecular(i).name() << "\n";
-    }
-  
-    if(Model::inner_barrier_size()) {
-      //
-      IO::log << IO::log_offset << "Inner Barriers:\n";
-
-      for(int i = 0; i < Model::inner_barrier_size(); ++i)
-	//
-	IO::log << IO::log_offset << std::setw(5) << Model::inner_barrier(i).short_name() << "  " << Model::inner_barrier(i).name() << "\n";
-    }
-  
-    if(Model::outer_barrier_size()) {
-      //
-      IO::log << IO::log_offset << "Outer Barriers:\n";
-
-      for(int i = 0; i < Model::outer_barrier_size(); ++i)
-	//
-	IO::log << IO::log_offset << std::setw(5) << Model::outer_barrier(i).short_name() << "  " << Model::outer_barrier(i).name() << "\n";
-    }
-  }
-  
   /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
 
   if(micro_rate_file.size()) {
@@ -2214,24 +2175,7 @@ int main (int argc, char* argv [])
 
   int start, count;
 
-  if(Model::use_short_names) {
-    //
-    IO::out << "Well Names Translation:\n";
-
-    for(int w = 0; w < Model::well_size(); ++w)
-      //
-      IO::out << std::setw(3) << Model::well(w).short_name() << "  " << Model::well(w).name() << "\n";
-
-    IO::out << "End\n";
-  
-    IO::out << "Bimolecular Names Translation:\n";
-
-    for(int p = 0; p < Model::bimolecular_size(); ++p)
-      //
-      IO::out << std::setw(3) << Model::bimolecular(p).short_name() << "  " << Model::bimolecular(p).name() << "\n";
-
-    IO::out << "End\n";
-  }
+  Model::names_translation(IO::out);
   
   IO::out << "Unimolecular Rate Units: 1/sec;  Bimolecular Rate Units: cm^3/sec\n\n"
     //

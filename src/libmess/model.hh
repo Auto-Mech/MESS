@@ -43,6 +43,8 @@ namespace Model {
 
   extern bool use_short_names;
 
+  void names_translation (std::ostream&);
+  
   int name_size_max ();
   
   // minimal interatomic distance
