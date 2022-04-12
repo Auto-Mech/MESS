@@ -60,11 +60,11 @@ std::string Reactant::name () const
     //
   case Model::WELL:
     //
-    return "W" + IO::String(second);
+    return Model::well(second).short_name();
 
   case Model::BIMOLECULAR:
     //
-    return "P" + IO::String(second);
+    return Model::bimolecular(second).short_name();
 
   default:
     //
@@ -1536,17 +1536,17 @@ int main (int argc, char* argv [])
       //
       MasterEquation::ReactiveComplex::lumping_scheme(MasterEquation::reference_temperature, MasterEquation::reference_pressure);
 
-      IO::log << "\n";
+    IO::log << "\n";
       
-      IO::log << IO::log_offset << "reference lumping scheme:";
+    IO::log << IO::log_offset << "reference lumping scheme:";
 
-      for(std::list<std::set<int> >::const_iterator g = lumping_scheme.first.begin(); g != lumping_scheme.first.end(); ++g)
-	//
-	IO::log << "  " << *g;
+    for(std::list<std::set<int> >::const_iterator g = lumping_scheme.first.begin(); g != lumping_scheme.first.end(); ++g)
+      //
+      IO::log << "  " << *g;
 
-      IO::log << "\n";
+    IO::log << "\n";
       
-      IO::log << IO::log_offset << "reference exclude group: " << lumping_scheme.second << "\n\n";
+    IO::log << IO::log_offset << "reference exclude group: " << lumping_scheme.second << "\n\n";
 
     for(std::set<int>::const_iterator i = lumping_scheme.second.begin(); i != lumping_scheme.second.end(); ++i)
       //
@@ -1561,42 +1561,45 @@ int main (int argc, char* argv [])
     Model::reset(wp);
   }
 
-  IO::log << IO::log_offset << "Translation Tables:\n";
-
-  if(Model::well_size()) {
+  if(Model::use_short_names) {
     //
-    IO::log << IO::log_offset << "Wells:\n";
+    IO::log << IO::log_offset << "Translation Tables:\n";
 
-    for(int i = 0; i < Model::well_size(); ++i)
+    if(Model::well_size()) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::well(i).short_name() << "  " << Model::well(i).name() << "\n";
-  }
+      IO::log << IO::log_offset << "Wells:\n";
+
+      for(int i = 0; i < Model::well_size(); ++i)
+	//
+	IO::log << IO::log_offset << std::setw(5) << Model::well(i).short_name() << "  " << Model::well(i).name() << "\n";
+    }
   
-  if(Model::bimolecular_size()) {
-    //
-    IO::log << IO::log_offset << "Bimolecular:\n";
-
-    for(int i = 0; i < Model::bimolecular_size(); ++i)
+    if(Model::bimolecular_size()) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(i).short_name() << "  " << Model::bimolecular(i).name() << "\n";
-  }
+      IO::log << IO::log_offset << "Bimolecular:\n";
+
+      for(int i = 0; i < Model::bimolecular_size(); ++i)
+	//
+	IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(i).short_name() << "  " << Model::bimolecular(i).name() << "\n";
+    }
   
-  if(Model::inner_barrier_size()) {
-    //
-    IO::log << IO::log_offset << "Inner Barriers:\n";
-
-    for(int i = 0; i < Model::inner_barrier_size(); ++i)
+    if(Model::inner_barrier_size()) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::inner_barrier(i).short_name() << "  " << Model::inner_barrier(i).name() << "\n";
-  }
+      IO::log << IO::log_offset << "Inner Barriers:\n";
+
+      for(int i = 0; i < Model::inner_barrier_size(); ++i)
+	//
+	IO::log << IO::log_offset << std::setw(5) << Model::inner_barrier(i).short_name() << "  " << Model::inner_barrier(i).name() << "\n";
+    }
   
-  if(Model::outer_barrier_size()) {
-    //
-    IO::log << IO::log_offset << "Outer Barriers:\n";
-
-    for(int i = 0; i < Model::outer_barrier_size(); ++i)
+    if(Model::outer_barrier_size()) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::outer_barrier(i).short_name() << "  " << Model::outer_barrier(i).name() << "\n";
+      IO::log << IO::log_offset << "Outer Barriers:\n";
+
+      for(int i = 0; i < Model::outer_barrier_size(); ++i)
+	//
+	IO::log << IO::log_offset << std::setw(5) << Model::outer_barrier(i).short_name() << "  " << Model::outer_barrier(i).name() << "\n";
+    }
   }
   
   /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
@@ -1847,15 +1850,15 @@ int main (int argc, char* argv [])
       //IO::log << "\n";
       
       /*
-      IO::log << IO::log_offset << "lumping scheme:";
+	IO::log << IO::log_offset << "lumping scheme:";
 
-      for(std::list<std::set<int> >::const_iterator g = lumping_scheme.first.begin(); g != lumping_scheme.first.end(); ++g)
+	for(std::list<std::set<int> >::const_iterator g = lumping_scheme.first.begin(); g != lumping_scheme.first.end(); ++g)
 	//
 	IO::log << "  " << *g;
 
-      IO::log << "\n";
+	IO::log << "\n";
       
-      IO::log << IO::log_offset << "exclude group: " << lumping_scheme.second << "\n\n";
+	IO::log << IO::log_offset << "exclude group: " << lumping_scheme.second << "\n\n";
       */
       
       // well extension cap for qualified wells from well lumping scheme
@@ -1937,30 +1940,30 @@ int main (int argc, char* argv [])
       }
 
       /*
-      IO::log << IO::log_offset << "Temperature = " << int(*ti / Phys_const::kelv) << " K"  << "   Pressure = ";
+	IO::log << IO::log_offset << "Temperature = " << int(*ti / Phys_const::kelv) << " K"  << "   Pressure = ";
   
-      switch(MasterEquation::pressure_unit) {
+	switch(MasterEquation::pressure_unit) {
 	//
-      case MasterEquation::BAR:
+	case MasterEquation::BAR:
 	//
 	IO::log << *pi / Phys_const::bar << " bar";
     
 	break;
 	//
-      case MasterEquation::TORR:
+	case MasterEquation::TORR:
 	//
 	IO::log << *pi / Phys_const::tor << " torr";
     
 	break;
 	//
-      case MasterEquation::ATM:
+	case MasterEquation::ATM:
 	//
 	IO::log << *pi / Phys_const::atm << " atm";
     
 	break;
-      }
+	}
       
-      IO::log << "\n\n";
+	IO::log << "\n\n";
       */
 
       data_t rate_data;
@@ -2211,21 +2214,24 @@ int main (int argc, char* argv [])
 
   int start, count;
 
-  IO::out << "Well Names Translation:\n";
-
-  for(int w = 0; w < Model::well_size(); ++w)
+  if(Model::use_short_names) {
     //
-    IO::out << std::setw(3) << Reactant(Model::WELL, w) << "  " << Model::well(w).name() << "\n";
+    IO::out << "Well Names Translation:\n";
 
-  IO::out << "End\n";
+    for(int w = 0; w < Model::well_size(); ++w)
+      //
+      IO::out << std::setw(3) << Model::well(w).short_name() << "  " << Model::well(w).name() << "\n";
+
+    IO::out << "End\n";
   
-  IO::out << "Bimolecular Names Translation:\n";
+    IO::out << "Bimolecular Names Translation:\n";
 
-  for(int p = 0; p < Model::bimolecular_size(); ++p)
-    //
-    IO::out << std::setw(3) << Reactant(Model::BIMOLECULAR, p) << "  " << Model::bimolecular(p).name() << "\n";
+    for(int p = 0; p < Model::bimolecular_size(); ++p)
+      //
+      IO::out << std::setw(3) << Model::bimolecular(p).short_name() << "  " << Model::bimolecular(p).name() << "\n";
 
-  IO::out << "End\n";
+    IO::out << "End\n";
+  }
   
   IO::out << "Unimolecular Rate Units: 1/sec;  Bimolecular Rate Units: cm^3/sec\n\n"
     //
@@ -2241,7 +2247,7 @@ int main (int argc, char* argv [])
       
     if(!Model::bimolecular(p).dummy())
       //
-      IO::out << std::setw(width) << Reactant(Model::BIMOLECULAR, p);
+      IO::out << std::setw(width) << Model::bimolecular(p).short_name();
   }
   
   IO::out << "\n";
@@ -2294,12 +2300,12 @@ int main (int argc, char* argv [])
       const int& w2 = Model::inner_connect(b).second;
       
       IO::out << std::setw(width) << temperature[t] / 2. / M_PI / Phys_const::herz * Model::inner_barrier(b).weight(temperature[t])
-	  //
-	  / Model::well(w1).weight(temperature[t]) * std::exp((Model::well(w1).ground() - Model::inner_barrier(b).ground()) / temperature[t]);
+	//
+	/ Model::well(w1).weight(temperature[t]) * std::exp((Model::well(w1).ground() - Model::inner_barrier(b).ground()) / temperature[t]);
 
       IO::out << std::setw(width) << temperature[t] / 2. / M_PI / Phys_const::herz * Model::inner_barrier(b).weight(temperature[t])
-	  //
-	  / Model::well(w2).weight(temperature[t]) * std::exp((Model::well(w2).ground() - Model::inner_barrier(b).ground()) / temperature[t]);
+	//
+	/ Model::well(w2).weight(temperature[t]) * std::exp((Model::well(w2).ground() - Model::inner_barrier(b).ground()) / temperature[t]);
     }
 
     IO::out  << "\n";

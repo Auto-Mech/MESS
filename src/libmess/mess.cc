@@ -5396,7 +5396,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       //
       Model::outer_barrier(b).esc_parameters(temperature(), e, s, c);
 
-      IO::log << IO::log_offset << Model::outer_barrier(b).name() << ": e = " << e / Phys_const::kcal << " kcal/mol, c = " << c << std::endl;
+      IO::log << IO::log_offset << Model::outer_barrier(b).short_name() << ": e = " << e / Phys_const::kcal << " kcal/mol, c = " << c << std::endl;
       
       e += Model::outer_barrier(b).ground() + 5. * temperature() * std::sqrt(c);
       
@@ -5411,7 +5411,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       //
       Model::inner_barrier(b).esc_parameters(temperature(), e, s, c);
       
-      IO::log << IO::log_offset << Model::inner_barrier(b).name() << ": e = " << e / Phys_const::kcal << " kcal/mol, c = " << c << std::endl;
+      IO::log << IO::log_offset << Model::inner_barrier(b).short_name() << ": e = " << e / Phys_const::kcal << " kcal/mol, c = " << c << std::endl;
       
       e += Model::inner_barrier(b).ground() + 5. * temperature() * std::sqrt(c);
       
@@ -5498,7 +5498,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     
     if(itemp  < inner_barrier(b).size()) {
       //
-      IO::log << IO::log_offset << Model::inner_barrier(b).name()
+      IO::log << IO::log_offset << Model::inner_barrier(b).short_name()
 	//
 	      << " barrier top is lower than the bottom of one of the wells it connects => truncating\n";
       
@@ -5514,7 +5514,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     
     if(itemp  < outer_barrier(b).size()) {
       //
-      IO::log << IO::log_offset << Model::outer_barrier(b).name()
+      IO::log << IO::log_offset << Model::outer_barrier(b).short_name()
 	//
 	      << " barrier top is lower than the bottom of the well it connects => truncating\n";
       
@@ -5628,7 +5628,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     
     for(int w = 0; w < Model::well_size(); ++w)
       //
-      evec_out << std::setw(13) << Model::well(w).name();
+      evec_out << std::setw(13) << Model::well(w).short_name();
     
     evec_out << "\n";
     
@@ -5669,7 +5669,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       //
       IO::log << IO::log_offset
 	//
-	      << std::setw(5) << Model::well(w).name();
+	      << std::setw(5) << Model::well(w).short_name();
       
       dtemp = energy_bin(well(w).size());
       
@@ -5704,7 +5704,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
     for(int b = 0; b < Model::inner_barrier_size(); ++b) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::inner_barrier(b).name();
+      IO::log << IO::log_offset << std::setw(5) << Model::inner_barrier(b).short_name();
       
       dtemp = energy_bin(inner_barrier(b).size());
       
@@ -5744,7 +5744,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
     for(int b = 0; b < Model::outer_barrier_size(); ++b) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::outer_barrier(b).name();
+      IO::log << IO::log_offset << std::setw(5) << Model::outer_barrier(b).short_name();
       //
       dtemp = energy_bin(outer_barrier(b).size());
       
@@ -5766,19 +5766,19 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
   
   for(int w = 0; w < Model::well_size(); ++w)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
   
   for(int p = 0; p < Model::bimolecular_size(); ++p)
     //
     if(!Model::bimolecular(p).dummy())
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
   
   IO::log << "\n";
 
   for(int w = 0; w < Model::well_size(); ++w) {
     //
-    IO::log << IO::log_offset << std::setw(5) << Model::well(w).name();
+    IO::log << IO::log_offset << std::setw(5) << Model::well(w).short_name();
     
     for(int w1 = 0; w1 < Model::well_size(); ++w1)
       //
@@ -5799,7 +5799,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       //
       continue;
     
-    IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).name();
+    IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).short_name();
     
     for(int w1 = 0; w1 < Model::well_size(); ++w1)
       //
@@ -5820,19 +5820,19 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
   
   for(int w = 0; w < Model::well_size(); ++w)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
   
   for(int p = 0; p < Model::bimolecular_size(); ++p)
     //
     if(!Model::bimolecular(p).dummy())
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
   
   IO::log << "\n";
 
   for(int w = 0; w < Model::well_size(); ++w) {
     //
-    IO::log << IO::log_offset << std::setw(5) << Model::well(w).name();
+    IO::log << IO::log_offset << std::setw(5) << Model::well(w).short_name();
     
     for(int w1 = 0; w1 < Model::well_size(); ++w1)
       //
@@ -5853,7 +5853,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       //
       continue;
     
-    IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).name();
+    IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).short_name();
     
     for(int w1 = 0; w1 < Model::well_size(); ++w1)
       //
@@ -6017,7 +6017,7 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
 
   hval += model.ground();
   
-  IO::log << IO::log_offset << model.name() << " Well: average energy = "
+  IO::log << IO::log_offset << model.short_name() << " Well: average energy = "
     //
 	  << std::ceil(hval / Phys_const::kcal * 10.) / 10.
     //
@@ -6061,7 +6061,7 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
   
   if(ext_size)
     //
-    IO::log << IO::log_offset << model.name() << " Well: extension size = " << ext_size << "\n";
+    IO::log << IO::log_offset << model.short_name() << " Well: extension size = " << ext_size << "\n";
 											   
   itemp = base_size + ext_size;
   
@@ -6077,7 +6077,7 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
     
     if(dtemp <= 0.) {
       //
-      IO::log << IO::log_offset << model.name()  << " Well: WARNING: nonpositive density at " 
+      IO::log << IO::log_offset << model.short_name()  << " Well: WARNING: nonpositive density at " 
 	      << ener / Phys_const::incm << " 1/cm, truncating\n";
 
       _state_density.resize(e);      
@@ -6125,7 +6125,7 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
       //
       itemp = (int)std::ceil(model.kernel(b).cutoff_energy(temperature()) / energy_step());
 
-      IO::log << IO::log_offset << model.name() << " Well: collisional kernel bandwidth = " << itemp << "\n";
+      IO::log << IO::log_offset << model.short_name() << " Well: collisional kernel bandwidth = " << itemp << "\n";
 
       std::vector<double> energy_transfer(itemp);
 	
@@ -6179,7 +6179,7 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
     
 	  if(a <= 0.) {
 	    //
-	    std::cerr << model.name() << " Well: cannot satisfy the constant collision rate at energy = "
+	    std::cerr << model.short_name() << " Well: cannot satisfy the constant collision rate at energy = "
 		      << energy_bin(i) / Phys_const::incm
 		      << " 1/cm\n";
 	    
@@ -6244,7 +6244,7 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
     
 	  if(a < 0.) {
 	    //
-	    IO::log << IO::log_offset << model.name()
+	    IO::log << IO::log_offset << model.short_name()
 	      //
 		    << " Well: cannot satisfy the constant collision frequency at energy = "
 	      //
@@ -6366,7 +6366,7 @@ void MasterEquation::Well::_set_kernel (const Model::Well& model)
 
 #ifdef DEBUG
   
-  IO::log << IO::log_offset << model.name() << " well: kernel diagonal elements:\n";
+  IO::log << IO::log_offset << model.short_name() << " well: kernel diagonal elements:\n";
   
   for(int i = 0; i < size(); ++i)
     //
@@ -6473,7 +6473,7 @@ MasterEquation::Well::Well (const Model::Well& model)
 
   _set_state_density(model);
 
-  IO::log << IO::log_offset << model.name() << " Well: density of states done, elapsed time[sec] = "
+  IO::log << IO::log_offset << model.short_name() << " Well: density of states done, elapsed time[sec] = "
     //
 	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
 
@@ -6483,7 +6483,7 @@ MasterEquation::Well::Well (const Model::Well& model)
 
   _set_kernel(model);
 
-  IO::log << IO::log_offset << model.name() << " Well: collisional energy transfer kernel done, elapsed time[sec] = "
+  IO::log << IO::log_offset << model.short_name() << " Well: collisional energy transfer kernel done, elapsed time[sec] = "
     //
 	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
 
@@ -6493,7 +6493,7 @@ MasterEquation::Well::Well (const Model::Well& model)
 
   _set_crm_basis();
 
-  IO::log << IO::log_offset << model.name() << " Well: relaxation modes basis done, elapsed time[sec] = "
+  IO::log << IO::log_offset << model.short_name() << " Well: relaxation modes basis done, elapsed time[sec] = "
     //
 	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
 
@@ -6509,7 +6509,7 @@ MasterEquation::Well::Well (const Model::Well& model)
 
   _crm_kernel = Lapack::SymmetricMatrix(_crm_basis.transpose() * _kernel * _crm_bra);
 
-  IO::log << IO::log_offset << model.name()
+  IO::log << IO::log_offset << model.short_name()
     //
 	  << " Well: kernel in relaxation modes basis done, elapsed time[sec] = "
     //
@@ -6531,7 +6531,7 @@ MasterEquation::Well::Well (const Model::Well& model)
 
     Lapack::Vector kval = ktest.eigenvalues(&kvec);
 
-    IO::log << IO::log_offset << model.name() << " Well: energy transfer kernel lowest eigenvalues:\n";
+    IO::log << IO::log_offset << model.short_name() << " Well: energy transfer kernel lowest eigenvalues:\n";
 
     itemp = size() < 10 ? size() : 10;
   
@@ -6539,7 +6539,7 @@ MasterEquation::Well::Well (const Model::Well& model)
     //
     IO::log << IO::log_offset << std::setw(Model::log_precision + 7) << kval[i] << "\n";
 
-    stemp = "kvec_" + model.name() + "_" + IO::String(int(temperature() / Phys_const::kelv)) + ".dat";
+    stemp = "kvec_" + model.short_name() + "_" + IO::String(int(temperature() / Phys_const::kelv)) + ".dat";
 
     std::ofstream kvec_out(stemp.c_str());
   
@@ -6563,15 +6563,15 @@ MasterEquation::Well::Well (const Model::Well& model)
   
   _max_relax_eval = vtemp.back();
 
-  IO::log << IO::log_offset << model.name() << " Well: relaxation eigenvalues done, elapsed time[sec] = "
+  IO::log << IO::log_offset << model.short_name() << " Well: relaxation eigenvalues done, elapsed time[sec] = "
     //
 	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
 
-  IO::log << IO::log_offset << model.name() << " Well: minimal relaxation eigenvalue = "
+  IO::log << IO::log_offset << model.short_name() << " Well: minimal relaxation eigenvalue = "
     //
 	  << _min_relax_eval << "\n";
   
-  IO::log << IO::log_offset << model.name() << " Well: maximal relaxation eigenvalue = "
+  IO::log << IO::log_offset << model.short_name() << " Well: maximal relaxation eigenvalue = "
     //
 	  << _max_relax_eval << "\n";
 
@@ -6590,9 +6590,9 @@ MasterEquation::Well::Well (const Model::Well& model)
     sym_kernel(i, j) = kernel(i, j) * f_0[i] / f_0[j];
     vtemp = sym_kernel.eigenvalues();
     
-    IO::log << IO::log_offset << model.name() << " Well: symmetrized kernel eigenvalues done, elapsed time[sec] = "
+    IO::log << IO::log_offset << model.short_name() << " Well: symmetrized kernel eigenvalues done, elapsed time[sec] = "
     << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
-    IO::log << IO::log_offset << model.name() << " Well: symmetrized kernel eigenvalues: "
+    IO::log << IO::log_offset << model.short_name() << " Well: symmetrized kernel eigenvalues: "
     << std::setw(Model::log_precision + 7) << vtemp[0] << std::setw(Model::log_precision + 7) << vtemp[1] << std::setw(Model::log_precision + 7) << vtemp.back() << "\n";
     
     #endif
@@ -6602,7 +6602,7 @@ MasterEquation::Well::Well (const Model::Well& model)
     //
     if(model.escape_size()) {
     //
-    IO::log << IO::log_offset << model.name() << " Well: Escape rate:\n";
+    IO::log << IO::log_offset << model.short_name() << " Well: Escape rate:\n";
     
     _escape_rate.resize(size());
     
@@ -6676,15 +6676,15 @@ MasterEquation::Well::Well (const Model::Well& model)
     }
   }
   
-  IO::log << IO::log_offset << model.name()
+  IO::log << IO::log_offset << model.short_name()
     //
 	  << " Well:       grid size = " << size() << "\n"
     //
-	  << IO::log_offset << model.name()
+	  << IO::log_offset << model.short_name()
     //
 	  << " Well:      real depth = " << int(model.ground() / Phys_const::incm) << " 1/cm\n"
     //
-	  << IO::log_offset << model.name()
+	  << IO::log_offset << model.short_name()
     //
 	  << " Well: effective depth = "
     //
@@ -6718,7 +6718,7 @@ MasterEquation::Barrier::Barrier (const Model::Species& model)
     
     if(dtemp <= 0.) {
       //
-      IO::log << IO::log_offset  << model.name() << " Barrier: nonpositive number of states at "
+      IO::log << IO::log_offset  << model.short_name() << " Barrier: nonpositive number of states at "
 	//
 	      << ener / Phys_const::incm  << " 1/cm => truncating\n";
       
@@ -6736,15 +6736,15 @@ MasterEquation::Barrier::Barrier (const Model::Species& model)
 
   _real_weight = model.weight(temperature()) * std::exp((energy_reference() - model.ground()) / temperature());  
 
-  IO::log << IO::log_offset << model.name()
+  IO::log << IO::log_offset << model.short_name()
     //
 	  << " Barrier:        grid size = " << size() << "\n"
     //
-	  << IO::log_offset << model.name()
+	  << IO::log_offset << model.short_name()
     //
 	  << " Barrier:      real height = " << int(model.ground() / Phys_const::incm) << " 1/cm\n"
     //
-	  << IO::log_offset << model.name()
+	  << IO::log_offset << model.short_name()
     //
 	  << " Barrier: effective height = "
     //
@@ -7398,7 +7398,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
   
   for(int w = 0; w < Model::well_size(); ++w)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
   
   IO::log << "\n";
 
@@ -7471,7 +7471,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 
   for(int w = 0; w < Model::well_size(); ++w)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
   
   IO::log << "\n";
 
@@ -7530,7 +7530,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
   
   for(int p = 0; p < Model::bimolecular_size(); ++p)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
   
   IO::log << "\n";
   
@@ -7703,7 +7703,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
       //
 	    << IO::log_offset << std::setw(2) << "#"  << std::setw(Model::log_precision + 7)
       //
-	    << "assigned name" << IO::first_offset
+	    << "new name" << IO::first_offset
       //
 	    << "group\n";
     
@@ -7711,7 +7711,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
       //
       IO::log << IO::log_offset << std::setw(2) << g << std::setw(Model::log_precision + 7)
 	//
-	      << Model::well(group_index[g]).name() << IO::first_offset;
+	      << Model::well(group_index[g]).short_name() << IO::first_offset;
       
       for(Group::const_iterator w = well_partition[g].begin(); w != well_partition[g].end(); ++w) {
 	//
@@ -7719,7 +7719,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	  //
 	  IO::log << "+";
 	
-	IO::log << Model::well(*w).name();
+	IO::log << Model::well(*w).short_name();
       }
       
       IO::log << "\n";
@@ -8480,7 +8480,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
   
   for(int w = 0; w < Model::well_size(); ++w)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
   
   IO::log << "\n";
 
@@ -9125,7 +9125,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 
       for(std::multimap<double, int>::const_reverse_iterator mit = ww_map.rbegin(); mit != ww_map.rend(); ++mit)
 	//
-	IO::aux << std::setw(15) << Model::well(mit->second).name();
+	IO::aux << std::setw(15) << Model::well(mit->second).short_name();
 
       IO::aux << "\n";
       
@@ -9143,7 +9143,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	      << IO::log_offset << std::setw(2) << "#"  << std::setw(Model::log_precision + 7)
 	//
-	      << "assigned name" << IO::first_offset
+	      << "new name" << IO::first_offset
 	//
 	      << "group\n";
       
@@ -9151,7 +9151,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	IO::log << IO::log_offset << std::setw(2) << g << std::setw(Model::log_precision + 7)
 	  //
-		<< Model::well(group_index[g]).name() << IO::first_offset;
+		<< Model::well(group_index[g]).short_name() << IO::first_offset;
 	
 	for(Group::const_iterator w = well_partition[g].begin(); w != well_partition[g].end(); ++w) {
 	  //
@@ -9159,7 +9159,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	    //
 	    IO::log << "+";
 	  
-	  IO::log << Model::well(*w).name();
+	  IO::log << Model::well(*w).short_name();
 	}
 	
 	IO::log << "\n";
@@ -9250,13 +9250,13 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
     
     for(int i = 0; i < chem_size; ++i)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[i]).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[i]).short_name();
     
     IO::log << "\n";
     
     for(int j = 0; j < chem_size; ++j) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::well(group_index[j]).name();
+      IO::log << IO::log_offset << std::setw(5) << Model::well(group_index[j]).short_name();
       
       for(int i = 0; i < chem_size; ++i)
 	//
@@ -9285,13 +9285,13 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       
       for(int w = 0; w < chem_size; ++w)
 	//
-	IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).name();
+	IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).short_name();
       
       IO::log << "\n";
     
       for(int p = 0; p < Model::bimolecular_size(); ++p) {
 	//
-	IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).name();
+	IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).short_name();
 	
 	for(int w = 0; w < chem_size; ++w)
 	  //
@@ -9380,11 +9380,11 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
     
     for(int w = 0; w < chem_size; ++w)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).short_name();
 
     for(int p = 0; p < Model::bimolecular_size(); ++p)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
 
     for(int s = 0; s < Model::escape_size(); ++s)
       //
@@ -9411,7 +9411,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       
       IO::log << IO::log_offset
 	//
-	      << std::setw(5)  << Model::well(w).name()
+	      << std::setw(5)  << Model::well(w).short_name()
 	//
 	      << std::setw(Model::log_precision + 7) << energy_bin(e) / Phys_const::kcal;
 
@@ -9524,13 +9524,13 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
     //
     for(int w = 0; w < Model::well_size(); ++w)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
 
-  IO::log << std::setw(Model::log_precision + 7) << "Total Diss.";
+  IO::log << std::setw(Model::log_precision + 7) << "Total";
 
   for(int p = 0; p < Model::bimolecular_size(); ++p)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
 
   for(int e = 0; e < Model::escape_size(); ++e)
     //
@@ -9540,7 +9540,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 
   for(int w = 0; w < Model::well_size(); ++w) {
     //
-    IO::log << IO::log_offset << std::setw(7) << Model::well(w).name();
+    IO::log << IO::log_offset << std::setw(7) << Model::well(w).short_name();
 
     double diss = 1.;
 
@@ -9811,7 +9811,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       
       for(int w = 0; w < Model::well_size(); ++w)
 	//
-	evec_out << std::setw(13) << Model::well(w).name() << std::setw(13) << Model::well(w).name();
+	evec_out << std::setw(13) << Model::well(w).short_name() << std::setw(13) << Model::well(w).short_name();
       
       evec_out << "\n";
 
@@ -10051,7 +10051,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   for(int w = 0; w < Model::well_size(); ++w)
     //
     IO::log << IO::log_offset
-	    << std::setw(Model::log_precision + 7) << Model::well(w).name()
+	    << std::setw(Model::log_precision + 7) << Model::well(w).short_name()
 	    << std::setw(20) << well(w).collision_frequency() / Phys_const::herz
 	    << "\n";
 
@@ -10322,7 +10322,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
       int w2 = Model::inner_connect(b).second;
       
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(w1).name() + "<->" + Model::well(w2).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(w1).short_name() + "<->" + Model::well(w2).short_name();
     }
     
     IO::log << "\n" << IO::log_offset;
@@ -10358,7 +10358,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
       int p = Model::outer_connect(b).second;
       
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name() + "->" + Model::bimolecular(p).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name() + "->" + Model::bimolecular(p).short_name();
     }
     
     IO::log << "\n" << IO::log_offset;
@@ -10439,7 +10439,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	    //
 	    IO::log << "+";
 	  
-	  IO::log << Model::well(*w).name();
+	  IO::log << Model::well(*w).short_name();
 	}
       }
       
@@ -10447,7 +10447,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
       for(Group::const_iterator w = bimolecular_group.begin(); w != bimolecular_group.end(); ++w)
 	//
-	IO::log << " " << Model::well(*w).name();
+	IO::log << " " << Model::well(*w).short_name();
       
       IO::log << "\n";
 
@@ -10693,11 +10693,11 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     
     for(int w = 0; w < Model::well_size(); ++w)
       //
-      Model::time_evolution->out << std::setw(13) << Model::well(w).name();
+      Model::time_evolution->out << std::setw(13) << Model::well(w).short_name();
     
     for(int p = 0; p < Model::bimolecular_size(); ++p)
       //
-      Model::time_evolution->out << std::setw(13) << Model::bimolecular(p).name();
+      Model::time_evolution->out << std::setw(13) << Model::bimolecular(p).short_name();
 
     Model::time_evolution->out << "\n";
     
@@ -10886,7 +10886,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   
   for(int w = 0; w < Model::well_size(); ++w)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
   
   IO::log << "\n";
 
@@ -10953,7 +10953,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   for(int w = 0; w < Model::well_size(); ++w)
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).name();
+    IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
   
   IO::log << "\n";
 
@@ -11071,11 +11071,11 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
       for(int w = 0; w < Model::well_size(); ++w)
 	//
-	evec_out << std::setw(13) << Model::well(w).name();
+	evec_out << std::setw(13) << Model::well(w).short_name();
       
       for(int w = 0; w < Model::well_size(); ++w)
 	//
-	evec_out << std::setw(13) << Model::well(w).name();
+	evec_out << std::setw(13) << Model::well(w).short_name();
       
       evec_out << "\n";
 
@@ -11247,13 +11247,13 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     
     for(int p = 0; p < Model::bimolecular_size(); ++p)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
     
     IO::log << "\n";
    
     for(int w = 0; w < Model::well_size(); ++w) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::well(w).name();
+      IO::log << IO::log_offset << std::setw(5) << Model::well(w).short_name();
       
       for(int p = 0; p < Model::bimolecular_size(); ++p) {
 	//
@@ -11847,7 +11847,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
       for(std::multimap<double, int>::const_reverse_iterator mit = ww_map.rbegin(); mit != ww_map.rend(); ++mit)
 	//
-	IO::aux << std::setw(15) << Model::well(mit->second).name();
+	IO::aux << std::setw(15) << Model::well(mit->second).short_name();
 
       IO::aux << "\n";
       
@@ -11862,11 +11862,11 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     //
     if(chem_size != Model::well_size()) {
       //
-      IO::log << IO::log_offset << "species:\n"
+      IO::log << IO::log_offset << "combined species:\n"
 	//
 	      << IO::log_offset << std::setw(2) << "#"  << std::setw(Model::log_precision + 7)
 	//
-	      << "assigned name" << IO::first_offset
+	      << "new name" << IO::first_offset
 	//
 	      << "group\n";
       
@@ -11874,7 +11874,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	//
 	IO::log << IO::log_offset << std::setw(2) << g << std::setw(Model::log_precision + 7)
 	  //
-		<< Model::well(group_index[g]).name() << IO::first_offset;
+		<< Model::well(group_index[g]).short_name() << IO::first_offset;
 	
 	for(Group::const_iterator w = well_partition[g].begin(); w != well_partition[g].end(); ++w) {
 	  //
@@ -11882,7 +11882,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	    //
 	    IO::log << "+";
 	  
-	  IO::log << Model::well(*w).name();
+	  IO::log << Model::well(*w).short_name();
 	}
 	
 	IO::log << "\n";
@@ -11969,13 +11969,13 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     
     for(int i = 0; i < chem_size; ++i)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[i]).name();
+      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[i]).short_name();
     
     IO::log << "\n";
     
     for(int j = 0; j < chem_size; ++j) {
       //
-      IO::log << IO::log_offset << std::setw(5) << Model::well(group_index[j]).name();
+      IO::log << IO::log_offset << std::setw(5) << Model::well(group_index[j]).short_name();
       
       for(int i = 0; i < chem_size; ++i)
 	//
@@ -12004,13 +12004,13 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
       for(int w = 0; w < chem_size; ++w)
 	//
-	IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).name();
+	IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).short_name();
       
       IO::log << "\n";
     
       for(int p = 0; p < Model::bimolecular_size(); ++p) {
 	//
-	IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).name();
+	IO::log << IO::log_offset << std::setw(5) << Model::bimolecular(p).short_name();
 	
 	for(int w = 0; w < chem_size; ++w)
 	  //
@@ -12066,13 +12066,13 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     
     for(int g = 0; g < chem_size; ++g) {
       //
-      IO::aux << "Initial well: " << Model::well(group_index[g]).name() << "\n";
+      IO::aux << "Initial well: " << Model::well(group_index[g]).short_name() << "\n";
 
       IO::aux  << std::setw(13) << "E, kcal/mol";
 
       for(int w = 0; w < Model::well_size(); ++w)
 	//
-	IO::aux << std::setw(13) << Model::well(w).name();
+	IO::aux << std::setw(13) << Model::well(w).short_name();
 
       IO::aux << "\n";
 
@@ -12350,7 +12350,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       //
       IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
 
-  IO::log << std::setw(Model::log_precision + 7) << "Total Diss.";
+  IO::log << std::setw(Model::log_precision + 7) << "Total";
 
   for(int p = 0; p < Model::bimolecular_size(); ++p)
     //
@@ -12703,19 +12703,27 @@ double MasterEquation::sort_well_partition (Lapack::Matrix pop_chem, Partition& 
   bimolecular_group = high_part.rbegin()->second.second;
 
   // output
-
-  //IO::log << std::setprecision(3);
+  //
   IO::log << IO::log_offset << "single well projections onto chemical subspace:\n";
+  
   IO::log << IO::log_offset << std::left << std::setw(6) << "well:" << std::right;
+  
   for(int w = 0; w < Model::well_size(); ++w)
-    IO::log << std::setw(6) << Model::well(w).name();
+    //
+    IO::log << std::setw(6) << Model::well(w).short_name();
+  
   IO::log << "\n";
   IO::log << IO::log_offset << std::left << std::setw(6) << "proj:" << std::right;
+  
   for(int w = 0; w < Model::well_size(); ++w) {
+    //
     Group g;
+    
     g.insert(w);
+    
     IO::log << std::setw(6) << g.projection(pop_chem);
   }
+  
   IO::log << "\n";
   IO::log.setf(std::ios_base::fmtflags(0), std::ios_base::floatfield);
 
@@ -12748,7 +12756,7 @@ double MasterEquation::sort_well_partition (Lapack::Matrix pop_chem, Partition& 
 	  //
 	  stemp += "+";
 	  
-	stemp += Model::well(*w).name();
+	stemp += Model::well(*w).short_name();
       }
     }
 
@@ -12771,7 +12779,7 @@ double MasterEquation::sort_well_partition (Lapack::Matrix pop_chem, Partition& 
 	  //
 	  stemp += " ";
 	  
-	stemp += Model::well(*w).name();
+	stemp += Model::well(*w).short_name();
       }
 
       IO::log << std::setw(50) << stemp;    
