@@ -26081,6 +26081,49 @@ void Model::AtomicSpecies::shift_ground (double e)
   _ground += e;
 }
 
+void Model::names_translation (std::ostream& to)
+{
+  if(use_short_names) {
+    //
+    to << "Translation Tables:\n";
+
+    if(Model::well_size()) {
+      //
+      to << "Wells:\n";
+
+      for(int i = 0; i < Model::well_size(); ++i)
+	//
+	to << std::setw(5) << Model::well(i).short_name() << "  " << Model::well(i).name() << "\n";
+    }
+  
+    if(Model::bimolecular_size()) {
+      //
+      to << "Bimolecular:\n";
+
+      for(int i = 0; i < Model::bimolecular_size(); ++i)
+	//
+	to << std::setw(5) << Model::bimolecular(i).short_name() << "  " << Model::bimolecular(i).name() << "\n";
+    }
+  
+    if(Model::inner_barrier_size()) {
+      //
+      to << "Inner Barriers:\n";
+
+      for(int i = 0; i < Model::inner_barrier_size(); ++i)
+	//
+	to << std::setw(5) << Model::inner_barrier(i).short_name() << "  " << Model::inner_barrier(i).name() << "\n";
+    }
+  
+    if(Model::outer_barrier_size()) {
+      //
+      to << "Outer Barriers:\n";
+
+      for(int i = 0; i < Model::outer_barrier_size(); ++i)
+	//
+	to << std::setw(5) << Model::outer_barrier(i).short_name() << "  " << Model::outer_barrier(i).name() << "\n";
+    }
+  }
+}
 /********************************************************************************************
  ************************************ BIMOLECULAR MODEL *************************************
  ********************************************************************************************/
