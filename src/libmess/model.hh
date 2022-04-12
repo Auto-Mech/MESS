@@ -41,6 +41,8 @@ namespace Model {
 
   extern int out_precision;
 
+  extern bool use_short_names;
+
   int name_size_max ();
   
   // minimal interatomic distance

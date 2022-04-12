@@ -56,6 +56,8 @@ namespace Model {
   
   SharedPointer<TimeEvolution> time_evolution;
 
+  bool use_short_names = false;
+
   /********************************************************************************************
    **************************************** CONTROLS ******************************************
    ********************************************************************************************/
@@ -349,7 +351,7 @@ std::ostream& Model::operator<< (std::ostream& to, const std::set<int>& g)
     if(w != g.begin())
       //
       to << "+";
-      
+
     to << well(*w).short_name();
   }
 
@@ -2328,6 +2330,7 @@ void Model::init (IO::KeyBufferStream& from)
   Key    separ_key("WellSeparator");
   Key      wxg_key("WellExcludeGroup"           );
   Key   gshift_key("GroundEnergyShiftMax[kcal/mol]");
+  Key    short_key("UseShortNames");
   
   /************************************* INPUT *********************************************/
 
@@ -2355,6 +2358,13 @@ void Model::init (IO::KeyBufferStream& from)
       std::getline(from, comment);
       
       break;
+    }
+    //
+    else if(short_key == token) {
+      //
+      use_short_names = true;
+
+      std::getline(from, comment);
     }
     // maximal ground energy shift
     //
@@ -3435,27 +3445,29 @@ void Model::pf_print () {
   //
   const double bpu = Phys_const::cm * Phys_const::cm * Phys_const::cm;
 
-
   if(wout_file.size()) {
-
+    //
     std::ofstream wout(wout_file.c_str());
  
     wout << "partition function logs (1/cm^3, relative to the ground level) and their derivatives:\n"
+      //
 	 << std::setw(7) << "T\\Q";
 
     // wells
     //
-    for(int w = 0; w < well_size(); ++w)
-      wout << std::setw(log_precision + 7) << well(w).name()
+    for(int w = 0; w < well_size(); ++w) {
+      //
+      wout << std::setw(log_precision + 7) << well(w).short_name()
 	   << std::setw(log_precision + 7) << "first"
 	   << std::setw(log_precision + 7) << "second";
+    }
 
     // bimolecular products
     //
     for(int p = 0; p < bimolecular_size(); ++p)
       if(!bimolecular(p).dummy())
 	for(int f = 0; f < 2; ++f)
-	  wout << std::setw(log_precision + 7) << bimolecular(p).fragment_name(f)
+	  wout << std::setw(log_precision + 7) << bimolecular(p).short_name() + "_" + IO::String(f)
 	       << std::setw(log_precision + 7) << "first"
 	       << std::setw(log_precision + 7) << "second";
 
@@ -3538,7 +3550,7 @@ void Model::pf_print () {
   //
   for(int w = 0; w < well_size(); ++w)
     //
-    IO::log << std::setw(log_precision + 7) << well(w).name();
+    IO::log << std::setw(log_precision + 7) << well(w).short_name();
   
   // bimolecular products
   //
@@ -3548,19 +3560,19 @@ void Model::pf_print () {
       //
       for(int f = 0; f < 2; ++f)
 	//
-	IO::log << std::setw(log_precision + 7) << bimolecular(p).fragment_name(f);
+	IO::log << std::setw(log_precision + 7) << bimolecular(p).short_name() + "_" + IO::String(f);
   
   // inner barriers
   //
   for(int b = 0; b < inner_barrier_size(); ++b)
     //
-    IO::log << std::setw(log_precision + 7) << inner_barrier(b).name();
+    IO::log << std::setw(log_precision + 7) << inner_barrier(b).short_name();
   
   // outer barriers
   //
   for(int b = 0; b < outer_barrier_size(); ++b)
     //
-    IO::log << std::setw(log_precision + 7) << outer_barrier(b).name();
+    IO::log << std::setw(log_precision + 7) << outer_barrier(b).short_name();
   
   IO::log << "\n";
 
@@ -3712,13 +3724,13 @@ void Model::pf_print () {
   //
   for(int b = 0; b < inner_barrier_size(); ++b)
     //
-    IO::log << std::setw(log_precision + 7) << inner_barrier(b).name() << std::setw(log_precision + 7) << "D";
+    IO::log << std::setw(log_precision + 7) << inner_barrier(b).short_name() << std::setw(log_precision + 7) << "D";
   
   // outer barrier
   //
   for(int b = 0; b < outer_barrier_size(); ++b)
     //
-    IO::log << std::setw(log_precision + 7) << outer_barrier(b).name() << std::setw(log_precision + 7) << "D";
+    IO::log << std::setw(log_precision + 7) << outer_barrier(b).short_name() << std::setw(log_precision + 7) << "D";
   
   IO::log << "\n";
 
@@ -11811,7 +11823,7 @@ double Model::RigidRotor::_core_states (double ener) const
 Model::Rotd::Rotd(IO::KeyBufferStream& from, int m) 
   : Core(m)
 {
-  const char funame [] = "Model::Rotd::Rotd : ";
+  const char funame [] = "Model::Rotd::Rotd: ";
 
   IO::Marker funame_marker(funame);
 
@@ -18438,21 +18450,26 @@ std::string Model::Species::short_name () const
 {
   const char funame [] = "Model::Species::short_name: ";
 
-  if(well_index.find(name()) != well_index.end())
+  if(use_short_names) {
     //
-    return "W" + IO::String(well_index[name()]);
+    if(well_index.find(name()) != well_index.end())
+      //
+      return "W" + IO::String(well_index[name()] + 1);
 
-  if(inner_index.find(name()) != inner_index.end())
-    //
-    return "B" + IO::String(inner_index[name()]);
+    if(inner_index.find(name()) != inner_index.end())
+      //
+      return "B" + IO::String(inner_index[name()] + 1);
 
-  if(outer_index.find(name()) != outer_index.end())
-    //
-    return "C" + IO::String(outer_index[name()]);
+    if(outer_index.find(name()) != outer_index.end())
+      //
+      return "C" + IO::String(outer_index[name()] + 1);
 
-  std::cerr << funame << "unknown species: " << name();
+    std::cerr << funame << "unknown species: " << name();
 
-  throw Error::Init();
+    throw Error::Init();
+  }
+
+  return name();
 }
 
 Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m) 
@@ -26072,13 +26089,18 @@ std::string Model::Bimolecular::short_name () const
 {
   const char funame [] = "Model::Bimolecular::short_name: ";
 
-  if(bimolecular_index.find(name()) != bimolecular_index.end())
+  if(use_short_names) {
     //
-    return "P" + IO::String(bimolecular_index[name()]);
+    if(bimolecular_index.find(name()) != bimolecular_index.end())
+      //
+      return "P" + IO::String(bimolecular_index[name()] + 1);
 
-  std::cerr << funame << "unknown species: " << name();
+    std::cerr << funame << "unknown bimolecular: " << name();
+    
+    throw Error::Init();
+  }
 
-  throw Error::Init();
+  return name();
 }
 
 Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n) 
