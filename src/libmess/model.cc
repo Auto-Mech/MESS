@@ -11838,7 +11838,8 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
   Key rotd_key("File"                );
   Key symm_key("SymmetryFactor"      );
   Key zero_key("ZeroEnergy[kcal/mol]");
-
+  Key unit_key("Units"               );
+  
   bool is_zero = false;
   
   std::string rotd_name;
@@ -11847,6 +11848,8 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
   bool issym = false;
 
   std::string comment, token;
+
+  std::string unit_string;
   
   while(from >> token) {
     //
@@ -11863,24 +11866,50 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
     else if(symm_key == token) {
       //
       if(issym) {
+	//
 	std::cerr << funame << "symmetry number has been initialized already\n";
+	
 	throw Error::Init();
       }
 
       issym = true;
 
       if(!(from >> dtemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
 
       factor /= dtemp;
+    }
+    // rotd energy units
+    //
+    else if(unit_key == token) {
+      //
+      if(unit_string.size()) {
+	//
+	std::cerr << funame << token <<  ": already initialized\n";
+	
+	throw Error::Init();
+      }
+
+      IO::LineInput lin(from);
+
+      if(!(lin >> unit_string)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
     }
     // zero density energy
     //
@@ -11909,16 +11938,22 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
     // rotd output file name
     //
     else if(rotd_key == token) {
+      //
       if(rotd_name.size()) {
+	//
 	std::cerr << funame << token <<  ": already initialized\n";
+	
 	throw Error::Init();
       }
 
-      if(!(from >> rotd_name)) {
+      IO::LineInput lin(from);
+      
+      if(!(lin >> rotd_name)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
-      std::getline(from, comment);
     }
     // unknown keyword
     //
@@ -11958,15 +11993,26 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
   std::map<double, double> read_nos;
 
+  double ener_unit = Phys_const::incm;
+
+  if(unit_string.size()) {
+    //
+    ener_unit = Phys_const::str2fac(unit_string);
+  }
+  else {
+    //
+    IO::log << IO::log_offset << "energy unit: 1/cm\n";
+  }
+  
   while(rotd_in >> dtemp) {
     //
-    dtemp *= Phys_const::incm;  // energy
+    dtemp *= ener_unit;  // energy
+
+    IO::LineInput lin(rotd_in);
     
-    rotd_in >> read_nos[dtemp]; // number of states
-    
-    if(!rotd_in) {
+    if(!(lin >> read_nos[dtemp])) {
       //
-      std::cerr << funame << "reading transitional modes density failed\n";
+      std::cerr << funame << "reading transitional modes number of states failed\n";
       
       throw Error::Input();
     }
@@ -26085,7 +26131,7 @@ void Model::names_translation (std::ostream& to)
 {
   if(use_short_names) {
     //
-    to << "Translation Tables:\n";
+    to << "Names Translation Tables (<short name> - <original name>):\n";
 
     if(Model::well_size()) {
       //
@@ -26093,16 +26139,16 @@ void Model::names_translation (std::ostream& to)
 
       for(int i = 0; i < Model::well_size(); ++i)
 	//
-	to << std::setw(5) << Model::well(i).short_name() << "  " << Model::well(i).name() << "\n";
+	to << std::setw(5) << Model::well(i).short_name() << " - " << Model::well(i).name() << "\n";
     }
   
     if(Model::bimolecular_size()) {
       //
-      to << "Bimolecular:\n";
+      to << "Bimolecular products:\n";
 
       for(int i = 0; i < Model::bimolecular_size(); ++i)
 	//
-	to << std::setw(5) << Model::bimolecular(i).short_name() << "  " << Model::bimolecular(i).name() << "\n";
+	to << std::setw(5) << Model::bimolecular(i).short_name() << " - " << Model::bimolecular(i).name() << "\n";
     }
   
     if(Model::inner_barrier_size()) {
@@ -26111,7 +26157,7 @@ void Model::names_translation (std::ostream& to)
 
       for(int i = 0; i < Model::inner_barrier_size(); ++i)
 	//
-	to << std::setw(5) << Model::inner_barrier(i).short_name() << "  " << Model::inner_barrier(i).name() << "\n";
+	to << std::setw(5) << Model::inner_barrier(i).short_name() << " - " << Model::inner_barrier(i).name() << "\n";
     }
   
     if(Model::outer_barrier_size()) {
@@ -26120,7 +26166,7 @@ void Model::names_translation (std::ostream& to)
 
       for(int i = 0; i < Model::outer_barrier_size(); ++i)
 	//
-	to << std::setw(5) << Model::outer_barrier(i).short_name() << "  " << Model::outer_barrier(i).name() << "\n";
+	to << std::setw(5) << Model::outer_barrier(i).short_name() << " - " << Model::outer_barrier(i).name() << "\n";
     }
   }
 }

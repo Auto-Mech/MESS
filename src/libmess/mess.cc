@@ -6015,9 +6015,7 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
 
   model.esc_parameters(temperature(), hval, sval, cval);
 
-  hval += model.ground();
-  
-  IO::log << IO::log_offset << model.short_name() << " Well: average energy = "
+  IO::log << IO::log_offset << model.short_name() << " Well: thermal energy = "
     //
 	  << std::ceil(hval / Phys_const::kcal * 10.) / 10.
     //
@@ -6025,34 +6023,39 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
   
   /***************************** SETTING DENSITY OF STATES ************************************/
 
-  double ener, base_ener, ext_ener = -1.;
-  
+  double ener, ext_ener = -1.;
+
+  double base_ener = model.ground();
+
+  // well extension
+  //
   if(well_extension >= 0. && well_cutoff > 0.) {
     //
-    //dtemp = hval > model.dissociation_limit ? hval : model.dissociation_limit;
+    base_ener += hval * (1. - well_extension);
 
-    dtemp = hval;
+    // well extension energy correction
+    //
+    dtemp = model.well_ext_cap + model.ground();
     
-    base_ener = dtemp * (1. - well_extension) + model.ground() * well_extension;
-
-    // well extension cap
-    //
-    if(model.well_ext_cap > 0. && model.well_ext_cap < base_ener)
+    if(model.well_ext_cap > 0. && dtemp < base_ener)
       //
-      base_ener = model.well_ext_cap + well_ext_corr * (base_ener - model.well_ext_cap);
-     
+      base_ener = dtemp + well_ext_corr * (base_ener - dtemp);
+
     ext_ener = well_cutoff * temperature();
-  }
-  //
-  else {
-    //
-    if(well_cutoff > 0.)
-      //
-      base_ener = model.dissociation_limit - well_cutoff * temperature();
 
-    if(well_cutoff <= 0. || model.ground() > base_ener)
+    dtemp = base_ener - model.dissociation_limit;
+    
+    if(dtemp < 0.)
       //
-      base_ener = model.ground();
+      ext_ener += dtemp;
+  }
+  else if(well_cutoff > 0.) {
+    //
+    dtemp = model.dissociation_limit - well_cutoff * temperature();
+
+    if(dtemp > model.ground())
+      //
+      base_ener = dtemp;
   }
 
   int base_size = std::ceil((energy_reference() - base_ener) / energy_step());
