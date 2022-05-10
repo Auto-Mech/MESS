@@ -1,7 +1,7 @@
 # cmd: conda build . -c auto-mech -c conda-forge
 package:
     name: mess
-    version: "2.5.0"
+    version: "2.7.0"
 
 source:
     path: .
