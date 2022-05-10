@@ -691,7 +691,7 @@ int main (int argc, char* argv [])
 
       if(lin >> dtemp) {
 	//
-	if(dtemp <= 0. || dtemp >= 1.) {
+	if(dtemp < 0. || dtemp >= 1.) {
 	  //
 	  std::cerr << funame << token << ": out of range: " << dtemp << "\n";
 	
