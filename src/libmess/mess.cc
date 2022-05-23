@@ -9373,27 +9373,61 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
   //
   if(hot_index.size()) {
     //
+    int well_name_size_max;
+
+    std::vector<int> well_name_size(Model::well_size());
+    
+    for(int w = 0; w < Model::well_size(); ++w) {
+      //
+      itemp = Model::well(w).short_name().size() + 1;
+
+      if(!w || itemp > well_name_size_max)
+	//
+	well_name_size_max = itemp;
+    
+      if(itemp < Model::log_precision + 7)
+	//
+	itemp = Model::log_precision + 7;
+
+      well_name_size[w] = itemp;
+    }
+
+    if(well_name_size_max < 5)
+      //
+      well_name_size_max = 5;
+
     IO::log << IO::log_offset << "hot energies branching fractions:\n"
       //
 	    << IO::log_offset
       //
-	    << std::setw(5)  << "Well"
+	    << std::setw(well_name_size_max)  << "Well"
       //
-	    << std::setw(Model::log_precision + 7) << "E, kcal/mol";
+	    << std::setw(Model::log_precision + 7) << "E, kcal";
     
     for(int w = 0; w < chem_size; ++w)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).short_name();
+      IO::log << std::setw(well_name_size[group_index[w]]) << Model::well(group_index[w]).short_name();
 
-    for(int p = 0; p < Model::bimolecular_size(); ++p)
+    std::vector<int> bim_name_size(Model::bimolecular_size());
+    
+    for(int p = 0; p < Model::bimolecular_size(); ++p) {
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
+      itemp = Model::bimolecular(p).short_name().size() + 1;
+
+      if(itemp < Model::log_precision + 7)
+	//
+	itemp = Model::log_precision + 7;
+
+      bim_name_size[p] = itemp;
+      
+      IO::log << std::setw(bim_name_size[p]) << Model::bimolecular(p).short_name();
+    }
 
     for(int s = 0; s < Model::escape_size(); ++s)
       //
       IO::log << std::setw(Model::log_precision + 7) << Model::escape_name(s);
     
-    IO::log << std::setw(Model::log_precision + 7) << "total" << "\n";
+    //IO::log << std::setw(Model::log_precision + 7) << "total" << "\n";
     
     int count = 0;
     
@@ -9414,7 +9448,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       
       IO::log << IO::log_offset
 	//
-	      << std::setw(5)  << Model::well(w).short_name()
+	      << std::setw(well_name_size_max)  << Model::well(w).short_name()
 	//
 	      << std::setw(Model::log_precision + 7) << energy_bin(e) / Phys_const::kcal;
 
@@ -9426,7 +9460,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	dtemp = vdot(m_direct.row(c), &eigen_hot(0, count)) * std::sqrt(weight[c]);
 	
-	IO::log << std::setw(Model::log_precision + 7) << dtemp;
+	IO::log << std::setw(group_index[c]) << dtemp;
 
 	tot += dtemp;
       }
@@ -9477,7 +9511,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	  //
 	  + triple_product(&eigen_bim(chem_size, p), &eigen_hot(chem_size, count), relax_lave, relax_size);
 	
-	IO::log << std::setw(Model::log_precision + 7) << dtemp;
+	IO::log << std::setw(bim_name_size[p]) << dtemp;
 
 	tot += dtemp;
       }
@@ -9513,7 +9547,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	tot += dtemp;
       }
       
-      IO::log << std::setw(Model::log_precision + 7) << tot << "\n";
+      //IO::log << std::setw(Model::log_precision + 7) << tot << "\n";
     }
   }
 
@@ -9521,20 +9555,55 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
   //
   IO::log << IO::log_offset << "prompt isomerization/dissociation:\n";
 
-  IO::log << IO::log_offset << std::setw(7) << "W\\W,P,E";
+  std::vector<int> well_name_size(Model::well_size());
+
+  int well_name_size_max;
+
+  for(int w = 0; w < Model::well_size(); ++w) {
+    //
+    itemp = Model::well(w).short_name().size() + 1;
+
+    if(!w || itemp > well_name_size_max)
+      //
+      well_name_size_max = itemp;
+    
+    if(itemp < Model::log_precision + 7)
+      //
+      itemp = Model::log_precision + 7;
+
+    well_name_size[w] = itemp;
+  }
+
+  if(well_name_size_max < 7)
+    //
+    well_name_size_max = 7;
+
+  IO::log << IO::log_offset << std::setw(well_name_size_max) << "W\\W,P,E";
 
   if(chem_size)
     //
-    for(int w = 0; w < Model::well_size(); ++w)
+    for(int w = 0; w < Model::well_size(); ++w) {
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
+      IO::log << std::setw(well_name_size[w]) << Model::well(w).short_name();
+    }
 
   IO::log << std::setw(Model::log_precision + 7) << "Total";
 
-  for(int p = 0; p < Model::bimolecular_size(); ++p)
+  std::vector<int> bim_name_size(Model::bimolecular_size());
+  
+  for(int p = 0; p < Model::bimolecular_size(); ++p) {
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
+    itemp = Model::bimolecular(p).short_name().size() + 1;
 
+    if(itemp < Model::log_precision + 7)
+      //
+      itemp = Model::log_precision + 7;
+
+    bim_name_size[p] = itemp;
+    
+    IO::log << std::setw(bim_name_size[p]) << Model::bimolecular(p).short_name();
+  }
+  
   for(int e = 0; e < Model::escape_size(); ++e)
     //
     IO::log << std::setw(Model::log_precision + 7) << Model::escape_name(e);
@@ -9543,7 +9612,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 
   for(int w = 0; w < Model::well_size(); ++w) {
     //
-    IO::log << IO::log_offset << std::setw(7) << Model::well(w).short_name();
+    IO::log << IO::log_offset << std::setw(well_name_size_max) << Model::well(w).short_name();
 
     double diss = 1.;
 
@@ -9571,7 +9640,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       
 	diss -= dtemp;
 
-	IO::log << std::setw(Model::log_precision + 7) << dtemp;
+	IO::log << std::setw(well_name_size[v]) << dtemp;
       }
 
     IO::log << std::setw(Model::log_precision + 7) << diss;
@@ -9634,7 +9703,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	* triple_product(&eigen_bim(chem_size, p), &eigen_pop(chem_size, w), relax_lave, relax_size);
 
-      IO::log << std::setw(Model::log_precision + 7) << dtemp	* energy_step() / well(w).real_weight();
+      IO::log << std::setw(bim_name_size[p]) << dtemp	* energy_step() / well(w).real_weight();
     }
 
     // escape products
@@ -9968,13 +10037,20 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 
       // output
       //
+      std::vector<int> ped_name_size(ped_pair.size());
+      
       ped_out << std::setw(13) << "E, kcal/mol";
       
-      for(int ped = 0; ped < ped_pair.size(); ++ ped)
+      for(int ped = 0; ped < ped_pair.size(); ++ ped) {
 	//
-	ped_out << std::setw(13) << Model::bimolecular(ped_pair[ped].first).short_name() + "->"
+	stemp = Model::bimolecular(ped_pair[ped].first).short_name() + "->"
 	  //
 	  + Model::bimolecular(ped_pair[ped].second).short_name();
+
+	ped_name_size[ped] = stemp.size() + 1 > 13 ? stemp.size() + 1 : 13;
+	
+	ped_out << std::setw(ped_name_size[ped]) << stemp;
+      }
       
       ped_out << "\n";
 
@@ -9982,9 +10058,9 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	ped_out << std::setw(13) << energy_bin(e) / Phys_const::kcal;
 
-	for(int i = 0; i < mtemp.size2(); ++i)
+	for(int i = 0; i < ped_pair.size(); ++i)
 	  //
-	  ped_out << std::setw(13) << mtemp(e, i);
+	  ped_out << std::setw(ped_name_size[i]) << mtemp(e, i);
 	
 	ped_out << "\n";
       }
@@ -11442,11 +11518,18 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       //
       ped_out << std::setw(13) << "E, kcal/mol";
       
-      for(int ped = 0; ped < ped_pair.size(); ++ ped)
+      std::vector<int> ped_name_size(ped_pair.size());
+      
+      for(int ped = 0; ped < ped_pair.size(); ++ ped) {
 	//
-	ped_out << std::setw(13) << Model::bimolecular(ped_pair[ped].first).short_name() + "->"
+	stemp = Model::bimolecular(ped_pair[ped].first).short_name() + "->"
 	  //
 	  + Model::bimolecular(ped_pair[ped].second).short_name();
+
+	ped_name_size[ped] = stemp.size() + 1 > 13 ? stemp.size() + 1 : 13;
+	
+	ped_out << std::setw(ped_name_size[ped]) << stemp;
+      }
       
       ped_out << "\n";
 
@@ -11454,9 +11537,9 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	//
 	ped_out << std::setw(13) << energy_bin(e) / Phys_const::kcal;
 
-	for(int i = 0; i < mtemp.size2(); ++i)
+	for(int i = 0; i < ped_pair.size(); ++i)
 	  //
-	  ped_out << std::setw(13) << mtemp(e, i);
+	  ped_out << std::setw(ped_name_size[i]) << mtemp(e, i);
 	
 	ped_out << "\n";
       }
@@ -11594,14 +11677,22 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	// output
 	//
 	ped_out << std::setw(13) << "E, kcal/mol";
+
+	std::vector<int> ped_name_size;
 	
 	for(int p = 0; p < Model::bimolecular_size(); ++p)
 	  //
 	  if(!Model::bimolecular(p).dummy())
 	    //
-	    for(int e = 0; e < Model::escape_size(); ++e)
+	    for(int e = 0; e < Model::escape_size(); ++e) {
 	      //
-	      ped_out << std::setw(13) << Model::bimolecular(p).short_name() + "->" + Model::escape_name(e);
+	      stemp = Model::bimolecular(p).short_name() + "->" + Model::escape_name(e);
+
+	      ped_name_size.push_back(stemp.size() + 1 > 13 ? stemp.size() + 1 : 13);
+	      
+	      ped_out << std::setw(ped_name_size.back()) << stemp;
+
+	    }
 	    
 	ped_out << "\n";
 
@@ -11611,7 +11702,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
 	  for(int i = 0; i < mtemp.size2(); ++i)
 	    //
-	    ped_out << std::setw(13) << mtemp(e, i);
+	    ped_out << std::setw(ped_name_size[i]) << mtemp(e, i);
 	  
 	  ped_out << "\n";
 	}
@@ -11684,10 +11775,22 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	  //output
 	  //
 	  ped_out << std::setw(13) << "E, kcal/mol";
-	    
-	  for(int p = 0; p < Model::bimolecular_size(); ++p)
+
+	  std::vector<int> ped_name_size(Model::bimolecular_size());
+	  
+	  for(int p = 0; p < Model::bimolecular_size(); ++p) {
 	    //
-	    ped_out << std::setw(13) << Model::bimolecular(p).short_name();
+	    stemp = Model::bimolecular(p).short_name();
+
+	    itemp = stemp.size() + 1;
+
+	    itemp = itemp > 13 ? itemp : 13;
+
+	    ped_name_size[p] = itemp;
+	    
+	    ped_out << std::setw(itemp) << stemp;
+
+	  }
 	    
 	  ped_out << "\n";
 	
@@ -11697,7 +11800,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
 	    for(int i = 0; i < mtemp.size2(); ++i)
 	      //
-	      ped_out << std::setw(13) << mtemp(e, i);
+	      ped_out << std::setw(ped_name_size[i]) << mtemp(e, i);
 	      
 	    ped_out << "\n";
 	  }
@@ -12177,12 +12280,19 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	    mtemp.column(i) /= max(mtemp.column(i));
 
 	  ped_out << std::setw(13) << "E, kcal/mol";
+
+	  std::vector<int> ped_name_size(Model::bimolecular_size());
 	  
-	  for(int p = 0; p < Model::bimolecular_size(); ++p)
+	  for(int p = 0; p < Model::bimolecular_size(); ++p) {
 	    //
-	    ped_out << std::setw(13) << Model::well(group_index[ww]).short_name() + "->"
+	    stemp = Model::well(group_index[ww]).short_name() + "->"
 	      //
 	      + Model::bimolecular(p).short_name();
+
+	    ped_name_size[p] = stemp.size() + 1 > 13 ? stemp.size() + 1 : 13;
+	    
+	    ped_out << std::setw(ped_name_size[p]) << stemp;
+	  }
 	  
 	  ped_out << "\n";
 
@@ -12192,7 +12302,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
 	    for(int i = 0; i < mtemp.size2(); ++i)
 	      //
-	      ped_out << std::setw(13) << mtemp(e, i);
+	      ped_out << std::setw(ped_name_size[i]) << mtemp(e, i);
 	    
 	    ped_out << "\n";
 	  }
@@ -12289,21 +12399,55 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   //
   if(hot_index.size()) {
     //
-    IO::log << IO::log_offset << "Hot distribution branching ratios:\n"
+    int well_name_size_max;
+
+    std::vector<int> well_name_size(Model::well_size());
+    
+    for(int w = 0; w < Model::well_size(); ++w) {
+      //
+      itemp = Model::well(w).short_name().size() + 1;
+
+      if(!w || itemp > well_name_size_max)
+	//
+	well_name_size_max = itemp;
+    
+      if(itemp < Model::log_precision + 7)
+	//
+	itemp = Model::log_precision + 7;
+
+      well_name_size[w] = itemp;
+    }
+
+    if(well_name_size_max < 5)
+      //
+      well_name_size_max = 5;
+
+    IO::log << IO::log_offset << "hot energies branching fractions:\n"
       //
 	    << IO::log_offset //<< std::setprecision(6)
       //
-	    << std::setw(5)  << "Well"
+	    << std::setw(well_name_size_max)  << "Well"
       //
 	    << std::setw(Model::log_precision + 7) << "E, kcal";
     
     for(int w = 0; w < chem_size; ++w)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(group_index[w]).short_name();
+      IO::log << std::setw(well_name_size[group_index[w]]) << Model::well(group_index[w]).short_name();
 
-    for(int p = 0; p < Model::bimolecular_size(); ++p)
+    std::vector<int> bim_name_size(Model::bimolecular_size());
+    
+    for(int p = 0; p < Model::bimolecular_size(); ++p) {
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
+      itemp = Model::bimolecular(p).short_name().size() + 1;
+
+      if(itemp < Model::log_precision + 7)
+	//
+	itemp = Model::log_precision + 7;
+
+      bim_name_size[p] = itemp;
+      
+      IO::log << std::setw(bim_name_size[p]) << Model::bimolecular(p).short_name();
+    }
 
     for(int e = 0; e < Model::escape_size(); ++e)
       //
@@ -12317,17 +12461,17 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       //
       IO::log << IO::log_offset
 	//
-	      << std::setw(5)  << Model::well(hit->first).short_name()
+	      << std::setw(well_name_size_max)  << Model::well(hit->first).short_name()
 	//
 	      << std::setw(Model::log_precision + 7) << energy_bin(hit->second) / Phys_const::kcal;
 	
       for(int w = 0; w < chem_size; ++w)
 	//
-	IO::log << std::setw(Model::log_precision + 7) << vdot(m_direct.row(w), &eigen_hot(0, count)) * std::sqrt(weight[w]);
+	IO::log << std::setw(well_name_size[group_index[w]]) << vdot(m_direct.row(w), &eigen_hot(0, count)) * std::sqrt(weight[w]);
 	
       for(int p = 0; p < Model::bimolecular_size(); ++p)
 	//
-	IO::log << std::setw(Model::log_precision + 7) << triple_product(&eigen_bim(chem_size, p), &eigen_hot(chem_size, count),
+	IO::log << std::setw(bim_name_size[p]) << triple_product(&eigen_bim(chem_size, p), &eigen_hot(chem_size, count),
 						   //
 						   relax_lave, relax_size);
 	
@@ -12345,20 +12489,54 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   //
   IO::log << IO::log_offset << "prompt isomerization/dissociation:\n";
 
-  IO::log << IO::log_offset << std::setw(7) << "W\\W,P,E";
+  std::vector<int> well_name_size(Model::well_size());
+
+  int well_name_size_max;
+
+  for(int w = 0; w < Model::well_size(); ++w) {
+    //
+    itemp = Model::well(w).short_name().size() + 1;
+
+    if(!w || itemp > well_name_size_max)
+      //
+      well_name_size_max = itemp;
+    
+    if(itemp < Model::log_precision + 7)
+      //
+      itemp = Model::log_precision + 7;
+
+    well_name_size[w] = itemp;
+  }
+
+  if(well_name_size_max < 7)
+    //
+    well_name_size_max = 7;
+
+  IO::log << IO::log_offset << std::setw(well_name_size_max) << "W\\W,P,E";
 
   if(chem_size)
     //
     for(int w = 0; w < Model::well_size(); ++w)
       //
-      IO::log << std::setw(Model::log_precision + 7) << Model::well(w).short_name();
+      IO::log << std::setw(well_name_size[w]) << Model::well(w).short_name();
 
   IO::log << std::setw(Model::log_precision + 7) << "Total";
 
-  for(int p = 0; p < Model::bimolecular_size(); ++p)
+  std::vector<int> bim_name_size(Model::bimolecular_size());
+  
+  for(int p = 0; p < Model::bimolecular_size(); ++p) {
     //
-    IO::log << std::setw(Model::log_precision + 7) << Model::bimolecular(p).short_name();
+    itemp = Model::bimolecular(p).short_name().size() + 1;
 
+    if(itemp < Model::log_precision + 7)
+      //
+      itemp = Model::log_precision + 7;
+
+    bim_name_size[p] = itemp;
+    
+    IO::log << std::setw(bim_name_size[p]) << Model::bimolecular(p).short_name();
+  }
+  
   for(int e = 0; e < Model::escape_size(); ++e)
     //
     IO::log << std::setw(Model::log_precision + 7) << Model::escape_name(e);
@@ -12367,7 +12545,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   for(int w = 0; w < Model::well_size(); ++w) {
     //
-    IO::log << IO::log_offset << std::setw(7) << Model::well(w).short_name();
+    IO::log << IO::log_offset << std::setw(well_name_size_max) << Model::well(w).short_name();
 
     double diss = 1.;
 
@@ -12395,14 +12573,14 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
 	diss -= dtemp;
 
-	IO::log << std::setw(Model::log_precision + 7) << dtemp;
+	IO::log << std::setw(well_name_size[v]) << dtemp;
       }
 
     IO::log << std::setw(Model::log_precision + 7) << diss;
     
     for(int p = 0; p < Model::bimolecular_size(); ++p)
       //
-      IO::log << std::setw(Model::log_precision + 7) << triple_product(&eigen_bim(chem_size, p), &eigen_pop(chem_size, w),
+      IO::log << std::setw(bim_name_size[p]) << triple_product(&eigen_bim(chem_size, p), &eigen_pop(chem_size, w),
 						 //
 						 relax_lave, relax_size) * energy_step()
 	//
