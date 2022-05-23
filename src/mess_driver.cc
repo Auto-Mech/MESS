@@ -19,10 +19,10 @@
 #include<cmath>
 #include <sys/resource.h>
 
-#include "libmess/mess.hh"
-#include "libmess/key.hh"
-#include "libmess/units.hh"
-#include "libmess/io.hh"
+#include "mess.hh"
+#include "key.hh"
+#include "units.hh"
+#include "io.hh"
 
 int main (int argc, char* argv [])
 {
@@ -891,46 +891,119 @@ int main (int argc, char* argv [])
 
       int count = -1;
 
-      lin >> count;
+      if(lin >> count && count <= 0) {
+	//
+	std::cerr << funame << token << ": count out of range: " << count << "\n";
 
+	throw Error::Range();
+      }
+
+      std::string name;
+      
       while(count) {
 	//
+	//std::cerr << "count = " << count << "\n";
+	
 	lin.read_line(from);
 	  
-	if(!(lin >> stemp)) // empty line
+	if(!(lin >> name)) // empty line
 	  //
 	  continue;
 
-	if(IO::end_key() == stemp)
+	if(IO::end_key() == name)
 	  //
 	  break;
 	
-	while(lin >> dtemp) {
+	while(lin >> stemp) {
 	  //
-	  if(hot_kcal_key == token) {
-	    //
-	    dtemp *= Phys_const::kcal;
-	  }
-	  else if(hot_incm_key == token) {
-	    //
-	    dtemp *= Phys_const::incm;
-	  }
-	  else if(hot_kj_key == token) {
-	    //
-	    dtemp *= Phys_const::kjoul;
-	  }
-	  
-	  MasterEquation::hot_energy[stemp].insert(dtemp);
-	}
+	  // use a separator in the case of range
+	  //
+	  const char sep [] = ":;,&%$@#";
 
-	if(!MasterEquation::hot_energy[stemp].size()) {
+	  std::string::size_type pos = stemp.find_first_of(sep);
+
+	  if(pos != std::string::npos) {
+	    //
+	    double start = (double)IO::String(stemp.substr(0, pos));
+
+	    stemp.erase(0, pos + 1);
+
+	    pos = stemp.find_first_of(sep);
+
+	    if(pos == std::string::npos) {
+	      //
+	      std::cerr << funame << token << ": did not find second separator: " << sep <<
+		//
+		": available separators: <" << sep << ">: the grammar is start<sep>step<sep>finish\n";
+
+	      throw Error::Input();
+	    }
+	    
+	    double stride = (double)IO::String(stemp.substr(0, pos));
+
+	    if(stride <= 0.) {
+	      //
+	      std::cerr << funame << token << ": stride should be positive: " << stride << "\n";
+
+	      throw Error::Range();
+	    }
+
+	    stemp.erase(0, pos + 1);
+
+	    double finish = (double)IO::String(stemp);
+
+	    //std::cerr << "start, stride, finish = " << start << ", " << stride << ", " << finish << "\n";
+
+	    for(double i = start; i <= finish; i += stride) {
+	      //
+	      dtemp = i;
+	      //std::cerr << "hot energy = " << dtemp << "\n";
+	      
+	      if(hot_kcal_key == token) {
+		//
+		dtemp *= Phys_const::kcal;
+	      }
+	      else if(hot_incm_key == token) {
+		//
+		dtemp *= Phys_const::incm;
+	      }
+	      else if(hot_kj_key == token) {
+		//
+		dtemp *= Phys_const::kjoul;
+	      }
+	  
+	      MasterEquation::hot_energy[name].insert(dtemp);
+	    }
+	  }
+	  else {
+	    //
+	    dtemp = (double)IO::String(stemp);
+	    
+	    if(hot_kcal_key == token) {
+	      //
+	      dtemp *= Phys_const::kcal;
+	    }
+	    else if(hot_incm_key == token) {
+	      //
+	      dtemp *= Phys_const::incm;
+	    }
+	    else if(hot_kj_key == token) {
+	      //
+	      dtemp *= Phys_const::kjoul;
+	    }
+	  
+	    MasterEquation::hot_energy[name].insert(dtemp);
+	  }
+	}
+	
+	if(!MasterEquation::hot_energy[name].size()) {
 	  //
-	  std::cerr << funame << token << ": " <<  stemp << ": no energies provided\n";
+	  std::cerr << funame << token << ": " <<  name << ": no energies provided\n";
 	  
 	  throw Error::Init();
 	}
 
-	--count;
+	count--;
       }
     }
     // microscopic rates file
@@ -1171,16 +1244,23 @@ int main (int argc, char* argv [])
       micro_out << "Bimolecular fragments density of states, mol/kcal:\n";
 
       micro_out << std::setw(15) << "E, kcal/mol";
-    
+
+      std::vector<int> name_size(Model::bimolecular_size());
+      
       for(int p = 0; p < Model::bimolecular_size(); ++p)
 	//
 	if(!Model::bimolecular(p).dummy())
 	  //
 	  for(int f = 0; f < 2; ++f)
 	    //
-	    if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+	    if(Model::bimolecular(p).mode(f) == Model::DENSITY) {
 	      //
-	      micro_out << std::setw(15) << Model::bimolecular(p).short_name() + "_" + IO::String(f);
+	      itemp = Model::bimolecular(p).short_name().size() + 3;
+
+	      name_size[p] = itemp > 15 ? itemp : 15;
+	      
+	      micro_out << std::setw(name_size[p]) << Model::bimolecular(p).short_name() + "_" + IO::String(f);
+	    }
       
       micro_out << "\n";
 
@@ -1196,7 +1276,7 @@ int main (int argc, char* argv [])
 	      //
 	      if(Model::bimolecular(p).mode(f) == Model::DENSITY)
 		//
-		micro_out << std::setw(15) << Model::bimolecular(p).states(f, ener) * Phys_const::kcal;
+		micro_out << std::setw(name_size[p]) << Model::bimolecular(p).states(f, ener) * Phys_const::kcal;
 
 	micro_out << "\n";
       }//
