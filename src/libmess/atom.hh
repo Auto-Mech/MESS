@@ -75,6 +75,7 @@ public:
     CHLORINE   = 17,
     TITANIUM   = 22,
     BROMINE    = 35,
+    IODINE     = 53,
     URANIUM    = 92
   };
 

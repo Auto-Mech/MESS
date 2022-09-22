@@ -115,6 +115,11 @@ AtomBase::DataBase::DataBase ()
   (*this)[BROMINE].mass[79] = 78.9183;
   (*this)[BROMINE].mass[81] = 80.9163;
 
+  (*this)[IODINE].name      = "I";
+  (*this)[IODINE].valence   = 1;
+  (*this)[IODINE].isotope   = 127;
+  (*this)[IODINE].mass[127] = 127.;
+
   (*this)[URANIUM].name     = "U";
   (*this)[URANIUM].valence  = 6;
   (*this)[URANIUM].isotope  = 238;
