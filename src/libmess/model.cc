@@ -45,6 +45,8 @@ namespace Model {
   int log_precision = 3;
 
   int out_precision = 3;
+
+  int ped_precision = 3;
   
   bool checking = true;
 
@@ -81,7 +83,9 @@ namespace Model {
   bool no_run () { return _no_run; }
 
   // global collision frequency model
+  //
   std::vector<SharedPointer<Collision> > _default_collision;
+  
   //ConstSharedPointer<Collision> collision (int i) { return _collision[i]; }
 
   // energy transfer kernel
@@ -214,8 +218,11 @@ namespace Model {
   /*************************************** ENERGY LIMIT **************************************/
 
   bool   _is_energy_limit = false;
+  
   double _energy_limit;
+  
   void set_energy_limit (double e) { _is_energy_limit = true; _energy_limit = e; }
+  
   bool is_energy_limit () { return _is_energy_limit; }
 
   double  energy_limit ()  
@@ -223,8 +230,11 @@ namespace Model {
     const char funame [] = "Model::energy_limit: ";
 
     if(!_is_energy_limit) {
+      //
       std::cerr << funame << "not defined\n";
+      
       IO::log << std::flush;
+      
       throw Error::Init();
     }
     return _energy_limit;
@@ -1111,159 +1121,253 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
   std::string token, comment;
 
   while(from >> token) {
-    // end input 
+    //
+    // end input
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // excess reactant concentration
+    //
     else if(exc_key == token) {
+      //
       if(_excess > 0. || _temperature > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> _excess)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       if(_excess <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
       
       _excess /= Phys_const::cm * Phys_const::cm * Phys_const::cm;
     }
     // effective  temperature
+    //
     else if(ext_key == token) {
+      //
       if(_excess > 0. || _temperature > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> _temperature)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       if(_temperature <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
       
       _temperature *= Phys_const::kelv;
     }
     // start time
+    //
     else if(start_key == token) {
+      //
       if(_start >= 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> _start)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       if(_start <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
       
       _start /= Phys_const::herz;
     }
     // finish time
+    //
     else if(fin_key == token) {
+      //
       if(_finish >= 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> _finish)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       if(_finish <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
       
       _finish /= Phys_const::herz;
     }
     // time grid size
+    //
     else if(size_key == token) {
+      //
       if(_size > 0) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> _size)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       if(_size < 2) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
     }
     // reactant
+    //
     else if(reac_key == token) {
+      //
       if(_reactant_name.size()) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> _reactant_name)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
     }
     // output stream
+    //
     else if(out_key == token) {
+      //
       if(out.is_open()) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       
       out.open(stemp.c_str());
 
       if(!out) {
+	//
 	std::cerr << funame << token << ": cannot open " << stemp << " file\n";
+	
 	throw Error::Open();
       }
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
 
   if(!_reactant_name.size()) {
+    //
     std::cerr << funame << "reactant name not defined\n";
+    
     throw Error::Init();
   }
 
   if(_excess < 0. && _temperature < 0.) {
+    //
     std::cerr << funame << "excess reactant concentration not initialized\n";
+    
     throw Error::Init();
   }
+  
   if(_start <= 0.) {
+    //
     std::cerr << funame << "time grid start not initialized\n";
+    
     throw Error::Init();
   }
+  
   if(_finish <= 0.) {
+    //
     std::cerr << funame << "time grid finish not initialized\n";
+    
     throw Error::Init();
   }
+  
   if(_size < 2) {
+    //
     std::cerr << funame << "time grid size not initialized\n";
+    
     throw Error::Init();
   }
+  
   if(_finish <= _start) {
+    //
     std::cerr << funame << "time grid finish should be bigger than start\n";
+    
     throw Error::Init();
   }
+  
   if(!out.is_open()) {
+    //
     std::cerr << funame << "output stream not initialized\n";
+    
     throw Error::Init();
   }
 
@@ -1276,19 +1380,27 @@ void Model::TimeEvolution::set_reactant () const
   const char funame [] = "Model::TimeEvolution::set_reactant: ";
 
   if(_excess > 0.) {
+    //
     for(_reactant = 0; _reactant < bimolecular_size(); ++_reactant)
+      //
       if(bimolecular(_reactant).name() == _reactant_name)
+	//
 	return;
+    
     std::cerr << funame << "unknown bimolecular: " << _reactant_name <<"\n";
+    
     throw Error::Range();
   }
   
   
   for(_reactant = 0; _reactant < well_size(); ++_reactant)
+    //
     if(well(_reactant).name() == _reactant_name)
+      //
       return;
 
   std::cerr << funame << "unknown well: " << _reactant_name <<"\n";
+  
   throw Error::Range();
 }
 
@@ -2346,448 +2458,457 @@ void Model::init (IO::KeyBufferStream& from)
   std::vector<SharedPointer<Species> > barrier_pool;
   
   std::set<std::string> species_name;  // all wells, barriers, and bimolecular products names
-  
-  // lumping scheme
-  //
-  while(from >> token) {
-    //
-    // end input
-    //
-    if(IO::end_key() == token) {
+
+  try {
+    
+    while(from >> token) {
       //
-      std::getline(from, comment);
+      // end input
+      //
+      if(IO::end_key() == token) {
+	//
+	std::getline(from, comment);
       
-      break;
-    }
-    //
-    else if(short_key == token) {
-      //
-      use_short_names = true;
-
-      std::getline(from, comment);
-    }
-    // maximal ground energy shift
-    //
-    else if(gshift_key == token) {
-      //
-      if(well_size() || bimolecular_size()) {
-	//
-	std::cerr << funame << token << "should be initialized before any species\n";
-
-	throw Error::Init();
+	break;
       }
-      IO::LineInput lin(from);
-
-      if(!(lin >> dtemp)) {
+      //
+      else if(short_key == token) {
 	//
-	std::cerr << funame << token << ": corrupted\n";
+	use_short_names = true;
+
+	std::getline(from, comment);
+      }
+      // maximal ground energy shift
+      //
+      else if(gshift_key == token) {
+	//
+	if(well_size() || bimolecular_size()) {
+	  //
+	  std::cerr << funame << token << "should be initialized before any species\n";
+
+	  throw Error::Init();
+	}
+	IO::LineInput lin(from);
+
+	if(!(lin >> dtemp)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
 					
-	throw Error::Input();
-      }
+	  throw Error::Input();
+	}
 
-      if(dtemp <= 0.) {
-	//
-	std::cerr << funame << token << ": out of range: " << dtemp << "\n";
-					
-	throw Error::Range();
-      }
-
-      ground_shift_max = Phys_const::kcal * dtemp;
-    }
-    // well lumping scheme
-    //
-    else if(lump_key == token) {
-      //
-      IO::LineInput lin(from);
-
-      while(lin >> stemp)
-	//
-	lump_scheme.push_back(stemp);
-    }
-    // lumping scheme well names separator
-    //
-    else if(separ_key == token) {
-      //
-      IO::LineInput lin(from);
-
-      if(!(lin >> well_separator)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-
-	throw Error::Input();
-      }
-    }
-    // excluded well group
-    //
-    else if(wxg_key == token) {
-      //
-      IO::LineInput lin(from);
-
-      while(lin >> stemp)
-	//
-	Model::well_exclude_group.insert(stemp);
-
-      if(!Model::well_exclude_group.size()) {
-	//
-	std::cerr << funame << token << " is empty\n";
-
-	throw Error::Input();
-      }
-    }
-    // relative temperature increment
-    //
-    else if(tincr_key == token) {
-      //
-      if(!(from >> temp_rel_incr)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-
-      std::getline(from, comment);
-
-      if(temp_rel_incr <= 0. || temp_rel_incr >= 1.) {
-	//
-	std::cerr << funame << token << ": out of range\n";
-	
-	throw Error::Range();
-      }
-    }
-    // weight output
-    //
-    else if(wout_key == token) {
-      //
-      if(!(from >> wout_file)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      std::getline(from, comment);
-    }
-    // output reference energy
-    //
-    else if(eref_key == token) {
-      //
-      if(!(from >> eref)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      std::getline(from, comment);
-
-      eref *= Phys_const::kcal;
-    }
-    // output temperature step
-    //
-    else if(tstep_key == token) {
-      //
-      if(!(from >> tstep)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      std::getline(from, comment);
-
-      if(tstep <= 0) {
-	//
-	std::cerr << funame << token << ": out of range\n";
-	
-	throw Error::Range();
-      }
-    }
-    // output temperature start
-    //
-    else if(tmin_key == token) {
-      //
-      if(!(from >> tmin)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      std::getline(from, comment);
-
-      if(tmin <= 0) {
-	//
-	std::cerr << funame << token << ": out of range\n";
-	
-	throw Error::Range();
-      }
-    }
-    // output temperature size
-    //
-    else if(tsize_key == token) {
-      //
-      if(!(from >> tsize)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      std::getline(from, comment);
-
-      if(tsize <= 0) {
-	//
-	std::cerr << funame << token << ": out of range\n";
-	
-	throw Error::Range();
-      }	
-    }
-    // collision frequency model
-    //
-    else if(freq_key == token) {
-      //
-      _default_collision.push_back(new_collision(from));
-    }
-    // energy relaxation kernel
-    //
-    else if(cer_key == token) {
-      //
-      _default_kernel.push_back(new_kernel(from));
-    }
-    // buffer gas fraction
-    //
-    else if(buff_key == token) {
-      //
-      if(_buffer_fraction.size()) {
-	//
-	std::cerr << funame << token << ": already defined\n";
-	
-	throw Error::Init();
-      }
-
-      IO::LineInput lin(from);
-      
-      while(lin >> dtemp) {
-	//
 	if(dtemp <= 0.) {
 	  //
-	  std::cerr << funame << token << ": should be positive\n";
-	  
+	  std::cerr << funame << token << ": out of range: " << dtemp << "\n";
+					
 	  throw Error::Range();
 	}
-	_buffer_fraction.push_back(dtemp);
+
+	ground_shift_max = Phys_const::kcal * dtemp;
       }
-
-      if(!_buffer_fraction.size()) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Init();
-      }
-
-      dtemp = 0.;
-      
-      for(int i = 0; i < _buffer_fraction.size(); ++i)
-	//
-	dtemp += _buffer_fraction[i];
-
-      for(int i = 0; i < _buffer_fraction.size(); ++i)
-	//
-	_buffer_fraction[i] /= dtemp;
-    }
-    // energy relaxation kernel flags
-    //
-    else if(kflag_key == token) {
+      // well lumping scheme
       //
-      IO::LineInput lin(from);
-
-      while(lin >> stemp)
+      else if(lump_key == token) {
 	//
-	if(stemp == "up") {
+	IO::LineInput lin(from);
+
+	while(lin >> stemp)
 	  //
-	  Kernel::add_flag(Kernel::UP);
-	}
-	else if(stemp == "density") {
+	  lump_scheme.push_back(stemp);
+      }
+      // lumping scheme well names separator
+      //
+      else if(separ_key == token) {
+	//
+	IO::LineInput lin(from);
+
+	if(!(lin >> well_separator)) {
 	  //
-	  Kernel::add_flag(Kernel::DENSITY);
+	  std::cerr << funame << token << ": corrupted\n";
+
+	  throw Error::Input();
 	}
-	else if(stemp == "notruncation") {
+      }
+      // excluded well group
+      //
+      else if(wxg_key == token) {
+	//
+	IO::LineInput lin(from);
+
+	while(lin >> stemp)
 	  //
-	  Kernel::add_flag(Kernel::NOTRUN);
-	}
-	else if(stemp == "down") {
+	  Model::well_exclude_group.insert(stemp);
+
+	if(!Model::well_exclude_group.size()) {
 	  //
-	  Kernel::add_flag(Kernel::DOWN);
+	  std::cerr << funame << token << " is empty\n";
+
+	  throw Error::Input();
 	}
-	else {
-	  std::cerr << funame << token << ": unknown key: " << stemp 
-		    << " possible keys: up, density, notruncation\n";
+      }
+      // relative temperature increment
+      //
+      else if(tincr_key == token) {
+	//
+	if(!(from >> temp_rel_incr)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Input();
+	}
+
+	std::getline(from, comment);
+
+	if(temp_rel_incr <= 0. || temp_rel_incr >= 1.) {
+	  //
+	  std::cerr << funame << token << ": out of range\n";
+	
 	  throw Error::Range();
 	}
-    }
-    // new well
-    //
-    else if(well_key == token) {
+      }
+      // weight output
       //
-      if(!(from >> name)) {
+      else if(wout_key == token) {
 	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      
-      std::getline(from, comment);
-
-      if(!species_name.insert(name).second) {
-	//
-	std::cerr << funame << token << ": name " << name << " already in use\n";
-	
-	throw Error::Logic();
-      }
-      
-      well_index[name] = _well.size();
-      
-      IO::log << IO::log_offset << "WELL: " << name << "\n";
-      
-      _well.push_back(Well(from, name));
-    }
-    // new bimolecular
-    //
-    else if(bimol_key == token) {
-      //
-      if(!(from >> name)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-      std::getline(from, comment);
-
-      if(!species_name.insert(name).second) {
-	//
-	std::cerr << funame << token << ": name " << name << " already in use\n";
-	
-	throw Error::Logic();
-      }
-      
-      bimolecular_index[name] = _bimolecular.size();
-      
-      IO::log << IO::log_offset << "BIMOLECULAR: " << name << "\n";
-      
-      _bimolecular.push_back(new_bimolecular(from, name));
-    }
-    // new barrier
-    //
-    else if(barr_key == token) {
-      //
-      IO::LineInput lin(from);
-      
-      if(!(lin >> name >> species_pair.first >> species_pair.second)) {
-	//
-	std::cerr << funame << token << ": corrupted\n";
-	
-	throw Error::Input();
-      }
-
-      if(!species_name.insert(name).second) {
-	//
-	std::cerr << funame << token << ": name " << name << " already in use\n";
-	
-	throw Error::Logic();
-      }
-
-      if(species_pair.first == species_pair.second) {
-	//
-	std::cerr << funame << name << "barrier connects "
+	if(!(from >> wout_file)) {
 	  //
-		  << species_pair.first <<" well with itself\n";
+	  std::cerr << funame << token << ": corrupted\n";
 	
-	throw Error::Logic();
+	  throw Error::Input();
+	}
+	std::getline(from, comment);
       }
-
-      for(It b = connect_verbal.begin(); b != connect_verbal.end(); ++b) {
+      // output reference energy
+      //
+      else if(eref_key == token) {
 	//
-	itemp = b - connect_verbal.begin();
-	
-	if(b->first == species_pair.second && b->second == species_pair.first ||
-	   //
-	   *b == species_pair) {
+	if(!(from >> eref)) {
 	  //
-	  std::cerr << funame << name << " and " << barrier_pool[itemp]->name()
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Input();
+	}
+	std::getline(from, comment);
+
+	eref *= Phys_const::kcal;
+      }
+      // output temperature step
+      //
+      else if(tstep_key == token) {
+	//
+	if(!(from >> tstep)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Input();
+	}
+	std::getline(from, comment);
+
+	if(tstep <= 0) {
+	  //
+	  std::cerr << funame << token << ": out of range\n";
+	
+	  throw Error::Range();
+	}
+      }
+      // output temperature start
+      //
+      else if(tmin_key == token) {
+	//
+	if(!(from >> tmin)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Input();
+	}
+	std::getline(from, comment);
+
+	if(tmin <= 0) {
+	  //
+	  std::cerr << funame << token << ": out of range\n";
+	
+	  throw Error::Range();
+	}
+      }
+      // output temperature size
+      //
+      else if(tsize_key == token) {
+	//
+	if(!(from >> tsize)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Input();
+	}
+	std::getline(from, comment);
+
+	if(tsize <= 0) {
+	  //
+	  std::cerr << funame << token << ": out of range\n";
+	
+	  throw Error::Range();
+	}	
+      }
+      // collision frequency model
+      //
+      else if(freq_key == token) {
+	//
+	_default_collision.push_back(new_collision(from));
+      }
+      // energy relaxation kernel
+      //
+      else if(cer_key == token) {
+	//
+	_default_kernel.push_back(new_kernel(from));
+      }
+      // buffer gas fraction
+      //
+      else if(buff_key == token) {
+	//
+	if(_buffer_fraction.size()) {
+	  //
+	  std::cerr << funame << token << ": already defined\n";
+	
+	  throw Error::Init();
+	}
+
+	IO::LineInput lin(from);
+      
+	while(lin >> dtemp) {
+	  //
+	  if(dtemp <= 0.) {
 	    //
-		    << " barriers connect the same pair of species\n";
+	    std::cerr << funame << token << ": should be positive\n";
 	  
+	    throw Error::Range();
+	  }
+	  _buffer_fraction.push_back(dtemp);
+	}
+
+	if(!_buffer_fraction.size()) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Init();
+	}
+
+	dtemp = 0.;
+      
+	for(int i = 0; i < _buffer_fraction.size(); ++i)
+	  //
+	  dtemp += _buffer_fraction[i];
+
+	for(int i = 0; i < _buffer_fraction.size(); ++i)
+	  //
+	  _buffer_fraction[i] /= dtemp;
+      }
+      // energy relaxation kernel flags
+      //
+      else if(kflag_key == token) {
+	//
+	IO::LineInput lin(from);
+
+	while(lin >> stemp)
+	  //
+	  if(stemp == "up") {
+	    //
+	    Kernel::add_flag(Kernel::UP);
+	  }
+	  else if(stemp == "density") {
+	    //
+	    Kernel::add_flag(Kernel::DENSITY);
+	  }
+	  else if(stemp == "notruncation") {
+	    //
+	    Kernel::add_flag(Kernel::NOTRUN);
+	  }
+	  else if(stemp == "down") {
+	    //
+	    Kernel::add_flag(Kernel::DOWN);
+	  }
+	  else {
+	    std::cerr << funame << token << ": unknown key: " << stemp 
+		      << " possible keys: up, density, notruncation\n";
+	    throw Error::Range();
+	  }
+      }
+      // new well
+      //
+      else if(well_key == token) {
+	//
+	if(!(from >> name)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Input();
+	}
+      
+	std::getline(from, comment);
+
+	if(!species_name.insert(name).second) {
+	  //
+	  std::cerr << funame << token << ": name " << name << " already in use\n";
+	
 	  throw Error::Logic();
 	}
-      }
       
-      connect_verbal.push_back(species_pair);
-
-      // minimal ground energy for barriers
-      //
-      std::map<std::string, int>::const_iterator i = well_index.find(species_pair.first);
-
-      if(i == well_index.end()) {
-	//
-	i = bimolecular_index.find(species_pair.first);
-
-	if(i == bimolecular_index.end()) {
-	  //
-	  std::cerr << funame << species_pair.first
-	    //
-		    << " species is not initialized yet: wells and bimolecular should be initialized before barriers\n";
-
-	  throw Error::Init();
-	}
-	
-	i = well_index.find(species_pair.second);
-
-	if(i == well_index.end()) {
-	  //
-	  std::cerr << funame << species_pair.second
-	    //
-		    << " well is not initialized yet: wells and bimolecular should be initialized before barriers\n";
-	  
-	  throw Error::Init();
-	}
-
-	dtemp = well(i->second).ground();
+	well_index[name] = _well.size();
+      
+	IO::log << IO::log_offset << "WELL: " << name << "\n";
+      
+	_well.push_back(Well(from, name));
       }
-      else {
+      // new bimolecular
+      //
+      else if(bimol_key == token) {
 	//
-	dtemp = well(i->second).ground();
+	if(!(from >> name)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Input();
+	}
+	std::getline(from, comment);
 
-	i = well_index.find(species_pair.second);
+	if(!species_name.insert(name).second) {
+	  //
+	  std::cerr << funame << token << ": name " << name << " already in use\n";
+	
+	  throw Error::Logic();
+	}
+      
+	bimolecular_index[name] = _bimolecular.size();
+      
+	IO::log << IO::log_offset << "BIMOLECULAR: " << name << "\n";
+      
+	_bimolecular.push_back(new_bimolecular(from, name));
+      }
+      // new barrier
+      //
+      else if(barr_key == token) {
+	//
+	IO::LineInput lin(from);
+      
+	if(!(lin >> name >> species_pair.first >> species_pair.second)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+	
+	  throw Error::Input();
+	}
+
+	if(!species_name.insert(name).second) {
+	  //
+	  std::cerr << funame << token << ": name " << name << " already in use\n";
+	
+	  throw Error::Logic();
+	}
+
+	if(species_pair.first == species_pair.second) {
+	  //
+	  std::cerr << funame << name << "barrier connects "
+	    //
+		    << species_pair.first <<" well with itself\n";
+	
+	  throw Error::Logic();
+	}
+
+	for(It b = connect_verbal.begin(); b != connect_verbal.end(); ++b) {
+	  //
+	  itemp = b - connect_verbal.begin();
+	
+	  if(b->first == species_pair.second && b->second == species_pair.first ||
+	     //
+	     *b == species_pair) {
+	    //
+	    std::cerr << funame << name << " and " << barrier_pool[itemp]->name()
+	      //
+		      << " barriers connect the same pair of species\n";
+	  
+	    throw Error::Logic();
+	  }
+	}
+      
+	connect_verbal.push_back(species_pair);
+
+	// minimal ground energy for barriers
+	//
+	std::map<std::string, int>::const_iterator i = well_index.find(species_pair.first);
 
 	if(i == well_index.end()) {
 	  //
-	  i = bimolecular_index.find(species_pair.second);
+	  i = bimolecular_index.find(species_pair.first);
 
 	  if(i == bimolecular_index.end()) {
 	    //
-	    std::cerr << funame << species_pair.second
+	    std::cerr << funame << species_pair.first
 	      //
 		      << " species is not initialized yet: wells and bimolecular should be initialized before barriers\n";
 
 	    throw Error::Init();
 	  }
+	
+	  i = well_index.find(species_pair.second);
+
+	  if(i == well_index.end()) {
+	    //
+	    std::cerr << funame << species_pair.second
+	      //
+		      << " well is not initialized yet: wells and bimolecular should be initialized before barriers\n";
+	  
+	    throw Error::Init();
+	  }
+
+	  dtemp = well(i->second).ground();
 	}
-	else if(well(i->second).ground() > dtemp)
+	else {
 	  //
 	  dtemp = well(i->second).ground();
-      }
+
+	  i = well_index.find(species_pair.second);
+
+	  if(i == well_index.end()) {
+	    //
+	    i = bimolecular_index.find(species_pair.second);
+
+	    if(i == bimolecular_index.end()) {
+	      //
+	      std::cerr << funame << species_pair.second
+		//
+			<< " species is not initialized yet: wells and bimolecular should be initialized before barriers\n";
+
+	      throw Error::Init();
+	    }
+	  }
+	  else if(well(i->second).ground() > dtemp)
+	    //
+	    dtemp = well(i->second).ground();
+	}
 	  
-      IO::log << IO::log_offset << "BARRIER: " << name << "\n";
+	IO::log << IO::log_offset << "BARRIER: " << name << "\n";
       
-      barrier_pool.push_back(new_species(from, name, NUMBER, std::make_pair(true, dtemp)));
-    }
-    // unknown keyword
-    //
-    else if(IO::skip_comment(token, from)) {
+	barrier_pool.push_back(new_species(from, name, NUMBER, std::make_pair(true, dtemp)));
+      }
+      // unknown keyword
       //
-      std::cerr << funame << "unknown keyword " << token << "\n";
+      else if(IO::skip_comment(token, from)) {
+	//
+	std::cerr << funame << "unknown keyword " << token << "\n";
       
-      Key::show_all(std::cerr);
+	IO::log << funame << "unknown keyword " << token << "\n";
       
-      std::cerr << "\n";
+	Key::show_all(std::cerr);
       
-      throw Error::Init();
+	std::cerr << "\n";
+      
+	throw Error::Init();
+      }
     }
+  }
+  catch(Error::General) {
+    //
+    IO::log << std::flush;
+
+    throw;
   }
   
   /************************************* CHECKING *********************************************/
@@ -3213,6 +3334,8 @@ void Model::init (IO::KeyBufferStream& from)
     for(int p = 0; p < bimolecular_size(); ++p)
       //
       _bimolecular[p]->shift_ground(_energy_shift);
+
+    _maximum_barrier_height += _energy_shift;
   }
 
   //print();
@@ -4193,19 +4316,15 @@ SharedPointer<Model::Escape> Model::new_escape(IO::KeyBufferStream& from)
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      
-      std::cerr << "\n";
-      
-      IO::log << std::flush;
       
       throw Error::Init();
     }
   }  
 
   std::cerr << funame << "corrupted\n";
-  
-  IO::log << std::flush;
   
   throw Error::Input();
 }
@@ -4236,16 +4355,15 @@ SharedPointer<Model::Collision> Model::new_collision(IO::KeyBufferStream& from)
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
-      IO::log << std::flush;
+      
       throw Error::Init();
     }
   }  
 
   std::cerr << funame << "corrupted\n";
-  
-  IO::log << std::flush;
   
   throw Error::Input();
 }
@@ -4275,15 +4393,17 @@ SharedPointer<Model::Kernel> Model::new_kernel(IO::KeyBufferStream& from)
     if(IO::skip_comment(token, from)) {
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
-      IO::log << std::flush;
+
       throw Error::Init();
     }
   }
 
   std::cerr << funame << "corrupted\n";
-  IO::log << std::flush;
+
   throw Error::Input();
 }
 
@@ -4330,16 +4450,16 @@ SharedPointer<Model::Rotor> Model::new_rotor(IO::KeyBufferStream& from, const st
     if(IO::skip_comment(token, from)) {
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
+
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
-      IO::log << std::flush;
+
       throw Error::Init();
     }
   }
 
   std::cerr << funame << "corrupted\n";
-  
-  IO::log << std::flush;
   
   throw Error::Input();
 }
@@ -4405,18 +4525,16 @@ SharedPointer<Model::Tunnel> Model::new_tunnel(IO::KeyBufferStream& from)
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      
-      std::cerr << "\n";
-      
-      IO::log << std::flush;
       
       throw Error::Init();
     }
   }
 
   std::cerr << funame << "corrupted\n";
-  IO::log << std::flush;
+
   throw Error::Input();  
 }
 
@@ -4434,39 +4552,57 @@ SharedPointer<Model::Core> Model::new_core(IO::KeyBufferStream& from, const std:
   Key   pst_key("PhaseSpaceTheory");
 
   std::string token, comment;
+  
   while(from >> token) {
-  // rigid rotor
+    //
+    // rigid rotor
+    //
     if(rigid_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Core>(new RigidRotor(from, atom, mode));
     }
     // coupled internal rotations and vibrations
+    //
     if(multi_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Core>(new MultiRotor(from, atom, mode));
     }
     // transition modes number of states from Rotd
+    //
     if(rotd_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Core>(new Rotd(from, mode));
     }
     // phase space theory
+    //
     if(pst_key == token) {
+      //
       std::getline(from, comment);
+      
       return SharedPointer<Core>(new PhaseSpaceTheory(from));
     }
     // unknown keyword
+    //
     if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
-      IO::log << std::flush;
+      
       throw Error::Init();
     }
   }
 
   std::cerr << funame << "corrupted\n";
-  IO::log << std::flush;
+
   throw Error::Input();
 }
 
@@ -4596,12 +4732,10 @@ SharedPointer<Model::Species> Model::new_species(IO::KeyBufferStream& from, cons
   //
   std::cerr << funame << "unknown keyword " << token << "\n";
   
+  IO::log << funame << "unknown keyword " << token << "\n";
+      
   Key::show_all(std::cerr);
 
-  std::cerr << "\n";
-  
-  IO::log << std::flush;
-  
   throw Error::Init();
 }
 
@@ -4645,98 +4779,149 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
   std::string token, comment;
 
   while(from >> token) {
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     //  epsilons
+    //
     else if(epsw_key == token || epsk_key == token) {
+      //
       if(_epsilon > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
       if(!(from >> dtemp1 >> dtemp2)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp1 <= 0. || dtemp2 <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
+      
       _epsilon = std::sqrt(dtemp1 * dtemp2);
+      
       // units
-      if(epsw_key == token)
+      //
+      if(epsw_key == token) {
+	//
 	_epsilon *= Phys_const::incm;
-      else
+      }
+      else {
+	//
 	_epsilon *= Phys_const::kelv;
-
+      }
     }
     //  sigmas
+    //
     else if(sig_key == token) {
+      //
       if(sigma > 0.) {
+	//
 	std::cerr << funame << token << ": alread initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> dtemp1 >> dtemp2)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp1 <= 0. || dtemp2 <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
       sigma = (dtemp1 + dtemp2) / 2. * Phys_const::angstrom;
     }
     //  masses
+    //
     else if(mass_key == token) {
+      //
       if(mass > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       if(!(from >> dtemp1 >> dtemp2)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp1 <= 0. || dtemp2 <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
 
       mass = Phys_const::amu / (1./dtemp1 + 1./dtemp2);
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
   
   // checking
+  //
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(_epsilon < 0.) {
+    //
     std::cerr << funame << "epsilons not initialized\n";
+    
     throw Error::Init();
   }
 
   if(sigma < 0.) {
+    //
     std::cerr << funame << "sigmas not initialized\n";
+    
     throw Error::Init();
   }
 
   if(mass < 0.) {
+    //
     std::cerr << funame << "masses not initialized\n";
+    
     throw Error::Init();
   }
 
@@ -4752,8 +4937,11 @@ Model::LennardJonesCollision::~LennardJonesCollision ()
 double Model::LennardJonesCollision::_omega_22_star (double t) const
 {
   t /= _epsilon;
-  return 1.16145 / std::pow(t, 0.14874) 
-    + 0.52487 / std::exp(0.7732 * t) 
+  
+  return 1.16145 / std::pow(t, 0.14874)
+    //
+    + 0.52487 / std::exp(0.7732 * t)
+    //
     + 2.16178 / std::exp(2.437887  * t);
 
 }
@@ -4794,102 +4982,150 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
   double dtemp;
 
   std::string token, comment;
+  
   while(from >> token) {
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // delta energy down factor
+    //
     else if(factor_key == token) {
+      //
       if(_factor.size()) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
 
       IO::LineInput lin(from);
+      
       while(lin >> dtemp) {
+	//
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << token << ": out of range\n";
+	  
 	  throw Error::Range();
 	}
 	_factor.push_back(dtemp * Phys_const::incm);
       }
     }
     // delta energy down power
+    //
     else if(power_key == token) {
+      //
       if(_power.size()) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
 
       IO::LineInput lin(from);
+      
       while(lin >> dtemp) {
+	//
 	if(dtemp < 0.) {
+	  //
 	  std::cerr << funame << token << ": out of range\n";
+	  
 	  throw Error::Range();
 	}
 	_power.push_back(dtemp);
       }
     }
     // single exponential fraction
+    //
     else if(fract_key == token) {
+      //
       if(_fraction.size()) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
 
       IO::LineInput lin(from);
+      
       while(lin >> dtemp) {
+	//
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << token << ": out of range\n";
+	  
 	  throw Error::Range();
 	}
 	_fraction.push_back(dtemp);
       }
     }
     // energy cutoff parameter
+    //
     else if(cutoff_key == token) {
+      //
       if(!(from >> _cutoff)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(_cutoff <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
   
   // checking
+  //
   if(!from) {
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(_factor.size() == 1 && !_fraction.size())
+    //
     _fraction.push_back(1.);
 
   if(!_power.size() || _power.size() != _factor.size() || _power.size() != _fraction.size()) {
+    //
     std::cerr << funame << "initialization error\n";
+    
     throw Error::Init();
   }
 
   dtemp = 0.;
+  
   for(int i = 0; i < _fraction.size(); ++i)
+    //
     dtemp += _fraction[i];
 
   for(int i = 0; i < _fraction.size(); ++i)
+    //
     _fraction[i] = std::log(dtemp / _fraction[i]);
-
 
 }// Exponential Kernel
 
@@ -4972,6 +5208,7 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
   Key     freq_key("ImaginaryFrequency[1/cm]"  );
 
   std::string token, comment;
+  
   while(from >> token) {
     //
     // energy cutoff
@@ -5025,7 +5262,9 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
       std::getline(from, comment);
 
       if(_freq <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
 
@@ -5050,11 +5289,32 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
 	throw Error::Range();
       }
     }
+    // break
+    //
+    else if(IO::is_break(token)) {
+      //
+      std::getline(from, comment);
+      
+      break;
+    }
     // unknown key
     //
     else if(IO::skip_comment(token, from)) {
       //
+      std::string pad = "| ";
+      
+      IO::log << "-------------------------------------------\n";
+      
+      IO::log << pad << funame << "WARNING: unknown keyword: " << token << "\n";
+      
+      Key::show_all(IO::log, pad);
+      
+      IO::log << pad << "Hint: to get rid of this message separate the base class input from the derived class one with +++\n";
+      
+      IO::log << "-------------------------------------------\n";
+      
       from.put_back(token);
+      
       break;
     }
   }
@@ -5241,58 +5501,86 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
   std::string comment, token;
 
   while(from >> token) {
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // data file name
+    //
     else if(file_key == token) {
+      //
       if(file_name.size()) {
+	//
 	std::cerr << funame << token <<  ": already initialized\n";
+	
 	throw Error::Init();
       }
 
       if(!(from >> file_name)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
+      
       throw Error::Init();
     }
-  }
+    //
+  }// input cycle
  
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(!file_name.size()) {
+    //
     std::cerr << funame << "data file is not initialized\n";
+    
     throw Error::Init();
   }
 
   /************************************* ACTION INPUT **********************************/
 
   std::ifstream fin(file_name.c_str());
+  
   if(!fin) {
+    //
     std::cerr << funame << "cannot open rotd input file " << file_name << "\n";
+    
     throw Error::Open();
   }
 
   std::map<double, double> ener_action_map;
 
   double ener;
+  
   while(fin >> ener) {
+    //
     ener *= Phys_const::incm; // energy
 
     if(!(fin >> dtemp)) { // tunneling action
+      //
       std::cerr << funame << "reading tunneling action failed\n";
+      
       throw Error::Input();
     }
 
@@ -5300,25 +5588,32 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
   }
 
   if(ener_action_map.begin()->first >= 0.) {
+    //
     std::cerr << funame << "no energies below the barrier\n";
+    
     throw Error::Range();
   }
 
   if(ener_action_map.rbegin()->first < 0.)
+    //
     ener_action_map[0.] = 0.;
 
   Array<double> x((int)ener_action_map.size());
   Array<double> y((int)ener_action_map.size());
 
   itemp = 0;
+  
   for(std::map<double, double>::const_iterator it = ener_action_map.begin(); it != ener_action_map.end(); ++it, ++itemp) {
+    //
     x[itemp] = it->first;
+    
     y[itemp] = it->second;
   }
 
   _action.init(x, y, itemp);
 
   if(_action.arg_max() == 0.)
+    //
     IO::log << IO::log_offset << "no data for tunneling action above the barrier: mirrow immage will be used\n";
 }
 
@@ -5330,8 +5625,11 @@ double Model::ReadTunnel::action (double ener, int n) const
   double dtemp;
 
   double fac = 1.;
+  
   if(ener > 0. && _action.arg_max() == 0.) {
+    //
     ener = -ener;
+    
     fac = -1.;
   }
   
@@ -5342,13 +5640,17 @@ double Model::ReadTunnel::action (double ener, int n) const
     switch(n) {
       //
     case 0:
+      //
       return fac * (_action.fun_min() + (ener - _action.arg_min()) * dtemp);
 
     case 1:
+      //
       return dtemp;
 
     default:
+      //
       std::cerr << funame << "wrong case\n";
+      
       throw Error::Logic();
     }
   }
@@ -5357,13 +5659,17 @@ double Model::ReadTunnel::action (double ener, int n) const
     switch(n) {
       //
     case 0:
+      //
       return fac * _action(ener, 0);
 
     case 1:
+      //
       return _action(ener, 1);
 
     default:
+      //
       std::cerr << funame << "wrong case\n";
+      
       throw Error::Logic();
     }
   }
@@ -5374,13 +5680,17 @@ double Model::ReadTunnel::action (double ener, int n) const
     switch(n) {
       //
     case 0:
+      //
       return _action.fun_max() + (ener - _action.arg_max()) * dtemp;
 
     case 1:
+      //
       return dtemp;
 
     default:
+      //
       std::cerr << funame << "wrong case\n";
+      
       throw Error::Logic();
     }
   }
@@ -5404,37 +5714,54 @@ Model::HarmonicTunnel::HarmonicTunnel (IO::KeyBufferStream& from)
   KeyGroup HarmonicTunnelModel;
 
   std::string token, comment;
-  //std::string token = IO::last_key, comment;
-  //IO::last_key.clear();
+
   while(from >> token) {
-    // end
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
-  } //while(from >> token);
+  } // input cycle
   
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(cutoff() < 0.) {
+    //
     std::cerr << funame << "cutoff energy is not initialized\n";
+    
     throw Error::Init();
   }
 
-  IO::log << IO::log_offset << "cutoff energy = " << -cutoff() / Phys_const::kcal 
-	  << " kcal/mol   tunneling factor = "
-	  << factor(-cutoff()) << "\n";
-
+  IO::log << IO::log_offset
+    //
+	  << "cutoff energy    = " << -cutoff() / Phys_const::kcal << " kcal/mol\n"
+    //
+	  << IO::log_offset
+    //
+	  << "tunneling factor = " << factor(-cutoff()) << "\n";
 }
 
 Model::HarmonicTunnel::~HarmonicTunnel ()
@@ -5447,12 +5774,19 @@ double Model::HarmonicTunnel::action (double ener, int n) const
   const char funame [] = "Model::HarmonicTunnel::action: ";
 
   switch(n) {
-  case 0: 
+    //
+  case 0:
+    //
     return 2. * M_PI * ener / frequency();
-  case 1: 
+    
+  case 1:
+    //
     return 2. * M_PI  / frequency();
+    
   default:
+    //
     std::cerr << funame << "should not be here\n";
+    
     throw Error::Logic();
   }
 }
@@ -5575,15 +5909,24 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
     // unknown keyword
     //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
-  } //while(from >> token);
+    //
+  }// input cycle
   
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
@@ -5595,7 +5938,9 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
   }
   
   if(cutoff() < 0.) {
+    //
     std::cerr << funame << "cutoff energy is not initialized\n";
+    
     throw Error::Init();
   }
 
@@ -5613,9 +5958,13 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
     IO::log << IO::log_offset << "entanglement correction: " << _efac << "\n";
   }
 
-  IO::log << IO::log_offset << "cutoff energy = " << -cutoff() / Phys_const::kcal 
-	  << " kcal/mol   tunneling factor = "
-	  << factor(-cutoff()) << "\n";
+  IO::log << IO::log_offset
+    //
+	  << "cutoff energy = " << -cutoff() / Phys_const::kcal << " kcal/mol\n"
+    //
+	  << IO::log_offset
+    //
+	  << "tunneling factor = " << factor(-cutoff()) << "\n";
 
 }
 
@@ -5700,7 +6049,8 @@ double Model::ExpTunnel::action (double ener, int n) const
  **************************************** ECKART BARRIER ************************************
  ********************************************************************************************/
 
-Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from) 
+Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
+  //
   : Tunnel(from)
 {
   const char funame [] = "Model::EckartTunnel::EckartTunnel: ";
@@ -5725,36 +6075,53 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
   int    itemp;
 
   std::string token, comment;
-  //std::string token = IO::last_key, comment;
-  //IO::last_key.clear();
+
   while(from >> token) {
-    // end
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // well depth
+    //
     else if(kcal_well_key == token || incm_well_key == token || kj_well_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
 
-      if(kcal_well_key == token)
+      if(kcal_well_key == token) {
+	//
 	dtemp *= Phys_const::kcal;
-      if(incm_well_key == token)
+      }
+      if(incm_well_key == token) {
+	//
 	dtemp *= Phys_const::incm;
-      if(kj_well_key == token)
+      }
+      if(kj_well_key == token) {
+	//
 	dtemp *= Phys_const::kjoul;
+      }
 
       if(cutoff() >=0. && dtemp < cutoff()) {
+	//
 	std::cerr << funame << token << ": should not be smaller than cutoff energy\n";
+	
 	throw Error::Range();
       }
 
@@ -5763,36 +6130,52 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
     // unknown keyword
     //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
-  } //while(from >> token);
+    //
+  }// input cycle
   
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(_depth.size() != 2) {
+    //
     std::cerr << funame << "wrong number of wells\n";
+    
     throw Error::Init();
   }
 
   if(_depth[0] > _depth[1])
+    //
     std::swap(_depth[0], _depth[1]);
 
   // set up cutoff energy
   //
   if(cutoff() < 0.)
+    //
     _cutoff = _depth[0];
 
   for(int w = 0; w < 2; ++w)
+    //
     _depth[w] /= frequency();
 
   dtemp = 0.;
+  
   for(int w = 0; w < 2; ++w)
+    //
     dtemp += 1. / std::sqrt(_depth[w]);
 
   _factor = 4. * M_PI / dtemp;
@@ -5806,14 +6189,20 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
 	  << "\n";
 
   int emax = (int)std::ceil(cutoff() / Phys_const::kcal);
+  
   for(int e = 1; e < emax; ++e)
+    //
     IO::log << IO::log_offset << std::setw(2) << e 
 	    << std::setw(log_precision + 7) << 2. * M_PI * (double)e * Phys_const::kcal / frequency()
 	    << std::setw(log_precision + 7) << -action(-(double)e * Phys_const::kcal) << "\n";
 
-  IO::log << IO::log_offset << "cutoff energy = " << -cutoff() / Phys_const::kcal 
-	  << " kcal/mol   tunneling factor = "
-	  << factor(-cutoff()) << "\n";
+  IO::log << IO::log_offset
+    //
+	  << "cutoff energy = " << -cutoff() / Phys_const::kcal << " kcal/mol\n"
+    //
+	  << IO::log_offset
+    //
+	  << "tunneling factor = " << factor(-cutoff()) << "\n";
 
 #endif
 
@@ -5832,26 +6221,42 @@ double Model::EckartTunnel::action (double ener, int der) const
   double res = 0.;
 
   ener /= frequency();
+  
   for(int w = 0; w < 2; ++w) {
+    //
     dtemp = ener + _depth[w];
-    if(dtemp < 0.) 
+    
+    if(dtemp < 0.)
+      //
       dtemp = dtemp < 0. ? 0. : dtemp;
+    
     switch(der) {
+      //
     case 0:
-      res += std::sqrt(dtemp) - std::sqrt(_depth[w]); 
+      //
+      res += std::sqrt(dtemp) - std::sqrt(_depth[w]);
+      
       break;
+      
     case 1:
+      //
       if(dtemp > 0.)
+	//
 	res += 1./ std::sqrt(dtemp);
+      
       break;
+      
     default:
+      //
       std::cerr << funame << "should not be here\n";
+      
       throw Error::Logic();
     }
   }
   res *= _factor;
 
-  if(der)    
+  if(der)
+    //
     res /= 2. * frequency();  
 
   return res;
@@ -5866,26 +6271,45 @@ double Model::QuarticTunnel::XratioSearch::operator() (double x, int n) const
   const char funame [] = "Model::QuarticTunnel::Xratio::operator(): ";
 
   double dtemp;
+  
   switch(n) {
+    //
   case 0:
+    //
     return (x + 2.) * x * x * x / (2. * x + 1.) - _vratio;
+    
   case 1:
+    //
     dtemp = x * (x + 1.) / (2. * x + 1.);
+    
     return 6. * dtemp * dtemp;
+    
   default:
+    //
     std::cerr << funame << "wrong case\n";
+    
     throw Error::Logic();
   }
 }
 
-Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from) 
+Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
+  //
   : Tunnel(from)
 {
   const char funame [] = "Model::QuarticTunnel::QuarticTunnel: ";
 
-  double xtol   = 1.e-10;// potential minima coordinates ratio search tolerance
-  double xstep  = 1.e-3; // coordinate discretization step
-  int ener_size = 50;    // interpolation size
+  // potential minima coordinates ratio search tolerance
+  //
+  double xtol   = 1.e-10;
+
+  // coordinate discretization step
+  //
+  double xstep  = 1.e-3;
+
+  // interpolation size
+  //
+  int ener_size = 50;
+  
   std::vector<double> depth;
 
   IO::Marker funame_marker(funame);
@@ -5903,168 +6327,264 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
   int    itemp;
 
   std::string token, comment;
-  //std::string token = IO::last_key, comment;
-  //IO::last_key.clear();
+
   while(from >> token) {
-    // end
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // well depth
+    //
     else if(kcal_well_key == token || incm_well_key == token || kj_well_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
 
-      if(kcal_well_key == token)
+      if(kcal_well_key == token) {
+	//
 	dtemp *= Phys_const::kcal;
-      if(incm_well_key == token)
+      }
+      if(incm_well_key == token) {
+	//
 	dtemp *= Phys_const::incm;
-      if(kj_well_key == token)
+      }
+      if(kj_well_key == token) {
+	//
 	dtemp *= Phys_const::kjoul;
+      }
 
       if(cutoff() >= 0. && dtemp < cutoff()) {
+	//
 	std::cerr << funame << token << ": should be bigger than cutoff energy\n";
+	
 	throw Error::Range();
       }
       depth.push_back(dtemp);
     }
     // potential minima coordinates ratio search tolerance
+    //
     else if(xtol_key == token) {
+      //
       if(!(from >> xtol)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(xtol <= 0. || xtol >= 1.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();	
       }
     }
     // coordinate discretization step
+    //
     else if(step_key == token) {
+      //
       if(!(from >> xstep)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(xstep <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();	
       }
     }
     // energy interpolation size
+    //
     else if(ener_key == token) {
+      //
       if(!(from >> ener_size)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(ener_size <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();	
       }
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      std::cerr << "\n";
+
       throw Error::Init();
     }
-  } //while(from >> token);
+    //
+  }// input cycle
   
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   double xmin, xmax;
+  
   switch(depth.size()) {
-  case 1: // cubic potential
+    //
+    // cubic potential
+    //
+  case 1:
+    //
     IO::log << IO::log_offset << "assuming cubic potential\n";
+    
     xmin = std::sqrt(6.);
+    
     _v3 = -1. / xmin / 3.;
-    _v4 = 0.;    
+    
+    _v4 = 0.;
+    
     break;
-  case 2: // quartic potential
+
+    // quartic potential
+    //
+  case 2:
+    //
     if(depth[0] > depth[1])
+      //
       std::swap(depth[0], depth[1]);
 
-    // ratio of potential minima 
+    // ratio of potential minima
+    //
     dtemp = depth[1] / depth[0];
+    
     // ratio of potential minima coordinates
-    xmax = std::pow(dtemp, 1./3.);// initial guess
+
+    // initial guess
+    //
+    xmax = std::pow(dtemp, 1./3.);
+    
     XratioSearch(dtemp, xtol).find(xmax);
 
-    // potential minimal coordinates 
+    // potential minimal coordinates
+    //
     xmin = std::sqrt(12. * xmax / (2. * xmax + 1.));
+    
     xmax *= xmin;
 
     // potential coefficients
+    //
     _v3 = (1./xmax - 1./xmin) / 3.;
+    
     _v4 = -0.25 / xmax / xmin;
 
     IO::log << IO::log_offset << "small reduced potential minimum         = " << _potential(xmin)   << "\n"
+      //
 	    << IO::log_offset << "large reduced potential minimum         = " << _potential(-xmax)  << "\n"
+      //
 	    << IO::log_offset << "real potential minima ratio             = " <<  depth[1]/depth[0] << "\n";
     break;
+    
   default:
+    //
     std::cerr << funame << "wrong number of wells\n";
+    
     throw Error::Init();
   }
 
   // lowest tunneling energy
+  //
   _vmin = depth[0];
 
   // setting up cutoff energy
+  //
   if(cutoff() < 0.)
+    //
     _cutoff = _vmin;
 
   // action quadratic correction coefficient in terms of potential anharmonicities
+  //
   double quad_corr = 3.75 * _v3 * _v3 - 1.5 * _v4;
+  
   IO::log << IO::log_offset << "quadratic energy term coefficient (in action) = " <<  quad_corr << "\n";
 
   // coordinate discretization size and step
+  //
   itemp = (int)std::ceil(xmin / xstep);
+  
   xstep = xmin / (double)itemp;
+  
   int xsize = 2 * itemp + 1;
 
   // energy interpolation step
+  //
   double ener_step = 1. / (double)ener_size;
 
   // energy and action on the grid
+  //
   Array<double>   ener_grid(ener_size + 1);
+  
   Array<double> action_grid(ener_size + 1);
+  
   ener_grid[0]   = 0.;
+  
   action_grid[0] = 0.;
 
   double x;
+  
   double ener = 1.;
+  
   for(int e = ener_size; e > 0; --e, ener -= ener_step) {
+    //
     ener_grid[e] = ener;
+    
     x = xmin;
+    
     action_grid[e] = 0.;
+    
     for(int i = 0; i < xsize; ++i, x -= xstep) {
+      //
       dtemp = ener - _potential(x);
+      
       if(dtemp > 0.)
+	//
 	action_grid[e] += std::sqrt(dtemp);
     }
+    
     action_grid[e] *= xstep * M_SQRT2 * 2.;
   }
   
   // action spline interpolation
+  //
   _action.init(ener_grid, action_grid, ener_grid.size());
   
   IO::log << IO::log_offset << "Tunneling action versus energy E[kcal/mol]:\n"
@@ -6075,8 +6595,11 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
 	  << "\n";
 
   int emax = (int)std::ceil(cutoff() / Phys_const::kcal);
+  
   for(int e = 1; e < emax; ++e) {
+    //
     ener = (double)e * Phys_const::kcal;
+    
     IO::log << IO::log_offset << std::setw(2) << e 
 	    << std::setw(log_precision + 7) << 2. * M_PI * ener / frequency() 
 	    << std::setw(log_precision + 7) << 2. * M_PI * ener / frequency() * (1. + quad_corr * ener / _vmin)
@@ -6100,37 +6623,63 @@ double Model::QuarticTunnel::action (double ener, int der) const
   const char funame [] = "Model::QuarticTunnel::action: ";
   
   double dtemp;
+  
   if(ener >= 0.)
+    //
     switch(der) {
+      //
     case 0:
+      //
       return 2. * M_PI * ener / frequency();
+      
     case 1:
+      //
       return 2. * M_PI / frequency();
+      
     default:
+      //
       std::cerr << funame << "wrong derivative\n";
+      
       throw Error::Range();
     }
 
   ener /= -_vmin;
 
-  if(ener < 1.)
+  if(ener < 1.) {
+    //
     switch(der) {
+      //
     case 0:
+      //
       return - _vmin * _action(ener, 0) / frequency();
+      
     case 1:
+      //
       return _action(ener, 1) / frequency();
+      
     default:
+      //
       std::cerr << funame << "wrong derivative\n";
+      
       throw Error::Range();
     }
+  }
   else
+    //
     switch(der) {
+      //
     case 0:
+      //
       return - _vmin * _action.fun_max() / frequency();
+      
     case 1:
+      //
       return 0.;
+      
     default:
+      //
       std::cerr << funame << "wrong derivative\n";
+      
       throw Error::Logic();
     }
 }
@@ -6174,22 +6723,36 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
   //}  
   
   while(from >> token) {
+    //
     // moving group definition
+    //
     if(group_key == token) {
+      //
       if(_group.size()) {
+	//
 	std::cerr << funame << token << ": group is already defined\n";
+	
 	throw Error::Init();
       }
+      
       IO::LineInput group_input(from);
+      
       while(group_input >> itemp) {
+	//
 	// using Fortran type indexing in the input
+	//
 	if(itemp < 1) {
+	  //
 	  std::cerr << funame << token << ": atomic index should be positive\n";
+	  
 	  throw Error::Range();
 	}
 	if(!_group.insert(itemp - 1).second) {
-	  std::cerr << funame << token << ": " << itemp 
+	  //
+	  std::cerr << funame << token << ": " << itemp
+	    //
 		    << "-th atom already has been used in the internal motion defininition\n";
+	  
 	  throw Error::Init();
 	}
       }
@@ -6197,83 +6760,137 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
     // internal rotation axis definition
     //
     else if(axis_key == token) {
+      //
       if(_axis.first >= 0) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Init();
       }
 
       IO::LineInput axis_input(from);
+      
       for(int i = 0; i < 2; ++i) {
+	//
 	if(!(axis_input >> itemp)) {
+	  //
 	  std::cerr << funame << token << ": corrupted\n";
+	  
 	  throw Error::Input();
 	}
 
-	if(itemp < 1) {// using Fortran type indexing in the input
+	// using Fortran type indexing in the input
+	//
+	if(itemp < 1) {
+	  //
 	  std::cerr << funame << token << ": atomic index should be positive\n";
+	  
 	  throw Error::Range();
 	}
 
 	--itemp;
 
-	if(i)
+	if(i) {
+	  //
 	  _axis.second = itemp;
+	}
 	else
+	  //
 	  _axis.first  = itemp;
       }
     
       if(_axis.first == _axis.second) {
+	//
 	std::cerr << funame << token << ": atomic indices should be different\n";
+	
 	throw Error::Range();
       }
     }
     // symmetry
+    //
     else if(symm_key == token) {
       //
       if(!(from >> _symmetry)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       if(_symmetry < 1) {
+	//
 	std::cerr << funame << token << ": symmetry should be positive\n";
+	
 	throw Error::Range();
       }
     }
-    // unknown key
-    else if(IO::skip_comment(token, from)) {
+    // break
+    //
+    else if(IO::is_break(token)) {
       //
-      from.put_back(token);
-      //IO::last_key = token;
+      std::getline(from, comment);
+      
       break;
     }
-  } // while(from >> token);
+    // unknown key
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::string pad = "| ";
+      
+      IO::log << "-------------------------------------------\n";
+      
+      IO::log << pad << funame << "WARNING: unknown keyword: " << token << "\n";
+      
+      Key::show_all(IO::log, pad);
+      
+      IO::log << pad << "Hint: to get rid of this message separate the base class input from the derived class one with +++\n";
+      
+      IO::log << "-------------------------------------------\n";
+      
+      from.put_back(token);
+      
+      break;
+    }
+    //
+  }// input cycle
 
   if(!from) {
+    //
     std::cerr << funame << "input is corrupted\n";
+    
     throw Error::Input();
   }
 
   if(!_group.size()) {
+    //
     std::cerr << funame  << "rotor group not defined\n";
+    
     throw Error::Init();
   }
 
   if(_axis.first < 0) {
+    //
     std::cerr << funame  << "axis not defined\n";
+    
     throw Error::Init();
   }
 
 
   if(_group.find(_axis.first ) != _group.end() ||
+     //
      _group.find(_axis.second) != _group.end()) {
+    //
     std::cerr << funame << "rotor group should not have common atoms with the axis\n";
+    
     throw Error::Init();
   }
 
   // maximal atomic index
   //
   _imax = *_group.rbegin();
+  
   _imax = _axis.first  > _imax ? _axis.first  : _imax;
+  
   _imax = _axis.second > _imax ? _axis.second : _imax;
 
 }// Internal Rotation Base
@@ -6283,18 +6900,23 @@ Model::InternalRotationDef::~InternalRotationDef ()
   //IO::log << IO::log_offset << "Model::InternalRotationDef destroyed\n";
 }
 
-// rotating internal group around internal axis 
+// rotating internal group around internal axis
+//
 std::vector<Atom> Model::InternalRotationDef::rotate (const std::vector<Atom>& atom, double angle) const
 {
   const char funame [] = "Model::InternalRotationDef::rotate: ";
 
   if(!_isinit) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
   if(_imax >= atom.size() || _group.size() + 2 >= atom.size()) {
+    //
     std::cerr << funame << "atomic indices are inconsistent with the number of atoms\n";
+    
     throw Error::Logic();
   }
 
@@ -6305,40 +6927,58 @@ std::vector<Atom> Model::InternalRotationDef::rotate (const std::vector<Atom>& a
   D3::Vector vtemp;
 
   D3::Vector ref = atom[_axis.first];
+  
   D3::Vector nz  = atom[_axis.second] - ref;
+  
   nz.normalize();
 
   D3::Vector nx, ny;
 
   // new geometry
+  //
   std::set<int>::const_iterator cit;
+  
   for(cit = _group.begin(); cit != _group.end(); ++cit) {
+    //
     vtemp = res[*cit] - ref;
+ 
     ny = D3::vprod(nz, vtemp);
+    
     dtemp = ny.normalize();
+    
     nx = D3::vprod(ny, nz);
+    
     nx *= dtemp * std::cos(angle);
+    
     ny *= dtemp * std::sin(angle);
+    
     dtemp = vdot(nz, vtemp);
+    
     vtemp = dtemp * nz;
+    
     res[*cit] = ref + nx + ny + vtemp;
   }
+  
   return res;
 }
 
 // center of mass is assumed to be at zero
-std::vector<D3::Vector> Model::InternalRotationDef::normal_mode 
-(const std::vector<Atom>& atom, Lapack::Vector* avp) const
+//
+std::vector<D3::Vector> Model::InternalRotationDef::normal_mode (const std::vector<Atom>& atom, Lapack::Vector* avp) const
 {
   const char funame [] = "Model::InternalRotationDef::normal_mode: ";
 
   if(!_isinit) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
   if(_imax >= atom.size() || _group.size() + 2 >= atom.size()) {
+    //
     std::cerr << funame << "atomic indices are inconsistent with the number of atoms\n";
+    
     throw Error::Logic();
   }
 
@@ -6347,15 +6987,21 @@ std::vector<D3::Vector> Model::InternalRotationDef::normal_mode
   D3::Vector vtemp;
 
   // rotation axis
+  //
   D3::Vector dir = atom[_axis.second] - atom[_axis.first];
+  
   dir.normalize();
 
   // rotational motion
+  //
   std::map<int, D3::Vector> motion;
+  //
   for(std::set<int>::const_iterator cit = _group.begin(); cit != _group.end(); ++cit)
+    //
     motion[*cit] = D3::vprod(dir, atom[*cit] - atom[_axis.first]);
 
-  // normal mode 
+  // normal mode
+  //
   return adjusted_normal_mode(atom, motion, avp);
 }
 
@@ -6384,6 +7030,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
   std::string stemp;
 
   std::string token, line, comment;
+  
   while(from >> token) {
     //
     // hindered rotor geometry
@@ -6432,62 +7079,110 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
     // Hamiltonian minimum size
     //
     else if(hmin_key == token) {
+      //
       if(!(from >> _ham_size_min)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(_ham_size_min < 1) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
+      
       if(!(_ham_size_min % 2))
+	//
 	++_ham_size_min;
     }
     // potential discretization size
+    //
     else if(grid_key == token) {
+      //
       if(!(from >> _grid_size)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(_grid_size < 1) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
     }
     // thermal exponent power maximum
+    //
     else if(pmax_key == token) {
+      //
       if(!(from >> _therm_pow_max)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(_therm_pow_max <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();	
       }
     }
-    // unknown keyword
-    else if(IO::skip_comment(token, from)) {
-      from.put_back(token);
-      //IO::last_key = token;
+    // break
+    //
+    else if(IO::is_break(token)) {
+      //
+      std::getline(from, comment);
+      
       break;
     }
-  } //while(from >> token);
+    // unknown keyword
+    //
+    else if(IO::skip_comment(token, from)) {
+      //
+      std::string pad = "| ";
+      
+      IO::log << "-------------------------------------------\n";
+      
+      IO::log << pad << funame << "WARNING: unknown keyword: " << token << "\n";
+      
+      Key::show_all(IO::log, pad);
+      
+      IO::log << pad << "Hint: to get rid of this message separate the base class input from the derived class one with +++\n";
+      
+      IO::log << "-------------------------------------------\n";
+      
+      from.put_back(token);
+
+      break;
+    }
+    //
+  }// input cycle
   
   // stream state checking
+  //
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   // geometry checking
+  //
   if(!_atom.size()) {
+    //
     std::cerr << funame << "geometry is not defined\n";
+    
     throw Error::Init();
   }
 }
@@ -6515,6 +7210,7 @@ void Model::Rotor::convolute (Array<double>& stat_grid, double ener_quant) const
     if(dtemp < 0.) {
       //
       std::cerr << funame << n << "-th energy level is negative: "
+	//
 		<< energy_level(n) / Phys_const::kcal << " kcal/mol\n";
 
       throw Error::Range();
@@ -6585,7 +7281,8 @@ Model::RotorBase::~RotorBase ()
  **************************************** FREE ROTOR ****************************************
  ********************************************************************************************/
 
-Model::FreeRotor::FreeRotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom) 
+Model::FreeRotor::FreeRotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
+  //
   : RotorBase(from, atom), _level_size(1)
 {
   const char funame [] = "Model::FreeRotor::FreeRotor: ";
@@ -6601,27 +7298,41 @@ Model::FreeRotor::FreeRotor (IO::KeyBufferStream& from, const std::vector<Atom>&
   double dtemp;
 
   std::string token, line, comment;
-  //std::string token = IO::last_key, line, comment;
-  //IO::last_key.clear();
+
   while(from >> token) {
+    //
     // end input
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
-  } //while(from >> token);
+    //
+  }// input cycle
   
   /******************************************* Checking *************************************************/
   // stream state
+  //
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
@@ -6640,9 +7351,11 @@ double Model::FreeRotor::ground () const
 double Model::FreeRotor::energy_level (int level) const
 {
   if(!level)
+    //
     return 0.;
 
   int itemp = (level + 1) / 2 * symmetry();
+  
   return rotational_constant() * double(itemp * itemp);
 }
 
@@ -6675,7 +7388,9 @@ double Model::FreeRotor::weight (double temperature) const
 void  Model::FreeRotor::set (double ener_max)
 {
   if(ener_max <= 0.) {
+    //
     _level_size = 1;
+    
     return;
   }
 
@@ -7191,6 +7906,8 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
     else if(IO::skip_comment(token, from)) {
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(std::cerr);
       
@@ -8023,6 +8740,8 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
     else if(IO::skip_comment(token, from)) {
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(std::cerr);
       
@@ -8859,6 +9578,8 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       
       std::cerr << "\n";
@@ -9044,25 +9765,32 @@ void Model::HinderedRotor::_init ()
 
   if(!(_flags & NOPRINT)) {
     //
-    IO::log << IO::log_offset << "effective rotational constant[1/cm]  = " 
+    IO::log << IO::log_offset << "effective rotational constant[1/cm]  = "
+      //
 	    << rotational_constant() / Phys_const::incm << "\n";
 
     IO::log << IO::log_offset << "potential minimum angle[deg]         = "
+      //
 	    << imin * _grid_step * 180. / M_PI << "\n";
       
-    IO::log << IO::log_offset << "analytic  frequency at minimum[1/cm] = " 
+    IO::log << IO::log_offset << "analytic  frequency at minimum[1/cm] = "
+      //
 	    << freq_anal / Phys_const::incm << "\n";
     
-    IO::log << IO::log_offset << "numerical frequency at minimum[1/cm] = " 
+    IO::log << IO::log_offset << "numerical frequency at minimum[1/cm] = "
+      //
 	    << _freq_min  / Phys_const::incm << "\n";
     
     IO::log << IO::log_offset << "minimum energy[kcal/mol]             = "
+      //
 	    << _pot_min  / Phys_const::kcal << "\n";
     
     IO::log << IO::log_offset << "maximum energy[kcal/mol]             = "
+      //
 	    << _pot_max  / Phys_const::kcal << "\n";
     
     IO::log << IO::log_offset << "maximum frequency[1/cm]              = "
+      //
 	    << _freq_max / Phys_const::incm << "\n";
     
   }
@@ -9101,12 +9829,15 @@ void Model::HinderedRotor::_init ()
   if(!(_flags & NOPRINT)) {
     //
     IO::log << IO::log_offset << "ground energy [kcal/mol]             = "
+      //
 	    << ground() / Phys_const::kcal << "\n";
     
     IO::log << IO::log_offset << "highest energy level [kcal/mol]      = "
+      //
 	    << (_energy_level.back() + ground()) / Phys_const::kcal << "\n";
     
     IO::log << IO::log_offset << "number of levels                     = "
+      //
 	    << level_size()  << "\n";
 
     // energy levels output
@@ -9174,6 +9905,7 @@ void Model::HinderedRotor::_init ()
   Lapack::Vector rl = _real_space_energy_levels();
 
   IO::log << IO::log_offset << "Energy Levels [kcal/mol]:\n";
+  
   IO::log << IO::log_offset 
 	  << std::setw(3)  << "#"
 	  << std::setw(5)  << "*N"
@@ -9182,13 +9914,16 @@ void Model::HinderedRotor::_init ()
 	  << "\n";
 
   itemp = rl.size() < level_size() ? rl.size() : level_size();
+  
   for(int l = 0; l < itemp; ++l)
+    //
     IO::log << IO::log_offset
 	    << std::setw(3) << l
 	    << std::setw(5) << semiclassical_states_number(energy_level(l) + ground())
 	    << std::setw(log_precision + 7) << (energy_level(l) + ground()) / Phys_const::kcal
 	    << std::setw(log_precision + 7) << rl[l] / Phys_const::kcal
 	    << "\n";
+  
   IO::log << IO::log_offset << "*N  - semiclassical number of states\n"
 	  << IO::log_offset << "*M  - momentum space energy levels\n"
 	  << IO::log_offset << "*R  - real space energy levels\n";
@@ -9234,7 +9969,8 @@ void  Model::HinderedRotor::set (double emax)
 
   if(hsize > _ham_size_max) {
     //
-    IO::log << IO::log_offset << "WARNING: requested Hamiltonian size = " << hsize 
+    IO::log << IO::log_offset << "WARNING: requested Hamiltonian size = " << hsize
+      //
 	    << " exceeds the current limit = " << _ham_size_max << "=> truncating\n";
     
     hsize = _ham_size_max;
@@ -9252,22 +9988,23 @@ void  Model::HinderedRotor::set (double emax)
   
   if(!(_flags & NOPRINT)) {
     //
-    IO::log << IO::log_offset << "ground energy [kcal/mol]        = " 
-	    << ground() / Phys_const::kcal << "\n";
-    IO::log << IO::log_offset << "highest level energy [kcal/mol] = " 
-	    << _energy_level.back() / Phys_const::kcal << "\n";
-    IO::log << IO::log_offset << "number of levels                = "
-	    << level_size()  << "\n";
+    IO::log << IO::log_offset << "ground energy [kcal/mol]        = " << ground() / Phys_const::kcal << "\n";
+    
+    IO::log << IO::log_offset << "highest level energy [kcal/mol] = " << _energy_level.back() / Phys_const::kcal << "\n";
+    
+    IO::log << IO::log_offset << "number of levels                = " << level_size()  << "\n";
   }
 
 #ifdef DEBUG
 
   // energy levels
+  //
   IO::log << IO::log_offset << "energy levels [kcal/mol]:\n";
   IO::log << IO::log_offset 
 	  << std::setw(5) << "#" 
 	  << std::setw(log_precision + 7) << "E-E0" 
 	  << "\n";
+  
   for(int l = 1; l < level_size(); ++l)
     IO::log << IO::log_offset 
 	    << std::setw(5)  << l
@@ -9353,14 +10090,22 @@ Lapack::Vector Model::HinderedRotor::_real_space_energy_levels () const
   dtemp = 2. * rotational_constant() / _grid_step / _grid_step;
   
   ham = dtemp;
+  
   dtemp /= -2.;
+  
   for(int i = 0; i < ham.size(); ++i) {
+    //
     ham(i, i) += _pot_grid[i];
-    if(i)
+    
+    if(i) {
+      //
       ham(i - 1, i) = dtemp;
+    }
     else
+      //
       ham(0, ham.size() - 1) = dtemp;
   }
+  
   return ham.eigenvalues();
 }
 
@@ -9497,11 +10242,17 @@ int Model::HinderedRotor::get_semiclassical_weight (double temperature, double& 
 double Model::HinderedRotor::quantum_weight (double temperature) const
 {
   double dtemp;
+  
   double res = 1.;
+  
   for(int l = 1; l < level_size(); ++l) {
+    //
     dtemp = energy_level(l) / temperature;
+    
     if(dtemp > _therm_pow_max)
+      //
       break;
+    
     res += std::exp(-dtemp);
   }
 
@@ -9521,48 +10272,74 @@ int Model::HinderedRotor::semiclassical_states_number (double ener) const
   double y1, y2, z1, z2;
 
   y1 = ener - *_pot_grid.rbegin();
+  
   bool incomplete = false;
+  
   if(y1 > 0.) {
+    //
     z1 = y1 * std::sqrt(y1);
+    
     incomplete = true;
   }
 
   double inact;
+  
   bool isfirst = true;
+  
   int res = 0;
+  
   double action = 0.;
+  
   for(std::vector<double>::const_iterator it = _pot_grid.begin(); it != _pot_grid.end(); ++it) {
+    //
     y2 = ener - *it;
+    
     if(y2 > 0.)
+      //
       z2 = y2 * std::sqrt(y2);
 
     if(y1 > 0. && y2 <= 0.) {
+      //
       action += z1  / (y1 - y2);
-      if(incomplete && isfirst) 
+      
+      if(incomplete && isfirst) {
+	//
 	inact = action;
+      }
       else
+	//
 	res += int(action * fac + 0.5);
+      
       isfirst = false;
     }
     else if(y2 > 0. && y1 <= 0.) {
+      //
       action = z2  / (y2 - y1);
     }
     else if(y1 > 0. && y2 > 0.) {
+      //
       dtemp = (y2 - y1) / y1;
-      if(dtemp < eps && dtemp > -eps)
+      
+      if(dtemp < eps && dtemp > -eps) {
+	//
 	action += 1.5 * z1 / y1;
+      }
       else
+	//
 	action += (z2 - z1) / (y2 - y1);
     }
 
     y1 = y2;
+    
     z1 = z2;
   }
 
   if(incomplete && isfirst)
+    //
     return 2 * int(action * fac / 2.) + 1;
 
   if(incomplete)
+    //
     res += int((action + inact) * fac + 0.5);
 
   return res;
@@ -9571,9 +10348,13 @@ int Model::HinderedRotor::semiclassical_states_number (double ener) const
 void Model::HinderedRotor::integrate (Array<double>& states, double ener_step) const
 {
   int itemp;
+  
   std::map<int, int> shift;
+  
   for(int g = 0; g < _pot_grid.size(); ++g) {
+    //
     itemp = (int)round((_pot_grid[g] - _pot_min) / ener_step);
+    
     shift[itemp]++;
   }
 
@@ -9582,8 +10363,11 @@ void Model::HinderedRotor::integrate (Array<double>& states, double ener_step) c
 #pragma omp parallel for default(shared) schedule(static, 10)
 
   for(int i = 0; i < states.size(); ++i) {
+    //
     for(std::map<int, int>::const_iterator sit = shift.begin(); sit != shift.end(); ++sit)
+      //
       if(i >= sit->first)
+	//
 	new_states[i] += (double)sit->second * states[i - sit->first];
   }
 
@@ -9621,14 +10405,26 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
   std::set<int> set_temp;
 
   std::string token, line, comment;
-  //std::string token = IO::last_key, line, comment;
-  //IO::last_key.clear();
 
-  std::set<int> group_def;// moving group
-  int ref_def = -1; // reference atom
-  std::vector<int> plan_def;// umbrella plane
-  Array<double> dir; // direction of motion
-  double xrange = -1.; // coordinate variation range
+  // moving group
+  //
+  std::set<int> group_def;
+
+  // reference atom
+  //
+  int ref_def = -1;
+
+  // umbrella plane
+  //
+  std::vector<int> plan_def;
+
+  // direction of motion
+  //
+  Array<double> dir;
+
+  // coordinate variation range
+  //
+  double xrange = -1.; 
 
   while(from >> token) {
     //
@@ -9774,39 +10570,56 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       // sampling size
       //
       if(!(from >> itemp)) {
+	//
 	std::cerr << funame << token << ": sampling size is corrupted";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(itemp < 3) {
+	//
 	std::cerr << funame << token << ": not enough sampling points\n";
+	
 	throw Error::Range();
       }
 
       // sampling data
       //
       std::map<double, double> pot_data;
+      
       for(int i = 0; i < itemp; ++i) {
+	//
 	IO::LineInput data_input(from);
+	
 	double xval;
 
 	if(!(data_input >> xval)) {
+	  //
 	  std::cerr << funame << token << ": cannot read " << i << "-th coordinate value\n";
+	  
 	  throw Error::Input();
 	}
 
 	if(!(data_input >> dtemp)) {
+	  //
 	  std::cerr << funame << token << ": cannot read " << i << "-th potential value\n";
+	  
 	  throw Error::Input();
 	}
 
-	if(kcal_pot_key == token)
+	if(kcal_pot_key == token) {
+	  //
 	  dtemp *= Phys_const::kcal;
-	if(incm_pot_key == token)
+	}
+	if(incm_pot_key == token) {
+	  //
 	  dtemp *= Phys_const::incm;
-	if(kj_pot_key == token)
+	}
+	if(kj_pot_key == token) {
+	  //
 	  dtemp *= Phys_const::kjoul;
+	}
 
 	pot_data[xval] = dtemp;
       }
@@ -9818,19 +10631,28 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       // convert potential samplings into power expansion coefficients
       //
       _pot_coef.resize(pot_data.size());
-      Lapack::Vector xval(pot_data.size()); 
+      
+      Lapack::Vector xval(pot_data.size());
+      
       std::map<double, double>::const_iterator pit;
-      for(pit = pot_data.begin(), itemp = 0; pit != pot_data.end(); ++pit, ++itemp) {	
+      
+      for(pit = pot_data.begin(), itemp = 0; pit != pot_data.end(); ++pit, ++itemp) {
+	//
 	xval[itemp] = (pit->first  - pot_data.begin()->first) / xrange;
+	
 	_pot_coef[itemp] = pit->second;
       }
 
       // conversion matrix
       //
       Lapack::Matrix xmat(xval.size(), xval.size());
+      
       for(int i = 0; i < xval.size(); ++i) {
+	//
 	dtemp = 1.;
+	
 	for(int j = 0; j < xval.size(); ++j, dtemp *= xval[i])
+	  //
 	  xmat(i, j) = dtemp;
       }
 
@@ -9847,6 +10669,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
 	      << "\n";// << std::fixed;
       
       for(int i = 0; i < xval.size(); ++i)
+	//
 	IO::log << IO::log_offset 
 		<< std::setw(log_precision + 7) << xval[i] * xrange
 		<< std::setw(log_precision + 7) << potential(xval[i]) / Phys_const::kcal 
@@ -9858,9 +10681,11 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
     else if(IO::skip_comment(token, from)) {
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
-      //
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
-      //
+      
       std::cerr << "\n";
       
       throw Error::Init();
@@ -9873,42 +10698,58 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
   // stream state
   //
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(!_pot_coef.size()) {
+    //
     std::cerr << funame << "potential is not defined\n";
+    
     throw Error::Init();
   }
 
   if(!atom.size()) {
+    //
     std::cerr << funame << "geometry is not defined\n";
+    
     throw Error::Init();
   }
 
   if(!dir.size() && !plan_def.size()) {
+    //
     std::cerr << funame << "motion direction is not defined\n";
+    
     throw Error::Init();
   }
 
   if(!group_def.size()) {
+    //
     std::cerr << funame << "moving group is not defined\n";
+    
     throw Error::Init();
   }
 
   if(*group_def.rbegin() >= atom.size()) {
+    //
     std::cerr << funame << "atom index in moving group definition is out of range\n";
+    
     throw Error::Range();
   }
 
   if(group_def.find(ref_def) != group_def.end()) {
+    //
     std::cerr << funame << "reference atom should not belong to moving group\n";
+    
     throw Error::Logic();
   }
 
   if(ref_def >= atom.size()) {
+    //
     std::cerr << funame << "refernce atom index  is out of range\n";
+    
     throw Error::Range();
   }
 
@@ -10089,16 +10930,23 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
 	  << std::setw(log_precision + 7) << "Semiclassical"
 	  << "  ***\n";
   for(int t = 100; t <= 1000 ; t+= 100) {
+    //
     double tval = (double)t * Phys_const::kelv;
+    
     double cw, sw;
+    
     itemp = get_semiclassical_weight(tval, cw, sw);
+    
     IO::log << IO::log_offset 
 	    << std::setw(5) << t
 	    << std::setw(log_precision + 7) << quantum_weight(tval)
 	    << std::setw(log_precision + 7) << cw
 	    << std::setw(log_precision + 7) << sw;
+    
     if(itemp)
+      //
       IO::log << "  ***";
+    
     IO::log << "\n";
   }
 
@@ -10194,14 +11042,23 @@ void Model::Umbrella::_fourier_space_energy_levels (int hsize)
   Lapack::Vector el = ham.eigenvalues();
 
   // updating energy levels
+  //
   _ground  = el.front();
+  
   _energy_level.clear();
+  
   _energy_level.reserve(hsize);
+  
   dtemp = (double)hsize * M_PI;
+  
   dtemp = dtemp * dtemp / 2. / _mass + _pot_min;
+  
   for(int i = 0; i < hsize; ++i) {
+    //
     if(el[i] > dtemp)
+      //
       break;
+    
     _energy_level.push_back(el[i] - _ground);
   }
 }
@@ -10211,7 +11068,9 @@ double Model::Umbrella::potential(double x, int der) const
   const char funame [] = "Model::Umbrella::potential: ";
 
   if(der < 0) {
+    //
     std::cerr << funame << "negative derivative power requested\n";
+    
     throw Error::Range();
   }
 
@@ -10219,13 +11078,21 @@ double Model::Umbrella::potential(double x, int der) const
   double dtemp;
 
   double xfac = 1.;
+  
   double res = 0.;
+  
   for(int i = der; i < _pot_coef.size(); ++i, xfac *= x) {
+    //
     dtemp = _pot_coef[i] * xfac;
+    
     if(der) {
+      //
       itemp = 1;
+      
       for(int j = i - der + 1; j <= i; ++j)
+	//
 	itemp *= j;
+      
       dtemp *= (double)itemp;
     }
     res += dtemp;
@@ -10237,18 +11104,23 @@ double Model::Umbrella::potential(double x, int der) const
 double Model::Umbrella::_integral(int p, int n)
 {
   if(!n)
+    //
     return 1. / (1. + (double)p);
 
   if(!p)
+    //
     return 0.;
 
   n = n < 0 ? -n : n;
 
   int v = n % 2 ? -1 : 1;
+  
   double dtemp = M_PI * (double)n;
+  
   dtemp *= dtemp;
 
   if(p == 1)
+    //
     return double(v - 1) / dtemp;
 
   return ((double)v - double(p - 1) * _integral(p - 2, n)) * double(p) / dtemp;
@@ -10274,10 +11146,15 @@ double Model::Umbrella::quantum_weight (double temperature) const
   double dtemp;
 
   double res = 1.;
+  
   for(int l = 1; l < _energy_level.size(); ++l) {
+    //
     dtemp = _energy_level[l] / temperature;
+    
     if(dtemp > _therm_pow_max)
+      //
       break;
+    
     res += std::exp(-dtemp);
   }
 
@@ -10296,6 +11173,7 @@ double Model::Umbrella::weight (double temperature) const
 int Model::Umbrella::get_semiclassical_weight (double temperature, double& cw, double& sw) const
 {
   static const double eps = 0.01;
+  
   static const double amin = 0.1 - M_PI;
 
   double dtemp;
@@ -10303,29 +11181,46 @@ int Model::Umbrella::get_semiclassical_weight (double temperature, double& cw, d
   int res = 0;
 
   cw = sw = 0.;
+  
   double fac;
+  
   for(int i = 0; i < _pot_grid.size(); ++i) {
+    //
     dtemp = _freq_grid[i] / temperature / 2.;
-    if(dtemp > eps)
+    
+    if(dtemp > eps) {
+      //
       fac = dtemp / std::sinh(dtemp);
+    }
     else if(dtemp < amin) {
+      //
       fac = -1.;
+      
       res = 1;
     }
-    else if(dtemp < -eps)
+    else if(dtemp < -eps) {
+      //
       fac = dtemp / std::sin(dtemp);
+    }
     else
+      //
       fac = 1.;
 
     dtemp = std::exp(-_pot_grid[i] / temperature);
+    
     if(fac > 0.)
+      //
       sw += dtemp * fac;
+    
     cw += dtemp;
   }
 
-  dtemp = _astep * std::sqrt(temperature * _mass / 2. / M_PI) 
+  dtemp = _astep * std::sqrt(temperature * _mass / 2. / M_PI)
+    //
     * std::exp(_ground / temperature);
+  
   cw *= dtemp;
+  
   sw *= dtemp;
 
   return res;
@@ -10344,7 +11239,8 @@ Model::Core::~Core ()
  *************************** PHASE SPACE THEORY NUMBER OF STATES ****************************
  ********************************************************************************************/
 
-Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from) 
+Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
+  //
   : Core(NUMBER), _states_factor(1.)
 {
   const char funame [] = "Model::PhaseSpaceTheory::PhaseSpaceTheory: ";
@@ -10354,6 +11250,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
   IO::Marker funame_marker(funame);
 
   double pot_exp = -1.; // power exponent n in potential expression V(R) = V_0 / R^n;
+  
   double pot_fac = -1.; // potential prefactor V_0
 
   int tst_level = E_LEVEL;
@@ -10378,7 +11275,8 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
   std::vector<double> frag_mass; // fragments masses
   std::vector<double> frag_rcon; // fragments rotational constants
   
-
+  std::vector<double> rot_con[2]; // rotational constants;
+  
   std::string token, comment;
   
   while(from >> token) {
@@ -10401,44 +11299,75 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 	
 	throw Error::Init();
       }
-      gcount++;
 
+      if(gcount > 1) {
+	//
+	std::cerr << funame << token << ": wrong fragmens #\n";
+
+	throw Error::Init();
+      }
+      
       std::vector<Atom> atom;
+      
       if(ang_geom_key == token)
+	//
 	read_geometry(from, atom, ANGSTROM);
+      
       if(bor_geom_key == token)
+	//
 	read_geometry(from, atom, BOHR);
 
       dtemp = 0.;
+      
       for(std::vector<Atom>::iterator at = atom.begin(); at != atom.end(); ++at)
+	//
 	dtemp += at->mass();
       
       frag_mass.push_back(dtemp);
 
       // rotational constants
+      //
       if(atom.size() != 1) {
+	//
 	IO::log << IO::log_offset << "molecular geometry will be used to estimate rotational constants\n";
+	
 	Lapack::Vector imom = inertia_moment_matrix(atom).eigenvalues();
+	
 	if(imom[0] / imom[1] < 1.e-5) {// linear configuration
+	  //
 	  dtemp = 0.5 / imom[1];
+	  
 	  IO::log << IO::log_offset << "rotational configuration: linear\n"
 		  << IO::log_offset << "rotational constant[1/cm]: "
 		  << std::setw(log_precision + 7) << dtemp / Phys_const::incm
 		  << "\n";
+	  
 	  frag_rcon.push_back(dtemp);
 	  frag_rcon.push_back(dtemp);
+
+	  rot_con[gcount].push_back(dtemp);
 	}
 	else {// nonlinear configuration
+	  //
 	  IO::log << IO::log_offset << "rotational configuration: nonlinear\n"
 		  << IO::log_offset << "rotational constants[1/cm]: ";
+	  
 	  for(int i = 0; i < 3; ++i) {
+	    //
 	    dtemp = 0.5 / imom[i];
+	    
 	    frag_rcon.push_back(dtemp);
+
+	    rot_con[gcount].push_back(dtemp);
+	    
 	    IO::log << std::setw(log_precision + 7) << dtemp / Phys_const::incm;
 	  }
+	  
 	  IO::log << "\n";
 	}
       }
+      
+      gcount++;
     }
     // fragment masses
     //
@@ -10591,6 +11520,10 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 	//
 	tst_level = T_LEVEL;
       }
+      else if(stemp == "J=0") {
+	//
+	tst_level = J0_LEVEL;
+      }
       else {
 	//
 	std::cerr << funame << token << ": unknown level: " << stemp << ": avaiable levels: EJ, E, T\n";
@@ -10603,6 +11536,8 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
     else if(IO::skip_comment(token, from)) {
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(std::cerr);
       
@@ -10849,75 +11784,124 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   std::string token, comment;
 
   while(from >> token) {
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // rotational dimension and constants
+    //
     else if(rcon_key == token) {
+      //
       if(_rdim > 0) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
+      
       IO::LineInput data_input(from);
+      
       while(data_input >> dtemp) {
+	//
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << token << ": should be positive\n";
+	  
 	  throw Error::Range();
 	}
+	
 	rcon.push_back(dtemp * Phys_const::incm);
       }
 
       switch(rcon.size()) {
+	//
       case 1:
+	//
 	_rdim = 2;
+	
 	_factor /= rcon[0];
+	
 	break;
+	
       case 2:
+	//
 	if(rcon[0] != rcon[1])
+	  //
 	  IO::log << IO::log_offset
+	    //
 		  << "WARNING: inertia moments for linear molecule read from input file differ\n";
+	
 	_rdim = 2;
+	
 	_factor /= rcon[0];
+	
 	break;
+	
       case 3:
+	//
 	_rdim = 3;
+	
 	dtemp = 1.;
+	
 	for(int i = 0; i < 3; ++i)
+	  //
 	  dtemp *= rcon[i];
+	
 	_factor /= std::sqrt(dtemp);
+	
 	break;
+	
       default:
+	//
 	std::cerr << funame << token << ": wrong size\n";
+	
 	throw Error::Range();
       }
     }
     //  frequency quantum
     //
     else if(estep_key == token) {
+      //
       if(!(from >> ener_quant)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(ener_quant <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
+      
       ener_quant *= Phys_const::incm;
     }
     // interpolation maximal energy
     //
     else if(emax_key == token) {
+      //
       if(!(from >> _emax)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(_emax <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
       _emax *= Phys_const::kcal;
@@ -10925,14 +11909,20 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     // extrapolation step
     //
     else if(extra_key == token) {
+      //
       if(!(from >> extra_step)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(extra_step <= 0. || extra_step >= 1.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
     }
@@ -10941,17 +11931,23 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     else if(zero_key == token) {
       //
       if(!(from >> _ground)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
 
       if(_ground < 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
       
       _ground *= Phys_const::incm;
+      
       iszero = true;
     }
     // frequencies
@@ -10959,20 +11955,26 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     else if(freq_key == token) {
       //
       if(_frequency.size()) {
+	//
 	std::cerr << funame << token << ": have been initialized already\n";
+	
 	throw Error::Init();
       }
       
       // number of frequencies
       //
       if(!(from >> itemp)) {
+	//
 	std::cerr << funame << token << ": cannot read number of frequencies\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(itemp < 1) {
+	//
 	std::cerr << funame << token << ": number of frequencies should be positive\n";
+	
 	throw Error::Range();
       }
       _frequency.resize(itemp);
@@ -10980,21 +11982,31 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       // read frequencies
       //
       for(int i = 0; i < _frequency.size(); ++i) {
+	//
 	if(!(from >> dtemp)) {
+	  //
 	  std::cerr << funame << token << ": cannot read " << i << "-th frequency\n";
+	  
 	  throw Error::Input();
 	}
+	
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << token << ": " << i << "-th frequency: should be positive\n";
+	  
 	  throw Error::Range();
 	}
+	
 	_frequency[i] = dtemp * Phys_const::incm;
       }
       
       if(!from) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
+      
       std::getline(from, comment);
     }
     // frequency scaling factor
@@ -11272,52 +12284,86 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   }
 
   // rotational constants from geometry
+  //
   if(!_rdim) {
+    //
     IO::log << IO::log_offset << "molecular geometry will be used to estimate rotational constants\n";
+    
     if(!atom.size()) {
+      //
       std::cerr << funame << "geometry is not available\n";
+      
       throw Error::Init();
     }
     Lapack::Vector imom = inertia_moment_matrix(atom).eigenvalues();
-    if(imom[0] / imom[1] < 1.e-5) {// linear configuration
+
+    // linear configuration
+    //
+    if(imom[0] / imom[1] < 1.e-5) {
+      //
       _rdim = 2;
+      
       dtemp = 0.5 / imom[1];
+      
       rcon.push_back(dtemp);
+      
       rcon.push_back(dtemp);
       
       _factor *= 2. * imom[1];
       
       IO::log << IO::log_offset << "rotational configuration: linear\n";
+      
       IO::log << IO::log_offset << "rotational constant[1/cm]: "
+	//
 	      << std::setw(log_precision + 7) << 0.5 / imom[1] / Phys_const::incm
+	//
 	      << "\n";
     }
-    else {// nonlinear configuration
+    // nonlinear configuration
+    //
+    else {
+      //
       _rdim = 3;
+      
       for(int i = 0; i < 3; ++i) {
+	//
 	rcon.push_back(0.5 / imom[i]);
+	
 	_factor *= std::sqrt(2. * imom[i]);
       }
       
       IO::log << IO::log_offset << "rotational configuration: nonlinear\n";
+      
       IO::log << IO::log_offset << "rotational constants[1/cm]: ";
+      
       for(int i = 0; i < 3; ++i)
+	//
 	IO::log << std::setw(log_precision + 7) << 0.5 / imom[i] / Phys_const::incm;
+      
       IO::log << "\n";
 
+      // centrifugal distortion factor
+      //
       if(distort.isinit()) {
+	//
 	for(int i = 0; i < 3; ++i)
+	  //
 	  for(int j = i; j < 3; ++j)
+	    //
 	    _rofactor += distort(i, j) * imom[i] * imom[j];
 	
 	IO::log << IO::log_offset << "centrifugal distortion factor (rho factor, 1/K): " << _rofactor * Phys_const::kelv << "\n";
       }
     }
-  } // rotational constants from geometry
+  }
   // centrifugal distortion factor
+  //
   else if(_rdim == 3 && distort.isinit()) {
+    //
     for(int i = 0; i < 3; ++i)
+      //
       for(int j = i; j < 3; ++j)
+	//
 	_rofactor += distort(i, j) / rcon[i] / rcon[j];
     
     _rofactor /= 4.;
@@ -11326,92 +12372,143 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   }
 
   // anharmonicities, rovibrational couplings, etc.
+  //
   if(_frequency.size()) {
+    //
     if(!iszero) {
+      //
       std::cerr << funame << "zero-point energy is not defined\n";
+      
       throw Error::Init();
     }
     
     if(fscale > 0.)
+      //
       for(int f = 0; f < _frequency.size(); ++f)
+	//
 	_frequency[f] *= fscale;
     
     if(_fdegen.size() > _frequency.size()) {
+      //
       std::cerr << funame << "number of frequency degeneracies exceeds number of frequencies\n";
+      
       throw Error::Init();
     }
 
     for(int i = _fdegen.size(); i < _frequency.size(); ++i)
+      //
       _fdegen.push_back(1);
 
     if(isharm && _anharm.size()) {
+      //
       for(int i = 0; i < _frequency.size(); ++i)
+	//
 	for(int j = 0; j < _frequency.size(); ++j)
-	  if(j != i)
+	  //
+	  if(j != i) {
+	    //
 	    _frequency[i] += double(_fdegen[j]) * _anharm(i, j) / 2.;
+	  }
 	  else
+	    //
 	    _frequency[i] += double (_fdegen[i] + 1) * _anharm(i, i);
 
       IO::log << IO::log_offset << "fundamentals(1/cm):";
+      
       for(int i = 0; i < _frequency.size(); ++i)
+	//
 	IO::log << "   " << _frequency[i] / Phys_const::incm;
+      
       IO::log << "\n";
     }
       
-    if(_emax < 0.)
+    if(_emax < 0.) {
+      //
       _emax = energy_limit();
+    }
+    
     itemp = (int)std::ceil(_emax / ener_quant);
 
     if(mode() != NOSTATES) {
+      //
       Array<double> ener_grid(itemp);
+      
       Array<double> stat_grid(itemp);
+      
       ener_grid[0] = 0.;
+      
       stat_grid[0] = 0.;
 
       dtemp = ener_quant;
+      
       for(int i = 1; i < ener_grid.size(); ++i, dtemp += ener_quant) {
+	//
 	// energy grid
+	
 	ener_grid[i] = dtemp;
+	
 	// core density / number of states
+	//
 	stat_grid[i] = _core_states(dtemp);
       }
 
       for(int f = 0; f < _frequency.size(); ++f) {
+	//
 	itemp = (int)round(_frequency[f] / ener_quant);
+	
 	if(itemp < 0) {
+	  //
 	  std::cerr << funame << "negative frequency\n";
+	  
 	  throw Error::Range();
 	}
+	
 	for(int i = 0; i < _fdegen[f]; ++i)
+	  //
 	  for(int e = itemp + 1; e < ener_grid.size(); ++e)
+	    //
 	    stat_grid[e] += stat_grid[e - itemp];
       }
 
       _states.init(ener_grid, stat_grid, ener_grid.size());
+      
       dtemp = _states.fun_max() / _states(_states.arg_max() * (1. - extra_step));
+      
       _nmax = std::log(dtemp) / std::log(1. / (1. - extra_step));
     }
     
     // rovibrational coupling
+    //
     if(_rvc.size()) {
+      //
       // check the dimensionality
+      //
       for(int f = 0; f < _frequency.size(); ++f)
+	//
 	if(_rvc[f].size() != _rdim) {
+	  //
 	  std::cerr << funame << f + 1 << "-th frequency: rovibrational coupling size " << _rvc[f].size()
 		    << " inconsistent with rotational dimension " << _rdim << "\n";
+	  
 	  throw Error::Range();
 	}
 
       // zero-point rotational constant correction
+      //
       for(int i = 0; i < _rdim; ++i) {
+	//
 	dtemp = 0.;
+	
 	for(int f = 0; f < _frequency.size(); ++f)
+	  //
 	  dtemp += _rvc[f][i] * _fdegen[f] / rcon[i];
 	
 	dtemp = 1. - 0.5 * dtemp;
 	
 	if(dtemp <= 0.) {
+	  //
 	  std::cerr << funame << "negative zero-point correction to " << i + 1 << "-th rotational constant\n";
+	  
 	  throw Error::Range();
 	}
 	_factor /= std::sqrt(dtemp);
@@ -11419,8 +12516,8 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	rcon[i] *= dtemp;
 
 	for(int f = 0; f < _frequency.size(); ++f)
+	  //
 	  _rvc[f][i] /= rcon[i];
-	  
       }
     } // rovibrational coupling
   }
@@ -11433,36 +12530,50 @@ double Model::RigidRotor::_rovib (int rank ...) const
   double dtemp;
   
   if(!_rvc.size()) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
   if(rank < 1) {
+    //
     std::cerr << funame << "rank out of range\n";
+    
     throw Error::Range();
   }
 
   std::vector<int> ff(rank);
 
   va_list ap;
+  
   va_start(ap, rank);
 
   for(int i = 0; i < rank; ++i) {
+    //
     ff[i] = va_arg(ap, int);
     
     if(ff[i] < 0 || ff[i] >= _frequency.size()) {
+      //
       va_end(ap);
+      
       std::cerr << "index out of range\n";
+      
       throw Error::Range();
     }
   }
   va_end(ap);
   
   double res = 0.;
+  
   for(int i = 0; i < _rdim; ++i) {
+    //
     dtemp = 1.;
+    
     for(int r = 0; r < rank; ++r)
-      dtemp *= _rvc[ff[r]][i];  
+      //
+      dtemp *= _rvc[ff[r]][i];
+    
     res += dtemp;
   }
 
@@ -11490,18 +12601,25 @@ double Model::RigidRotor::weight (double temperature) const
   //_graph_perturbation_theory_correction(temperature);
 
   // core contribution
+  //
   double res = _core_weight(temperature);
 
   if(!_frequency.size())
+    //
     return res;
   
   // vibrational contribution
+  //
   std::vector<double> rfactor(_frequency.size()), sfactor(_frequency.size());
   
   for(int  f = 0; f < _frequency.size(); ++f) {
+    //
     rfactor[f] = std::exp(- _frequency[f] / temperature);
+    
     sfactor[f] = 1. / (1. - rfactor[f]);
+    
     for(int i = 0; i < _fdegen[f]; ++i)
+      //
       res *= sfactor[f];
   }
 
@@ -11758,7 +12876,9 @@ double Model::RigidRotor::_core_weight (double temperature) const
   static const double nfac = std::sqrt(M_PI);
   
   double res = _factor * temperature * (1. + _rofactor * temperature);
+  
   if(_rdim == 3)
+    //
     res *= std::sqrt(temperature * M_PI);
     
   return res;
@@ -11769,21 +12889,28 @@ double Model::RigidRotor::states (double ener) const
   const char funame [] = "Model::RigidRotor::states: ";
 
   if(mode() == NOSTATES) {
+    //
     std::cerr << funame << "wrong case\n";
+    
     throw Error::Logic();
   }
   
   if(!_frequency.size())
+    //
     return _core_states(ener);
 
   ener -= ground();
 
   if(ener <= 0.)
+    //
     return 0.;
 
   if(ener >= _states.arg_max()) {
+    //
     if(ener >= _states.arg_max() * 2.)
+      //
       IO::log << IO::log_offset << funame << "WARNING: energy far beyond interpolation range\n";
+    
     return _states.fun_max() * std::pow(ener / _states.arg_max(), _nmax);
   }
 
@@ -11795,21 +12922,35 @@ double Model::RigidRotor::_core_states (double ener) const
   const char funame [] = "Model::RigidRotor::states: ";
 
   if(ener <= 0.)
+    //
     return 0.;
 
   switch(mode()) {
+    //
   case DENSITY:
-    if(_rdim == 2)
+    //
+    if(_rdim == 2) {
+      //
       return _factor;
+    }
     else
+      //
       return _factor * 2. * std::sqrt(ener);
+    
   case NUMBER:
-    if(_rdim == 2)
+    //
+    if(_rdim == 2) {
+      //
       return _factor * ener;
+    }
     else
+      //
       return _factor * 1.3333333333333 * std::sqrt(ener) * ener;
+    
   default:
+    //
     std::cerr << funame << "wrong case\n";
+    
     throw Error::Logic();
   }
 }
@@ -11958,20 +13099,30 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
     // unknown keyword
     //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
  
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(!rotd_name.size()) {
+    //
     std::cerr << funame << "rotd output file name is not initialized\n";
+    
     throw Error::Init();
   }
 
@@ -12066,9 +13217,11 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
   }
   
   _rotd_ener.resize(itemp);
+  
   _rotd_nos.resize(itemp);
 
   _rotd_ener[0] = 0.;
+  
   _rotd_nos[0]  = 0.;
 
   IO::log << IO::log_offset << "grid size = " << itemp << "\n";
@@ -12083,29 +13236,40 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
   }
   
   Array<double> x(_rotd_ener.size() - 1);
+  
   Array<double> y(_rotd_ener.size() - 1);
 
   for(int i = 1; i < _rotd_ener.size(); ++i) {
+    //
     itemp = i - 1;
+    
     x[itemp] = std::log(_rotd_ener[i]);
+    
     y[itemp] = std::log( _rotd_nos[i]);
   }
 
   _rotd_spline.init(x, y, x.size());
 
   _rotd_emin = _rotd_ener[1]     * (1. + rotd_etol);
+  
   _rotd_emax = _rotd_ener.back() * (1. - rotd_etol);
 
   _rotd_nmin = (y[1] - y[0]) / (x[1] - x[0]);
+  
   _rotd_amin = std::exp(y[0] - x[0] * _rotd_nmin);
 
   int l1 = x.size() - 1;
+  
   int l2 = x.size() - 2;
+  
   _rotd_nmax = (y[l1] - y[l2]) / (x[l1] - x[l2]);
+  
   _rotd_amax = std::exp(y[l1] - x[l1] * _rotd_nmax);
 
-  IO::log << IO::log_offset << "effective power exponent at " 
+  IO::log << IO::log_offset << "effective power exponent at "
+    //
 	  << _rotd_emax / Phys_const::kcal << " kcal/mol = " << _rotd_nmax << "\n"
+    //
 	  << IO::log_offset << "zero number of states energy = " << std::ceil(_ground / Phys_const::incm) << " 1/cm\n";
 
 }// Rotd Core
@@ -12126,27 +13290,47 @@ double Model::Rotd::states (double ener) const
   double dtemp;
 
   if(ener <= 0.)
+    //
     return 0.;
 
   switch(mode()) {
+    //
   case NUMBER:
-    if(ener <= _rotd_emin)
+    //
+    if(ener <= _rotd_emin) {
+      //
       return _rotd_amin * std::pow(ener, _rotd_nmin);
-    else if(ener >= _rotd_emax)
+    }
+    else if(ener >= _rotd_emax) {
+      //
       return _rotd_amax * std::pow(ener, _rotd_nmax);
-    else
-      return std::exp(_rotd_spline(std::log(ener)));
-  case DENSITY:
-    if(ener <= _rotd_emin)
-      return _rotd_amin * _rotd_nmin * std::pow(ener, _rotd_nmin - 1.);
-    else if(ener >= _rotd_emax)
-      return _rotd_amax * _rotd_nmax * std::pow(ener, _rotd_nmax - 1.);
+    }
     else {
+      //
+      return std::exp(_rotd_spline(std::log(ener)));
+    }
+    
+  case DENSITY:
+    //
+    if(ener <= _rotd_emin) {
+      //
+      return _rotd_amin * _rotd_nmin * std::pow(ener, _rotd_nmin - 1.);
+    }
+    else if(ener >= _rotd_emax) {
+      //
+      return _rotd_amax * _rotd_nmax * std::pow(ener, _rotd_nmax - 1.);
+    }
+    else {
+      //
       dtemp = std::log(ener);
+      
       return std::exp(_rotd_spline(dtemp, 0)) * _rotd_spline(dtemp, 1) / ener;
     }
+    
   default:
+    //
     std::cerr << funame << "wrong mode\n";
+    
     throw Error::Logic();
   }
 }
@@ -12160,29 +13344,44 @@ double Model::Rotd::weight (double temperature) const
   double dtemp;
 
   Array<double> term(_rotd_nos.size());
+  
   term[0] = 0.;
+  
   for(int i = 1; i < _rotd_nos.size(); ++i)
+    //
     term[i] = _rotd_nos[i] / std::exp(_rotd_ener[i] / temperature);
 
   int info;
+  
   double res;
-  davint_(_rotd_ener, term, term.size(), _rotd_ener.front(), _rotd_ener.back(), res, info); 
+  
+  davint_(_rotd_ener, term, term.size(), _rotd_ener.front(), _rotd_ener.back(), res, info);
+  
   if (info != 1) {
+    //
     std::cerr << funame  << "davint integration error\n";
+    
     throw Error::Logic();
   }
   res /= temperature;
 
   dtemp = _rotd_emax / temperature;
+  
   if(dtemp <= _rotd_nmax) {
-    IO::log << IO::log_offset << funame << "WARNING: " 
+    //
+    IO::log << IO::log_offset << funame << "WARNING: "
+      //
 	    << "integration cutoff energy is less than weight maximum energy\n";
+    
     return res;
   }
 
   dtemp = _rotd_amax * std::pow(_rotd_emax, _rotd_nmax) / std::exp(dtemp) / (1. - _rotd_nmax / dtemp);
+  
   if(dtemp / res > eps)
-    IO::log << IO::log_offset << funame << "WARNING: integration cutoff error = " << dtemp / res << "\n";    
+    //
+    IO::log << IO::log_offset << funame << "WARNING: integration cutoff error = " << dtemp / res << "\n";
+  
   res += dtemp;
 
   return res;
@@ -12378,6 +13577,8 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
 
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
 
       std::cerr << "\n";
@@ -12965,6 +14166,8 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
 
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
 
       std::cerr << "\n";
@@ -17092,7 +18295,8 @@ void Model::MultiRotor::_set_states_base (Array<double>& base, int flag) const
       //
       dim = double(internal_size() + 3) / 2.;
 
-      nfac = 8. * M_PI * M_PI / std::pow(2. * M_PI, dim) 
+      nfac = 8. * M_PI * M_PI / std::pow(2. * M_PI, dim)
+	//
 	/ tgamma(dim + 1.) / external_symmetry();
 
       break;
@@ -17101,7 +18305,8 @@ void Model::MultiRotor::_set_states_base (Array<double>& base, int flag) const
       //
       dim = double(internal_size() + 1) / 2.;
 
-      nfac = 8. * M_PI * M_PI / std::pow(2. * M_PI, dim + 1.) 
+      nfac = 8. * M_PI * M_PI / std::pow(2. * M_PI, dim + 1.)
+	//
 	/ tgamma(dim + 1.) / external_symmetry();
     }
   }
@@ -17596,15 +18801,22 @@ double Model::MultiRotor::quantum_weight (double temperature) const
   double dtemp;
 
   for(int p = 0; p < _energy_level.size(); ++p)
+    //
     for(int l = 0; l < _energy_level[p].size(); ++l) {
+      //
       dtemp = std::exp(-_energy_level[p][l] / temperature);
-      if(_with_ext_rot) 
+      
+      if(_with_ext_rot) {
+	//
 	res += dtemp * _mean_erf[p][l];
-      else 
+      }
+      else
+	//
 	res += dtemp;
     }
 
   if(_with_ext_rot)
+    //
     res *=  pi_fac * temperature * std::sqrt(temperature) / external_symmetry();
 
   return res;
@@ -17793,17 +19005,24 @@ double Model::MultiRotor::states (double ener) const
   const char funame [] = "Model::MultiRotor::states: ";
 
   if(ener <= 0.)
+    //
     return 0.;
 
   double dtemp = ener + _ground - _pot_global_min;
 
   double res;
-  if(dtemp < _cstates.arg_max())
+  
+  if(dtemp < _cstates.arg_max()) {
+    //
     res = _cstates(dtemp);
-  else
+  }
+  else {
+    //
     res = _cstates.fun_max() * std::pow(dtemp / _cstates.arg_max(), _cstates_pow);
+  }
 
   if(_qfactor.size() && ener < _qfactor.arg_max())
+    //
     res *= _qfactor(ener);
   
   return res;
@@ -18333,11 +19552,13 @@ void Model::MultiRotor::rotational_energy_levels () const
       const int m = mi - j;
 
       ham(mi, mi) = _rotational_constant[2] * double(m * m)
+	//
 	+ (_rotational_constant[0] + _rotational_constant[1]) * double(j * j + j - m * m) / 2.;
 
       if(mi > 1)
 	//
 	ham(mi - 2, mi) = (_rotational_constant[0] - _rotational_constant[1])
+	  //
 	  * std::sqrt((j + m) * (j - m + 1) * (j + m - 1) * (j - m + 2)) / 4.;
     }
 
@@ -18518,7 +19739,8 @@ std::string Model::Species::short_name () const
   return name();
 }
 
-Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m) 
+Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
+  //
   : _name(n), _mode(m), _mass(-1.), _print_step(-1.), _ground(0.)
 {
   const char funame [] = "Model::Species::Species: ";
@@ -18539,106 +19761,179 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
   std::string token, stemp, word, comment, line;
 
   while(from >> token) {
+    //
     // geometry
+    //
     if(ang_geom_key == token || bor_geom_key == token) {
+      //
       if(_atom.size() || _mass > 0.) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Init();
       }
+      
       if(ang_geom_key == token)
+	//
 	read_geometry(from, _atom, ANGSTROM);
+      
       if(bor_geom_key == token)
+	//
 	read_geometry(from, _atom, BOHR);
     }
     // print parameters
+    //
     else if(print_key == token) {
+      //
       IO::LineInput lin(from);
+      
       if(!(lin >> _print_min >> _print_max >> _print_step)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
 
       if(_print_step <= 0.) {
-	std::cerr << funame << token << ": out of range\n";
+	//
+	std::cerr << funame << token << ": step out of range: " << _print_step << "\n";
+	
 	throw Error::Range();
       }
     }
     // mass
+    //
     else if(mass_key == token) {
+      //
       if(_atom.size() || _mass > 0.) {
+	//
 	std::cerr << funame << token << ": already defined\n";
+	//
 	throw Error::Init();
       }
+      
       if(!(from >> _mass)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       };
+      
       std::getline(from, comment);
 
       if(_mass <= 0.) {
-	std::cerr << funame << token << ": out of range\n";
+	//
+	std::cerr << funame << token << ": out of range:" << _mass << "\n";
+	
 	throw Error::Range();
       };
 	
       _mass *= Phys_const::amu;
-
     }
     // stoichiometry
+    //
     else if(stoi_key == token) {
-
+      //
       token += "(stoichiometry format example: C1H3O2): ";
 
       if(_atom.size() || _mass > 0.) {
-	std::cerr << funame << token << "already defined\n";
+	//
+	std::cerr << funame << token << "mass is already defined\n";
+	
 	throw Error::Init();
       }
 
       if(!(from >> word)) {
+	//
 	std::cerr << funame << token << "corrupted\n";
+	
 	throw Error::Input();
       };
+      
       std::getline(from, comment);
 
       std::string name, number;
+      
       for(int i = 0; i < word.size(); ++i) {
+	//
 	char c = word[i];
+	
 	if(std::isdigit(c))
+	  //
 	  number.push_back(c);
+	
 	else if(std::isalpha(c)) {
+	  //
 	  if(number.size()) {
+	    //
 	    itemp = std::atoi(number.c_str());
+	    
 	    if(itemp <= 0) {
+	      //
 	      std::cerr << funame << token << "wrong number of atoms: " << itemp << "\n";
+	      
 	      throw Error::Range();
 	    }
+	    
 	    _mass += AtomBase(name).mass() * double(itemp);
+	    
 	    name.clear();
+	    
 	    number.clear();
 	  }
+	  
 	  name.push_back(c);
 	}
 	else {
+	  //
 	  std::cerr << funame << token << "unrecognized character: " << c << "\n";
+	  
 	  throw Error::Input();
 	}
       }
 
       if(!name.size() || !number.size()) {
+	//
 	std::cerr << funame << token << "wrong format: " << word << "\n";
+	
 	throw Error::Form();
       }
 
       itemp = std::atoi(number.c_str());
+      
       if(itemp <= 0) {
+	//
 	std::cerr << funame << token << "wrong number of atoms: " << itemp << "\n";
+	
 	throw Error::Range();
       }
+      
       _mass += AtomBase(name).mass() * double(itemp);	
+    }
+    // break
+    //
+    else if(IO::is_break(token)) {
+      //
+      std::getline(from, comment);
+      
+      break;
     }
     // unknown keyword
     //
     else if(IO::skip_comment(token, from)) {
       //
+      std::string pad = "| ";
+      
+      IO::log << "-------------------------------------------\n";
+      
+      IO::log << pad << funame << "WARNING: unknown keyword: " << token << "\n";
+      
+      Key::show_all(IO::log, pad);
+      
+      IO::log << pad << "Hint: to get rid of this message separate the base class input from the derived class one with +++\n";
+      
+      IO::log << "-------------------------------------------\n";
+      
       from.put_back(token);
 
       break;
@@ -18648,22 +19943,39 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
   /******************************************* Checking *************************************************/
 
   if(mode() != DENSITY && mode() != NUMBER && mode() !=  NOSTATES) {
+    //
     std::cerr << funame << "wrong mode\n";
+    
     throw Error::Logic();
   }
 
   // stream state
+  //
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(_atom.size()) {
+    //
     _mass = 0.;
+    
     for(int a = 0; a < _atom.size(); ++a)
+      
       _mass += _atom[a].mass();
   }
 
+  if(_mass < 0.) {
+    //
+    std::cerr << funame << "mass is not initialized\n";
+
+    IO::log << funame << "mass is not initialized\n";
+    
+    throw Error::Init();
+  }
+  //
 }// Species
 
 Model::Species::~Species ()
@@ -18678,17 +19990,25 @@ void Model::Species::_print () const
 
   std::ofstream sout;
 
-  if(mode() == NUMBER)
+  if(mode() == NUMBER) {
+    //
     sout.open((name() + "_nos.out").c_str());
-  else
+  }
+  else {
+    //
     sout.open((name() + "_dos.out").c_str());
+  }
   
   for(double ener = _print_min; ener <= _print_max; ener += _print_step) {
+    //
     sout << std::setw(15) << ener << std::setw(15);
     
-    if(mode() == NUMBER)
+    if(mode() == NUMBER) {
+      //
       sout << states(ener * Phys_const::incm);
+    }
     else
+      //
       sout << states(ener * Phys_const::incm) * Phys_const::incm;
     
     sout << "\n";
@@ -18815,10 +20135,14 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
     }
     // energy shift
     //
-    else if(incm_ener_key == token || 
-	    kcal_ener_key == token || 
-	    kj_ener_key == token || 
+    else if(incm_ener_key == token ||
+	    //
+	    kcal_ener_key == token ||
+	    //
+	    kj_ener_key == token ||
+	    //
 	    ev_ener_key == token ||
+	    //
 	    au_ener_key == token) {
 
       if(!(from >> ener_ref)) {
@@ -18848,55 +20172,82 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
     // units
     //
     else if(unit_key == token) {
+      //
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
       
-      if(stemp == "kcal/mol")
+      if(stemp == "kcal/mol") {
+	//
 	energy_unit = Phys_const::kcal;
-      else if(stemp == "1/cm")
+      }
+      else if(stemp == "1/cm") {
+	//
 	energy_unit = Phys_const::incm;
-      else if(stemp == "eV")
+      }
+      else if(stemp == "eV") {
+	//
 	energy_unit = Phys_const::ev;
-      else if(stemp == "au")
+      }
+      else if(stemp == "au") {
+	//
 	energy_unit = 1.;
-      else if(stemp == "kJ/mol")
+      }
+      else if(stemp == "kJ/mol") {
+	//
 	energy_unit = Phys_const::kjoul;
+      }
       else {
+	//
 	std::cerr << funame << token << ": unknown energy unit: " << stemp << ": available energy units: kcal/mol, 1/cm, eV, au, kJ/mol\n";
+	
 	throw Error::Range();
       }
     }
     // ground state threshold
     //
     else if(zero_nos_key == token) {
+      //
       if(!(from >> _dtol)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       if(_dtol <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
     }
     // mass
     //
     else if(mass_key == token) {
+      //
       if(_mass > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
       
       if(!(from >> _mass)) {
+	//
 	std::cerr << funame << token << ": unreadable\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
       
       if(_mass <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
 
@@ -18910,8 +20261,6 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
 	//
 	std::cerr << funame << token << ": corrupted\n";
 	
-	IO::log << std::flush;
-	
 	throw Error::Input();
       }
       
@@ -18922,8 +20271,6 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       if(!file) {
 	//
 	std::cerr << funame << "cannot open file " << name << " for reading\n";
-	
-	IO::log << std::flush;
 	
 	throw Error::File();
       }
@@ -18945,10 +20292,17 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       }
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
@@ -18987,6 +20341,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
   _states[0]  = 0.;
   
   --itemp;
+  
   for(It it = read_states.rbegin(); it != izero; ++it, --itemp) {
     //
     _ener[itemp]    = it->first * energy_unit;
@@ -19082,19 +20437,28 @@ double Model::ReadSpecies::weight (double temperature) const
   const char funame [] = "Model::ReadSpecies::weight: ";
 
   Array<double> term(_states.size());
+  
   term[0] = 0.;
+  
   for(int i = 1; i < _states.size(); ++i)
+    //
     term[i] = _states[i] / std::exp(_ener[i] / temperature);
 
   int info;
+  
   double res;
-  davint_(_ener, term, term.size(), _ener.front(), _ener.back(), res, info); 
+  
+  davint_(_ener, term, term.size(), _ener.front(), _ener.back(), res, info);
+  
   if (info != 1) {
+    //
     std::cerr << funame  << "davint integration error\n";
+    
     throw Error::Logic();
   }
 
   if(mode() == NUMBER)
+    //
     res /= temperature;
 
   return res;
@@ -19171,10 +20535,30 @@ Model::IntMod::IntMod (int molec_size, IO::KeyBufferStream& from)
 	throw Error::Range();
       }
     }
+    // break
+    //
+    else if(IO::is_break(token)) {
+      //
+      std::getline(from, comment);
+      
+      break;
+    }
     // unknown keyword
     //
     else if(IO::skip_comment(token, from)) {
       //
+      std::string pad = "| ";
+      
+      IO::log << "-------------------------------------------\n";
+      
+      IO::log << pad << funame << "WARNING: unknown keyword: " << token << "\n";
+      
+      Key::show_all(IO::log, pad);
+
+      IO::log << pad << "Hint: to get rid of this message separate the base class input from the derived class one with +++\n";
+      
+      IO::log << "-------------------------------------------\n";
+      
       from.put_back(token);
 
       break;
@@ -19192,6 +20576,7 @@ Model::IntMod::IntMod (int molec_size, IO::KeyBufferStream& from)
 }
 
 double Model::IntMod::evaluate (Lapack::Vector          cart_pos, // atomic cartesian coordinates
+				//
 				const std::vector<int>& sign      // derivative signature
 				) const
 {
@@ -19387,6 +20772,8 @@ Model::Fluxional::Fluxional (int molec_size, IO::KeyBufferStream& from) : IntMod
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       
       std::cerr << "\n";
@@ -19533,13 +20920,16 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       
       std::cerr << "\n";
       
       throw Error::Init();
     }
-  }
+    //
+  }// input cycle
 
   if(_value < 0.) { 
     //
@@ -19714,13 +21104,17 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       
       std::cerr << "\n";
       
       throw Error::Init();
     }
-  }
+    //
+  }// input cycle
+  
   // some checking
   //
   if(!from) {
@@ -20000,13 +21394,17 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     // electronic energy levels & degeneracies
     //
     else if(incm_elev_key == token || au_elev_key == token ||
+	    //
 	    kcal_elev_key == token || kj_elev_key == token ||
+	    //
 	    ev_elev_key == token) {
       //
       int num;
       
       if(!(from >> num)) {
+	//
 	std::cerr << funame << token << ": levels number unreadable\n";
+	
 	throw Error::Input();
       }
 
@@ -20465,13 +21863,16 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       
       std::cerr << "\n";
       
       throw Error::Init();
     }
-  }
+    //
+  }// input cycle
 
   // some checking
   //
@@ -22785,13 +24186,16 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       
       std::cerr << "\n";
       
       throw Error::Init();
     }
-  }
+    //
+  }// input cycle
 
   // some checking
   //
@@ -23563,10 +24967,13 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
   std::string token, comment;
   //
   while(from >> token) {
+    //
     // end input
     //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // frequency scaling factor
@@ -23588,7 +24995,9 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       }
       
       if(fscale <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
 
@@ -23694,13 +25103,18 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
     // symmetry number
     //
     else if(sym_key == token) {
+      //
       if(!(from >> _sym_num)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
    
       if(_sym_num <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
     }
@@ -23931,14 +25345,19 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
     //  frequency quantum
     //
     else if(estep_key == token) {
+      //
       if(!(from >> _ener_quant)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(_ener_quant <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
       _ener_quant *= Phys_const::incm;
@@ -23946,19 +25365,25 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
     // interpolation maximal energy
     //
     else if(emax_key == token) {
+      //
       if(!(from >> _emax)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
       if(_emax <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
       _emax *= Phys_const::kcal;
     }
     // extrapolation step
+    //
     else if(extra_key == token) {
       //
       if(!(from >> extra_step)) {
@@ -24127,6 +25552,8 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       
       std::cerr << "\n";
@@ -24137,7 +25564,9 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
   }//
  
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
@@ -24150,24 +25579,37 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 	_frequency[f] *= fscale;
     
     if(_fdegen.size() > _frequency.size()) {
+      //
       std::cerr << funame << "number of frequency degeneracies exceeds number of frequencies\n";
+      
       throw Error::Init();
     }
 
     for(int i = _fdegen.size(); i < _frequency.size(); ++i)
+      //
       _fdegen.push_back(1);
 
     if(isharm && _anharm.size()) {
+      //
       for(int i = 0; i < _frequency.size(); ++i)
+	//
 	for(int j = 0; j < _frequency.size(); ++j)
-	  if(j != i)
+	  //
+	  if(j != i) {
+	    //
 	    _frequency[i] += double(_fdegen[j]) * _anharm(i, j) / 2.;
-	  else
+	  }
+	  else {
+	    //
 	    _frequency[i] += double (_fdegen[i] + 1) * _anharm(i, i);
+	  }
 
       IO::log << IO::log_offset << "fundamentals(1/cm):";
+      
       for(int i = 0; i < _frequency.size(); ++i)
+	//
 	IO::log << "   " << _frequency[i] / Phys_const::incm;
+      
       IO::log << "\n";
     }
   }      
@@ -24175,11 +25617,13 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
   /************************************* CHECKING *************************************/ 
 
   // core
+  //
   if(!_core)
     //
     _no_run = true;
 
   // zero energy
+  //
   if(!isener && !iszero) {
     //
     std::cerr << funame << "ground state energy/minimal potential energy has not been initialized\n";
@@ -24487,23 +25931,34 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
     if(_osc_int.size()) {
       //
       _occ_num.resize(_osc_int.size());
+      
       _occ_num_der.resize(_osc_int.size());
+      
       for(int f = 0; f < _frequency.size(); ++f) {
+	//
 	new_stat_grid = _stat_grid;
+	
 	itemp = (int)round(_frequency[f] / _ener_quant);
 
 	for(int e = itemp; e < ener_grid.size(); ++e)
+	  //
 	  new_stat_grid[e] += new_stat_grid[e - itemp];
 
 	for(int e = itemp; e < ener_grid.size(); ++e)
+	  //
 	  if(_stat_grid[e] != 0.) {
+	    //
 	    new_stat_grid[e] /= _stat_grid[e];
+	    
 	    new_stat_grid[e] -= 1.;
 	  }
+	
 	new_stat_grid[itemp] = 0.;
 	
 	_occ_num[f].init(&ener_grid[itemp], &new_stat_grid[itemp], ener_grid.size() - itemp);
+	
 	dtemp = _occ_num[f].arg_max() * extra_step;
+	
 	_occ_num_der[f] = (_occ_num[f].fun_max() - _occ_num[f](_occ_num[f].arg_max() - dtemp)) / dtemp;
       }
     }
@@ -25196,20 +26651,7 @@ void Model::UnionSpecies::_set ()
     throw Error::Init();
   }
 
-  for(int i = 0; i < _species.size(); ++i) {
-    //
-    try {
-      _mass = _species[i]->mass();
-    }
-    catch(Error::General) {
-      //
-      IO::log << IO::log_offset << funame << "WARNING: mass of the " << i + 1 << "-th species not defined\n";
-      //
-      continue;
-    }
-    
-    break;
-  }
+  _mass = _species[0]->mass();
 
   for(_Cit w = _species.begin(); w != _species.end(); ++w)
     //
@@ -25286,7 +26728,9 @@ double Model::UnionSpecies::oscillator_frequency (int num) const
   const char funame [] = "Model::UnionSpecies::oscillator_frequency: ";
 
   if(num >= _osc_spec_index.size() || num < 0) {
+    //
     std::cerr << funame << "out of range\n";
+    
     throw Error::Range();
   }
     
@@ -25300,17 +26744,22 @@ double  Model::UnionSpecies::infrared_intensity (double ener, int num) const
   const char funame [] = "Model::UnionSpecies::infrared_intensity: ";
 
   if(num >= _osc_spec_index.size() || num < 0) {
+    //
     std::cerr << funame << "out of range\n";
+    
     throw Error::Range();
   }
     
   double dtemp = states(ener);
+  
   if(dtemp <= 0.)
+    //
     return 0.;
 
   int itemp = _osc_spec_index[num];
 
-  return _species[itemp]->infrared_intensity(ener, num - _osc_shift[itemp]) 
+  return _species[itemp]->infrared_intensity(ener, num - _osc_shift[itemp])
+    //
     * _species[itemp]->states(ener) / dtemp;
 }
 
@@ -25561,6 +27010,8 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
       
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
       
       std::cerr << "\n";
@@ -25605,22 +27056,8 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
 
   // mass
   //
-  for(int i = 0; i < _rrho.size(); ++i) {
-    //
-    try {
-      //
-      _mass = _rrho[i]->mass();
-    }
-    catch(Error::General) {
-      //
-      IO::log << IO::log_offset << funame << "WARNING: mass of " << i + 1 << "-th configuration not defined\n";
-      
-      continue;
-    }
+  _mass = _rrho[0]->mass();
     
-    break;
-  }
-
   // is outer barrier submerged 
   //
   if(_outer && ground_min.first && _outer->ground() < ground_min.second) {
@@ -25854,24 +27291,40 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
     tmin = tstep;
   
   IO::log << IO::log_offset << std::setw(5) << "T, K";
+  
   for(int v = 0; v <= _rrho.size(); ++v)
-    if(v < _rrho.size())
+    //
+    if(v < _rrho.size()) {
+      //
       IO::log << std::setw(log_precision + 7) << v + 1;
-    else
+    }
+    else {
+      //
       IO::log << std::setw(log_precision + 7) << "Min";
+    }
 
   IO::log << "\n";
 
   for(int t = tmin; t <= tmax; t += tstep) {
+    //
     IO::log << IO::log_offset << std::setw(5) << t;
+    
     double tval = (double)t * Phys_const::kelv;
+    
     for(int v = 0; v <= _rrho.size(); ++v)
-      if(v < _rrho.size())
+      //
+      if(v < _rrho.size()) {
+	//
 	IO::log << std::setw(log_precision + 7) << _rrho[v]->weight(tval) * std::exp((_ground - _rrho[v]->ground()) / tval);
+      }
       else {
+	//
 	dtemp = weight(tval);
+	
 	if(_tunnel)
+	  //
 	  dtemp /= _tunnel->weight(tval) * std::exp(_tunnel->cutoff() / tval);
+	
 	IO::log << std::setw(log_precision + 7) << dtemp;
       }
     IO::log << "\n";
@@ -25894,11 +27347,13 @@ double Model::VarBarrier::states (double ener) const
   ener -= _ground;
 
   if(ener <= 0.)
+    //
     return 0.;
 
   if(ener >= _states.arg_max()) {
 
     if(ener > _states.arg_max() * 2.)
+      //
       IO::log << IO::log_offset << funame << "WARNING: energy far beyond interpolation range\n";
 
     return _states.fun_max() * std::pow(ener / _states.arg_max(), _nmax);
@@ -25960,7 +27415,8 @@ double Model::VarBarrier::tunnel_weight (double temperature) const
  ************************************* ATOMIC FRAGMENT **************************************
  ********************************************************************************************/
 
-Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::string& n) 
+Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::string& n)
+  //
   : Species(n, NOSTATES)
 {
   const char funame [] = "Model::AtomicFragment::AtomicFragment: ";
@@ -25983,78 +27439,122 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
   std::map<double, int> elevel_map;
 
   std::string token, comment;
+  
   while(from >> token) {
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // mass
+    //
     else if(mass_key == token) {
+      //
       if(_mass > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
       
       if(!(from >> _mass)) {
+	//
 	std::cerr << funame << token << ": unreadable\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
       
       if(_mass <= 0.) {
+	//
 	std::cerr << funame << token << ": should be positive\n";
+	
 	throw Error::Range();
       }
 
       _mass *= Phys_const::amu;
     }
     // atom by name
+    //
     else if(name_key == token) {
+      //
       if(_mass > 0.) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
       _mass = Atom(from).mass();
     }      
     // electronic energy levels & degeneracies
+    //
     else if(incm_elev_key == token || au_elev_key == token ||
-	    kcal_elev_key == token || kj_elev_key == token || ev_elev_key == token) {
+	    //
+	    kcal_elev_key == token || kj_elev_key == token ||
+	    //
+	    ev_elev_key == token) {
+      //
       int num;
+      
       if(!(from >> num)) {
+	//
 	std::cerr << funame << token << ": levels number unreadable\n";
+	
 	throw Error::Input();
       }
 
       if(num < 1) {
+	//
 	std::cerr << funame << token << ": levels number should be positive\n";
+	
 	throw Error::Range();
       }
 
       std::getline(from, comment);
 
       for(int l = 0; l < num; ++l) {
+	//
 	IO::LineInput level_input(from);
+	
 	if(!(level_input >> dtemp >> itemp)) {
+	  //
 	  std::cerr << funame << token << ": format: energy[1/cm] degeneracy(>=1)\n";
+	  
 	  throw Error::Input();
 	}
 
-	if(incm_elev_key == token)
+	if(incm_elev_key == token) {
+	  //
 	  dtemp *= Phys_const::incm;
-	if(kcal_elev_key == token)
+	}
+	if(kcal_elev_key == token) {
+	  //
 	  dtemp *= Phys_const::kcal;
-	if(kj_elev_key == token)
+	}
+	if(kj_elev_key == token) {
+	  //
 	  dtemp *= Phys_const::kjoul;
-	if(ev_elev_key == token)
+	}
+	if(ev_elev_key == token) {
+	  //
 	  dtemp *= Phys_const::ev;
+	}
 
 	if(elevel_map.find(dtemp) != elevel_map.end()) {
+	  //
 	  std::cerr << funame << token << ": identical energy levels\n";
+	  
 	  throw Error::Range();
 	}
 
 	if(itemp < 1) {
+	  //
 	  std::cerr << funame << token << ": degeneracy should be positive\n";
+	  
 	  throw Error::Range();
 	}
 
@@ -26062,34 +27562,53 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
       }
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
  
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   if(_mass < 0.) {
+    //
     std::cerr << funame << "mass is not initialized\n";
+    
     throw Error::Init();
   }
 
   if(!elevel_map.size()) {
+    //
     _ground = 0.;
+    
     _elevel.resize(1, 0.);
+    
     _edegen.resize(1, 1);
   }
   else {
+    //
     _ground = elevel_map.begin()->first;
+    
     std::map<double, int>::const_iterator it;
+    
     for(it = elevel_map.begin(); it != elevel_map.end(); ++it) {
+      //
       _elevel.push_back(it->first - _ground);
+      
       _edegen.push_back(it->second);
     }
   }
@@ -26214,32 +27733,51 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
   bool isener = false;
 
   std::string token, comment, stemp;
+  
   while(from >> token) {
+    //
+    // input end
+    //
     if(IO::end_key() == token) {
+      //
       std::getline(from, comment);
+      
       break;
     }
     // total energy
+    //
     else if(incm_ener_key == token || au_ener_key == token ||
+	    //
 	    kcal_ener_key == token || kj_ener_key == token) {
+      //
       if(isener) {
+	//
 	std::cerr << funame << token << ": already initialized\n";
+	
 	throw Error::Init();
       }
       isener = true;
 
       if(!(from >> _ground)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
-      if(incm_ener_key == token)
+      if(incm_ener_key == token) {
+	//
 	_ground *= Phys_const::incm;
-      if(kcal_ener_key == token)
+      }
+      if(kcal_ener_key == token) {
+	//
 	_ground *= Phys_const::kcal;
-      if(kj_ener_key == token)
-	_ground *= Phys_const::kjoul;      
+      }
+      if(kj_ener_key == token) {
+	//
+	_ground *= Phys_const::kjoul;
+      }
     }
     // fragment
     //
@@ -26265,52 +27803,77 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
 	_fragment.push_back(new_species(from, stemp, NOSTATES));
     }
     // dummy
+    //
     else if(dummy_key == token) {
+      //
       if(_fragment.size()) {
+	//
 	std::cerr << funame << token << "should be before any fragment definition\n";
+	
 	throw Error::Init();
       }
       _dummy = true;
+      
       std::getline(from, comment);
+      
       return;
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
  
   if(!from) {
+    //
     std::cerr << funame << "input stream corrupted\n";
+    
     throw Error::Input();
   }
 
   /************************************* CHECKING *************************************/ 
 
   if(!isener) {
+    //
     std::cerr << funame << "ground energy has not been initialized\n";
+    
     throw Error::Init();
   }
 
   if(_fragment.size() != 2) {
+    //
     std::cerr << funame << "wrong number of fragments\n";
+    
     throw Error::Init();
   }
 
   /************************************* SETTING *************************************/ 
 
   // translational partition function & ground energy
+  //
   dtemp = 0.;
+  
   for(int i = 0; i < 2; ++i) {
+    //
     dtemp += 1. / _fragment[i]->mass();
+    
     _ground += _fragment[i]->ground();
+    
     _fragment[i]->shift_ground(-_fragment[i]->ground());
   }
   
   dtemp *= 2. * M_PI;
+  
   _weight_fac = 1. / dtemp / std::sqrt(dtemp);
 
 }// Bimolecular
@@ -26330,6 +27893,7 @@ double Model::Bimolecular::fragment_weight (int i, double temperature) const
 double Model::Bimolecular::ground () const 
 { 
   if(_dummy)
+    //
     return 0.;
 
   return _ground;
@@ -26338,10 +27902,13 @@ double Model::Bimolecular::ground () const
 double Model::Bimolecular::weight (double temperature) const
 {
   if(_dummy)
+    //
     return -1.;
 
   double res = _weight_fac * temperature * std::sqrt(temperature);
+  
   for(int i = 0; i < 2; ++i)
+    //
     res *= _fragment[i]->weight(temperature);
 
   return res;
@@ -26419,34 +27986,50 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from)
       }
       
       std::getline(from, comment);
+      
       if(dtemp <= 0.) {
+	//
 	std::cerr << funame << token << ": out of range\n";
+	
 	throw Error::Range();
       }
+      
       _rate = dtemp * Phys_const::herz;
     }
     // unknown key
+    //
     else {
+      //
       std::cerr << funame << "unknown keyword: " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
-  }
+    //
+  }// input cycle
   
   if(!from) {
+    //
     std::cerr << funame << "stream is corrupted\n";
+    
     throw Error::Input(); 
   }
 
   if(_rate <= 0.) {
     //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 }
 
-Model::FitEscape::FitEscape(IO::KeyBufferStream& from) 
+Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
+  //
   : _ground(0.)
 {
   const char funame [] = "Model::FitEscape::FitEscape: ";
@@ -26458,15 +28041,19 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
   std::string stemp;
 
   // input parameters
+  //
   std::ifstream rate_in;
 
   // input keys
+  //
   KeyGroup FitEscapeModel;
+  
   Key file_key("RateDataFile[kcal/mol,1/sec]");
+  
   Key name_key("Name");
 
-  // actual input
   std::string comment, token;
+  
   while(from >> token) {
     //
     // end key
@@ -26502,15 +28089,20 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
       }
 
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
 
       std::getline(from, comment);
 
       rate_in.open(stemp.c_str());
+      
       if(!rate_in) {
+	//
 	std::cerr << funame << token << ": cannot open  " << stemp << " file\n";
+	
 	throw Error::Open();
       }
     }
@@ -26518,35 +28110,51 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
     //
     else {
       std::cerr << funame << "unknown keyword: " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
+      
       Key::show_all(std::cerr);
+      
       std::cerr << "\n";
+      
       throw Error::Init();
     }
-  }
+    //
+  }// input cycle
 
   if(!from) {
+    //
     std::cerr << funame << "corrupted\n";
+    
     throw Error::Input(); 
   }
 
   if(!rate_in) {
+    //
     std::cerr << funame << "rate data not initialized\n";
+    
     throw Error::Init();
   }
 
   std::map<double, double> rate_data;
 
   double eval, rval;
+  
   while(rate_in >> eval) {
+    //
     eval *= Phys_const::kcal; // energy
 
     if(!(rate_in >> rval)) {
+      //
       std::cerr << funame << "reading rate data failed\n";
+      
       throw Error::Input();
     }
     
     if(rval < 0.) {
+      //
       std::cerr << funame << "negative rate\n";
+      
       throw Error::Range();
     }
 
@@ -26554,7 +28162,9 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
   }
 
   if(!rate_data.size()) {
+    //
     std::cerr << funame << "not initialized";
+    
     throw Error::Init();
   }
   
@@ -26562,8 +28172,11 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
   Array<double> y((int)rate_data.size());
 
   itemp = 0;
+  
   for(std::map<double, double>::const_iterator it = rate_data.begin(); it != rate_data.end(); ++it, ++itemp) {
+    //
     x[itemp] = it->first;
+    
     y[itemp] = it->second;
   }
   
@@ -26715,6 +28328,8 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
     else if(IO::skip_comment(token, from)) {
       //
       std::cerr << funame << "unknown keyword " << token << "\n";
+      
+      IO::log << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(std::cerr);
       

@@ -93,13 +93,49 @@ void IO::set_loglevel (const std::string& s)
   }
 }
 
+bool IO::is_break (const std::string& token) {
+  //
+  static const std::string break_symbol = "@+";
+
+  static const int length_min = 3;
+
+  if(token.size() < length_min)
+    //
+    return false;
+
+  for(std::string::const_iterator cit = break_symbol.begin(); cit != break_symbol.end(); ++cit) {
+    //
+    bool btemp = true;
+  
+    for(int i = 0; i < length_min; ++i)
+      //
+      if(token[i] != *cit) {
+	//
+	btemp = false;
+	
+	break;
+      }
+
+    if(btemp)
+      //
+      return true;
+  }
+
+  return false;
+}
+
 int IO::skip_comment (const std::string& token, std::istream& from) 
 {
   std::string comment;
+  
   // check if the first first token character is a comment symbol
+  //
   for(int i = 0; i < _comment_symbol.size(); ++i)
+    //
     if(token[0] == _comment_symbol[i]) {
+      //
       std::getline(from, comment);
+      
       return 0;
     }
 
