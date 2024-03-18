@@ -86,20 +86,23 @@ bool Key::check_uninitialized_keys (std::ostream& to)
   return res;
 }
 
-void Key::show_all (std::ostream& to, int n)
+void Key::show_all (std::ostream& to, const std::string& pad)
 {
   _check_stack();
 
-  to << std::setw(n) << "" << "Available keys:\n";
-  for(std::vector<_Val>::const_iterator it = _stack.rbegin()->begin();
-      it != _stack.rbegin()->end(); ++it) {
-    to << std::setw(n) << "" << *it << "\n";
+  to << pad << "Available keys:\n";
+  
+  for(std::vector<_Val>::const_iterator it = _stack.rbegin()->begin(); it != _stack.rbegin()->end(); ++it) {
+    //
+    to << pad << *it << "\n";
   }
 }
 
-std::string Key::show_all (int n)
+std::string Key::show_all (const std::string& pad)
 {
   std::ostringstream to;
-  show_all(to, n);
+  
+  show_all(to, pad);
+  
   return to.str();
 }

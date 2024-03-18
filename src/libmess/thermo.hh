@@ -27,6 +27,7 @@
 #include "key.hh"
 #include "multindex.hh"
 #include "coord.hh"
+#include "graph_common.hh"
 
 namespace Thermo {
 

@@ -13,15 +13,16 @@
         Library General Public License for more details.
 */
 
-#include "mpack_dd.hh"
 
-#ifdef WITH_MPACK
+#include "mplapack_dd.hh"
+
+#ifdef WITH_MPLAPACK
 
 #include "error.hh"
 #include "io.hh"
 
-#include <mpack/mblas_dd.h>
-#include <mpack/mlapack_dd.h>
+//#include <mplapack/mpblas_dd.h>
+#include <mplapack/mplapack_dd.h>
 
 #include "linpack.hh"
 
@@ -251,7 +252,7 @@ Mpack_dd::Vector Mpack_dd::Matrix::eigenvalues (Matrix* evec) const
 
   Array<dd_real> work(1);
 
-  Rsyev(jobz, "U", size(), sm, size(), res, work, lwork, &info);
+  Rsyev(jobz, "U", size(), sm, size(), res, work, lwork, info);
 
   // matrix diagonalization
   //
@@ -259,8 +260,8 @@ Mpack_dd::Vector Mpack_dd::Matrix::eigenvalues (Matrix* evec) const
 
   work.resize((int)lwork);
 
-  Rsyev(jobz, "U", size(), sm, size(), res, work, lwork, &info);
-
+  Rsyev(jobz, "U", size(), sm, size(), res, work, lwork, info);
+    
   if(evec)
     //
     *evec = sm;
@@ -469,7 +470,7 @@ Mpack_dd::Matrix Mpack_dd::Matrix::invert () const
 
   int_t info = 0;
   
-  Rgesv(size1(), size1(), lu, size1(), ipiv, res, size1(), &info);
+  Rgesv(size1(), size1(), lu, size1(), ipiv, res, size1(), info);
 
  if(!info)
    //
@@ -517,7 +518,7 @@ Mpack_dd::Vector Mpack_dd::Matrix::invert (Vector v) const
 
   int_t info = 0;
   
-  Rgesv(size1(), 1, lu, size1(), ipiv, res, size1(), &info);
+  Rgesv(size1(), 1, lu, size1(), ipiv, res, size1(), info);
 
   if(!info)
     //
@@ -565,7 +566,7 @@ Mpack_dd::Matrix Mpack_dd::Matrix::invert (Matrix m) const
 
   int_t info = 0;
   
-  Rgesv(size1(), m.size2(), lu, size1(), ipiv, res, size1(), &info);
+  Rgesv(size1(), m.size2(), lu, size1(), ipiv, res, size1(), info);
 
  if(!info)
    //
@@ -1045,7 +1046,7 @@ Mpack_dd::Vector Mpack_dd::SymmetricMatrix::eigenvalues (Matrix* evec) const
 
   Array<dd_real> work(1);
 
-  Rsyev(jobz, "U", size(), sm, size(), res, work, lwork, &info);
+  Rsyev(jobz, "U", size(), sm, size(), res, work, lwork, info);
 
   // matrix diagonalization
   //
@@ -1053,7 +1054,7 @@ Mpack_dd::Vector Mpack_dd::SymmetricMatrix::eigenvalues (Matrix* evec) const
 
   work.resize(lwork);
 
-  Rsyev(jobz, "U", size(), sm, size(), res, work, lwork, &info);
+  Rsyev(jobz, "U", size(), sm, size(), res, work, lwork, info);
 
   if(evec)
     //
@@ -1100,7 +1101,7 @@ Mpack_dd::SymmetricMatrix Mpack_dd::SymmetricMatrix::invert () const
 
   int_t info = 0;
   
-  Rspsv("U", size(), size(), lu, ipiv, res, size(), &info);
+  Rspsv("U", size(), size(), lu, ipiv, res, size(), info);
 
   if(!info)
     //
@@ -1140,7 +1141,7 @@ Mpack_dd::SymmetricMatrix Mpack_dd::SymmetricMatrix::positive_invert () const
 
   int_t info = 0;
   
-  Rppsv("U", size(), size(), lu, res, size(), &info);
+  Rppsv("U", size(), size(), lu, res, size(), info);
 
   if(!info)
     //
@@ -1213,7 +1214,7 @@ Mpack_dd::Vector Mpack_dd::diagonalize(SymmetricMatrix a0, SymmetricMatrix b0, M
   
   int_t info = 0;
 
-  Rspgvd(1, job, "U", a.size(), a, b , res, z, a.size(), work, lwork, iwork, liwork, &info);
+  Rspgvd(1, job, "U", a.size(), a, b , res, z, a.size(), work, lwork, iwork, liwork, info);
 
   if(!info)
     //
@@ -1321,7 +1322,7 @@ Mpack_dd::Vector Mpack_dd::BandMatrix::eigenvalues (Matrix* evec) const
   
   int_t info = 0;
   
-  Rsbevd(job, "U", size(), band_size() - 1, a, band_size(), res, z, size(), work, lwork, iwork, liwork, &info);
+  Rsbevd(job, "U", size(), band_size() - 1, a, band_size(), res, z, size(), work, lwork, iwork, liwork, info);
  
   if(!info)
     //
@@ -1387,7 +1388,7 @@ Mpack_dd::LU::LU (Matrix m) : Matrix(m.copy())
 
   int_t info = 0;
   
-  Rgetrf(size(), size(), *this, size(), _ipiv, &info);
+  Rgetrf(size(), size(), *this, size(), _ipiv, info);
 
   if(!info)
     //
@@ -1417,7 +1418,7 @@ Mpack_dd::Matrix Mpack_dd::LU::invert() const
   
   Array<dd_real> work((int)size());
   
-  Rgetri(size(), res, size(), _ipiv, work, size(), &info);
+  Rgetri(size(), res, size(), _ipiv, work, size(), info);
 
   if(!info)
     //
@@ -1461,7 +1462,7 @@ Mpack_dd::Vector Mpack_dd::LU::invert(Vector v) const
 
   int_t info = 0;
   
-  Rgetrs("N", size(), 1, a, size(), _ipiv, res, size(), &info);
+  Rgetrs("N", size(), 1, a, size(), _ipiv, res, size(), info);
 
   if(!info)
     //
@@ -1505,7 +1506,7 @@ Mpack_dd::Matrix Mpack_dd::LU::invert(Matrix m) const
 
   int_t info = 0;
   
-  Rgetrs("N", size(), m.size2(), a, size(), _ipiv, res, size(), &info);
+  Rgetrs("N", size(), m.size2(), a, size(), _ipiv, res, size(), info);
 
   if(!info)
     //
@@ -1544,7 +1545,7 @@ Mpack_dd::SymLU::SymLU (SymmetricMatrix m) : SymmetricMatrix(m.copy())
 
   int_t info = 0;
   
-  Rsptrf("U", size(), *this, _ipiv, &info);
+  Rsptrf("U", size(), *this, _ipiv, info);
 
   if(!info)
     //
@@ -1594,7 +1595,7 @@ Mpack_dd::SymmetricMatrix Mpack_dd::SymLU::invert() const
   
   Array<dd_real> work((int)size());
   
-  Rsptri("U", size(), res, _ipiv, work, &info);
+  Rsptri("U", size(), res, _ipiv, work, info);
 
   if(!info)
     //
@@ -1638,7 +1639,7 @@ Mpack_dd::Vector Mpack_dd::SymLU::invert(Vector v) const
 
   int_t info = 0;
   
-  Rsptrs("U", size(), 1, a, _ipiv, res, size(), &info);
+  Rsptrs("U", size(), 1, a, _ipiv, res, size(), info);
 
   if(!info)
     //
@@ -1682,7 +1683,7 @@ Mpack_dd::Matrix Mpack_dd::SymLU::invert(Matrix m) const
 
   int_t info = 0;
   
-  Rsptrs("U", size(), m.size2(), a, _ipiv, res, size(), &info);
+  Rsptrs("U", size(), m.size2(), a, _ipiv, res, size(), info);
 
   if(!info)
     //
@@ -1714,7 +1715,7 @@ Mpack_dd::Cholesky::Cholesky (SymmetricMatrix m)
 
   int_t info;
   
-  Rpptrf("U", size(), *this, &info);
+  Rpptrf("U", size(), *this, info);
 
   if(!info)
     //
@@ -1744,7 +1745,7 @@ Mpack_dd::SymmetricMatrix Mpack_dd::Cholesky::invert() const
 
   int_t info;
 
-  Rpptri("U", size(), res, &info);
+  Rpptri("U", size(), res, info);
 
   if(!info)
     //
@@ -1788,7 +1789,7 @@ Mpack_dd::Vector Mpack_dd::Cholesky::invert(Vector v) const
 
   int_t info;
   
-  Rpptrs("U", size(), 1, a, res, size(), &info);
+  Rpptrs("U", size(), 1, a, res, size(), info);
 
   if(!info)
     //
@@ -1832,7 +1833,7 @@ Mpack_dd::Matrix Mpack_dd::Cholesky::invert(Matrix m) const
 
   int_t info;
   
-  Rpptrs("U", size(), res.size2(), a, res, size(), &info);
+  Rpptrs("U", size(), res.size2(), a, res, size(), info);
 
   if(!info)
     //

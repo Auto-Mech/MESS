@@ -13,7 +13,7 @@
         Library General Public License for more details.
 */
 
-#ifdef WITH_MPACK
+#ifdef WITH_MPLAPACK
 
 #ifndef MPACK_DD_HH
 #define MPACK_DD_HH
@@ -22,13 +22,13 @@
 #include "shared.hh"
 #include "multindex.hh"
 
-#include <qd/dd_real.h>
 
-#include <mpack/mpack_config.h>
+#include <qd/dd_real.h>
+#include <mplapack/mplapack_config.h>
 
 namespace Mpack_dd {
 
-  typedef mpackint int_t;// index type in lapack & blas libraries
+  typedef mplapackint int_t;// index type in lapack & blas libraries
 
   class Matrix; // general matrix
   class SymmetricMatrix;// packed symmetric matrix

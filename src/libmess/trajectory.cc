@@ -68,7 +68,8 @@ void Trajectory::Propagator::run (Dynamic::CCP stop, const Dynamic::Classifier& 
   }
 
   // dynamic variables
-  Array<double> dv(size());
+  //
+  ::Array<double> dv(size());
 
   put(dv);
   Mode mode = RESTART;

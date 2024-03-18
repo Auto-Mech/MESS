@@ -52,8 +52,8 @@ public:
   bool operator!= (const std::string& s) const { return !(*this == s);}
 
   static bool check_uninitialized_keys (std::ostream&);
-  static void        show_all          (std::ostream&, int =0);
-  static std::string show_all          (int =0);
+  static void        show_all          (std::ostream&, const std::string& = "");
+  static std::string show_all          (const std::string& = "");
 
   friend class KeyGroup;
 };

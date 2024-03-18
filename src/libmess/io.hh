@@ -41,6 +41,8 @@ namespace IO {
 
   inline std::string end_key () { return "End"; }
 
+  bool is_break (const std::string&);
+
   char skip_space(std::istream&);
   
   int skip_comment (const std::string&, std::istream&);

@@ -41,6 +41,8 @@ namespace Model {
 
   extern int out_precision;
 
+  extern int ped_precision;
+
   extern bool use_short_names;
 
   void names_translation (std::ostream&);
@@ -793,7 +795,15 @@ namespace Model {
 
     // TST levels
     //
-    enum {T_LEVEL, E_LEVEL, EJ_LEVEL};
+    enum {T_LEVEL, E_LEVEL, EJ_LEVEL, J0_LEVEL};
+
+    // J=0 Number of States
+    //
+    Slatec::Spline _j0_nos;
+
+    // maximal energy
+    //
+    double _ener_max;
     
   public:
     //
@@ -956,6 +966,7 @@ namespace Model {
     std::map<int, Lapack::complex>             _ctf_complex_fourier;
 
     // fourier expansion for potential and vibrational frequencies
+    //
     MultiIndexConvert                 _pot_four_index; // potential fourier expansion dimensions
 
     std::map<int, double>                   _pot_four; //           potential fourier expansion
@@ -1960,6 +1971,8 @@ namespace Model {
     _assert_spec();
     
     _species->shift_ground(e);
+
+    dissociation_limit += e;
 
     for(int i = 0; i < _escape.size(); ++i)
       //

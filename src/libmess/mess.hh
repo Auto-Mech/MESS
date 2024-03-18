@@ -25,10 +25,11 @@
 #include "lapack.hh"
 #include "model.hh"
 
-#ifdef WITH_MPACK
+#if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
 
 #include "mpack.hh"
 #include "mpack_dd.hh"
+#include "mplapack_dd.hh"
 
 #define FLOAT  dd_real
 #define LAPACK Mpack_dd
@@ -65,10 +66,14 @@ namespace MasterEquation {
   
   // float type
   //
-  enum {DOUBLE, DD, QD};
+  enum {DOUBLE, DD, QD, MPFR, GMP, FLOAT128, FLOAT64X};
 
   extern int float_type;
   
+  int get_precision ();
+
+  void set_precision (int);
+
   // reduction of species
   //
   enum {DIAGONALIZATION, PROJECTION}; // possible reduction algorithms for low eigenvalue method

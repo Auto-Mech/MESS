@@ -18,7 +18,7 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include <sys/types.h>
-#include <wait.h>
+#include <sys/wait.h>
 #include <cstdarg>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -164,6 +164,8 @@ System::Pipe::Pipe ()
  *                   Semaphores 
  *********************************************************/
 
+#if defined(_POSIX_C_SOURCE) && !defined(_DARWIN_C_SOURCE)
+
 union semun
 {
   int val;                          // value for SETVAL
@@ -171,6 +173,8 @@ union semun
   unsigned short int *array;        // array for GETALL & SETALL
   struct seminfo *__buf;            // buffer for IPC_INFO
 };
+
+#endif
 
 System::Semaphore::Semaphore(int n) 
    : key(IPC_PRIVATE), num(n), creator(getpid())
