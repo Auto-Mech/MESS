@@ -53,3 +53,6 @@ local.sh
 # Ignore builds
 build
 debug
+
+# Ignore rattler build output folder
+output/
