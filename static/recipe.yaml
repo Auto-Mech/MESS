@@ -1,0 +1,15 @@
+package:
+  name: mess-static
+  version: "2024.5.16"
+
+source:
+  path: .
+
+build:
+  noarch: generic
+  script:
+    - mkdir -p ${PREFIX}/bin
+    - cp ${RECIPE_DIR}/mess ${PREFIX}/bin/mess
+    - cp ${RECIPE_DIR}/abstraction ${PREFIX}/bin/messabs
+    - cp ${RECIPE_DIR}/partition_function ${PREFIX}/bin/messpf
+    - cp ${RECIPE_DIR}/gumbo ${PREFIX}/bin/gumbo
