@@ -31,6 +31,7 @@
 #include "math.hh"
 #include "io.hh"
 #include "system.hh"
+#include "dynlib.hh"
 
 namespace Model {
 
@@ -397,23 +398,23 @@ namespace Model {
     
     // set maximal energy relative to ground
     //
-    virtual void   set (double) { std::cerr << "Model::Rotor::set: not defined\n"; throw Error::Init(); }
+    virtual void   set (double) { IO::log << IO::log_offset << "Model::Rotor::set: not defined\n"; throw Error::Init(); }
 
     // ground energy
     //
-    virtual double ground        () const { std::cerr << "Model::Rotor::ground: not defined\n"; throw Error::Init(); }
+    virtual double ground        () const { IO::log << IO::log_offset << "Model::Rotor::ground: not defined\n"; throw Error::Init(); }
     
     // energy level relative to the ground
     //
-    virtual double energy_level  (int)  const { std::cerr << "Model::Rotor::energy_level: not defined\n"; throw Error::Init(); }
+    virtual double energy_level  (int)  const { IO::log << IO::log_offset << "Model::Rotor::energy_level: not defined\n"; throw Error::Init(); }
 
     // number of energy levels
     //
-    virtual int    level_size    ()       const { std::cerr << "Model::Rotor::level_size: not defined\n"; throw Error::Init(); }
+    virtual int    level_size    ()       const { IO::log << IO::log_offset << "Model::Rotor::level_size: not defined\n"; throw Error::Init(); }
     
     // statistical weight relative to the ground
     //
-    virtual double weight        (double) const { std::cerr << "Model::Rotor::weight: not defined\n"; throw Error::Init(); }
+    virtual double weight        (double) const { IO::log << IO::log_offset << "Model::Rotor::weight: not defined\n"; throw Error::Init(); }
 
     virtual void convolute(Array<double>&, double) const;
   };
@@ -699,6 +700,7 @@ namespace Model {
     void _fourier_space_energy_levels(int) ;
 
   public:
+    //
     Umbrella (IO::KeyBufferStream&, const std::vector<Atom>&);
     
     ~Umbrella ();
@@ -720,6 +722,38 @@ namespace Model {
     int    level_size      () const; // number of energy levels
     
     double weight    (double) const; // statistical weight relative to the ground
+  };
+
+  /********************************************************************************************
+   ***************************************** NEW UMBRELLA ************************************
+   ********************************************************************************************/
+
+  
+  class NewUmbrella {
+
+    double              _ground;
+    
+    std::vector<double> _level;
+
+  public:
+    //
+    NewUmbrella (IO::KeyBufferStream&);
+    
+    ~NewUmbrella ();
+
+    int    size   ()       const { return _level.size(); }  // number of energy levels
+    
+    double ground ()       const { return _ground; } // ground energy
+    
+    double level  (int i)  const { return _level[i]; } // energy levels relative to the ground
+    
+    double weight (double) const; // statistical weight relative to the ground
+    
+    void convolute(Array<double>&, double) const; // density of states convolution
+
+    static double  xpot (const Array<double>&, double);    // polinomial expansion
+    
+    static void  quadratic_extrapolation(const Array<double>& x, const Array<double>& y, Array<double>& coeff);
   };
 
   /**************************************************************************************
@@ -754,7 +788,7 @@ namespace Model {
 
     if(mode() != NUMBER && mode() != DENSITY && mode() != NOSTATES) {
       //
-      std::cerr << funame << "wrong mode\n";
+      IO::log << IO::log_offset << funame << "wrong mode\n";
       
       throw Error::Logic();
     }
@@ -1177,7 +1211,7 @@ namespace Model {
     
     if(m != DENSITY && m != NUMBER && m !=  NOSTATES) {
       //
-      std::cerr << funame << "wrong mode\n";
+      IO::log << IO::log_offset << funame << "wrong mode\n";
       
       throw Error::Logic();
     }
@@ -1346,7 +1380,7 @@ namespace Model {
     //
     class _RefPot {
 
-      System::DynLib _lib;
+      DynLib _lib; // dl library interface
 
       refp_t _pot;
 
@@ -1356,7 +1390,7 @@ namespace Model {
 
       _RefPot () : _pot(0), _weight(0) {}
 
-      void init (std::istream&);
+      void init (std::istream&); // dl library interface
 
       // energy as a function of fluxional coordinates
       //
@@ -1374,7 +1408,7 @@ namespace Model {
     // reference potential
     //
     _RefPot _ref_pot;
-
+    
     // reference temperature
     //
     double  _ref_tem;
@@ -1461,7 +1495,7 @@ namespace Model {
 
     int atom_size () const { return _mass_sqrt.size(); }
 
-    int fluxional_size() const { if (_fluxional.size()) return _fluxional.size(); return _internal_rotation.size(); }
+    int fluxional_size() const { if(_fluxional.size()) return _fluxional.size(); return _internal_rotation.size(); }
     
     // minimal non-fluxional modes frequency 
     //
@@ -1553,6 +1587,8 @@ namespace Model {
     
     std::vector<SharedPointer<Rotor> >     _rotor; // hindered rotors
 
+    std::vector<SharedPointer<NewUmbrella> > _umbrella;
+    
     std::vector<ConstSharedPointer<HinderedRotorBundle> > _hrb;
     
     std::vector<double>                _frequency; // real frequencies
@@ -1958,7 +1994,7 @@ namespace Model {
 	
     if(!_species) {
       //
-      std::cerr << funame << "not initialized\n";
+      IO::log << IO::log_offset << funame << "not initialized\n";
       
       throw Error::Init();
     }
@@ -2023,7 +2059,7 @@ namespace Model {
       //
       return;
 
-    std::cerr << funame << "well index out of range: " << w << "\n";
+    IO::log << IO::log_offset << funame << "well index out of range: " << w << "\n";
 
     throw Error::Range();
   }
@@ -2036,7 +2072,7 @@ namespace Model {
       //
       return;
 
-    std::cerr << funame << "inner barrier index out of range: " << b << "\n";
+    IO::log << IO::log_offset << funame << "inner barrier index out of range: " << b << "\n";
 
     throw Error::Range();
   }
@@ -2049,7 +2085,7 @@ namespace Model {
       //
       return;
 
-    std::cerr << funame << "outer barrier index out of range: " << b << "\n";
+    IO::log << IO::log_offset << funame << "outer barrier index out of range: " << b << "\n";
 
     throw Error::Range();
   }
@@ -2062,7 +2098,7 @@ namespace Model {
       //
       return;
 
-    std::cerr << funame << "bimolecular index out of range: " << p << "\n";
+    IO::log << IO::log_offset << funame << "bimolecular index out of range: " << p << "\n";
 
     throw Error::Range();
   }
@@ -2108,7 +2144,7 @@ namespace Model {
 
     default:
       //
-      std::cerr << funame << "unknown type: " << type << "\n";
+      IO::log << IO::log_offset << funame << "unknown type: " << type << "\n";
 
       throw Error::Logic();
     }
@@ -2150,7 +2186,7 @@ namespace Model {
       //
     default:
       //
-      std::cerr << funame << "unknown type: " << type << "\n";
+      IO::log << IO::log_offset << funame << "unknown type: " << type << "\n";
 
       throw Error::Logic();
     }
@@ -2160,18 +2196,36 @@ namespace Model {
   
   inline IO::LogOut&   operator<< (IO::LogOut&   to, spec_t p) { return to << species_name(p); }
   
-  // well group state density
+  // wells group state density
   //
   double state_density (const std::set<int>& g, double e);
 
-  // well group weight
+  // wells group weight
   //
   double weight        (const std::set<int>& g, double t);
 
-  // well group ground energy
+  // wells group ground energy
   //
   double ground        (const std::set<int>& g, int* = 0);
 
+  // wells group name
+  //
+  inline std::string group_name(const std::set<int>& g)
+  {
+    std::string res;
+    
+    for(std::set<int>::const_iterator w = g.begin(); w != g.end(); ++w) {
+      //
+      if(w != g.begin())
+	//
+	res += "+";
+
+      res += well(*w).short_name();
+    }
+
+    return res;
+  }
+  
   // barrier thermal energy
   //
   inline double thermal_energy (spec_t b, double temperature)
@@ -2190,7 +2244,7 @@ namespace Model {
     
     default:
       //
-      std::cerr << funame << "wrong dissociation barrier type: " << b.first << "\n";
+      IO::log << IO::log_offset << funame << "wrong dissociation barrier type: " << b.first << "\n";
     
       throw Error::Logic();
     }
@@ -2214,7 +2268,7 @@ namespace Model {
     
     default:
       //
-      std::cerr << funame << "wrong dissociation barrier type: " << b.first << "\n";
+      IO::log << IO::log_offset << funame << "wrong dissociation barrier type: " << b.first << "\n";
     
       throw Error::Logic();
     }
@@ -2239,7 +2293,7 @@ namespace Model {
   {
     if(r.size() != 2) {
       //
-      std::cerr << "Model::assert: wrong number of reactants: " << r.size() << "\n";
+      IO::log << IO::log_offset << "Model::assert: wrong number of reactants: " << r.size() << "\n";
 
       throw Error::Logic();
     }
@@ -2305,6 +2359,8 @@ namespace Model {
     void assert () const;
 
     void assert (spec_t s) const;
+
+    void remove (spec_t);
 
     bool is_connected () const { assert(); if(factorize().size() == 1) return true; return false; }
     
