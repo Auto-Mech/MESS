@@ -14,6 +14,7 @@
 */
 
 #include "slatec.h"
+#include "io.hh"
 
 /****************************************************************************************************
  *                   Differential equations solver by the Adams-Bashforth-Moulton                   *
@@ -132,6 +133,32 @@ void Slatec::AdamSolver::run(double& x, double* y, double xout,
 /**********************************************************************************
  *                                  Spline fitting                                *
  *********************************************************************************/
+
+void Slatec::Spline::init (const std::map<double, double>& m)
+{
+    const char funame [] = "Slatec::Spline::init: ";
+
+    if(!m.size()) {
+      //
+      IO::log << IO::log_offset << funame << "empty map\n";
+
+      throw Error::Init();
+    }
+
+    
+    Array<double> x((int)m.size()), y((int)m.size());
+
+    int i = 0;
+    
+    for(std::map<double, double>::const_iterator cit = m.begin(); cit != m.end(); ++cit, ++i) {
+      //
+      x[i] = cit->first;
+      
+      y[i] = cit->second;
+    }
+
+    init(x, y, m.size());
+}
 
 void Slatec::Spline::init (const double* x, const double* y, 
 		       int_t s) 

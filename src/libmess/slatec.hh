@@ -19,6 +19,8 @@
 #include "error.hh"
 #include "array.hh"
 
+#include <map>
+
 namespace Slatec {
 
   typedef int int_t;// this is apparently the right type for fortran int
@@ -79,10 +81,18 @@ namespace Slatec {
   public:
 
     Spline () : _size(0) {}
-    void init (const double*, const double*, int_t) ;
+    
+    void init (const double*, const double*, int_t);
+
+    void init (const std::map<double, double>&);
+    
     Spline (const double* x, const double* y, int_t n)  : _size(0) { init(x, y, n); }
 
+    Spline (const std::map<double, double>& m)  : _size(0) { init(m); }
+
     int_t size () const { return _size; }
+
+    bool isinit () const { return _size; }
 
     double arg_min () const { return _xmin; }
     double arg_max () const { return _xmax; }
