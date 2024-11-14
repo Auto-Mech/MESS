@@ -40,6 +40,19 @@ AtomBase::DataBase::DataBase ()
   (*this)[HYDROGEN].mass[2] = 2.014;
   (*this)[HYDROGEN].mass[3] = 3.01605;
 
+  (*this)[BORON].name     = "B";
+  (*this)[BORON].valence  = 3;
+  (*this)[BORON].isotope  = 11;
+  (*this)[BORON].mass[10] = 10.01353;
+  (*this)[BORON].mass[11] = 10.81;
+
+  (*this)[ALUMINIUM].name     = "Al";
+  (*this)[ALUMINIUM].valence  = 3;
+  (*this)[ALUMINIUM].isotope  = 27;
+  (*this)[ALUMINIUM].mass[26] = 25.981538;
+  (*this)[ALUMINIUM].mass[27] = 26.981538;
+  (*this)[ALUMINIUM].mass[28] = 27.981536;	
+	
   (*this)[HELIUM].name    = "He";
   (*this)[HELIUM].valence = 0;
   (*this)[HELIUM].isotope = 4;
