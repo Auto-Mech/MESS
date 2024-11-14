@@ -43,7 +43,25 @@ AtomBase::DataBase::DataBase ()
   (*this)[HELIUM].name    = "He";
   (*this)[HELIUM].valence = 0;
   (*this)[HELIUM].isotope = 4;
-  (*this)[HELIUM].mass[4] = 4.;
+  (*this)[HELIUM].mass[3] = 3.01602931;
+  (*this)[HELIUM].mass[4] = 4.00260325;
+
+  (*this)[LITHIUM].name    = "Li";
+  (*this)[LITHIUM].valence = 1;
+  (*this)[LITHIUM].isotope = 7;
+  (*this)[LITHIUM].mass[6] = 6.015122;
+  (*this)[LITHIUM].mass[7] = 7.016004;
+
+  (*this)[BERYLIUM].name    = "Be";
+  (*this)[BERYLIUM].valence = 2;
+  (*this)[BERYLIUM].isotope = 9;
+  (*this)[BERYLIUM].mass[9] = 9.012182;
+
+  (*this)[BORON].name     = "B";
+  (*this)[BORON].valence  = 3;
+  (*this)[BORON].isotope  = 11;
+  (*this)[BORON].mass[10] = 10.012937;
+  (*this)[BORON].mass[11] = 11.009306;
 
   (*this)[CARBON].name     = "C";
   (*this)[CARBON].valence  = 4;
@@ -61,18 +79,37 @@ AtomBase::DataBase::DataBase ()
   (*this)[OXYGEN].valence  = 2;
   (*this)[OXYGEN].isotope  = 16;
   (*this)[OXYGEN].mass[16] = 15.99491;
-  (*this)[OXYGEN].mass[17] = 17.;
-  (*this)[OXYGEN].mass[18] = 18.;
+  (*this)[OXYGEN].mass[17] = 16.9991315;
+  (*this)[OXYGEN].mass[18] = 17.999160;
 
   (*this)[FLUORINE].name     = "F";
   (*this)[FLUORINE].valence  = 1;
   (*this)[FLUORINE].isotope  = 19;
   (*this)[FLUORINE].mass[19] = 18.9984;
 
+  (*this)[NEON].name     = "Ne";
+  (*this)[NEON].valence  = 0;
+  (*this)[NEON].isotope  = 20;
+  (*this)[NEON].mass[20] = 19.99244018;
+  (*this)[NEON].mass[21] = 20.9938467;
+  (*this)[NEON].mass[22] = 21.9913855;
+
   (*this)[SODIUM].name     = "Na";
   (*this)[SODIUM].valence  = 1;
   (*this)[SODIUM].isotope  = 23;
   (*this)[SODIUM].mass[23] = 22.9898;
+
+  (*this)[MAGNESIUM].name     = "Mg";
+  (*this)[MAGNESIUM].valence  = 2;
+  (*this)[MAGNESIUM].isotope  = 24;
+  (*this)[MAGNESIUM].mass[24] = 23.9850419;
+  (*this)[MAGNESIUM].mass[25] = 24.9858370;
+  (*this)[MAGNESIUM].mass[26] = 25.9825930;
+
+  (*this)[ALUMINUM].name     = "Al";
+  (*this)[ALUMINUM].valence  = 3;
+  (*this)[ALUMINUM].isotope  = 27;
+  (*this)[ALUMINUM].mass[27] = 26.9815384;
 
   (*this)[SILICON].name     = "Si";
   (*this)[SILICON].valence  = 4;
@@ -97,11 +134,40 @@ AtomBase::DataBase::DataBase ()
   (*this)[CHLORINE].name     = "Cl";
   (*this)[CHLORINE].valence  = 1;
   (*this)[CHLORINE].isotope  = 35;
-  (*this)[CHLORINE].mass[35] = 34.96885;
-  (*this)[CHLORINE].mass[37] = 37.;
+  (*this)[CHLORINE].mass[35] = 34.96885271;
+  (*this)[CHLORINE].mass[37] = 36.9659026;
+
+  (*this)[ARGON].name     = "Ar";
+  (*this)[ARGON].valence  = 0;
+  (*this)[ARGON].isotope  = 40;
+  (*this)[ARGON].mass[36] = 35.9675463;
+  (*this)[ARGON].mass[38] = 37.9627322;
+  (*this)[ARGON].mass[40] = 39.962383124;
+
+  (*this)[POTASSIUM].name     = "K";
+  (*this)[POTASSIUM].valence  = 1;
+  (*this)[POTASSIUM].isotope  = 39;
+  (*this)[POTASSIUM].mass[39] = 38.9637069;
+  (*this)[POTASSIUM].mass[40] = 39.9639987;
+  (*this)[POTASSIUM].mass[41] = 40.9618260;
+  
+  (*this)[CALCIUM].name     = "Ca";
+  (*this)[CALCIUM].valence  = 2;
+  (*this)[CALCIUM].isotope  = 40;
+  (*this)[CALCIUM].mass[40] = 39.9625912;
+  (*this)[CALCIUM].mass[42] = 41.9586183;
+  (*this)[CALCIUM].mass[43] = 42.9587668;
+  (*this)[CALCIUM].mass[44] = 43.955481;
+  (*this)[CALCIUM].mass[46] = 45.953693;
+  (*this)[CALCIUM].mass[48] = 47.952533;
+  
+  (*this)[SCANDIUM].name     = "Sc";
+  (*this)[SCANDIUM].valence  = 2;
+  (*this)[SCANDIUM].isotope  = 45;
+  (*this)[SCANDIUM].mass[45] = 44.955910;
 
   (*this)[TITANIUM].name     = "Ti";
-  (*this)[TITANIUM].valence  = 1;
+  (*this)[TITANIUM].valence  = 2;
   (*this)[TITANIUM].isotope  = 49;
   (*this)[TITANIUM].mass[46] = 45.95263;
   (*this)[TITANIUM].mass[47] = 46.95176;
@@ -109,16 +175,125 @@ AtomBase::DataBase::DataBase ()
   (*this)[TITANIUM].mass[49] = 48.947871;
   (*this)[TITANIUM].mass[50] = 49.944792;
 
+  (*this)[VANADIUM].name     = "V";
+  (*this)[VANADIUM].valence  = 2;
+  (*this)[VANADIUM].isotope  = 51;
+  (*this)[VANADIUM].mass[50] = 49.947163;
+  (*this)[VANADIUM].mass[51] = 50.943964;
+
+  (*this)[CHROMIUM].name     = "Cr";
+  (*this)[CHROMIUM].valence  = 1;
+  (*this)[CHROMIUM].isotope  = 52;
+  (*this)[CHROMIUM].mass[50] = 49.946050;
+  (*this)[CHROMIUM].mass[52] = 51.940512;
+  (*this)[CHROMIUM].mass[53] = 52.940653;
+  (*this)[CHROMIUM].mass[54] = 53.938885;
+
+  (*this)[MANGANESE].name     = "Mn";
+  (*this)[MANGANESE].valence  = 2;
+  (*this)[MANGANESE].isotope  = 55;
+  (*this)[MANGANESE].mass[55] = 54.938049;
+
+  (*this)[IRON].name     = "Fe";
+  (*this)[IRON].valence  = 2;
+  (*this)[IRON].isotope  = 56;
+  (*this)[IRON].mass[54] = 53.939615;
+  (*this)[IRON].mass[56] = 55.934942;
+  (*this)[IRON].mass[57] = 56.935398;
+  (*this)[IRON].mass[58] = 57.933280;
+
+  (*this)[COBALT].name     = "Co";
+  (*this)[COBALT].valence  = 2;
+  (*this)[COBALT].isotope  = 59;
+  (*this)[COBALT].mass[59] = 58.933200;
+
+  (*this)[NICKEL].name     = "Ni";
+  (*this)[NICKEL].valence  = 2;
+  (*this)[NICKEL].isotope  = 58;
+  (*this)[NICKEL].mass[58] = 57.935348;
+  (*this)[NICKEL].mass[60] = 59.930790;
+  (*this)[NICKEL].mass[61] = 60.931060;
+  (*this)[NICKEL].mass[62] = 61.928348;
+  (*this)[NICKEL].mass[64] = 63.927969;
+
+  (*this)[COPPER].name     = "Cu";
+  (*this)[COPPER].valence  = 1;
+  (*this)[COPPER].isotope  = 63;
+  (*this)[COPPER].mass[63] = 62.929601;
+  (*this)[COPPER].mass[65] = 64.927794;
+
+  (*this)[ZINC].name     = "Zn";
+  (*this)[ZINC].valence  = 2;
+  (*this)[ZINC].isotope  = 64;
+  (*this)[ZINC].mass[64] = 63.929146;
+  (*this)[ZINC].mass[66] = 65.926036;
+  (*this)[ZINC].mass[67] = 66.927131;
+  (*this)[ZINC].mass[68] = 67.924847;
+  (*this)[ZINC].mass[70] = 69.925325;
+  
+  (*this)[GALLIUM].name     = "Ga";
+  (*this)[GALLIUM].valence  = 3;
+  (*this)[GALLIUM].isotope  = 69;
+  (*this)[GALLIUM].mass[69] = 68.925581;
+  (*this)[GALLIUM].mass[71] = 70.924707;
+
+  (*this)[GERMANIUM].name     = "Ge";
+  (*this)[GERMANIUM].valence  = 4;
+  (*this)[GERMANIUM].isotope  = 74;
+  (*this)[GERMANIUM].mass[70] = 69.924250;
+  (*this)[GERMANIUM].mass[72] = 71.922076;
+  (*this)[GERMANIUM].mass[73] = 72.923460;
+  (*this)[GERMANIUM].mass[74] = 73.921178;
+  (*this)[GERMANIUM].mass[76] = 75.921403;
+
+  (*this)[ARSENIC].name     = "As";
+  (*this)[ARSENIC].valence  = 3;
+  (*this)[ARSENIC].isotope  = 75;
+  (*this)[ARSENIC].mass[75] = 74.921597;
+
+  (*this)[SELENIUM].name     = "Se";
+  (*this)[SELENIUM].valence  = 2;
+  (*this)[SELENIUM].isotope  = 80;
+  (*this)[SELENIUM].mass[74] = 73.922477;
+  (*this)[SELENIUM].mass[76] = 75.919214;
+  (*this)[SELENIUM].mass[77] = 76.919915;
+  (*this)[SELENIUM].mass[78] = 77.917310;
+  (*this)[SELENIUM].mass[80] = 79.916522;
+  (*this)[SELENIUM].mass[82] = 81.916700;
+
   (*this)[BROMINE].name     = "Br";
   (*this)[BROMINE].valence  = 1;
   (*this)[BROMINE].isotope  = 79;
   (*this)[BROMINE].mass[79] = 78.9183;
   (*this)[BROMINE].mass[81] = 80.9163;
 
+  (*this)[KRYPTON].name     = "Kr";
+  (*this)[KRYPTON].valence  = 0;
+  (*this)[KRYPTON].isotope  = 84;
+  (*this)[KRYPTON].mass[78] = 77.92039;
+  (*this)[KRYPTON].mass[80] = 79.916379;
+  (*this)[KRYPTON].mass[82] = 81.913485;
+  (*this)[KRYPTON].mass[83] = 82.914137;
+  (*this)[KRYPTON].mass[84] = 83.911508;
+  (*this)[KRYPTON].mass[86] = 85.910615;
+
   (*this)[IODINE].name      = "I";
   (*this)[IODINE].valence   = 1;
   (*this)[IODINE].isotope   = 127;
-  (*this)[IODINE].mass[127] = 127.;
+  (*this)[IODINE].mass[127] = 126.904468;
+
+  (*this)[XENON].name      = "Xe";
+  (*this)[XENON].valence   = 0;
+  (*this)[XENON].isotope   = 132;
+  (*this)[XENON].mass[124] = 123.905895;
+  (*this)[XENON].mass[126] = 125.90427;
+  (*this)[XENON].mass[128] = 127.903531;
+  (*this)[XENON].mass[129] = 128.904780;
+  (*this)[XENON].mass[130] = 129.903509;
+  (*this)[XENON].mass[131] = 130.905083;
+  (*this)[XENON].mass[132] = 131.904155;
+  (*this)[XENON].mass[134] = 133.905395;
+  (*this)[XENON].mass[136] = 135.90722;
 
   (*this)[URANIUM].name     = "U";
   (*this)[URANIUM].valence  = 6;
