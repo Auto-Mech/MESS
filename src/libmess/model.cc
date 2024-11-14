@@ -13566,6 +13566,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
   bool is_zero = false;
   
   std::string rotd_name;
+  
   double factor = 1.;
 
   bool issym = false;
@@ -13734,19 +13735,27 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
     //
     IO::log << IO::log_offset << "energy unit: 1/cm\n";
   }
+
+  double ener, nos;
   
-  while(rotd_in >> dtemp) {
+  while(rotd_in >> ener) {
     //
-    dtemp *= ener_unit;  // energy
+    ener *= ener_unit;  // energy
 
     IO::LineInput lin(rotd_in);
-    
-    if(!(lin >> read_nos[dtemp])) {
+
+    if(!(lin >> nos)) {
       //
-      IO::log << IO::log_offset << funame << "reading transitional modes number of states failed\n";
+      IO::log << IO::log_offset << funame << "reading transitional modes number/density of states failed\n";
       
       throw Error::Input();
     }
+
+    if(mode() == DENSITY)
+      //
+      nos /= ener_unit;
+
+    read_nos[ener] = nos;
   }
 
   // find zero density energy
@@ -13761,18 +13770,24 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 	//
 	break;
 
-    if(izero->second <= rotd_ntol) {
+    if(mode() == NUMBER && izero->second <= rotd_ntol) {
       //
       if(is_zero) {
 	//
-	IO::log << IO::log_offset << funame << "number of states at E = " << std::ceil(izero->first / Phys_const::incm)
-		  << " 1/cm too small: " << izero->second << "\n";
+	IO::log << IO::log_offset << funame << "number of states at E = "
+	  //
+		<< std::ceil(izero->first / Phys_const::incm)
+	  //
+		<< " 1/cm too small: " << izero->second << "\n";
 
 	throw Error::Range();
       }
 
       break;
     }
+    else if(mode() == DENSITY && izero->second <= 0.)
+      //
+      break;
   }
   
   if(itemp < 3) {
@@ -13867,52 +13882,25 @@ double Model::Rotd::ground () const
 double Model::Rotd::states (double ener) const 
 {
   const char funame [] = "Model::Rotd::states: ";
+  
   double dtemp;
 
   if(ener <= 0.)
     //
     return 0.;
 
-  switch(mode()) {
+  if(ener <= _rotd_emin) {
     //
-  case NUMBER:
-    //
-    if(ener <= _rotd_emin) {
-      //
-      return _rotd_amin * std::pow(ener, _rotd_nmin);
-    }
-    else if(ener >= _rotd_emax) {
-      //
-      return _rotd_amax * std::pow(ener, _rotd_nmax);
-    }
-    else {
-      //
-      return std::exp(_rotd_spline(std::log(ener)));
-    }
-    
-  case DENSITY:
-    //
-    if(ener <= _rotd_emin) {
-      //
-      return _rotd_amin * _rotd_nmin * std::pow(ener, _rotd_nmin - 1.);
-    }
-    else if(ener >= _rotd_emax) {
-      //
-      return _rotd_amax * _rotd_nmax * std::pow(ener, _rotd_nmax - 1.);
-    }
-    else {
-      //
-      dtemp = std::log(ener);
-      
-      return std::exp(_rotd_spline(dtemp, 0)) * _rotd_spline(dtemp, 1) / ener;
-    }
-    
-  default:
-    //
-    IO::log << IO::log_offset << funame << "wrong mode\n";
-    
-    throw Error::Logic();
+    return _rotd_amin * std::pow(ener, _rotd_nmin);
   }
+  else if(ener >= _rotd_emax) {
+    //
+    return _rotd_amax * std::pow(ener, _rotd_nmax);
+  }
+  else {
+    //
+    return std::exp(_rotd_spline(std::log(ener)));
+  }    
 }
 
 double Model::Rotd::weight (double temperature) const
@@ -13943,8 +13931,6 @@ double Model::Rotd::weight (double temperature) const
     
     throw Error::Logic();
   }
-  res /= temperature;
-
   dtemp = _rotd_emax / temperature;
   
   if(dtemp <= _rotd_nmax) {
@@ -13956,7 +13942,7 @@ double Model::Rotd::weight (double temperature) const
     return res;
   }
 
-  dtemp = _rotd_amax * std::pow(_rotd_emax, _rotd_nmax) / std::exp(dtemp) / (1. - _rotd_nmax / dtemp);
+  dtemp = temperature * _rotd_amax * std::pow(_rotd_emax, _rotd_nmax) / std::exp(dtemp) / (1. - _rotd_nmax / dtemp);
   
   if(dtemp / res > eps)
     //
@@ -13964,6 +13950,11 @@ double Model::Rotd::weight (double temperature) const
   
   res += dtemp;
 
+  if(mode() == NUMBER)
+    //
+    res /= temperature;
+
+    
   return res;
 }
 
