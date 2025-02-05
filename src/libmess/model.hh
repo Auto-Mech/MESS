@@ -102,7 +102,8 @@ namespace Model {
   class Collision {
 
   public:
-    virtual ~Collision ();
+    //
+    virtual ~Collision () {}
 
     virtual double operator () (double temperature) const = 0;
   };
@@ -134,7 +135,7 @@ namespace Model {
 
   public:
     Kernel () {}
-    virtual ~Kernel ();
+    virtual ~Kernel () {}
    
     enum {
       UP = 1,      // transition up probability form predefined
@@ -199,7 +200,7 @@ namespace Model {
     
   public:
     //
-    virtual ~Tunnel ();
+    virtual ~Tunnel () {}
 
     double  cutoff () const { return _cutoff; }
 
@@ -347,7 +348,7 @@ namespace Model {
     
     explicit InternalRotationDef (IO::KeyBufferStream& from) : _isinit(false), _symmetry(1), _axis(-1, -1) { init(from); }
     
-    virtual ~InternalRotationDef ();
+    virtual ~InternalRotationDef () {}
 
     int symmetry () const { return _symmetry; }
 
@@ -392,7 +393,7 @@ namespace Model {
 
   public:
     
-    virtual ~Rotor();
+    virtual ~Rotor() {}
 
     int angular_grid_size () const { return _grid_size; }
     
@@ -431,7 +432,7 @@ namespace Model {
     
     RotorBase (IO::KeyBufferStream&, const std::vector<Atom>&);
 
-    virtual ~RotorBase ();
+    virtual ~RotorBase () {}
 
     double rotational_constant () const { return _rotational_constant; }
   };
@@ -771,7 +772,8 @@ namespace Model {
     explicit Core(int m);
 
   public:
-    virtual ~Core ();
+    //
+    virtual ~Core () {}
 
     virtual double ground       () const =0;
     
@@ -1150,7 +1152,7 @@ namespace Model {
 	  ELECTRONIC_WEIGHT
     };
     
-    virtual ~Species();
+    virtual ~Species() {}
     
     // density or number of states of absolute energy
     //
@@ -1495,7 +1497,7 @@ namespace Model {
 
     int atom_size () const { return _mass_sqrt.size(); }
 
-    int fluxional_size() const { if(_fluxional.size()) return _fluxional.size(); return _internal_rotation.size(); }
+    int fluxional_size() const { if (_fluxional.size()) return _fluxional.size(); return _internal_rotation.size(); }
     
     // minimal non-fluxional modes frequency 
     //
@@ -1873,6 +1875,8 @@ namespace Model {
     
   public:
     //
+    virtual ~Escape () {}
+    
     virtual double rate (double) const =0;
 
     double states (double ener) const { _assert(); return rate(ener) * _spec->states(ener); }

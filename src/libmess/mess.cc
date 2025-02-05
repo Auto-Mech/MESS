@@ -20,14 +20,20 @@
 #include <list>
 #include <map>
 #include <ctime>
+#include <limits>
 
 #include "mess.hh"
 #include "units.hh"
 #include "key.hh"
 #include "io.hh"
 #include "shared.hh"
+#include "offload.hh"
 
-//#include "mpack.hh"
+#if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
+  
+#include "mpack.hh"
+
+#endif
 
 namespace MasterEquation {
 
@@ -49,6 +55,8 @@ namespace MasterEquation {
   
   /*********************************** AUXILIARY OUTPUT *************************************/
 
+  std::string save_kinetic_matrix;
+  
   std::ofstream eval_out;// eigenvalues output
   
   int  red_out_num = 5; // number of reduction schemes to print 
@@ -168,6 +176,10 @@ namespace MasterEquation {
   // time-interval between printouts
   //
   double                                                     time_propagation_interval = -1.;
+
+  // generate CRM basis
+  //
+  int                                                        with_crm_basis            = 0;
   
   /********************************* INTERNAL PARAMETERS ************************************/
 
@@ -6490,14 +6502,19 @@ void MasterEquation::Well::_set_crm_basis ()
   _boltzman.resize(size());
   
   _boltzman_sqrt.resize(size());
+
+  std::vector<double> nfac;
   
-  _crm_basis.resize(size(), size() - 1);
+  if(with_crm_basis) {
+    //
+    _crm_basis.resize(size(), crm_size());
   
-  _crm_basis = 0.;
+    _crm_basis = 0.;
+
+    nfac.resize(crm_size());
+  }
   
   _weight = 0.;
-  
-  std::vector<double> nfac(crm_size());
   
   for(int i = 0; i < size(); ++i) {
     //
@@ -6506,31 +6523,36 @@ void MasterEquation::Well::_set_crm_basis ()
     _boltzman[i] = dtemp;
     
     _boltzman_sqrt[i] = std::sqrt(dtemp);
-    
-    if(i) {
+
+    if(with_crm_basis) {
       //
-      itemp = i - 1;
+      if(i) {
+	//
+	itemp = i - 1;
       
-      _crm_basis(i, itemp) = - _weight;
+	_crm_basis(i, itemp) = - _weight;
       
-      nfac[itemp] = std::sqrt((_weight / dtemp + 1.) * _weight);
+	nfac[itemp] = std::sqrt((_weight / dtemp + 1.) * _weight);
+      }
+    
+      for(int r = i; r < crm_size(); ++r)
+	//
+	_crm_basis(i, r) = dtemp;
     }
-    
-    for(int r = i; r < crm_size(); ++r)
-      //
-      _crm_basis(i, r) = dtemp;
     
     _weight += dtemp;    
   }
 
-  for(int r = 0; r < crm_size(); ++r) {
+  if(with_crm_basis)
     //
-    itemp = r + 2;
-    
-    for(int i = 0; i < itemp; ++i)
+    for(int r = 0; r < crm_size(); ++r) {
       //
-      _crm_basis(i, r) /= nfac[r];
-  }
+      itemp = r + 2;
+    
+      for(int i = 0; i < itemp; ++i)
+	//
+	_crm_basis(i, r) /= nfac[r];
+    }
 
   _weight_sqrt = std::sqrt(_weight);
 }
@@ -6590,92 +6612,95 @@ MasterEquation::Well::Well (const Model::Well& model)
 
   // CRM basis
   //
-  start_time = std::clock();
-
   _set_crm_basis();
 
-  IO::log << IO::log_offset << model.short_name() << " Well: relaxation modes basis done, elapsed time[sec] = "
+  if(with_crm_basis) {
     //
-	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
+    start_time = std::clock();
 
-  // collisional relaxation kernel in CRM basis
-  //
-  start_time = std::clock();
+    IO::log << IO::log_offset << model.short_name() << " Well: relaxation modes basis done, elapsed time[sec] = "
+      //
+	    << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;
 
-  _crm_bra = _crm_basis.copy();
+    // collisional relaxation kernel in CRM basis
+    //
+    start_time = std::clock();
+
+    _crm_bra = _crm_basis.copy();
   
-  for(int i = 0; i < size(); ++i)
-    //
-    _crm_bra.row(i) /= boltzman(i);
+    for(int i = 0; i < size(); ++i)
+      //
+      _crm_bra.row(i) /= boltzman(i);
 
-  _crm_kernel = Lapack::SymmetricMatrix(_crm_basis.transpose() * _kernel * _crm_bra);
+    _crm_kernel = Lapack::SymmetricMatrix(_crm_basis.transpose() * _kernel * _crm_bra);
 
-  IO::log << IO::log_offset << model.short_name()
-    //
-	  << " Well: kernel in relaxation modes basis done, elapsed time[sec] = "
-    //
-	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
+    IO::log << IO::log_offset << model.short_name()
+      //
+	    << " Well: kernel in relaxation modes basis done, elapsed time[sec] = "
+      //
+	    << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
 
-  /*
-    Lapack::SymmetricMatrix ktest(size());
+    /*
+      Lapack::SymmetricMatrix ktest(size());
 
-    for(int i = 0; i < size(); ++i) {
-    //
-    ktest(i, i) = _kernel(i, i);
+      for(int i = 0; i < size(); ++i) {
+      //
+      ktest(i, i) = _kernel(i, i);
     
-    for(int j = i + 1; j < size(); ++j)
-    //
-    ktest(i, j) = _kernel(i, j) * boltzman_sqrt(i) / boltzman_sqrt(j);
-    }
+      for(int j = i + 1; j < size(); ++j)
+      //
+      ktest(i, j) = _kernel(i, j) * boltzman_sqrt(i) / boltzman_sqrt(j);
+      }
 
-    Lapack::Matrix kvec(size());
+      Lapack::Matrix kvec(size());
 
-    Lapack::Vector kval = ktest.eigenvalues(&kvec);
+      Lapack::Vector kval = ktest.eigenvalues(&kvec);
 
-    IO::log << IO::log_offset << model.short_name() << " Well: energy transfer kernel lowest eigenvalues:\n";
+      IO::log << IO::log_offset << model.short_name() << " Well: energy transfer kernel lowest eigenvalues:\n";
 
-    itemp = size() < 10 ? size() : 10;
+      itemp = size() < 10 ? size() : 10;
   
-    for(int i = 0; i < itemp; ++i)
-    //
-    IO::log << IO::log_offset << std::setw(Model::log_precision + 7) << kval[i] << "\n";
+      for(int i = 0; i < itemp; ++i)
+      //
+      IO::log << IO::log_offset << std::setw(Model::log_precision + 7) << kval[i] << "\n";
 
-    stemp = "kvec_" + model.short_name() + "_" + IO::String(int(temperature() / Phys_const::kelv)) + ".dat";
+      stemp = "kvec_" + model.short_name() + "_" + IO::String(int(temperature() / Phys_const::kelv)) + ".dat";
 
-    std::ofstream kvec_out(stemp.c_str());
+      std::ofstream kvec_out(stemp.c_str());
   
-    for(int e = 0; e < size(); ++e) {
-    //
-    for(int i = 0; i < itemp; ++i)
-    //
-    kvec_out << std::setw(Model::log_precision + 7) << kvec(e, i) / boltzman_sqrt(e) * boltzman_sqrt(size() - 1);
+      for(int e = 0; e < size(); ++e) {
+      //
+      for(int i = 0; i < itemp; ++i)
+      //
+      kvec_out << std::setw(Model::log_precision + 7) << kvec(e, i) / boltzman_sqrt(e) * boltzman_sqrt(size() - 1);
 
-    kvec_out << "\n";
-    }
-  */
+      kvec_out << "\n";
+      }
+    */
   
-  // minimal collisional relaxation eigenvalue
-  //
-  start_time = std::clock();
-
-  vtemp = _crm_kernel.eigenvalues();
-  
-  _min_relax_eval = vtemp.front();
-  
-  _max_relax_eval = vtemp.back();
-
-  IO::log << IO::log_offset << model.short_name() << " Well: relaxation eigenvalues done, elapsed time[sec] = "
+    // minimal collisional relaxation eigenvalue
     //
-	  << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
+    start_time = std::clock();
 
-  IO::log << IO::log_offset << model.short_name() << " Well: minimal relaxation eigenvalue = "
-    //
-	  << _min_relax_eval << "\n";
+    vtemp = _crm_kernel.eigenvalues();
   
-  IO::log << IO::log_offset << model.short_name() << " Well: maximal relaxation eigenvalue = "
-    //
-	  << _max_relax_eval << "\n";
+    _min_relax_eval = vtemp.front();
+  
+    _max_relax_eval = vtemp.back();
 
+    IO::log << IO::log_offset << model.short_name() << " Well: relaxation eigenvalues done, elapsed time[sec] = "
+      //
+	    << double(std::clock() - start_time) / CLOCKS_PER_SEC <<  std::endl;  
+
+    IO::log << IO::log_offset << model.short_name() << " Well: minimal relaxation eigenvalue = "
+      //
+	    << _min_relax_eval << "\n";
+  
+    IO::log << IO::log_offset << model.short_name() << " Well: maximal relaxation eigenvalue = "
+      //
+	    << _max_relax_eval << "\n";
+  }
+  
   /*
     #ifdef DEBUG
     
@@ -6726,6 +6751,12 @@ MasterEquation::Well::Well (const Model::Well& model)
   //
   if(model.oscillator_size()) {
     //
+    if(!with_crm_basis) {
+      //
+      std::cerr << funame << "CRM basis not initialized\n";
+
+      throw Error::Init();
+    }
     _crm_radiation_rate.resize(crm_size());
     
     _radiation_rate.resize(size());
@@ -7243,6 +7274,13 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
   Lapack::Vector vtemp;
   Lapack::Matrix mtemp;  
 
+  if(!with_crm_basis) {
+    //
+    std::cerr << funame << "crm basis is not initialized\n";
+
+    throw Error::Init();
+  }
+  
   IO::log << IO::log_offset << "Pressure = ";
   
   switch(pressure_unit) {
@@ -7448,6 +7486,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	chem_eval = Mpack::eigenvalues<mpf_class>(k_11, &chem_evec);
       }
 
+#ifdef WITH_FLOAT128
 #ifdef WITH_MPACK
       
       else if(float_type == FLOAT128) {
@@ -7456,7 +7495,6 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
       }
       
 #else
-
       else if(float_type == FLOAT128) {
 	//
 	chem_eval = Mpack::eigenvalues<_Float128>(k_11, &chem_evec);
@@ -7465,18 +7503,49 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	//
 	chem_eval = Mpack::eigenvalues<_Float64x>(k_11, &chem_evec);
       }
-
+#endif
 #endif
       
       else {
 	//
-	chem_eval = k_11.eigenvalues(&chem_evec);
-      }
-    
-#else
-  
-      chem_eval = k_11.eigenvalues(&chem_evec);
+#ifdef OFFLOAD_OMP
+	
+	chem_eval = Offload::Omp::eigenvalues(k_11, &chem_evec);
 
+#elif defined OFFLOAD_SYCL
+	
+	chem_eval = Offload::Sycl::eigenvalues(k_11, &chem_evec);
+
+#elif defined OFFLOAD_CUDA
+	
+	chem_eval = Offload::Cuda::eigenvalues(k_11, &chem_evec);
+
+#else
+	
+	chem_eval = k_11.eigenvalues(&chem_evec);
+
+#endif
+	
+      }
+
+#else
+#ifdef OFFLOAD_OMP
+	
+	chem_eval = Offload::Omp::eigenvalues(k_11, &chem_evec);
+
+#elif defined OFFLOAD_SYCL
+	
+	chem_eval = Offload::Sycl::eigenvalues(k_11, &chem_evec);
+
+#elif defined OFFLOAD_CUDA
+	
+	chem_eval = Offload::Cuda::eigenvalues(k_11, &chem_evec);
+
+#else
+	
+	chem_eval = k_11.eigenvalues(&chem_evec);
+
+#endif  
 #endif
   
   // relaxational projection of the chemical eigenvector
@@ -8278,7 +8347,8 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	eval = Mpack::eigenvalues<mpf_class>(km, &evec);
       }
-      
+
+#ifdef WITH_FLOAT128
 #ifdef WITH_MPACK
 	
       else if(float_type == FLOAT128) {
@@ -8287,7 +8357,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       }
 
 #else
-
+      
       else if(float_type == FLOAT128) {
 	//
 	eval = Mpack::eigenvalues<_Float128>(km, &evec);
@@ -8296,18 +8366,48 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	eval = Mpack::eigenvalues<_Float64x>(km, &evec);
       }
-
+      
+#endif
 #endif
       
       else {
 	//
-	eval = km.eigenvalues(&evec);
-      }
-    
+#ifdef OFFLOAD_OMP
+	
+	eval = Offload::Omp::eigenvalues(km, &evec);
+
+#elif defined OFFLOAD_SYCL
+	
+	eval = Offload::Sycl::eigenvalues(km, &evec);
+
+#elif defined OFFLOAD_CUDA
+	
+	eval = Offload::Cuda::eigenvalues(km, &evec);
+
 #else
+	
+	eval = km.eigenvalues(&evec);
 
-      eval = km.eigenvalues(&evec);
+#endif
+      }
+#else
+#ifdef OFFLOAD_OMP
+	
+	eval = Offload::Omp::eigenvalues(km, &evec);
 
+#elif defined OFFLOAD_SYCL
+	
+	eval = Offload::Sycl::eigenvalues(km, &evec);
+
+#elif defined OFFLOAD_CUDA
+	
+	eval = Offload::Cuda::eigenvalues(km, &evec);
+
+#else
+	
+	eval = km.eigenvalues(&evec);
+
+#endif
 #endif
       
       kinetic_basis[e].eigenvalue  = eval;
@@ -8330,7 +8430,6 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
     }//energy cycle
     //
   }// kinetically active basis
-
 
   // global united species indexing
   //
@@ -8459,6 +8558,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       eigenval = Mpack::eigenvalues<mpf_class>(kin_mat, &global_eigen);
     }
 
+#ifdef WITH_FLOAT128
 #ifdef WITH_MPACK
     
     else if(float_type == FLOAT128) {
@@ -8467,7 +8567,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
     }
 
 #else
-
+    
     else if(float_type == FLOAT128) {
       //
       eigenval = Mpack::eigenvalues<_Float128>(kin_mat, &global_eigen);
@@ -8475,19 +8575,51 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
     else if(float_type == FLOAT64X) {
       //
       eigenval = Mpack::eigenvalues<_Float64x>(kin_mat, &global_eigen);
-      }
-
+    }
+    
+#endif
 #endif
       
     else {
       //
-      eigenval = kin_mat.eigenvalues(&global_eigen);
+#ifdef OFFLOAD_OMP
+	
+	eigenval = Offload::Omp::eigenvalues(kin_mat, &global_eigen);
+
+#elif defined OFFLOAD_SYCL
+	
+	eigenval = Offload::Sycl::eigenvalues(kin_mat, &global_eigen);
+
+#elif defined OFFLOAD_CUDA
+	
+	eigenval = Offload::Cuda::eigenvalues(kin_mat, &global_eigen);
+
+#else
+	
+	eigenval = kin_mat.eigenvalues(&global_eigen);
+
+#endif
+	
     }
     
 #else
-    
+#ifdef OFFLOAD_OMP
+	
+    eigenval = Offload::Omp::eigenvalues(kin_mat, &global_eigen);
+
+#elif defined OFFLOAD_SYCL
+	
+    eigenval = Offload::Sycl::eigenvalues(kin_mat, &global_eigen);
+
+#elif defined OFFLOAD_CUDA
+	
+    eigenval = Offload::Cuda::eigenvalues(kin_mat, &global_eigen);
+
+#else
+	
     eigenval = kin_mat.eigenvalues(&global_eigen);
 
+#endif
 #endif
 	
   }
@@ -10657,6 +10789,10 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   IO::Marker funame_marker(funame);
 
+  std::time_t start_time = std::time(0);
+
+  IO::log << IO::log_offset << "time = 0\n";
+
   // pressure output
   //
   IO::log << IO::log_offset << "Pressure = ";
@@ -10899,8 +11035,63 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   Lapack::Matrix eigen_global(global_size);
 
   {
-    IO::Marker solve_marker("diagonalizing global relaxation matrix", IO::Marker::ONE_LINE);
+    IO::log << IO::log_offset << "time = " << std::time(0) - start_time << "\n";
 
+    //IO::Marker solve_marker("diagonalizing global relaxation matrix", IO::Marker::ONE_LINE);
+
+    IO::Marker solve_marker("diagonalizing kinetic matrix");
+
+    if(save_kinetic_matrix.size()) {
+      //
+      IO::log << IO::log_offset << "saving kinetic matrix ... ";
+      
+      std::ofstream to(save_kinetic_matrix.c_str(), std::ios_base::app);
+
+      to.precision(3);
+      
+      to << "Pressure = ";
+    
+      switch(pressure_unit) {
+	//
+      case BAR:
+	//
+	to << pressure() / Phys_const::bar << " bar";
+	
+	break;
+	
+      case TORR:
+	//
+	to << pressure() / Phys_const::tor << " torr";
+      
+	break;
+      
+      case ATM:
+	//
+	to << pressure() / Phys_const::atm << " atm";
+      
+	break;
+      }
+    
+      to << "   Temperature = " << (int)std::floor(temperature() / Phys_const::kelv + 0.5) << " K\n";
+
+      to << kin_mat.size() << "\n";
+
+      to.precision(14);
+      
+      for(int i = 0; i < kin_mat.size(); ++i)
+	//
+	for(int j = i; j < kin_mat.size(); ++j)
+	  //
+	  if(kin_mat(i, j) != 0.) {
+	    //
+	    to << std::setw(5) <<  i << " " << std::setw(5) << j << " " << kin_mat(i, j) << "\n";
+	  }
+
+      to << "\n";
+
+      IO::log << "done\n";
+    }
+    
 #if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
 
     if(float_type == DD) {
@@ -10920,6 +11111,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       eigenval = Mpack::eigenvalues<mpf_class>(kin_mat, &eigen_global);
     }
 
+#ifdef WITH_FLOAT128
 #ifdef WITH_MPACK
     
     else if(float_type == FLOAT128) {
@@ -10928,7 +11120,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     }
 
 #else
-
+    
     else if(float_type == FLOAT128) {
       //
       eigenval = Mpack::eigenvalues<_Float128>(kin_mat, &eigen_global);
@@ -10937,18 +11129,50 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       //
       eigenval = Mpack::eigenvalues<_Float64x>(kin_mat, &eigen_global);
     }
-
+    
+#endif
 #endif
       
     else {
       //
-      eigenval = kin_mat.eigenvalues(&eigen_global);
-    }
-    
-#else
+#ifdef OFFLOAD_OMP
+	
+      eigenval = Offload::Omp::eigenvalues(kin_mat, &eigen_global);
 
+#elif defined OFFLOAD_SYCL
+	
+      eigenval = Offload::Sycl::eigenvalues(kin_mat, &eigen_global);
+
+#elif defined OFFLOAD_CUDA
+	
+      eigenval = Offload::Cuda::eigenvalues(kin_mat, &eigen_global);
+
+#else
+	
+      eigenval = kin_mat.eigenvalues(&eigen_global);
+
+#endif
+      
+    }
+
+#else
+#ifdef OFFLOAD_OMP
+	
+    eigenval = Offload::Omp::eigenvalues(kin_mat, &eigen_global);
+
+#elif defined OFFLOAD_SYCL
+	
+    eigenval = Offload::Sycl::eigenvalues(kin_mat, &eigen_global);
+
+#elif defined OFFLOAD_CUDA
+	
+    eigenval = Offload::Cuda::eigenvalues(kin_mat, &eigen_global);
+
+#else
+	
     eigenval = kin_mat.eigenvalues(&eigen_global);
 
+#endif
 #endif
 
     eigen_global = eigen_global.transpose();
@@ -10965,6 +11189,8 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   // microcanonical rate coefficients at highest energy
   
+  IO::log << IO::log_offset << "time = " << std::time(0) - start_time << "\n";
+
   IO::log << IO::log_offset 
 	  << "microscopic rate coefficients (at reference energy) over collision frequency:\n";
   
@@ -11038,278 +11264,278 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   // low eigenvalue method
   //
   if(eigenval[0] / min_relax_eval < chemical_tolerance) {
-    //
-    IO::log << IO::log_offset << "some eigenvalues are too small: using low eigenvalue method\n";
+  //
+  IO::log << IO::log_offset << "some eigenvalues are too small: using low eigenvalue method\n";
     
-    IO::Marker low_eval_marker("low eigenvalue method");
+  IO::Marker low_eval_marker("low eigenvalue method");
     
-    Lapack::SymmetricMatrix k_11;
-    Lapack::SymmetricMatrix k_33;
-    Lapack::Matrix k_13;
-    Lapack::Matrix l_21;
+  Lapack::SymmetricMatrix k_11;
+  Lapack::SymmetricMatrix k_33;
+  Lapack::Matrix k_13;
+  Lapack::Matrix l_21;
 
-    low_eigenvalue_matrix(k_11, k_33, k_13, l_21);
+  low_eigenvalue_matrix(k_11, k_33, k_13, l_21);
 
-    Lapack::Matrix chem_evec(Model::well_size());
+  Lapack::Matrix chem_evec(Model::well_size());
     
-    Lapack::Vector chem_eval;
+  Lapack::Vector chem_eval;
     
-#ifdef WITH_MPACK
+  #ifdef WITH_MPACK
 
-    if(float_type == DD) {
-      //
-      chem_eval = Mpack::eigenvalues<dd_real>(k_11, &chem_evec);
-    }
-    else if(float_type == QD) {
-      //
-      chem_eval = Mpack::eigenvalues<qd_real>(k_11, &chem_evec);
-    }
-    else if(float_type == MPFR) {
-      //
-      chem_eval = Mpack::eigenvalues<mpreal>(k_11, &chem_evec);
-    }
-    else if(float_type == GMP) {
-      //
-      chem_eval = Mpack::eigenvalues<mpf_class>(k_11, &chem_evec);
-    }
-    else if(float_type == FLOAT128) {
-      //
-      chem_eval = Mpack::eigenvalues<__float128>(k_11, &chem_evec);
-    }
-    else {
-      //
-      chem_eval = k_11.eigenvalues(&chem_evec);
-    }
+  if(float_type == DD) {
+  //
+  chem_eval = Mpack::eigenvalues<dd_real>(k_11, &chem_evec);
+  }
+  else if(float_type == QD) {
+  //
+  chem_eval = Mpack::eigenvalues<qd_real>(k_11, &chem_evec);
+  }
+  else if(float_type == MPFR) {
+  //
+  chem_eval = Mpack::eigenvalues<mpreal>(k_11, &chem_evec);
+  }
+  else if(float_type == GMP) {
+  //
+  chem_eval = Mpack::eigenvalues<mpf_class>(k_11, &chem_evec);
+  }
+  else if(float_type == FLOAT128) {
+  //
+  chem_eval = Mpack::eigenvalues<__float128>(k_11, &chem_evec);
+  }
+  else {
+  //
+  chem_eval = k_11.eigenvalues(&chem_evec);
+  }
     
-#else
+  #else
     
-    chem_eval = k_11.eigenvalues(&chem_evec);
+  chem_eval = k_11.eigenvalues(&chem_evec);
 
-#endif
+  #endif
     
-    // low-eigenvalue chemical subspace
-    //
-    itemp = 1;
+  // low-eigenvalue chemical subspace
+  //
+  itemp = 1;
     
-    while(eigenval[itemp] / min_relax_eval < chemical_tolerance) { ++itemp; }
+  while(eigenval[itemp] / min_relax_eval < chemical_tolerance) { ++itemp; }
     
-    const int chem_size = itemp < Model::well_size() ? itemp : Model::well_size();
+  const int chem_size = itemp < Model::well_size() ? itemp : Model::well_size();
 
-    if(chem_size < Model::well_size()) {
-      //
-      Lapack::Matrix pop_chem(Model::well_size(), chem_size);
+  if(chem_size < Model::well_size()) {
+  //
+  Lapack::Matrix pop_chem(Model::well_size(), chem_size);
       
-      for(int l = 0; l < chem_size; ++l)
-	//
-	pop_chem.column(l) = chem_evec.column(l);
+  for(int l = 0; l < chem_size; ++l)
+  //
+  pop_chem.column(l) = chem_evec.column(l);
 
-      // partitioning wells
-      //
-      Partition low_well_partition;
+  // partitioning wells
+  //
+  Partition low_well_partition;
       
-      Group bimolecular_group;
+  Group bimolecular_group;
       
-      well_partition_method(pop_chem, low_well_partition, bimolecular_group);
+  well_partition_method(pop_chem, low_well_partition, bimolecular_group);
 
-      IO::log << IO::log_offset << "low eigenvalue bound species:";
+  IO::log << IO::log_offset << "low eigenvalue bound species:";
       
-      for(int g = 0; g < low_well_partition.size(); ++g) {
-	//
-	IO::log << " ";
+  for(int g = 0; g < low_well_partition.size(); ++g) {
+  //
+  IO::log << " ";
 	
-	for(Group::const_iterator w = low_well_partition[g].begin(); w != low_well_partition[g].end(); ++w) {
-	  //
-	  if(w != low_well_partition[g].begin())
-	    //
-	    IO::log << "+";
+  for(Group::const_iterator w = low_well_partition[g].begin(); w != low_well_partition[g].end(); ++w) {
+  //
+  if(w != low_well_partition[g].begin())
+  //
+  IO::log << "+";
 	  
-	  IO::log << Model::well(*w).short_name();
-	}
-      }
+  IO::log << Model::well(*w).short_name();
+  }
+  }
       
-      IO::log << "\n" << IO::log_offset << "low eigenvalue bimolecular group:";
+  IO::log << "\n" << IO::log_offset << "low eigenvalue bimolecular group:";
       
-      for(Group::const_iterator w = bimolecular_group.begin(); w != bimolecular_group.end(); ++w)
-	//
-	IO::log << " " << Model::well(*w).short_name();
+  for(Group::const_iterator w = bimolecular_group.begin(); w != bimolecular_group.end(); ++w)
+  //
+  IO::log << " " << Model::well(*w).short_name();
       
-      IO::log << "\n";
+  IO::log << "\n";
 
-      Lapack::SymmetricMatrix low_km(chem_size);
+  Lapack::SymmetricMatrix low_km(chem_size);
       
-      low_km = 0.;
+  low_km = 0.;
       
-      for(int i = 0; i < chem_size; ++i)\
-	//
-	for(int j = i + 1; j < chem_size; ++j) {
-	  //
-	  dtemp = 0.;
+  for(int i = 0; i < chem_size; ++i)\
+  //
+  for(int j = i + 1; j < chem_size; ++j) {
+  //
+  dtemp = 0.;
 	  
-	  for(Group::const_iterator ig = low_well_partition[i].begin(); ig != low_well_partition[i].end(); ++ig)
-	    //
-	    for(Group::const_iterator jg = low_well_partition[j].begin(); jg != low_well_partition[j].end(); ++jg)
-	      //
-	      dtemp += k_11(*ig, *jg) * well(*ig).weight_sqrt() * well(*jg).weight_sqrt();
+  for(Group::const_iterator ig = low_well_partition[i].begin(); ig != low_well_partition[i].end(); ++ig)
+  //
+  for(Group::const_iterator jg = low_well_partition[j].begin(); jg != low_well_partition[j].end(); ++jg)
+  //
+  dtemp += k_11(*ig, *jg) * well(*ig).weight_sqrt() * well(*jg).weight_sqrt();
 	  
-	  low_km(i, j) = dtemp;
-	}
+  low_km(i, j) = dtemp;
+  }
 
-      // diagonal terms
-      //
-      for(int i = 0; i < chem_size; ++i) {
-	//
-	// cross terms
-	//
-	dtemp = 0.;
+  // diagonal terms
+  //
+  for(int i = 0; i < chem_size; ++i) {
+  //
+  // cross terms
+  //
+  dtemp = 0.;
 	
-	for(int j = 0; j < chem_size; ++j)
-	  //
-	  if(j != i)
-	    //
-	    dtemp -= low_km(i, j);
+  for(int j = 0; j < chem_size; ++j)
+  //
+  if(j != i)
+  //
+  dtemp -= low_km(i, j);
 	
-	low_km(i, i) = dtemp;
+  low_km(i, i) = dtemp;
 
-	for(Group::const_iterator ig = low_well_partition[i].begin(); ig != low_well_partition[i].end(); ++ig) {
-	  //
-	  dtemp = 0.;
+  for(Group::const_iterator ig = low_well_partition[i].begin(); ig != low_well_partition[i].end(); ++ig) {
+  //
+  dtemp = 0.;
 	  
-	  // bimolecular channel contribution
-	  //
-	  for(int p = 0; p < Model::bimolecular_size(); ++p)
-	    //
-	    dtemp += k_13(*ig, p);
+  // bimolecular channel contribution
+  //
+  for(int p = 0; p < Model::bimolecular_size(); ++p)
+  //
+  dtemp += k_13(*ig, p);
 	  
-	  // bimolecular group contribution
-	  //
-	  for(Group::const_iterator jg = bimolecular_group.begin(); jg != bimolecular_group.end(); ++jg)
-	    //
-	    dtemp -= k_11(*ig, *jg) * well(*jg).weight_sqrt();
+  // bimolecular group contribution
+  //
+  for(Group::const_iterator jg = bimolecular_group.begin(); jg != bimolecular_group.end(); ++jg)
+  //
+  dtemp -= k_11(*ig, *jg) * well(*jg).weight_sqrt();
 	  
-	  low_km(i, i) += dtemp * well(*ig).weight_sqrt();
-	}
-      }
+  low_km(i, i) += dtemp * well(*ig).weight_sqrt();
+  }
+  }
 
-      std::vector<double>      weight = low_well_partition.weight();
+  std::vector<double>      weight = low_well_partition.weight();
       
-      Lapack::Matrix            basis = low_well_partition.basis();
+  Lapack::Matrix            basis = low_well_partition.basis();
 
-      for(int i = 0; i < chem_size; ++i)
-	//
-	for(int j = i; j < chem_size; ++j)
-	  //
-	  low_km(i, j) /= std::sqrt(weight[i] * weight[j]);
+  for(int i = 0; i < chem_size; ++i)
+  //
+  for(int j = i; j < chem_size; ++j)
+  //
+  low_km(i, j) /= std::sqrt(weight[i] * weight[j]);
 
-      Lapack::Matrix low_evec(chem_size);
+  Lapack::Matrix low_evec(chem_size);
       
-      Lapack::Vector low_eval = low_km.eigenvalues(&low_evec);
+  Lapack::Vector low_eval = low_km.eigenvalues(&low_evec);
       
-      IO::log << IO::log_offset << "low eigenvalues over minimal relaxation eigenvalue:\n"
-	//
-	      << IO::log_offset
-	//
-	      << std::setw(16) << "projection"
-	//
-	      << std::setw(16) << "diagonalization"
-	      << "\n";
+  IO::log << IO::log_offset << "low eigenvalues over minimal relaxation eigenvalue:\n"
+  //
+  << IO::log_offset
+  //
+  << std::setw(16) << "projection"
+  //
+  << std::setw(16) << "diagonalization"
+  << "\n";
 
-      for(int l = 0; l < chem_size; ++l) {
-	//
-	IO::log << IO::log_offset
-	  //
-		<< std::setw(16) << low_eval[l] / min_relax_eval
-	  //
-		<< std::setw(16) << chem_eval[l] / min_relax_eval
-	  //
-		<< "\n";
+  for(int l = 0; l < chem_size; ++l) {
+  //
+  IO::log << IO::log_offset
+  //
+  << std::setw(16) << low_eval[l] / min_relax_eval
+  //
+  << std::setw(16) << chem_eval[l] / min_relax_eval
+  //
+  << "\n";
 	
-	  if(reduction_method == PROJECTION) {
-	  chem_eval[l] = low_eval[l];
-	  for(int w = 0; w < Model::well_size(); ++w)
-	  chem_evec(w, l) = low_evec.column(l) * basis.row(w);
-	  }
+  if(reduction_method == PROJECTION) {
+  chem_eval[l] = low_eval[l];
+  for(int w = 0; w < Model::well_size(); ++w)
+  chem_evec(w, l) = low_evec.column(l) * basis.row(w);
+  }
 	
-      }
-    }
+  }
+  }
 
-    // global eigenvector relaxational part
-    //
-    l_21 = l_21 * chem_evec;
+  // global eigenvector relaxational part
+  //
+  l_21 = l_21 * chem_evec;
 
-    Lapack::Vector rel_proj(Model::well_size());
+  Lapack::Vector rel_proj(Model::well_size());
     
-    for(int l = 0; l < Model::well_size(); ++l)
-      //
-      rel_proj[l] = vdot(l_21.column(l));
+  for(int l = 0; l < Model::well_size(); ++l)
+  //
+  rel_proj[l] = vdot(l_21.column(l));
 
-    // chemical eigenvector renormalization
-    //
-    for(int l = 0; l < Model::well_size(); ++l) {
-      //
-      dtemp = std::sqrt(1. + rel_proj[l]);
+  // chemical eigenvector renormalization
+  //
+  for(int l = 0; l < Model::well_size(); ++l) {
+  //
+  dtemp = std::sqrt(1. + rel_proj[l]);
       
-      chem_evec.column(l) /= dtemp;
+  chem_evec.column(l) /= dtemp;
       
-      l_21.column(l) /= dtemp;
-    }
+  l_21.column(l) /= dtemp;
+  }
 
-    // direct-digonalization versus low-eigenvalue output
-    //
-    IO::log << IO::log_offset << "direct-diagonalization(DD)-versus-low-eigenvalue(LE) eigenvalues\n"
-      //
-	    << IO::log_offset << std::setw(5) << "L"
-      //
-	    << std::setw(Model::log_precision + 7) << "DD eval"
-      //
-	    << std::setw(Model::log_precision + 7) << "LE eval"
-      //
-	    << std::setw(Model::log_precision + 7) << "LE proj\n";
+  // direct-digonalization versus low-eigenvalue output
+  //
+  IO::log << IO::log_offset << "direct-diagonalization(DD)-versus-low-eigenvalue(LE) eigenvalues\n"
+  //
+  << IO::log_offset << std::setw(5) << "L"
+  //
+  << std::setw(Model::log_precision + 7) << "DD eval"
+  //
+  << std::setw(Model::log_precision + 7) << "LE eval"
+  //
+  << std::setw(Model::log_precision + 7) << "LE proj\n";
 
-    for(int l = 0; l < Model::well_size(); ++l) {
-      //
-      IO::log << IO::log_offset <<  std::setw(5) << l
-	//
-	      << std::setw(Model::log_precision + 7) << eigenval[l] / min_relax_eval
-	//
-	      << std::setw(Model::log_precision + 7) << chem_eval[l] / min_relax_eval
-	//
-	      << std::setw(Model::log_precision + 7) << rel_proj[l];
+  for(int l = 0; l < Model::well_size(); ++l) {
+  //
+  IO::log << IO::log_offset <<  std::setw(5) << l
+  //
+  << std::setw(Model::log_precision + 7) << eigenval[l] / min_relax_eval
+  //
+  << std::setw(Model::log_precision + 7) << chem_eval[l] / min_relax_eval
+  //
+  << std::setw(Model::log_precision + 7) << rel_proj[l];
       
-      if(eigenval[l] / min_relax_eval >= chemical_tolerance)
-	//
-	IO::log << std::setw(3) << "*";
+  if(eigenval[l] / min_relax_eval >= chemical_tolerance)
+  //
+  IO::log << std::setw(3) << "*";
       
-      IO::log << "\n";
-    }
+  IO::log << "\n";
+  }
 
-    // eigenvalue and eigenvector substitution
-    //
-    for(int l = 0; l < chem_size; ++l) {
-      //
-      // eigenvalue
-      //
-      eigenval[l] = chem_eval[l];
+  // eigenvalue and eigenvector substitution
+  //
+  for(int l = 0; l < chem_size; ++l) {
+  //
+  // eigenvalue
+  //
+  eigenval[l] = chem_eval[l];
 
-      // global eigenvector
-      //
-      itemp = 0;
+  // global eigenvector
+  //
+  itemp = 0;
       
-      for(int w = 0; w < Model::well_size(); itemp += well(w++).crm_size()) {
-	//
-	for(int i = 0; i < well(w).size(); ++i) {
-	  //
-	  dtemp = well(w).boltzman_sqrt(i);
-	  //
-	  eigen_global(l, i + well_shift[w]) = chem_evec(w, l) * dtemp / well(w).weight_sqrt()
-	    //
-	    - vdot(&l_21(itemp, l), well(w).crm_row(i), well(w).crm_size(), 1, well(w).size()) / dtemp;
-	  //
-	}//
-	//
-      }//
-      //
-    }//
-    //
+  for(int w = 0; w < Model::well_size(); itemp += well(w++).crm_size()) {
+  //
+  for(int i = 0; i < well(w).size(); ++i) {
+  //
+  dtemp = well(w).boltzman_sqrt(i);
+  //
+  eigen_global(l, i + well_shift[w]) = chem_evec(w, l) * dtemp / well(w).weight_sqrt()
+  //
+  - vdot(&l_21(itemp, l), well(w).crm_row(i), well(w).crm_size(), 1, well(w).size()) / dtemp;
+  //
+  }//
+  //
+  }//
+  //
+  }//
+  //
   }// low eigenvalue method
   */
     
@@ -11578,6 +11804,8 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
  
   /************************************* EIGENVECTOR OUTPUT *****************************************/
+
+  IO::log << IO::log_offset << "time = " << std::time(0) - start_time << "\n";
 
   IO::log  << IO::log_offset << "eigenvector populations normalized:\n"
     //
@@ -11881,9 +12109,9 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	
   const int chem_size = itemp;
 
-  if(chem_size != Model::well_size())
-    //
-    IO::log << IO::log_offset << "dimension of the chemical subspace = " << chem_size << "\n";
+  IO::log << IO::log_offset << "time = " << std::time(0) - start_time << "\n";
+
+  IO::log << IO::log_offset << "dimension of the chemical subspace = " << chem_size << "\n";
 
   /***** PARTITIONING THE GLOBAL PHASE SPACE INTO THE CHEMICAL AND COLLISIONAL SUBSPACES *****/
 
@@ -11900,6 +12128,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     relax_lave[r] = 1. / eigenval[itemp];
   }
 
+/*
   // kinetic matrix modified
 
 #pragma omp parallel for default(shared) private(dtemp) schedule(dynamic)
@@ -11933,18 +12162,21 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     inv_proj_bim = Lapack::Cholesky(kin_mat).invert(proj_bim);
 
   Lapack::Matrix proj_pop = global_pop.copy();
-  
+ 
   for(int w = 0; w < Model::well_size(); ++w)
     //
     for(int l = 0; l < chem_size; ++l)
       //
       parallel_orthogonalize(&proj_pop(0, w), &eigen_global(l, 0), global_size, 1, global_size);
-  
+ */
+
   // kappa matrix
   //
   if(Model::bimolecular_size()) {
     //
-    Lapack::Matrix kappa = proj_pop.transpose() * inv_proj_bim;
+    //Lapack::Matrix kappa = proj_pop.transpose() * inv_proj_bim;
+
+    IO::log << IO::log_offset << "time = " << std::time(0) - start_time << "\n";
 
     IO::log << IO::log_offset << "isomers-to-bimolecular equilibrium coefficients (kappa matrix):\n"
       //
@@ -11962,10 +12194,10 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       
       for(int p = 0; p < Model::bimolecular_size(); ++p) {
 	//
-	//dtemp = triple_product(&eigen_bim(chem_size, p), &eigen_pop(chem_size, w), relax_lave, relax_size) 
-	// / well(w).weight_sqrt();
-	//
-	dtemp = kappa(w, p) / well(w).weight_sqrt();
+	dtemp = triple_product(&eigen_bim(chem_size, p), &eigen_pop(chem_size, w), relax_lave, relax_size) 
+	 / well(w).weight_sqrt();
+	
+	//dtemp = kappa(w, p) / well(w).weight_sqrt();
 	
 	IO::log << std::setw(Model::log_precision + 7);
 	
@@ -11988,13 +12220,13 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
   //
   if(Model::bimolecular_size()) {
     //
-    Lapack::SymmetricMatrix bb_rate = Lapack::SymmetricMatrix(proj_bim.transpose() * inv_proj_bim);
+    //Lapack::SymmetricMatrix bb_rate = Lapack::SymmetricMatrix(proj_bim.transpose() * inv_proj_bim);
     
-    //  Lapack::SymmetricMatrix bb_rate(Model::bimolecular_size());
-    //  for(int i = 0; i < Model::bimolecular_size(); ++i)
-    //    for(int j = i; j < Model::bimolecular_size(); ++j)
-    //	bb_rate(i, j) = triple_product(&eigen_bim(chem_size, i), &eigen_bim(chem_size, j), 
-    //				       relax_lave, relax_size);
+    Lapack::SymmetricMatrix bb_rate(Model::bimolecular_size());
+
+    for(int i = 0; i < Model::bimolecular_size(); ++i)
+      for(int j = i; j < Model::bimolecular_size(); ++j)
+      	bb_rate(i, j) = triple_product(&eigen_bim(chem_size, i), &eigen_bim(chem_size, j), relax_lave, relax_size);
 
     for(int i = 0; i < Model::bimolecular_size(); ++i)
       //
@@ -12247,7 +12479,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	  // output
 	  //
 	  ped_out << "well: " << Model::well(hw).short_name() << "  hot energy = "
-	      //
+	    //
 		  << energy_bin(he) / Phys_const::kcal << " kcal/mol\n";
 
 	  ped_out << std::setw(Model::ped_precision + 7) << "E, kcal";
@@ -12259,7 +12491,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	  ped_out << "\n";
 	
 	  for(int e = 0; e < ped.size1(); ++e) {
-	      //
+	    //
 	    ped_out << std::setw(Model::ped_precision + 7) << energy_bin(e) / Phys_const::kcal;
 
 	    for(int s = 0; s < Model::escape_size(); ++s)
@@ -12327,17 +12559,17 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       for(int p = 0; p < Model::bimolecular_size(); ++p)
 	//
 	for(int s = 0; s < Model::escape_size(); ++s) {
-	    //
-	    stemp = " " + Model::bimolecular(p).short_name() + "->" + Model::escape_name(s);
+	  //
+	  stemp = " " + Model::bimolecular(p).short_name() + "->" + Model::escape_name(s);
 
-	    itemp = Model::ped_precision + 7;
+	  itemp = Model::ped_precision + 7;
 	      
-	    itemp = stemp.size() > itemp ? stemp.size() : itemp;
+	  itemp = stemp.size() > itemp ? stemp.size() : itemp;
 	      
-	    ped_name_size[s + Model::escape_size() * p] = itemp;
+	  ped_name_size[s + Model::escape_size() * p] = itemp;
 	    
-	    ped_out << std::setw(itemp) << stemp;
-	  }
+	  ped_out << std::setw(itemp) << stemp;
+	}
 	    
       ped_out << "\n";
 
@@ -12889,7 +13121,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	// dimensions
 	//
 	for(int b = 0; b < Model::outer_barrier_size(); ++b)
-	//
+	  //
 	  if(!b || outer_barrier(b).size() > itemp)
 	    //
 	    itemp = outer_barrier(b).size();
@@ -12909,7 +13141,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	    const int& p = Model::outer_connect(b).second;
 	      
 	    for(int e = 0; e < outer_barrier(b).size(); ++e) 
-	    //
+	      //
 	      ped(e, p) += vdot(m_inverse.column(c), &eigen_global(0, e + well_shift[w]))
 		//
 		* global_bim(e + well_shift[w], p);
@@ -13119,6 +13351,8 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   // prompt isomerization
   //
+  IO::log << IO::log_offset << "time = " << std::time(0) - start_time << "\n";
+
   IO::log << IO::log_offset << "prompt isomerization/dissociation:\n";
 
   std::vector<int> well_name_size(Model::well_size());
