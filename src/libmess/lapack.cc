@@ -26,28 +26,27 @@
  ************************** Vector ******************************
  ****************************************************************/
 
-double Lapack::Vector::operator* (const Vector& v) const 
+double Lapack::Vector::operator* (Vector v) const 
 {
   const char funame [] = "Lapack::Vector::operator*: ";
 
-  if(!isinit() || !v.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
+  if(size() != v.size()) {
+    //
+    std::cerr << funame << "dimensions mismatch: " << size() << ", " << v.size() << "\n";
 
-  if(v.size() != size()) {
-    std::cerr << funame << "the dimensions are different:"
-	      << " size1 = " << size()
-	      << " size2 = " << v.size()
-	      << std::endl;
     throw Error::Range();
   }
   
   const double* p  = *this;
+  
   const double* p1 = v;
+  
   double res = 0.;
+  
   for(int_t i = 0; i < size(); ++i)
+    //
     res += *p++ * *p1++;
+  
   return res;
 }
 
@@ -55,16 +54,10 @@ double Lapack::Vector::operator* (ConstSlice<double> v) const
 {
   const char funame [] = "Lapack::Vector::operator*: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
+  if(size() != v.size()) {
+    //
+    std::cerr << funame << "dimensions mismatch: " << size() << ", " << v.size() << "\n";
 
-  if(v.size() != size()) {
-    std::cerr << funame << "the dimensions are different:"
-	      << " size1 = " << size()
-	      << " size2 = " << v.size()
-	      << std::endl;
     throw Error::Range();
   }
   
@@ -85,15 +78,12 @@ double Lapack::Vector::operator* (const double* v) const
 {
   const char funame [] = "Lapack::Vector::operator*: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
+  _assert();
 
   const double* p  = *this;
 
   double res = 0.;
-  //
+
   for(int_t i = 0; i < size(); ++i)
     //
     res += *p++ * *v++;
@@ -105,56 +95,50 @@ double Lapack::Vector::vdot () const
 {
   const char funame [] = "Lapack::Vector::vdot: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
+  _assert();
 
   double res = 0.;
+  
   for(const double* p = begin(); p != end(); ++p)
+    //
     res += *p * *p;
+  
   return res;
 }
 
-Lapack::Vector Lapack::Vector::operator* (const Matrix& m) const 
+Lapack::Vector Lapack::Vector::operator* (Matrix m) const 
 {
   const char funame [] = "Lapack::Vector::operator*: ";
 
-  if(!isinit() || !m.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-  
-  if(m.size1() != size()) {
-    std::cerr << funame << "the dimensions are different\n";
+  if(size() != m.size1()) {
+    //
+    std::cerr << funame << "dimensions mismatch: " << size() << ", " << m.size1() << "\n";
+    
     throw Error::Range();
   }
   
   Vector res(m.size2());
+  
   dgemv_('T', size(), m.size2(), 1.,  m, size(), *this, 1, 0., res, 1);
+
   return res;
 }
 
-Lapack::Vector Lapack::Vector::operator* (const SymmetricMatrix& m)
-  const 
+Lapack::Vector Lapack::Vector::operator* (SymmetricMatrix m) const 
 {
   const char funame [] = "Lapack::Vector::operator*: ";
 
-  if(!isinit() || !m.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-  
   if(size() != m.size()) {
-    std::cerr << funame << "the dimensions are different:"
-	      << " vector_size = " << size()
-	      << " matrix_size = " << m.size()
-	      << std::endl;
+    //
+    std::cerr << funame << "dimensions mismatch: " << size() << ", " << m.size() << "\n";
+    
     throw Error::Range();
   }
   
   Vector res(size());
+  
   dspmv_('U', size(), 1., m,  *this, 1, 0., res, 1);
+  
   return res;
 }
 
@@ -165,13 +149,6 @@ Lapack::Vector Lapack::Vector::operator* (const SymmetricMatrix& m)
 Lapack::Vector Lapack::Matrix::eigenvalues (Matrix* evec) const
 {
   const char funame [] = "Lapack::Matrix::eigenvalues: ";
-
-  if(!isinit()) {
-    //
-    std::cerr << funame << "not initialized\n";
-
-    throw Error::Init();
-  }
 
   if(size1() != size2()) {
     //
@@ -230,18 +207,10 @@ Lapack::Vector Lapack::Matrix::eigenvalues (Matrix* evec) const
   return res;
 }
 
-Lapack::Matrix::Matrix (const SymmetricMatrix& m)
+Lapack::Matrix Lapack::Matrix::operator= (SymmetricMatrix m)
 {
-  const char funame [] = "Lapack::Matrix::Matrix: ";
-
-  if(!m.isinit())
-    //
-    return;
-
   resize(m.size());
-
-  double dtemp;
-
+  
   int n = m.size() * m.size();
 
 #pragma omp parallel for default(shared)  schedule(static)
@@ -254,17 +223,25 @@ Lapack::Matrix::Matrix (const SymmetricMatrix& m)
 
     (*this)(i, j) = m(i, j);
   }
+
+  return *this;
+}
+
+Lapack::Matrix::Matrix (SymmetricMatrix m)
+{
+  const char funame [] = "Lapack::Matrix::Matrix: ";
+
+  if(!m.isinit())
+    //
+    return;
+
+  *this = m;
 }
 
 Lapack::Matrix Lapack::Matrix::transpose () const
 {
   const char funame [] = "Lapack::Matrix::transpose: ";
-  
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-  
+
   Matrix res(size2(), size1());
 
   int n = size1() * size2();
@@ -283,16 +260,9 @@ Lapack::Matrix Lapack::Matrix::transpose () const
   return res;
 }
 
-Lapack::Matrix Lapack::Matrix::operator* (const Matrix& m) const 
+Lapack::Matrix Lapack::Matrix::operator* (Matrix m) const 
 {
   const char funame [] = "Lapack::Matrix::operator*: ";
-
-  if(!isinit() || !m.isinit()) {
-    //
-    std::cerr << funame << "not initialized\n";
-    
-    throw Error::Init();
-  }
 
   if(size2() != m.size1()) {
     //
@@ -313,7 +283,7 @@ Lapack::Matrix Lapack::Matrix::operator* (const Matrix& m) const
 
     int j = k % m.size2();
 
-    res(i, j) = vdot(row(i), m.column(j));
+    res(i, j) = vdot(row(i), (ConstSlice<double>)m.column(j));
   }
   
   //dgemm_('N', 'N', size1(), m.size2(), size2(), 1., 
@@ -322,38 +292,30 @@ Lapack::Matrix Lapack::Matrix::operator* (const Matrix& m) const
   return res;
 }
 
-Lapack::Matrix Lapack::Matrix::operator* (const SymmetricMatrix& m)
+Lapack::Matrix Lapack::Matrix::operator* (SymmetricMatrix m)
   const 
 {
   const char funame [] = "Lapack::Matrix::operator*: ";
 
-  if(!isinit() || !m.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-  
   if(size2() != m.size()) {
-    std::cerr << funame << "dimensions mismatch:"
-	      << " mat1_size2 = " << size2()
-	      << " mat2_size = " << m.size()
-	      << "\n";
+    //
+    std::cerr << funame << "dimensions mismatch: " << size2() << ", " << m.size() << "\n";
+    
     throw Error::Range();
   }
 
   Matrix res(size1(), size2());
+  
   for(int_t i = 0; i < size1(); ++i)
+    //
     dspmv_('U', size2(),  1., m, *this + i, size1(), 0., res + i, size1());
+  
   return res;
 }
 
 Lapack::Vector Lapack::Matrix::operator* (const double* v) const 
 {
   const char funame [] = "Lapack::Matrix::operator*: ";
-
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
 
   Vector res(size1());
   
@@ -367,14 +329,9 @@ Lapack::Vector Lapack::Matrix::operator* (const double* v) const
   return res;
 }
 
-Lapack::Vector Lapack::operator* (const double* v, const Matrix& m) 
+Lapack::Vector Lapack::operator* (const double* v, Matrix m) 
 {
   const char funame [] = "Lapack::operator*: ";
-
-  if(!m.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
 
   Vector res(m.size2());
 
@@ -395,28 +352,30 @@ Lapack::Matrix Lapack::Matrix::invert () const
 {
   const char funame [] = "Lapack::Matrix::invert: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
+  double dtemp;
 
   if(size1() != size2()) {
+    //
     std::cerr << funame << "not square\n";
+    
     throw Error::Logic();
   }
 
   Matrix lu = copy();
+  
   Array<int_t> ipiv (size1());
+  
   Matrix res(size1(), size1());
+  
   res = 0.;
+  
   res.diagonal() = 1.;
 
   int_t info = 0;
+  
   dgesv_(size1(), size1(), lu, size1(), ipiv, res, size1(), info);
 
 #ifdef DEBUG
-
-  double dtemp;
 
   // matrix inversion check
   Matrix unit_mat = *this * res;
@@ -436,40 +395,44 @@ Lapack::Matrix Lapack::Matrix::invert () const
 
 #endif
       
- if(!info)
+  if(!info)
+   //
     return res;
-  else if(info < 0) {
-    std::cerr << funame << "dgesv: " << -info 
-	      << "-th argument had an illegal value\n";
+  
+  if(info < 0) {
+    //
+    std::cerr << funame << "dgesv: " << -info  << "-th argument had an illegal value\n";
+    
     throw Error::Range();
   }
   else {
+    //
     std::cerr << funame << "dgesv: U("<< info <<"," << info 
 	      << ") is exactly zero.\n"
       "\tThe  factorization has  been  completed,  but the factor U is\n"
       "\texactly singular, so the solution could not be computed.\n";
+    
     throw Error::Math();
   }
 }
 
 // solve linear equations
 //
-Lapack::Vector Lapack::Matrix::invert (const Vector& v) const 
+Lapack::Vector Lapack::Matrix::invert (Vector v) const 
 {
   const char funame [] = "Lapack::Matrix::invert: ";
 
-  if(!isinit() || !v.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(size1() != size2()) {
+    //
     std::cerr << funame << "not square\n";
+    
     throw Error::Logic();
   }
 
   if(size1() != v.size()) {
-    std::cerr << funame << "dimensions mismatch\n";
+    //
+    std::cerr << funame << "dimensions mismatch: " << size1() << ", " << v.size() << "\n";
+    
     throw Error::Logic();
   }
 
@@ -478,42 +441,47 @@ Lapack::Vector Lapack::Matrix::invert (const Vector& v) const
   Vector res = v.copy();
 
   int_t info = 0;
+  
   dgesv_(size1(), 1, lu, size1(), ipiv, res, size1(), info);
 
  if(!info)
+   //
     return res;
-  else if(info < 0) {
-    std::cerr << funame << "dgesv: " << -info 
-	      << "-th argument had an illegal value\n";
+ 
+ if(info < 0) {
+   //
+    std::cerr << funame << "dgesv: " << -info << "-th argument had an illegal value\n";
+    
     throw Error::Range();
   }
   else {
+    //
     std::cerr << funame << "dgesv: U("<< info <<"," << info 
 	      << ") is exactly zero.\n"
       "\tThe  factorization has  been  completed,  but the factor U is\n"
       "\texactly singular, so the solution could not be computed.\n";
+    
     throw Error::Math();
   }
 }
 
 // solve linear equations
 //
-Lapack::Matrix Lapack::Matrix::invert (const Matrix& m) const 
+Lapack::Matrix Lapack::Matrix::invert (Matrix m) const 
 {
   const char funame [] = "Lapack::Matrix::invert: ";
 
-  if(!isinit() || !m.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(size1() != size2()) {
+    //
     std::cerr << funame << "not square\n";
+    
     throw Error::Logic();
   }
 
   if(size1() != m.size1()) {
-    std::cerr << funame << "dimensions mismatch\n";
+    //
+    std::cerr << funame << "dimensions mismatch: "  << size1() << ", " << m.size1() << "\n";
+    
     throw Error::Logic();
   }
 
@@ -522,13 +490,17 @@ Lapack::Matrix Lapack::Matrix::invert (const Matrix& m) const
   Matrix res = m.copy();
 
   int_t info = 0;
+  
   dgesv_(size1(), m.size2(), lu, size1(), ipiv, res, size1(), info);
 
  if(!info)
+   //
     return res;
-  else if(info < 0) {
-    std::cerr << funame << "dgesv: " << -info 
-	      << "-th argument had an illegal value\n";
+ 
+  if(info < 0) {
+    //
+    std::cerr << funame << "dgesv: " << -info << "-th argument had an illegal value\n";
+    
     throw Error::Range();
   }
   else {
@@ -536,6 +508,7 @@ Lapack::Matrix Lapack::Matrix::invert (const Matrix& m) const
 	      << ") is exactly zero.\n"
       "\tThe  factorization has  been  completed,  but the factor U is\n"
       "\texactly singular, so the solution could not be computed.\n";
+    
     throw Error::Math();
   }
 }
@@ -545,13 +518,10 @@ Slice<double> Lapack::Matrix::row (int_t i)
 {
   const char funame [] = "Lapack::Matrix::row: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(i < 0 || i >= size1()) {
-    std::cerr << funame << "out of range: index = " << i << "\n";
+    //
+    std::cerr << funame << "out of range: " << i << "\n";
+    
     throw Error::Range();
   }
 
@@ -562,31 +532,26 @@ ConstSlice<double> Lapack::Matrix::row (int_t i) const
 {
   const char funame [] = "Lapack::Matrix::row: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(i < 0 || i >= size1()) {
-    std::cerr << funame << "out of range: index = " << i << "\n";
+    //
+    std::cerr << funame << "out of range: " << i << "\n";
+    
     throw Error::Range();
   }
 
   return ConstSlice<double>(*this + i, size2(), size1());
 }
 
-  // matrix column
+// matrix column
+//
 Slice<double> Lapack::Matrix::column (int_t i) 
 {
   const char funame [] = "Lapack::Matrix::column: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(i < 0 || i >= size2()) {
-    std::cerr << funame << "out of range: index = " << i << "\n";
+    //
+    std::cerr << funame << "out of range: " << i << "\n";
+    
     throw Error::Range();
   }
 
@@ -597,41 +562,41 @@ ConstSlice<double> Lapack::Matrix::column (int_t i) const
 {
   const char funame [] = "Lapack::Matrix::column: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(i < 0 || i >= size2()) {
-    std::cerr << funame << "out of range: index = " << i << "\n";
+    //
+    std::cerr << funame << "out of range: " << i << "\n";
+    
     throw Error::Range();
   }
 
   return ConstSlice<double>(*this + i * size1(), size1());
 }
 
-  // matrix diagonal
+// matrix diagonal
+//
 Slice<double> Lapack::Matrix::diagonal (int_t i) 
 {
   const char funame [] = "Lapack::Matrix::diagonal: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(i <= -size1() || i >= size2()) {
-    std::cerr << funame << "out of range: index = " << i << "\n";
+    //
+    std::cerr << funame << "out of range: " << i << "\n";
+    
     throw Error::Range();
   }
 
   int_t sz;
+  
   if(i > 0) {// upper diagonal
+    //
     sz = size1() < size2() - i ? size1() : size2() - i;
+    
     return Slice<double>(*this + i * size1(), sz, size1() + 1);
   }
   else {// lower diagonal
+    //
     sz = size1() + i < size2() ? size1() + i : size2();
+    
     return Slice<double>(*this - i, sz, size1() + 1);
   }
 }
@@ -640,23 +605,25 @@ ConstSlice<double> Lapack::Matrix::diagonal (int_t i) const
 {
   const char funame [] = "Lapack::Matrix::diagonal: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(i <= -size1() || i >= size2()) {
-    std::cerr << funame << "out of range: index = " << i << "\n";
+    //
+    std::cerr << funame << "out of range: " << i << "\n";
+    
     throw Error::Range();
   }
 
   int_t sz;
+  
   if(i > 0) {// upper diagonal
+    //
     sz = size1() < size2() - i ? size1() : size2() - i;
+    
     return ConstSlice<double>(*this + i * size1(), sz, size1() + 1);
   }
   else {// lower diagonal
+    //
     sz = size1() + i < size2() ? size1() + i : size2();
+    
     return ConstSlice<double>(*this - i, sz, size1() + 1);
   }
 }
@@ -670,14 +637,18 @@ double  Lapack::BandMatrix::operator() (int_t i, int_t j) const
   const char funame [] = "Lapack::BandMatrix::operator(): ";
 
   if(!isinit()) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
   if(i > j)
+    //
     std::swap(i, j);
 
   if(j - i < band_size())
+    //
     return Matrix::operator()(band_size() - 1 + i - j, j);
 
   return 0.;
@@ -688,19 +659,23 @@ double& Lapack::BandMatrix::operator() (int_t i, int_t j)
   const char funame [] = "Lapack::BandMatrix::operator(): ";
 
   if(!isinit()) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
   if(i > j)
+    //
     std::swap(i, j);
  
   if(j - i < band_size())
+    //
     return Matrix::operator()(band_size() - 1 + i - j, j);
 
   std::cerr << funame << "out of range\n";
+  
   throw Error::Range();
-
 }
 
 Lapack::Vector Lapack::BandMatrix::eigenvalues (Matrix* evec)
@@ -709,7 +684,9 @@ Lapack::Vector Lapack::BandMatrix::eigenvalues (Matrix* evec)
   const char funame [] = "Lapack::BandMatrix::eigenvalues: ";
 
   if(!isinit()) {
+    //
     std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
 
@@ -768,61 +745,60 @@ Lapack::Vector Lapack::BandMatrix::eigenvalues (Matrix* evec)
  ********************* Symmetric Matrix *************************
  ****************************************************************/
 
-Lapack::SymmetricMatrix::SymmetricMatrix 
-(const Lapack::Matrix& m, char uplo) 
-  : RefArr<double>(m.size1() * (m.size1() + 1) / 2), _size(new int_t(m.size1()))
+Lapack::SymmetricMatrix::SymmetricMatrix (Matrix m, char uplo) : RefArr<double>(m.size1() * (m.size1() + 1) / 2), _size(new int_t(m.size1()))
 {
   const char funame [] = "Lapack::SymmetricMatrix::SymmetricMatrix: ";
 
-  if(!m.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(m.size1() != m.size2()) {
-    std::cerr << funame << "not square:"
-              << " size1 = " << m.size1()
-              << " size2 = " << m.size2()
-              << "\n";
+    //
+    std::cerr << funame << "not square: " << m.size1() << ", " << m.size2() << "\n";
+
     throw Error::Range();
   }
 
   switch(uplo) {
+    //
   case 'U':
+    //
     for(int_t i = 0; i < size(); ++i) {
+      //
       Slice<double> res(*this + i * (i + 1) / 2, i + 1);
+      //
       ConstSlice<double> col(m + i * size(), i + 1);
+      
       res = col;
     }
+    
     return;
 
   case 'L':
+    //
     for(int_t i = 0; i < size(); ++i) {
+      //
       Slice<double> res(*this + i * (i + 1) / 2, i + 1);
+      
       ConstSlice<double> row(m + i, i + 1, size());
+      
       res = row;
     }
+    
     return;
+    
   default:
-    std::cerr << funame << "wrong uplo: " << uplo << std::endl;
+    //
+    std::cerr << funame << "wrong uplo: " << uplo << "\n";
+    
     throw Error::Init();
   }
 }
 
-Lapack::Vector Lapack::SymmetricMatrix::operator* (const Vector& v) const 
+Lapack::Vector Lapack::SymmetricMatrix::operator* (Vector v) const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
-  if(!isinit() || !v.isinit()) {
-    //
-    std::cerr << funame << "not initialized\n";
-    
-    throw Error::Init();
-  }
-
   if(size() != v.size()) {
     //
-    std::cerr << funame << "the dimensions are different: " << v.size() << ", " << size() << "\n";
+    std::cerr << funame << "dimensions mismatch: " << v.size() << ", " << size() << "\n";
     
     throw Error::Range();
   }
@@ -838,16 +814,9 @@ Lapack::Vector Lapack::SymmetricMatrix::operator* (ConstSlice<double> v) const
 {
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
-  if(!isinit()) {
-    //
-    std::cerr << funame << "not initialized\n";
-    
-    throw Error::Init();
-  }
-
   if(size() != v.size()) {
     //
-    std::cerr << funame << "the dimensions are different:" << v.size() << ", " << size() << "\n";
+    std::cerr << funame << "dimensions mismatch:" << v.size() << ", " << size() << "\n";
     
     throw Error::Range();
   }
@@ -861,193 +830,221 @@ Lapack::Vector Lapack::SymmetricMatrix::operator* (ConstSlice<double> v) const
 
 Lapack::Vector Lapack::SymmetricMatrix::operator* (const double* v) const
 {
-  const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
-
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   Vector res(size());
+  
   dspmv_('U', size(),  1., *this, v, 1, 0., res, 1);
   return res;
 }
 
-Lapack::Matrix Lapack::SymmetricMatrix::operator* (const Matrix& m)
-  const 
+Lapack::Matrix Lapack::SymmetricMatrix::operator* (Matrix m) const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
-  if(!isinit() || !m.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(size() != m.size1()) {
-    std::cerr << funame << "the dimensions are different:"
-	      << " mat1_size = " << size()
-	      << " mat2_size1 = " << m.size1()
-	      << std::endl;
+    //
+    std::cerr << funame << "dimensions mismatch: " << size() << ", " << m.size1() << "\n";
+
     throw Error::Range();
   }
 
   Matrix res(size(), m.size2());
+  
   for(int_t j = 0; j < m.size2(); ++j)
-    dspmv_('U', size(),  1.,  *this, m + j * size(), 1, 0., res + j * size(), 1);  
+    //
+    dspmv_('U', size(),  1.,  *this, m + j * size(), 1, 0., res + j * size(), 1);
+  
   return res;
 }
 
-Lapack::Matrix Lapack::SymmetricMatrix::operator* (const SymmetricMatrix& m) const 
+Lapack::Matrix Lapack::SymmetricMatrix::operator* (SymmetricMatrix m) const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::operator*: ";
 
-  if(!isinit() || !m.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
   if(size() != m.size()) {
-    std::cerr << funame << "the dimensions are different:"
-	      << " mat1_size = " << size()
-	      << " mat2_size = " << m.size()
-	      << std::endl;
+    //
+    std::cerr << funame << "dimensions mismatch: " << size() << ", " << m.size() << "\n";
+    
     throw Error::Range();
   }
 
   Matrix res(size());
+
+  double dtemp;
+  
   for(int_t i = 0; i < size(); ++i)
+    //
     for(int_t j = 0; j < size(); ++j) {
-      double dtemp = 0.;
+      //
+      dtemp = 0.;
+      
       const double* dp1 = *this + i * (i + 1) / 2;
+      
       const double* dp2 = m     + j * (j + 1) / 2;
 
       for(int_t k = 0; k < size(); ++k) {
+	//
 	dtemp += *dp1 * *dp2;
+	
 	// next first multiplier element
-	if(k < i)
+	//
+	if(k < i) {
+	  //
 	  dp1++;
+	}
 	else
+	  //
 	  dp1 += k + 1;
+	
 	// next second multiplier element
-	if(k < j)
+	//
+	if(k < j) {
+	  //
 	  dp2++;
+	}
 	else
+	  //
 	  dp2 += k + 1;
       }
+      
       res(i,j) = dtemp;
     }
   return res;
 }
 
-Lapack::Vector Lapack::SymmetricMatrix::eigenvalues (Matrix* evec)
-  const 
+Lapack::Vector Lapack::SymmetricMatrix::eigenvalues (Matrix* evec)  const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::eigenvalues: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
+  _assert();
 
-  SymmetricMatrix sm = copy();
-  Vector res(size());
-  Vector work(3 * size());
-  int_t info = 0;
+  Matrix a;
   
-  if(!evec) {
-    //
-    dspev_('N', 'U', size(), sm, res, 0, size(), work, info);
-  }
-  else {
+  char jobz = 'N';
+  
+  if(evec) {
     //
     evec->resize(size());
     
-    dspev_('V', 'U', size(), sm, res, *evec, size(), work, info);
-  }
-  
-  if(!info)
-    //
-    return res;
-  
-  else if(info < 0) {
-    //
-    std::cerr << funame << "dspev: " << -info
-      //
-	      << "-th argument has an illegal value\n";
+    a = *evec;
     
+    jobz = 'V';
+  }
+
+  a = *this;
+  
+  Vector res(size());
+
+  int_t lwork, liwork, info = 0;
+
+  //work space query
+  //
+  lwork = -1;
+
+  liwork = -1;
+
+  Array<double> work(1);
+
+  Array<int_t> iwork(1);
+
+  dsyevd_(jobz, 'U', size(), a, size(), res, work, lwork, iwork, liwork, info);
+  
+  // matrix diagonalization
+  //
+  lwork = (int_t)work[0];
+
+  work.resize(lwork);
+
+  liwork = iwork[0];
+  
+  iwork.resize(liwork);
+  
+  dsyevd_(jobz, 'U', size(), a, size(), res, work, lwork, iwork, liwork, info);
+  
+  if(info < 0) {
+    //
+    IO::log << IO::log_offset << funame << "dsyevd: " << -info << "-th argument has illegal value\n";
+
     throw Error::Logic();
   }
-  else {
+  else if(info > 0) {
     //
-    std::cerr << funame << "dspev: " << info
+    IO::log << IO::log_offset << funame << "dsyevd: " << info 
       //
-	      << "-th off-diagonal  elements  of an "
-      //
-      "intermediate tridiagonal form did not converge to zero\n";
-    
+	    << "-th off-diagonal  elements  of intermediate tridiagonal form did not converge to zero\n";
+
     throw Error::Lapack();
   }
+
+  return res;
 }
 
 Lapack::SymmetricMatrix Lapack::SymmetricMatrix::invert () const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::invert: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
-
+  _assert();
+  
   SymmetricMatrix lu = copy();
 
   Array<int_t> ipiv (size());
+  
   Matrix res(size());
+  
   res = 0.;
+  
   res.diagonal() = 1.;
 
   int_t info = 0;
+  
   dspsv_('U', size(), size(), lu, ipiv, res, size(), info);
 
   if(!info)
+    //
     return SymmetricMatrix(res);
-  else if(info < 0) {
-    std::cerr << funame << "dspsv: " << -info 
-	      << "-th argument had an illegal value\n";
+  
+  if(info < 0) {
+    //
+    std::cerr << funame << "dspsv: " << -info << "-th argument had an illegal value\n";
+    
     throw Error::Range();
   }
   else {
+    //
     std::cerr << funame << "dspsv: U("<< info <<"," << info 
 	      << ") is exactly zero.\n"
       "\tThe  factorization has  been  completed,  but the factor U is\n"
       "\texactly singular, so the solution could not be computed.\n";
+    
     throw Error::Math();
   }
 }
 
-Lapack::SymmetricMatrix Lapack::SymmetricMatrix::positive_invert ()
-  const 
+Lapack::SymmetricMatrix Lapack::SymmetricMatrix::positive_invert ()  const 
 {
   const char funame [] = "Lapack::SymmetricMatrix::positive_invert: ";
 
-  if(!isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
+  _assert();
 
   SymmetricMatrix lu = copy();
 
   Matrix res(size());
+  
   res = 0.;
+  
   res.diagonal() = 1.;
 
   int_t info = 0;
+  
   dppsv_('U', size(), size(), lu, res, size(), info);
 
   if(!info)
+    //
     return SymmetricMatrix(res);
-  else if(info < 0) {
-    std::cerr << funame << "dppsv: " << -info 
-	      << "-th argument had an illegal value\n";
+  
+  if(info < 0) {
+    //
+    std::cerr << funame << "dppsv: " << -info << "-th argument had an illegal value\n";
+    
     throw Error::Range();
   }
   else {
@@ -1055,6 +1052,7 @@ Lapack::SymmetricMatrix Lapack::SymmetricMatrix::positive_invert ()
 	      << "the leading minor of the " << info <<  "-th order of  A is\n"
       "\tnot positive definite, so the factorization could not be completed,\n"
       "\tand the solution has not been computed.\n";
+    
     throw Error::Math();
   }
 }
@@ -1064,61 +1062,84 @@ Lapack::Vector Lapack::diagonalize(SymmetricMatrix a0, SymmetricMatrix b0, Matri
   const char funame [] = "Lapack::diagonalize: ";
   const char lapack_funame [] = "DSPGVD: ";
 
-  if(!a0.isinit() || !b0.isinit()) {
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-  }
+  a0._assert();
 
+  b0._assert();
+  
   if(a0.size() != b0.size()) {
-    std::cerr << funame << "dimensions mismatch\n";
+    //
+    std::cerr << funame << "dimensions mismatch: " << a0.size() << ", " << b0.size() << "\n";
+    
     throw Error::Range();
   }
 
   SymmetricMatrix a = a0.copy();
+  
   SymmetricMatrix b = b0.copy();
+  
   Vector res(a.size());
 
   char job = 'N';
+  
   int_t lwork = 2 * a.size();
+  
   int_t liwork = 1;
+  
   double* z = 0;
+  
   if(evec) {
+    //
     evec->resize(a.size());
+    
     z = *evec;
+    
     job = 'V';
+    
     lwork = 1 + 6 * a.size() + 2 * a.size() * a.size();
+    
     liwork = 3 + 5 * a.size();
   }
 
   Array<double> work(lwork);
+  
   Array<int_t> iwork(liwork);
+  
   int_t info = 0;
 
   dspgvd_(1, job, 'U', a.size(), a, b , res, z, a.size(), work, lwork, iwork, liwork, info);
 
   if(!info)
+    //
     return res;
 
   if(info < 0) {
-    std::cerr << funame << lapack_funame << -info 
-	      << "-th argument has an illegal value\n";
+    //
+    std::cerr << funame << lapack_funame << -info << "-th argument has an illegal value\n";
+    
     throw Error::Range();
   }
 
   if(info <= a.size() ){
-    std::cerr << funame << lapack_funame << info 
+    //
+    std::cerr << funame << lapack_funame << info
+      //
 	      << " off-diagonal  elements  of an intermediate tridiagonal form did not converge to zero\n";
+    
     throw Error::Math();
   }
 
   if(info <= 2 * a.size() ){
+    //
     std::cerr << funame << lapack_funame << " the leading minor of order " << info - a.size()
+      //
 	      << " of B is not positively definite\n";
+    
     throw Error::Range();
   }
 
   std::cerr << funame << lapack_funame <<  "unknown error\n";
-  throw Error::Run();
+  
+  throw Error::Logic();
 }
 
 Lapack::Vector Lapack::diagonalize (const HermitianMatrix& a0, const HermitianMatrix& b0, ComplexMatrix* evec) 
@@ -1286,7 +1307,7 @@ double Lapack::LU::det () const
     return -res;
 }
 
-Lapack::LU::LU (const Matrix& m) 
+Lapack::LU::LU (Matrix m) 
   : Matrix(m.copy())
 {
   const char funame [] = "Lapack::LU::LU: ";
@@ -1349,7 +1370,7 @@ Lapack::Matrix Lapack::LU::invert() const
   }
 }
 
-Lapack::Vector Lapack::LU::invert(const Vector& v) const 
+Lapack::Vector Lapack::LU::invert(Vector v) const 
 {
   const char funame [] = "Lapack::LU::invert: ";
 
@@ -1385,7 +1406,7 @@ Lapack::Vector Lapack::LU::invert(const Vector& v) const
   }
 }
 
-Lapack::Matrix Lapack::LU::invert(const Matrix& m) const 
+Lapack::Matrix Lapack::LU::invert(Matrix m) const 
 {
   const char funame [] = "Lapack::LU::invert: ";
 
@@ -1425,7 +1446,7 @@ Lapack::Matrix Lapack::LU::invert(const Matrix& m) const
  ******** LU factorization for symmetric packed matrix **********
  ****************************************************************/
 
-Lapack::SymLU::SymLU (const SymmetricMatrix& m) 
+Lapack::SymLU::SymLU (SymmetricMatrix m) 
   : SymmetricMatrix(m.copy())
 {
   const char funame [] = "Lapack::SymLU::SymLU: ";
@@ -1503,7 +1524,7 @@ Lapack::SymmetricMatrix Lapack::SymLU::invert() const
   }
 }
 
-Lapack::Vector Lapack::SymLU::invert(const Vector& v) const 
+Lapack::Vector Lapack::SymLU::invert(Vector v) const 
 {
   const char funame [] = "Lapack::SymLU::invert: ";
 
@@ -1539,7 +1560,7 @@ Lapack::Vector Lapack::SymLU::invert(const Vector& v) const
   }
 }
 
-Lapack::Matrix Lapack::SymLU::invert(const Matrix& m) const 
+Lapack::Matrix Lapack::SymLU::invert(Matrix m) const 
 {
   const char funame [] = "Lapack::SymLU::invert: ";
 
@@ -1579,7 +1600,7 @@ Lapack::Matrix Lapack::SymLU::invert(const Matrix& m) const
  ******************* Cholesky Factorization *********************
  ****************************************************************/
 
-Lapack::Cholesky::Cholesky (const SymmetricMatrix& m) 
+Lapack::Cholesky::Cholesky (SymmetricMatrix m) 
   : SymmetricMatrix(m.copy())
 {
   const char funame [] = "Lapack::Cholesky::Cholesky: ";
@@ -1632,7 +1653,7 @@ Lapack::SymmetricMatrix Lapack::Cholesky::invert() const
   }
 }
 
-Lapack::Vector Lapack::Cholesky::invert(const Vector& v) const 
+Lapack::Vector Lapack::Cholesky::invert(Vector v) const 
 {
   const char funame [] = "Lapack::Cholesky::invert: ";
 
@@ -1668,7 +1689,7 @@ Lapack::Vector Lapack::Cholesky::invert(const Vector& v) const
   }
 }
 
-Lapack::Matrix Lapack::Cholesky::invert(const Matrix& m) const 
+Lapack::Matrix Lapack::Cholesky::invert(Matrix m) const 
 {
   const char funame [] = "Lapack::Cholesky::invert: ";
 
@@ -1841,7 +1862,7 @@ Lapack::Vector Lapack::HermitianMatrix::eigenvalues (ComplexMatrix* evec)
  ************************************** COMPLEX FOURIER TRANSFORM *****************************
  **********************************************************************************************/
 
-Lapack::ComplexVector Lapack::fourier_transform (const Vector& fun, const MultiIndexConvert& mi)
+Lapack::ComplexVector Lapack::fourier_transform (Vector fun, const MultiIndexConvert& mi)
 {
   const char funame [] = "Lapack::fourier_transform: ";
 
@@ -1902,7 +1923,7 @@ Lapack::ComplexVector Lapack::fourier_transform (const Vector& fun, const MultiI
   return res;
 }
 
-Lapack::ComplexVector Lapack::fourier_transform (const ComplexVector& fun, const MultiIndexConvert& mi)
+Lapack::ComplexVector Lapack::fourier_transform (ComplexVector fun, const MultiIndexConvert& mi)
 {
   const char funame [] = "Lapack::fourier_transform: ";
 

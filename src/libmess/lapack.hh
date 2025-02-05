@@ -25,7 +25,7 @@
 
 namespace Lapack {
 
-  typedef int int_t;// index type in lapack & blas libraries
+  typedef int int_t;
 
   typedef std::complex<double> complex;
 
@@ -37,9 +37,13 @@ namespace Lapack {
    ****************************************************************/
 
   class Vector : private RefArr<double> {
+    //
    explicit Vector(const RefArr<double>& a) : RefArr<double>(a) {}
 
   public:
+    //
+    void _assert ()    const;
+
     typedef       double*       iterator;
     typedef const double* const_iterator;
     typedef       double      value_type;
@@ -48,8 +52,10 @@ namespace Lapack {
     explicit Vector (int_t s)            : RefArr<double>(s)    {}
     Vector          (int_t s, double p)  : RefArr<double>(s, p) {}
 
-    bool isinit () const                       { return RefArr<double>::isinit(); }
-    int_t  size   () const  { return RefArr<double>::size(); }
+    template<typename V> explicit Vector (const V& v) : RefArr<double>(v) {}
+    
+    bool isinit   () const { return RefArr<double>::isinit(); }
+    int_t  size   () const { _assert(); return RefArr<double>::size  (); }
 
     double*       begin ()       { return  RefArr<double>::begin(); }
     double*         end ()       { return  RefArr<double>::end(); }
@@ -74,86 +80,46 @@ namespace Lapack {
 
     // scalar product
     //
-    double operator* (const Vector&)      const;
+    double operator* (Vector)             const;
     double operator* (const double*)      const;
     double operator* (ConstSlice<double>) const;
     double vdot      ()                   const;
     
     // block operations
-    Vector operator* (const Matrix&) const ;
-    Vector operator* (const SymmetricMatrix&) const ;
+    //
+    Vector operator* (Matrix) const;
+    Vector operator* (SymmetricMatrix) const;
 
-    Vector operator+ (const Vector&) const ;
-    Vector operator- (const Vector&) const ;
+    Vector operator+ (Vector v) const { return Vector(RefArr<double>::operator+(v)); }
+    Vector operator- (Vector v) const { return Vector(RefArr<double>::operator-(v)); }
 
-    const Vector& operator+= (const Vector&) ;
-    const Vector& operator-= (const Vector&) ;
+    Vector operator=  (const double* p) { RefArr<double>::operator= (p); return *this; }
+    Vector operator+= (Vector m)        { RefArr<double>::operator+=(m); return *this; }
+    Vector operator-= (Vector m)        { RefArr<double>::operator-=(m); return *this; }
 
-    const Vector& operator=  (const double*);
-
-    const Vector& operator-        ();
-    const Vector& operator=  (double);
-    const Vector& operator*= (double);
-    const Vector& operator/= (double);
+    Vector operator-  ()         { RefArr<double>::operator-  (); return *this; }
+    Vector operator=  (double d) { RefArr<double>::operator= (d); return *this; }
+    Vector operator*= (double d) { RefArr<double>::operator*=(d); return *this; }
+    Vector operator/= (double d) { RefArr<double>::operator/=(d); return *this; }
   };
 
+  inline void Vector::_assert () const
+  {
+    const char funame [] = "Lapack::Vector::_assert: ";
+
+    if(isinit())
+      //
+      return;
+
+    std::cerr << funame << "not initialized\n";
+
+    throw Error::Init();
+  }
+  
   inline double operator* (const double* p, Vector v) { return v * p; }
   
   inline double operator* (ConstSlice<double> p, Vector v) { return v * p; }
   
-  inline Vector Vector::operator+ (const Vector& v) const 
-  {
-    return Vector(RefArr<double>::operator+(v));
-  }
-
-  inline Vector Vector::operator- (const Vector& v) const 
-  {
-    return Vector(RefArr<double>::operator-(v));
-  }
-
-  inline const Vector& Vector::operator+= (const Vector& m) 
-  {
-    RefArr<double>::operator+=(m);
-    return *this;
-  }
-
-  inline const Vector& Vector::operator-= (const Vector& m) 
-  {
-    RefArr<double>::operator-=(m);
-    return *this;
-  }
-
-  inline const Vector& Vector::operator-  ()
-  {
-    RefArr<double>::operator-();
-    return *this;
-  }
-
-  inline const Vector& Vector::operator= (double d)
-  {
-    RefArr<double>::operator=(d);
-    return *this;
-  }
-
-  inline const Vector& Vector::operator= (const double* p)
-  {
-    RefArr<double>::operator=(p);
-    return *this;
-  }
-
-  inline const Vector& Vector::operator*= (double d)
-  {
-    RefArr<double>::operator*=(d);
-    return *this;
-  }
-
-  inline const Vector& Vector::operator/= (double d)
-  {
-    RefArr<double>::operator/=(d);
-    return *this;
-  }
-
-
   /****************************************************************
    ************************** Matrix ******************************
    ****************************************************************/
@@ -166,55 +132,80 @@ namespace Lapack {
     
     SharedPointer<int_t> _size2;
 
-    void _check_dim   (const Matrix&) const ;
-    void _check_index (int_t, int_t)  const ;
-
   protected:
     //
-    Matrix (const Matrix&, int_t);// copy constructor by value
+    Matrix (Matrix, int_t);// copy constructor by value
 
   public:
-    void resize (int_t, int_t) ;
-    void resize (int_t s)       { resize(s, s); }
+    
+    void _assert () const;
+    
+    void _assert (int_t, int_t)  const;
+
+    void _assert   (Matrix) const;
+
+    void _assert   (Vector) const;
+
+    void resize (int_t, int_t);
+    
+    void resize (int_t s) { resize(s, s); }
 
     bool isinit () const { return _size1; }
 
     Matrix () {}
-    explicit Matrix  (int_t s1)  { resize(s1);     }
+    
+    explicit Matrix  (int_t s1)  { resize(s1); }
+    
     Matrix (int_t s1, int_t s2)  { resize(s1, s2); }
 
     operator       double* ()       { return RefArr<double>::operator       double*(); }
+    
     operator const double* () const { return RefArr<double>::operator const double*(); }
 
     Matrix copy () const { return Matrix(*this, 0); }
 
-    Matrix (const SymmetricMatrix& m);
+    Matrix operator= (SymmetricMatrix);
     
-    const double&  operator() (int_t, int_t) const ;
-    double&        operator() (int_t, int_t)       ;
+    Matrix (SymmetricMatrix m);
 
-    int_t size1 () const ;
-    int_t size2 () const ;
-    int_t size  () const ; // square matrix size
+    template<typename V> Matrix (const ::Matrix<V>&);
+    
+    template<typename V> Matrix operator= (const ::Matrix<V>&);
+    
+    const double& operator() (int_t i1, int_t i2) const { _assert(i1, i2); return RefArr<double>::operator[](i1 + size1() * i2); }
+
+    double&       operator() (int_t i1, int_t i2)       { _assert(i1, i2); return RefArr<double>::operator[](i1 + size1() * i2); }
+
+    inline int_t size1 () const { _assert(); return *_size1; }
+    
+    inline int_t size2 () const { _assert(); return *_size2; }
+    
+    int_t size  () const; // square matrix size
 
     // matrix-matrix multiplication
-    Matrix operator* (const Matrix&)          const ;
-    Matrix operator* (const SymmetricMatrix&) const ;
+    //
+    Matrix operator* (Matrix)          const;
+    Matrix operator* (SymmetricMatrix) const;
 
     // matrix-vector multiplication
-    Vector operator* (const Vector&) const ;
-    Vector operator* (const double*) const ;
+    //
+    Vector operator* (const double*)   const;
+    Vector operator* (Vector v)        const { _assert(v); return *this * (const double*)v; }
 
-    Matrix operator+ (const Matrix&) const ;
-    Matrix operator- (const Matrix&) const ;
+    // arithmetic operations with matrix
+    //
+    Matrix operator+= (Matrix m) { _assert(m); RefArr<double>::operator+=(m); return *this; }
+    Matrix operator-= (Matrix m) { _assert(m); RefArr<double>::operator-=(m); return *this; }
 
-    Matrix& operator+= (const Matrix&) ;
-    Matrix& operator-= (const Matrix&) ;
+    Matrix operator+  (Matrix m) const { Matrix res(*this, 0); res += m; return res;  }
+    Matrix operator-  (Matrix m) const { Matrix res(*this, 0); res -= m; return res;  }
 
-    Matrix& operator-        ();
-    Matrix& operator=  (double);
-    Matrix& operator*= (double);
-    Matrix& operator/= (double);
+    // arithmetic operations with double
+    //
+    Matrix operator-  ()         { _assert(); RefArr<double>::operator-  ();  return *this; }
+    Matrix operator=  (double d) { _assert(); RefArr<double>::operator=  (d); return *this; }
+    Matrix operator*= (double d) { _assert(); RefArr<double>::operator*= (d); return *this; }
+    Matrix operator/= (double d) { _assert(); RefArr<double>::operator/= (d); return *this; }
 
     Slice<double> row      (int_t)    ;
     Slice<double> column   (int_t)    ;
@@ -226,9 +217,9 @@ namespace Lapack {
 
     Matrix transpose () const;
 
-    Matrix  invert ()              const;
-    Vector  invert (const Vector&) const;
-    Matrix  invert (const Matrix&) const;
+    Matrix  invert ()       const;
+    Vector  invert (Vector) const;
+    Matrix  invert (Matrix) const;
 
     // orthogonalize column-wise
     //
@@ -243,37 +234,122 @@ namespace Lapack {
     Vector    eigenvalues (Matrix* =0) const;
   };
   
-  Vector operator* (const double*, const Matrix&) ;
+  Vector operator* (const double*, Matrix);
 
-  inline int_t Matrix::size1 () const 
-  { 
-    const char funame [] = "Lapack::Matrix::size1: ";
-
-    if(_size1) 
-      return *_size1; 
-
+  inline void Matrix::_assert () const {
+    //
+    const char funame [] = "Lapack::Matrix::_assert: ";
+    
+    if(isinit())
+      //
+      return;
+    
     std::cerr << funame << "not initialized\n";
-    throw Error::Init();
-
-  }
-
-  inline int_t Matrix::size2 () const 
-  { 
-    const char funame [] = "Lapack::Matrix::size2: ";
-
-    if(_size2) 
-      return *_size2; 
-
-    std::cerr << funame << "not initialized\n";
+    
     throw Error::Init();
   }
+  
+  inline void Matrix::_assert (int_t i1, int_t i2) const 
+  {
+    const char funame [] = "Lapack::Matrix::_assert: ";
 
+    _assert();
+
+    if(i1 < 0 || i1 >= size1() || i2 < 0 || i2 >= size2()) {
+      //
+      std::cerr << funame << "out of range: " << i1 << ", " << i2 << "\n";
+      
+      throw Error::Range();
+    }
+  }
+
+  inline void Matrix::_assert (Matrix m) const 
+  {
+    const char funame [] = "Lapack::Matrix::_assert: ";
+
+    _assert();
+
+    m._assert();
+    
+    if(m.size1() != size1() || m.size2() != size2()) {
+      //
+      std::cerr << funame << "dimensions mismatch: " << size1() << ", " << size2() << ", " << m.size1() << ", " << m.size2() << "\n";
+      
+      throw Error::Range();
+    }
+  }
+
+  // matrix-vector product
+  //
+  inline void Matrix::_assert (Vector v) const 
+  {
+    const char funame [] = "Lapack::Matrix::_assert: ";
+
+    _assert();
+
+    v._assert();
+
+    if(size2() != v.size()) {
+      //
+      std::cerr << funame << "dimensions mismatch: " << size2() << ", " << v.size() << "\n";
+      
+      throw Error::Range();
+    }
+  }
+
+  template<typename V>
+  inline Matrix::Matrix (const ::Matrix<V>& m)
+  {
+    const char funame [] = "Lapack::Matrix::Matrix: ";
+    
+    if(!m.isinit()) {
+      //
+      std::cerr << funame << "not initialized\n";
+
+      throw Error::Init();
+    }
+
+    resize(m.size1(), m.size2());
+
+    RefArr<double>::operator=((const ArrayWithDefault<V>&)m);
+  }
+  
+  template<typename V>
+  inline Matrix Matrix::operator= (const ::Matrix<V>& m)
+  {
+    const char funame [] = "Lapack::Matrix::operator=: ";
+    
+    if(!m.isinit()) {
+      //
+      std::cerr << funame << "not initialized\n";
+
+      throw Error::Init();
+    }
+
+    if(!isinit())
+      //
+      resize(m.size1(), m.size2());
+
+    if(size1() != m.size1() || size2() != m.size2()) {
+      //
+      std::cerr << funame << "dimensions mismatch: " << size1() << ", " << m.size1() << ", " << size2() << ", " << m.size2() << "\n";
+
+      throw Error::Range();
+    }
+
+    RefArr<double>::operator=((const ArrayWithDefault<V>&)m);
+  }
+  
+  // square matrix size
+  //
   inline int_t Matrix::size () const  
   {
     const char funame [] = "Lapack::Matrix::size: ";
 
     if(size1() != size2()) {
+      //
       std::cerr << funame << "not square\n";
+      
       throw Error::Logic();
     }
 
@@ -284,20 +360,23 @@ namespace Lapack {
   {
     const char funame [] = "Lapack::Matrix::resize: ";
 
-    if(s1 < 0 || s2 < 0) {
-      std::cerr << funame << "negative dimensions: s1 = " << s1 << " s2 = " << s2 << "\n";
+    if(s1 <= 0 || s2 <= 0) {
+      //
+      std::cerr << funame << "dimensions out of range: " << s1 << ", " << s2 << "\n";
+      
       throw Error::Range();
     }
 
-    if(!s1 || !s2)
-      s1 = s2 = 0;
-
     if(!isinit()) {
+      //
       _size1.init(new int_t(s1));
+      
       _size2.init(new int_t(s2));
     }
     else {
-      *_size1 = s1; 
+      //
+      *_size1 = s1;
+      
       *_size2 = s2;
     } 
 
@@ -305,159 +384,17 @@ namespace Lapack {
   }
 
   // copy constructor by value
-  inline Matrix::Matrix (const Matrix& m, int_t)
+  //
+  inline Matrix::Matrix (Matrix m, int_t)
   {
     if(m.isinit()) {
-      _size1.init(new int_t(m.size1())); 
+      //
+      _size1.init(new int_t(m.size1()));
+      
       _size2.init(new int_t(m.size2()));
+      
       RefArr<double>::operator=(m.RefArr<double>::copy());
     }
-  }
-
-  inline void Matrix::_check_index (int_t i1, int_t i2) const 
-  {
-    const char funame [] = "Lapack::Matrix::_check_index: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    if(i1 < 0 || i1 >= size1() || i2 < 0 || i2 >= size2()) {
-      std::cerr << funame << "out of range: i1 = " << i1 << " i2 = " << i2 << "\n";;
-      throw Error::Range();
-    }
-  }
-
-  inline const double& Matrix::operator() (int_t i1, int_t i2) const 
-  {
-    _check_index(i1, i2);
-    return RefArr<double>::operator[](i1 + size1() * i2);
-  }
-
-  inline double& Matrix::operator() (int_t i1, int_t i2) 
-  {
-    _check_index(i1, i2);
-    return RefArr<double>::operator[](i1 + size1() * i2);
-  }
-
-  inline void Matrix::_check_dim (const Matrix& m) const 
-  {
-    const char funame [] = "Lapack::Matrix::_check_dim: ";
-    
-    if(!isinit() || !m.isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    if(m.size1() != size1() || m.size2() != size2()) {
-      std::cerr << funame << "dimensions mismatch:" 
-		<< " mat1_size1 = " << size1() 
-		<< " mat1_size2 = " << size2() 
-		<< " mat2_size1 = " << m.size1() 
-		<< " mat2_size2 = " << m.size2()
-		<< "\n";
-      throw Error::Range();
-    }
-  }
-
-  inline Matrix Matrix::operator+ (const Matrix& m) const 
-  {
-    Matrix res(*this, 0);
-    res += m;
-    return res;
-  }
-
-  inline Matrix Matrix::operator- (const Matrix& m) const 
-  {
-    Matrix res(*this, 0);
-    res -= m;
-    return res;
-  }
-
-  inline Matrix& Matrix::operator+= (const Matrix& m) 
-  {
-    _check_dim(m);
-    RefArr<double>::operator+=(m);
-    return *this;
-  }
-
-  inline Matrix& Matrix::operator-= (const Matrix& m) 
-  {
-    _check_dim(m);
-    RefArr<double>::operator-=(m);
-    return *this;
-  }
-
-  // matrix-vector product
-  inline Vector Matrix::operator* (const Vector& v) const 
-  {
-    const char funame [] = "Lapack::Matrix::operator*: ";
-
-    if(!isinit() || !v.isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    if(size2() != v.size()) {
-      std::cerr << funame << "the dimensions are different\n";
-      throw Error::Range();
-    }
-
-    return *this * (const double*)v;
-  }
-
-  // arithmetic operations with double
-  inline Matrix& Matrix::operator-  ()
-  {
-    const char funame [] = "Lapack::Matrix::operator-: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator-();
-    return *this;
-  }
-
-  inline Matrix& Matrix::operator= (double d)
-  {
-    const char funame [] = "Lapack::Matrix::operator=: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator=(d);
-    return *this;
-  }
-
-  inline Matrix& Matrix::operator*= (double d)
-  {
-    const char funame [] = "Lapack::Matrix::operator*=: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator*=(d);
-    return *this;
-  }
-
-  inline Matrix& Matrix::operator/= (double d)
-  {
-    const char funame [] = "Lapack::Matrix::operator/=: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator/=(d);
-    return *this;
   }
 
   /****************************************************************
@@ -470,235 +407,176 @@ namespace Lapack {
     //
     SharedPointer<int_t> _size;
     
-    explicit SymmetricMatrix (const SymmetricMatrix&, int_t); // copy constructor by value
+    explicit SymmetricMatrix (SymmetricMatrix, int_t); // copy constructor by value
 
   public:
     //
+    void _assert ()   const;
+
+    void _assert (int) const;
+    
     void resize (int_t) ;
 
     bool isinit () const { return _size; }
 
     SymmetricMatrix () {}
+    
     explicit SymmetricMatrix (int_t s)  { resize(s); }
-    explicit SymmetricMatrix (const Matrix&, char ='U')       ;
+    
+    explicit SymmetricMatrix (Matrix, char ='U');
 
     operator       double* ()       { return RefArr<double>::operator       double*(); }
     operator const double* () const { return RefArr<double>::operator const double*(); }
 
     SymmetricMatrix copy () const { return SymmetricMatrix(*this, 0); }
 
-    int_t size () const ;
+    int_t size () const { _assert(); return *_size; }
 
     // referencing as an upper triangle column-wise
-    const double& operator() (int_t, int_t) const ;
-    double&       operator() (int_t, int_t)       ;
+    //
+    double  operator() (int_t, int_t) const;
+    double& operator() (int_t, int_t);
 
-    Vector operator* (const Vector&)      const;
+    // matrix-vector product
+    //
+    Vector operator* (Vector)      const;
     Vector operator* (const double*)      const;
     Vector operator* (ConstSlice<double>) const;
 
-    Matrix operator* (const Matrix&)          const ;
-    Matrix operator* (const SymmetricMatrix&) const ;
+    Matrix operator* (Matrix)          const;
+    Matrix operator* (SymmetricMatrix) const;
     
-    SymmetricMatrix operator+ (const SymmetricMatrix&) const ;
-    SymmetricMatrix operator- (const SymmetricMatrix&) const ;
+    SymmetricMatrix operator+= (SymmetricMatrix m) { _assert(); m._assert(); RefArr<double>::operator+=(m); return *this; }
+    SymmetricMatrix operator-= (SymmetricMatrix m) { _assert(); m._assert(); RefArr<double>::operator-=(m); return *this; }
 
-    SymmetricMatrix operator+= (const SymmetricMatrix&) ;
-    SymmetricMatrix operator-= (const SymmetricMatrix&) ;
+    SymmetricMatrix operator+ (SymmetricMatrix m) const { _assert(); m._assert(); SymmetricMatrix res(*this, 0); res += m; return res; }
+    SymmetricMatrix operator- (SymmetricMatrix m) const { _assert(); m._assert(); SymmetricMatrix res(*this, 0); res -= m; return res; }
 
-    SymmetricMatrix operator-  ()      ;
+    SymmetricMatrix operator-  ()  { _assert(); RefArr<double>::operator-(); return *this; }
+
+    SymmetricMatrix operator*= (double d) { _assert();    RefArr<double>::operator*=(d);  return *this; }
+    SymmetricMatrix operator/= (double d) { _assert();    RefArr<double>::operator/=(d);  return *this; }
+
     SymmetricMatrix operator=  (double);
     SymmetricMatrix operator+= (double);
     SymmetricMatrix operator-= (double);
-    SymmetricMatrix operator*= (double);
-    SymmetricMatrix operator/= (double);
 
-    Vector    eigenvalues (Matrix* =0) const ;
+    Vector eigenvalues (Matrix* =0) const;
 
-    SymmetricMatrix invert ()             const ;
-    SymmetricMatrix positive_invert ()    const ;
+    SymmetricMatrix invert ()             const;
+    SymmetricMatrix positive_invert ()    const;
   };
 
   inline Vector operator* (ConstSlice<double> v, SymmetricMatrix m) { return m * v; }
   
   inline Vector operator* (const double* v, SymmetricMatrix m) { return m * v; }
+
+  inline void SymmetricMatrix::_assert () const
+  {
+    const char funame [] = "Lapack::SymmetricMatrix::_assert: ";
+
+    if(isinit())
+      //
+      return;
+
+    std::cerr << funame << "not iniitalized\n";
+
+    throw Error::Init();
+  }
+  
+  inline void SymmetricMatrix::_assert (int i) const
+  {
+    const char funame [] = "Lapack::SymmetricMatrix::_assert: ";
+
+    _assert();
+
+    if(i < 0 || i >= size()) {
+      //
+      std::cerr << funame << "out of range: " << i << "\n";
+
+      throw Error::Init();
+    }
+  }
   
   inline void SymmetricMatrix::resize(int_t s) 
   {
     const char funame [] = "Lapack::SymmetricMatrix::resize: ";
 
-    if(s < 0) {
-      std::cerr << funame << "negative size: s = " 
-		<< s << "\n";
+    if(s <= 0) {
+      //
+      std::cerr << funame << "non-positive size: " << s << "\n";
+      
       throw Error::Range();
     }
 
-    if(!_size)
+    if(!_size) {
+      //
       _size.init(new int_t(s));
+    }
     else
+      //
       *_size = s;
     
-    RefArr<double>::resize(s*(s+1)/2);
-  }
-
-  inline int_t SymmetricMatrix::size () const 
-  { 
-    const char funame [] = "Lapack::SymmetricMatrix::size: ";
-
-    if(_size) 
-      return *_size; 
-
-    std::cerr << funame << "not initialized\n";
-    throw Error::Init();
+    RefArr<double>::resize(s * (s + 1) / 2);
   }
 
   // copy constructor by value
-  inline SymmetricMatrix::SymmetricMatrix (const SymmetricMatrix& m, int_t)
+  //
+  inline SymmetricMatrix::SymmetricMatrix (SymmetricMatrix m, int_t)
   {
     if(m.isinit()) {
+      //
       _size.init(new int_t(m.size()));
+      
       RefArr<double>::operator=(m.RefArr<double>::copy());
     }
   }
 
-  inline double& SymmetricMatrix::operator() (int_t i1, int_t i2) 
+  inline double SymmetricMatrix::operator() (int_t i1, int_t i2) const
   {
-    const char funame [] = "Lapack::SymmetricMatrix::operator(): ";
+    _assert(); _assert(i1); _assert(i2);
 
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    if(i1 > i2) 
+    if(i1 > i2)
+      //
       std::swap(i1, i2);
-
-    if(i1 < 0 || i2 >= size()) {
-      std::cerr << funame << "out of range: i1 = " << i1 
-		<< " i2 = " << i2 << std::endl;
-      throw Error::Range();
-    }
 
     return RefArr<double>::operator[](i1 + i2 * (i2 + 1) / 2);
   }
 
-  inline const double& SymmetricMatrix::operator() (int_t i1, int_t i2) const 
+  inline double& SymmetricMatrix::operator() (int_t i1, int_t i2)
   {
-    const char funame [] = "Lapack::SymmetricMatrix::operator(): ";
+    _assert(); _assert(i1); _assert(i2);
 
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    if(i1 > i2) 
+    if(i1 > i2)
+      //
       std::swap(i1, i2);
 
-    if(i1 < 0 || i2 >= size()) {
-      std::cerr << funame << "out of range: i1 = " << i1 
-		<< " i2 = " << i2 << std::endl;
-      throw Error::Range();
-    }
-
     return RefArr<double>::operator[](i1 + i2 * (i2 + 1) / 2);
-  }
-
-  inline SymmetricMatrix SymmetricMatrix::operator+ (const SymmetricMatrix& m)
-    const 
-  {
-    const char funame [] = "Lapack::SymmetricMatrix::operator+: ";
-
-    if(!isinit() || !m.isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    SymmetricMatrix res(*this, 0);
-    res += m;
-    return res;
-  }
-
-  inline SymmetricMatrix SymmetricMatrix::operator- (const SymmetricMatrix& m)
-    const 
-  {
-    const char funame [] = "Lapack::SymmetricMatrix::operator-: ";
-
-    if(!isinit() || !m.isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    SymmetricMatrix res(*this, 0);
-    res -= m;
-    return res;
-  }
-
-  inline SymmetricMatrix SymmetricMatrix::operator+= (const SymmetricMatrix& m) 
-  {
-    const char funame [] = "Lapack::SymmetricMatrix::operator+=: ";
-
-    if(!isinit() || !m.isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator+=(m);
-    return *this;
-  }
-
-  inline SymmetricMatrix SymmetricMatrix::operator-= (const SymmetricMatrix& m) 
-  {
-    const char funame [] = "Lapack::SymmetricMatrix::operator-=: ";
-
-    if(!isinit() || !m.isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator-=(m);
-    return *this;
-  }
-
-  inline SymmetricMatrix SymmetricMatrix::operator-  ()
-  {
-    const char funame [] = "Lapack::SymmetricMatrix::operator-: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator-();
-    return *this;
   }
 
   inline SymmetricMatrix SymmetricMatrix::operator= (double d)
   {
-    const char funame [] = "Lapack::SymmetricMatrix::operator=: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
+    _assert();
 
     RefArr<double>::operator=(0.);
+    
     double* p = *this;
+    
     int_t n = size() + 2;
+    
     for(int_t i = 2; i < n; ++i) {
+      //
       *p = d;
+      
       p += i;
     }
+    
     return *this;
   }
 
   inline SymmetricMatrix SymmetricMatrix::operator+= (double d)
   {
-    const char funame [] = "Lapack::SymmetricMatrix::operator+=: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
+    _assert();
 
     double* p = *this;
     int_t n = size() + 2;
@@ -711,12 +589,7 @@ namespace Lapack {
 
   inline SymmetricMatrix SymmetricMatrix::operator-= (double d)
   {
-    const char funame [] = "Lapack::SymmetricMatrix::operator-=: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
+    _assert();
 
     double* p = *this;
     int_t n = size() + 2;
@@ -724,32 +597,6 @@ namespace Lapack {
       *p -= d;
       p += i;
     }
-    return *this;
-  }
-
-  inline SymmetricMatrix SymmetricMatrix::operator*= (double d)
-  {
-    const char funame [] = "Lapack::SymmetricMatrix::operator*=: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator*=(d);
-    return *this;
-  }
-
-  inline SymmetricMatrix SymmetricMatrix::operator/= (double d)
-  {
-    const char funame [] = "Lapack::SymmetricMatrix::operator/=: ";
-
-    if(!isinit()) {
-      std::cerr << funame << "not initialized\n";
-      throw Error::Init();
-    }
-
-    RefArr<double>::operator/=(d);
     return *this;
   }
 
@@ -762,14 +609,18 @@ namespace Lapack {
    ****************************************************************/
 
   class BandMatrix : private Matrix {
-    void _check_size () const ;
+    //
+    void _assert () const ;
 
-    BandMatrix (const BandMatrix& m, int_t) : Matrix(m, 0) { } // copy construction by value
+    BandMatrix (BandMatrix m, int_t) : Matrix(m, 0) { } // copy construction by value
 
   public:
+    //
     BandMatrix () {}
-    BandMatrix   (int_t s, int_t b)  : Matrix(b, s) { _check_size(); }
-    void  resize (int_t s, int_t b) { Matrix::resize(b, s); _check_size(); }
+    
+    BandMatrix   (int_t s, int_t b)  : Matrix(b, s) { _assert(); }
+    
+    void  resize (int_t s, int_t b) { Matrix::resize(b, s); _assert(); }
 
     bool isinit () const { return Matrix::isinit(); }
 
@@ -786,14 +637,16 @@ namespace Lapack {
     Vector eigenvalues (Matrix* =0) const ;
   };
 
-  inline void BandMatrix::_check_size () const 
+  inline void BandMatrix::_assert () const 
   {
-    const char funame [] = "Lapack::BandMatrix::_check_size(): ";
+    const char funame [] = "Lapack::BandMatrix::_assert: ";
     
     if(band_size() <= size())
+      //
       return;
 
     std::cerr << funame << "band size bigger than the matrix size\n";
+    
     throw Error::Range();
   }
 
@@ -809,15 +662,15 @@ namespace Lapack {
 
   public:
     //
-    explicit LU (const Matrix&) ;
+    explicit LU (Matrix) ;
     
     int_t size ()            const { return Matrix::size1(); }
     ::RefArr<int_t> ipiv ()  const { return _ipiv.copy(); }
     double det ()          const;
 
-    Matrix invert ()              const ; // inverse matrix
-    Vector invert (const Vector&) const ; // solve linear equations
-    Matrix invert (const Matrix&) const ; // solve linear equations
+    Matrix invert ()       const ; // inverse matrix
+    Vector invert (Vector) const ; // solve linear equations
+    Matrix invert (Matrix) const ; // solve linear equations
   };
 
   /****************************************************************
@@ -829,13 +682,13 @@ namespace Lapack {
 
   public:
     //
-    explicit SymLU (const SymmetricMatrix&) ;
+    explicit SymLU (SymmetricMatrix) ;
     int_t size () const { return SymmetricMatrix::size(); }
     double det () const;
 
     SymmetricMatrix invert ()              const ; // inverse matrix
-    Vector          invert (const Vector&) const ; // solve linear equations
-    Matrix          invert (const Matrix&) const ; // solve linear equations
+    Vector          invert (Vector) const ; // solve linear equations
+    Matrix          invert (Matrix) const ; // solve linear equations
   };
 
   /****************************************************************
@@ -846,12 +699,13 @@ namespace Lapack {
   class Cholesky : private SymmetricMatrix {
 
   public:
-    explicit Cholesky (const SymmetricMatrix&) ;
+    explicit Cholesky (SymmetricMatrix);
     int_t size () const { return SymmetricMatrix::size(); }
 
-    SymmetricMatrix invert () const ; // inverse matrix
-    Vector invert (const Vector&) const ; // solve linear equations
-    Matrix invert (const Matrix&) const ; // solve linear equations
+    SymmetricMatrix invert ()       const; // inverse matrix
+    Vector          invert (Vector) const; // solve linear equations
+    Matrix          invert (Matrix) const; // solve linear equations
+    
     double det_sqrt ();
   };
 
@@ -1017,8 +871,8 @@ namespace Lapack {
     explicit ComplexVector (int_t s) : RefArr<complex>(s) {}
   };
 
-  ComplexVector fourier_transform (const Vector&,                         const MultiIndexConvert&);
-  ComplexVector fourier_transform (const ComplexVector&,                  const MultiIndexConvert&);
+  ComplexVector fourier_transform (Vector,                                const MultiIndexConvert&);
+  ComplexVector fourier_transform (ComplexVector,                         const MultiIndexConvert&);
   ComplexVector fourier_transform (const std::map<int, Lapack::complex>&, const MultiIndexConvert&);
 
   // find a complimentary orthogonal basis set to the non-orthogonal vector set

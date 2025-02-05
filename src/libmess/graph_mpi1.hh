@@ -201,7 +201,7 @@ private:
       
     mutable Array<char> _buff;
 
-    mutable MPI::Request _request;
+    mutable MPI_Request _request;
 
     mutable int _state; // sending, receiving, or free
       
@@ -219,10 +219,10 @@ private:
     void recv (int node, int tag);
 
     bool Test ();
-    bool Test (MPI::Status&);
+    bool Test (MPI_Status&);
 
     void Wait ();
-    void Wait (MPI::Status&);
+    void Wait (MPI_Status&);
 
     virtual ~_gbase_t ();
   };

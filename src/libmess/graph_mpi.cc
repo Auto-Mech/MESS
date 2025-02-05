@@ -28,11 +28,13 @@ double Graph::Expansion::low_freq_thresh = 0.2;
 void Graph::Expansion::correction (const int mode, const double temperature, const std::map<std::multiset<int>, double>& mmat) const
 {
   const char funame [] = "Graph::Expansion::correction: ";
-  
-  const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-  const int mpi_size = MPI::COMM_WORLD.Get_size();
 
-  //
+  int itemp;
+  
+  MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+  const int mpi_rank = itemp;
+
   // master process
   //
   if(!mpi_rank) {
@@ -89,8 +91,13 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
     int    itemp;
     double dtemp;
 
-    const int mpi_size = MPI::COMM_WORLD.Get_size();
-    const int mpi_rank = MPI::COMM_WORLD.Get_rank();
+    MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_rank = itemp;
+    
+    MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_size = itemp;
   
     if(mpi_rank) {
       //
@@ -147,15 +154,14 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
 
     int work_node = 1;
 
-    MPI::Status stat;
+    MPI_Status stat;
 
     std::time_t start_time = std::time(0);
 
-    //
     // main loop
     //
     for(int gi = 0; gi < Graph::size(); ++gi) {
-
+      //
       IO::log << IO::log_offset
 	      << "graph index = " << std::setw(6) << gi
 	      << "   elapsed time[s] = " << std::setw(8) << std::time(0) - start_time
@@ -172,26 +178,26 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
 	multi.resize((Graph::begin() + gi)->size(),     _red_freq_index.size());
       }
 
-      //
       // normal mode indices cycle
       //
       for(long li = 0; li < multi.size(); ++li) {
 	//
 	if(work_node < mpi_size) {
 	  //
-	  MPI::COMM_WORLD.Send(&gi, 1, MPI::INT,  work_node, WORK_TAG);
+	  MPI_Send(&gi, 1, MPI_INT,  work_node, WORK_TAG, MPI_COMM_WORLD);
 
-	  MPI::COMM_WORLD.Send(&li, 1, MPI::LONG, work_node, WORK_TAG);
+	  MPI_Send(&li, 1, MPI_LONG, work_node, WORK_TAG, MPI_COMM_WORLD);
+
 	  ++work_node;
 	}
 	else {
 	  //
 	  int gindex;
 
-	  MPI::COMM_WORLD.Recv(&gindex, 1, MPI::INT,  MPI::ANY_SOURCE, MPI::ANY_TAG, stat);
+	  MPI_Recv(&gindex, 1, MPI_INT,  MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 	  
-	  const int tag  = stat.Get_tag();
-	  const int from = stat.Get_source();
+	  const int tag  = stat.MPI_TAG;
+	  const int from = stat.MPI_SOURCE;
 
 	  if(tag != WORK_TAG) {
 	    //
@@ -204,7 +210,7 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
 	    //
 	    // graph value
 	    //
-	    MPI::COMM_WORLD.Recv(&dtemp, 1, MPI::DOUBLE, from, tag);
+	    MPI_Recv(&dtemp, 1, MPI_DOUBLE, from, tag, MPI_COMM_WORLD, &stat);
 
 	    graph_value[gindex] += dtemp;
 	  }
@@ -220,16 +226,13 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
 	    }
 	  }
 	  
-	  MPI::COMM_WORLD.Send(&gi, 1, MPI::INT,  from, WORK_TAG);
-	  MPI::COMM_WORLD.Send(&li, 1, MPI::LONG, from, WORK_TAG);
-	}
+	  MPI_Send(&gi, 1, MPI_INT,  from, WORK_TAG, MPI_COMM_WORLD);
+	  MPI_Send(&li, 1, MPI_LONG, from, WORK_TAG, MPI_COMM_WORLD);
+	}//
 	//
-	//
-      } // normal mode indices cycle
-      
+      }// normal mode indices cycle
       //
-      //
-    } // main loop
+    }// main loop
 
     // finish with the rest of receives
     //
@@ -237,10 +240,10 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
       //
       int gindex;
 
-      MPI::COMM_WORLD.Recv(&gindex, 1, MPI::INT,  MPI::ANY_SOURCE, MPI::ANY_TAG, stat);
+      MPI_Recv(&gindex, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 	  
-      const int tag  = stat.Get_tag();
-      const int from = stat.Get_source();
+      const int tag  = stat.MPI_TAG;
+      const int from = stat.MPI_SOURCE;
 
       if(tag != WORK_TAG) {
 	//
@@ -253,7 +256,7 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
       //
       if(temperature > 0. || GLOBAL == mode) {
 	//
-	MPI::COMM_WORLD.Recv(&dtemp, 1, MPI::DOUBLE, from, tag);
+	MPI_Recv(&dtemp, 1, MPI_DOUBLE, from, tag, MPI_COMM_WORLD, &stat);
 
 	graph_value[gindex] += dtemp;
       }
@@ -274,7 +277,7 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
     //
     for(int node = 1; node < mpi_size; ++node) {
       //
-      MPI::COMM_WORLD.Send(0, 0, MPI::INT, node, END_TAG);
+      MPI_Send(0, 0, MPI_INT, node, END_TAG, MPI_COMM_WORLD);
     }
 
     double calc_time = 0.;
@@ -288,28 +291,28 @@ void Graph::Expansion::_master (const int mode, const double temperature, const 
       //
       long ltemp;
 
-      MPI::COMM_WORLD.Recv(&dtemp, 1, MPI::DOUBLE, node, STAT_TAG);
+      MPI_Recv(&dtemp, 1, MPI_DOUBLE, node, STAT_TAG, MPI_COMM_WORLD, &stat);
       //
       calc_time += dtemp;
 
-      MPI::COMM_WORLD.Recv(&ltemp, 1, MPI::LONG,   node, STAT_TAG);
+      MPI_Recv(&ltemp, 1, MPI_LONG,   node, STAT_TAG, MPI_COMM_WORLD, &stat);
       //
       zpe_count += ltemp;
 
       if(CENTROID == mode) {
 	//
-	MPI::COMM_WORLD.Recv(&ltemp, 1, MPI::LONG, node, STAT_TAG);
+	MPI_Recv(&ltemp, 1, MPI_LONG, node, STAT_TAG, MPI_COMM_WORLD, &stat);
 	//
 	fac_count += ltemp;
       }
 
       if(temperature > 0.) {
 	//
-	MPI::COMM_WORLD.Recv(&ltemp, 1, MPI::LONG, node, STAT_TAG);
+	MPI_Recv(&ltemp, 1, MPI_LONG, node, STAT_TAG, MPI_COMM_WORLD, &stat);
 	//
 	red_count += ltemp;
 
-	MPI::COMM_WORLD.Recv(&ltemp, 1, MPI::LONG, node, STAT_TAG);
+	MPI_Recv(&ltemp, 1, MPI_LONG, node, STAT_TAG, MPI_COMM_WORLD, &stat);
 	//
 	sum_count += ltemp;
       }
@@ -526,13 +529,18 @@ void Graph::Expansion::_global_work (const double temperature) const
     double dtemp;
     bool   btemp;
 
-    const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-    const int mpi_size = MPI::COMM_WORLD.Get_size();
+    MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_rank = itemp;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_size = itemp;
 
     std::vector<double> tanh_factor;
     std::set<int> low_freq = _low_freq_set(temperature, tanh_factor);
 
-    MPI::Status stat;
+    MPI_Status stat;
 
     std::clock_t calc_time = std::clock();
 
@@ -541,15 +549,17 @@ void Graph::Expansion::_global_work (const double temperature) const
     long red_count = 0;
     long sum_count = 0;
 
-    //
     // main loop
     //
     while(1) {
+      //
       // graph index
+      //
       int gindex;
-      MPI::COMM_WORLD.Recv(&gindex, 1, MPI::INT, MASTER, MPI::ANY_TAG, stat);
 
-      const int tag = stat.Get_tag();
+      MPI_Recv(&gindex, 1, MPI_INT, MASTER, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+
+      const int tag = stat.MPI_TAG;
  
       if(END_TAG == tag) {
 	//
@@ -565,7 +575,8 @@ void Graph::Expansion::_global_work (const double temperature) const
       // normal mode indices converted to a single linear index
       //
       long li;
-      MPI::COMM_WORLD.Recv(&li, 1, MPI::LONG, MASTER, WORK_TAG);
+
+      MPI_Recv(&li, 1, MPI_LONG, MASTER, WORK_TAG, MPI_COMM_WORLD, &stat);
       
       std::vector<int> corrin = MultiIndexConvert(graphit->size(), _red_freq_index.size())(li);
       //
@@ -602,8 +613,9 @@ void Graph::Expansion::_global_work (const double temperature) const
       if(btemp) {
 	//
 	dtemp = 0.;
-	MPI::COMM_WORLD.Send(&gindex, 1, MPI::INT,    MASTER, WORK_TAG);
-	MPI::COMM_WORLD.Send(&dtemp,  1, MPI::DOUBLE, MASTER, WORK_TAG);
+
+	MPI_Send(&gindex, 1, MPI_INT,    MASTER, WORK_TAG, MPI_COMM_WORLD);
+	MPI_Send(&dtemp,  1, MPI_DOUBLE, MASTER, WORK_TAG, MPI_COMM_WORLD);
 
 	continue;
       }
@@ -748,23 +760,22 @@ void Graph::Expansion::_global_work (const double temperature) const
 	}
       }
       
-      MPI::COMM_WORLD.Send(&gindex,  1, MPI::INT,    MASTER, WORK_TAG);
-      MPI::COMM_WORLD.Send(&gfactor, 1, MPI::DOUBLE, MASTER, WORK_TAG);
+      MPI_Send(&gindex,  1, MPI_INT,    MASTER, WORK_TAG, MPI_COMM_WORLD);
+      MPI_Send(&gfactor, 1, MPI_DOUBLE, MASTER, WORK_TAG, MPI_COMM_WORLD);
       //
-      //
-    } // main loop
+    }// main loop
 
     calc_time = std::clock() - calc_time;
 
     dtemp = calc_time / CLOCKS_PER_SEC;
     
-    MPI::COMM_WORLD.Send(&dtemp, 1, MPI::DOUBLE, MASTER, STAT_TAG);
-
-    MPI::COMM_WORLD.Send(&zpe_count, 1, MPI::LONG,   MASTER, STAT_TAG);
+    MPI_Send(&dtemp,     1, MPI_DOUBLE, MASTER, STAT_TAG, MPI_COMM_WORLD);
+    MPI_Send(&zpe_count, 1, MPI_LONG,   MASTER, STAT_TAG, MPI_COMM_WORLD);
 
     if(temperature > 0.) {
-      MPI::COMM_WORLD.Send(&red_count, 1, MPI::LONG, MASTER, STAT_TAG);
-      MPI::COMM_WORLD.Send(&sum_count, 1, MPI::LONG, MASTER, STAT_TAG);
+      //
+      MPI_Send(&red_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+      MPI_Send(&sum_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
     }
   }
   catch(Error::General) {
@@ -782,13 +793,18 @@ void Graph::Expansion::_centroid_work (const double temperature) const
     double dtemp;
     bool   btemp;
 
-    const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-    const int mpi_size = MPI::COMM_WORLD.Get_size();
+    MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_rank = itemp;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_size = itemp;
 
     std::vector<double> tanh_factor;
     std::set<int> low_freq = _low_freq_set(temperature, tanh_factor);
 
-    MPI::Status stat;
+    MPI_Status stat;
 
     std::clock_t calc_time = std::clock();
 
@@ -803,9 +819,9 @@ void Graph::Expansion::_centroid_work (const double temperature) const
     while(1) {
       //
       int gindex;
-      MPI::COMM_WORLD.Recv(&gindex, 1, MPI::INT, MASTER, MPI::ANY_TAG, stat);
+      MPI_Recv(&gindex, 1, MPI_INT, MASTER, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 
-      const int tag = stat.Get_tag();
+      const int tag = stat.MPI_TAG;
 
       if(END_TAG == tag) {
 	//
@@ -817,7 +833,8 @@ void Graph::Expansion::_centroid_work (const double temperature) const
       }
 
       long li;
-      MPI::COMM_WORLD.Recv(&li, 1, MPI::LONG, MASTER, WORK_TAG);
+
+      MPI_Recv(&li, 1, MPI_LONG, MASTER, WORK_TAG, MPI_COMM_WORLD, &stat);
       //
       Graph::const_iterator graphit = Graph::begin() + gindex;
       //
@@ -859,11 +876,11 @@ void Graph::Expansion::_centroid_work (const double temperature) const
 
       if(btemp) {
 
-	MPI::COMM_WORLD.Send(&gindex, 1, MPI::INT, MASTER, WORK_TAG);
+	MPI_Send(&gindex, 1, MPI_INT, MASTER, WORK_TAG, MPI_COMM_WORLD);
 	
 	if(temperature > 0.) {
 	  //
-	  MPI::COMM_WORLD.Send(&gvalue, 1, MPI::DOUBLE, MASTER, WORK_TAG);
+	  MPI_Send(&gvalue, 1, MPI_DOUBLE, MASTER, WORK_TAG, MPI_COMM_WORLD);
 	}
 	else {
 	  //
@@ -1082,11 +1099,11 @@ void Graph::Expansion::_centroid_work (const double temperature) const
 	//
       } // centroid correction mask cycle
 	
-      MPI::COMM_WORLD.Send(&gindex, 1, MPI::INT, MASTER, WORK_TAG);
+      MPI_Send(&gindex, 1, MPI_INT, MASTER, WORK_TAG, MPI_COMM_WORLD);
 
       if(temperature > 0.) {
 	//
-	MPI::COMM_WORLD.Send(&gvalue, 1, MPI::DOUBLE, MASTER, WORK_TAG);
+	MPI_Send(&gvalue, 1, MPI_DOUBLE, MASTER, WORK_TAG, MPI_COMM_WORLD);
       }
       else {
 	//
@@ -1100,16 +1117,14 @@ void Graph::Expansion::_centroid_work (const double temperature) const
 
     dtemp = calc_time / CLOCKS_PER_SEC;
     
-    MPI::COMM_WORLD.Send(&dtemp, 1, MPI::DOUBLE, MASTER, STAT_TAG);
-
-    MPI::COMM_WORLD.Send(&zpe_count, 1, MPI::LONG,   MASTER, STAT_TAG);
-
-    MPI::COMM_WORLD.Send(&fac_count, 1, MPI::LONG,   MASTER, STAT_TAG);
+    MPI_Send(&dtemp,     1, MPI_DOUBLE, MASTER, STAT_TAG, MPI_COMM_WORLD);
+    MPI_Send(&zpe_count, 1, MPI_LONG,   MASTER, STAT_TAG, MPI_COMM_WORLD);
+    MPI_Send(&fac_count, 1, MPI_LONG,   MASTER, STAT_TAG, MPI_COMM_WORLD);
 
     if(temperature > 0.) {
-      MPI::COMM_WORLD.Send(&red_count, 1, MPI::LONG, MASTER, STAT_TAG);
-
-      MPI::COMM_WORLD.Send(&sum_count, 1, MPI::LONG, MASTER, STAT_TAG);
+      //
+      MPI_Send(&red_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+      MPI_Send(&sum_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
     }
   }
   catch(Error::General) {
@@ -1130,13 +1145,19 @@ void Graph::Expansion::_centroid_work_with_constrain (const double temperature, 
     bool   btemp;
 
     // mpi stuff
-    const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-    const int mpi_size = MPI::COMM_WORLD.Get_size();
+    //
+    MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+	
+    const int mpi_rank = itemp;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+	
+    const int mpi_size = itemp;
 
     std::vector<double> tanh_factor;
     std::set<int> low_freq = _low_freq_set(temperature, tanh_factor);
 
-    MPI::Status stat;
+    MPI_Status stat;
 
     std::clock_t calc_time = std::clock();
 
@@ -1145,28 +1166,32 @@ void Graph::Expansion::_centroid_work_with_constrain (const double temperature, 
     long red_count = 0;
     long sum_count = 0;
 
-    //
     // main loop
     //
     while(1) {
+      //
       int gindex;
-      MPI::COMM_WORLD.Recv(&gindex, 1, MPI::INT, MASTER, MPI::ANY_TAG, stat);
 
-      const int tag = stat.Get_tag();
+      MPI_Recv(&gindex, 1, MPI_INT, MASTER, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+
+      const int tag = stat.MPI_TAG;
 
       if(END_TAG == tag) {
 	//
 	break;
       }
       else if(WORK_TAG != tag) {
+        //
 	ErrOut err_out;
+
 	err_out << funame << "wrong tag: " << tag;
       }
 
       Graph::const_iterator graphit = Graph::begin() + gindex;
 
       long li;
-      MPI::COMM_WORLD.Recv(&li, 1, MPI::LONG, MASTER, WORK_TAG);
+
+      MPI_Recv(&li, 1, MPI_LONG, MASTER, WORK_TAG, MPI_COMM_WORLD, &stat);
       //
       std::vector<int> corrin = MultiIndexConvert(graphit->size() * 2, _red_freq_index.size())(li);
       //
@@ -1225,11 +1250,11 @@ void Graph::Expansion::_centroid_work_with_constrain (const double temperature, 
 
       if(btemp) {
 	//
-	MPI::COMM_WORLD.Send(&gindex, 1, MPI::INT, MASTER, WORK_TAG);
+	MPI_Send(&gindex, 1, MPI_INT, MASTER, WORK_TAG, MPI_COMM_WORLD);
 	
 	if(temperature > 0.) {
 	  //
-	  MPI::COMM_WORLD.Send(&gvalue, 1, MPI::DOUBLE, MASTER, WORK_TAG);
+	  MPI_Send(&gvalue, 1, MPI_DOUBLE, MASTER, WORK_TAG, MPI_COMM_WORLD);
 	}
 	else {
 	  //
@@ -1538,34 +1563,31 @@ void Graph::Expansion::_centroid_work_with_constrain (const double temperature, 
 	//
       } // centroid correction mask cycle
 	
-      MPI::COMM_WORLD.Send(&gindex, 1, MPI::INT, MASTER, WORK_TAG);
+      MPI_Send(&gindex, 1, MPI_INT, MASTER, WORK_TAG, MPI_COMM_WORLD);
 	
       if(temperature > 0.) {
 	//
-	MPI::COMM_WORLD.Send(&gvalue, 1, MPI::DOUBLE, MASTER, WORK_TAG);
+	MPI_Send(&gvalue, 1, MPI_DOUBLE, MASTER, WORK_TAG, MPI_COMM_WORLD);
       }
       else {
 	//
 	gmap.send(MASTER, WORK_TAG);
-      }
+      }//
       //
-      //
-    } // main loop
+    }// main loop
 
     calc_time = std::clock() - calc_time;
 
     dtemp = calc_time / CLOCKS_PER_SEC;
     
-    MPI::COMM_WORLD.Send(&dtemp, 1, MPI::DOUBLE, MASTER, STAT_TAG);
-
-    MPI::COMM_WORLD.Send(&zpe_count, 1, MPI::LONG,   MASTER, STAT_TAG);
-
-    MPI::COMM_WORLD.Send(&fac_count, 1, MPI::LONG,   MASTER, STAT_TAG);
+    MPI_Send(&dtemp,     1, MPI_DOUBLE, MASTER, STAT_TAG, MPI_COMM_WORLD);
+    MPI_Send(&zpe_count, 1, MPI_LONG,   MASTER, STAT_TAG, MPI_COMM_WORLD);
+    MPI_Send(&fac_count, 1, MPI_LONG,   MASTER, STAT_TAG, MPI_COMM_WORLD);
 
     if(temperature > 0.) {
-      MPI::COMM_WORLD.Send(&red_count, 1, MPI::LONG, MASTER, STAT_TAG);
-
-      MPI::COMM_WORLD.Send(&sum_count, 1, MPI::LONG, MASTER, STAT_TAG);
+      //
+      MPI_Send(&red_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+      MPI_Send(&sum_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
     }
   }
   catch(Error::General) {
@@ -1611,24 +1633,24 @@ void Graph::Expansion::_gbase_t::send (int node, int tag) const
   
   int pack_size = _pack(buff);
 
-  MPI::COMM_WORLD.Send(&pack_size, 1,         MPI::INT,    node, tag);
-
-  MPI::COMM_WORLD.Send(buff,       pack_size, MPI::PACKED, node, tag);
+  MPI_Send(&pack_size, 1,         MPI_INT,    node, tag, MPI_COMM_WORLD);
+  MPI_Send(buff,       pack_size, MPI_PACKED, node, tag, MPI_COMM_WORLD);
 }
 
 void Graph::Expansion::_gbase_t::recv (int node, int tag)
 {
   int pack_size;
 
-  MPI::COMM_WORLD.Recv(&pack_size, 1,   MPI::INT,    node, tag);
+  MPI_Status stat;
+
+  MPI_Recv(&pack_size, 1,   MPI_INT,    node, tag, MPI_COMM_WORLD, &stat);
   
   Array<char> buff(pack_size);
   //
-  MPI::COMM_WORLD.Recv(buff, pack_size, MPI::PACKED, node, tag);
+  MPI_Recv(buff, pack_size, MPI_PACKED, node, tag, MPI_COMM_WORLD, &stat);
 
   _unpack(buff);
 }
-
 
 /*******************************************************************************************
  ************************* COMMUNICAIION CLASS FOR MAP<INT, DOUBLE> ************************
@@ -1638,21 +1660,26 @@ int Graph::Expansion::_gmap_t::_pack (Array<char>& buff) const
 {
   int itemp;
 
-  itemp = (size() + 1) * MPI::INT.Pack_size(1, MPI::COMM_WORLD) + size() * MPI::DOUBLE.Pack_size(1, MPI::COMM_WORLD);
+  MPI_Pack_size(1, MPI_INT, MPI_COMM_WORLD, &itemp);
 
-  buff.resize(itemp);
+  int pack_size = (size() + 1) * itemp;
+
+  MPI_Pack_size(1, MPI_DOUBLE, MPI_COMM_WORLD, &itemp);
+
+  pack_size += size() * itemp;
+
+  buff.resize(pack_size);
   
   int pos = 0;
 
   itemp = size();
 
-  MPI::INT.Pack(&itemp, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&itemp, 1, MPI_INT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   for(std::map<int, double>::const_iterator mit = this->begin(); mit != this->end(); ++mit) {
     //
-    MPI::INT.Pack(&mit->first, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
-    
-    MPI::DOUBLE.Pack(&mit->second, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+    MPI_Pack(&mit->first,  1, MPI_INT,    buff, buff.size(), &pos, MPI_COMM_WORLD);
+    MPI_Pack(&mit->second, 1, MPI_DOUBLE, buff, buff.size(), &pos, MPI_COMM_WORLD);
   }
   
   return pos;
@@ -1669,14 +1696,13 @@ void Graph::Expansion::_gmap_t::_unpack (const Array<char>& buff)
 
   int map_size;
   //
-  MPI::INT.Unpack(buff, buff.size(), &map_size, 1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &map_size, 1, MPI_INT, MPI_COMM_WORLD);
   
   for(int i = 0; i < map_size; ++i) {
     //
-    MPI::INT.Unpack(buff, buff.size(), &itemp, 1, pos, MPI::COMM_WORLD);
+    MPI_Unpack(buff, buff.size(), &pos, &itemp, 1, MPI_INT,    MPI_COMM_WORLD);
+    MPI_Unpack(buff, buff.size(), &pos, &dtemp, 1, MPI_DOUBLE, MPI_COMM_WORLD);
     
-    MPI::DOUBLE.Unpack(buff, buff.size(), &dtemp, 1, pos, MPI::COMM_WORLD);
-
     if(!this->insert(std::make_pair(itemp, dtemp)).second) {
       //
       ErrOut err_out;

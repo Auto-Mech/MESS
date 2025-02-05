@@ -21,35 +21,50 @@ void GraphExpansion::correction (int mode, double temperature, const std::map<st
 {
   const char funame [] = "GraphExpansion::correction: ";
   
-  const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-  const int mpi_size = MPI::COMM_WORLD.Get_size();
+  int itemp;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+  const int mpi_rank = itemp;
+
+  MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+  const int mpi_size = itemp;
 
   // master process
+  //
   if(!mpi_rank) {
+    //
     IO::Marker funame_marker(funame);
     
     _master(temperature, mode);
   }
-  //
   // integral server
+  //
   else if(mpi_rank == INT_SERV) {
+    //
     _int_server(temperature);
   }
   // zpe database server
+  //
   else if(mpi_rank == ZPE_SERV) {
+    //
     _zpe_server(temperature);
   }
-  //
   // fourier sum database server
+  //
   else if(mpi_rank == SUM_SERV) {
+    //
     _sum_server(temperature);
   }
-  //
   // working nodes
+  //
   else if(_is_work_node(mpi_rank)) {
+    //
     _node_work(temperature);
   }
   else if(_is_driver(mpi_rank)) {
+    //
     _driver(temperature, mode, mmat);
   }
 }
@@ -82,39 +97,52 @@ void GraphExpansion::_global_driver (double temperature) const
     double dtemp;
     bool   btemp;
 
-    // mpi stuff
-    const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-    const int mpi_size = MPI::COMM_WORLD.Get_size();
+    MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_rank = itemp;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_size = itemp;
 
     // posted sends
+    //
     typedef std::list<SharedPointer<_gbase_t> >  sent_t;
     sent_t sending;
 
     //posted receives
+    //
     std::list<_gin_t> receiving;
 
     // symbolic map
+    //
     std::map<int, std::map<_mg_t, double> > sym_map;
 
     if(!_is_driver(mpi_rank)) {
+      //
       ErrOut err_out;
+
       err_out << funame << "not a driver";
     }
     
     // calculation stuff
+    //
     std::vector<double> tanh_factor;
+
     std::set<int> low_freq = _low_freq_set(temperature, tanh_factor);
 
     while(1) {
+      //
       // mpi stuff
-      MPI::COMM_WORLD.Send(0, 0, MPI::INT, MASTER, GINDEX_REQUEST);
+      //
+      MPI_Send(0, 0, MPI_INT, MASTER, GINDEX_REQUEST, MPI_COMM_WORLD);
 
-      int gindex;
-      gindex = _gnode_t(MASTER, GINDEX_TAG);
+      int gindex = _gnode_t(MASTER, GINDEX_TAG);
 
       //std::cout << "gindex = " << gindex << std::endl;
 
       if(_graph_data.size() == gindex)
+        //
 	break;
     
       std::vector<_graph_t>::const_iterator graphit = _sorted_graph.begin() + gindex;
@@ -224,6 +252,7 @@ void GraphExpansion::_global_driver (double temperature) const
       }// correlator indices cycle
 
       // clean completed sends
+      //
       for(sent_t::iterator sit = sending.begin(); sit != sending.end(); )
 	if((*sit)->Test())
 	  sit = sending.erase(sit);
@@ -248,6 +277,7 @@ void GraphExpansion::_global_driver (double temperature) const
     } // graph cycle
 
     // finish with receives
+    //
     std::map<_fg_t, double> received;
     for(std::list<_gin_t>::iterator pit = receiving.begin(); pit != receiving.end(); ) {
       pit->Wait();
@@ -258,24 +288,34 @@ void GraphExpansion::_global_driver (double temperature) const
     }
     
     // update symbolic map
+    //
     _update_symbolic_map(sym_map, received, &sending);
 
     // finish with sends
+    //
     for(sent_t::iterator sit = sending.begin(); sit != sending.end();) {
+      //
       (*sit)->Wait();
+
       sit = sending.erase(sit);
     }
 
     if(sym_map.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "some unresolved graphs are still in symbolic map";
     }
-    MPI::COMM_WORLD.Send(0, 0, MPI::INT, MASTER, END_TAG);
+    MPI_Send(0, 0, MPI_INT, MASTER, END_TAG, MPI_COMM_WORLD);
 
-    MPI::COMM_WORLD.Recv(0, 0, MPI::INT, MASTER, END_TAG);
+    MPI_Status stat;
+
+    MPI_Recv(0, 0, MPI_INT, MASTER, END_TAG, MPI_COMM_WORLD, &stat);
   }
   catch(Error::General) {
+    //
     std::cerr << funame << "Oops\n";
+
     throw;
   }
 }
@@ -289,12 +329,18 @@ void GraphExpansion::_centroid_driver (double temperature) const
     double dtemp;
     bool   btemp;
 
-    // mpi stuff
-    const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-    const int mpi_size = MPI::COMM_WORLD.Get_size();
+    MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_rank = itemp;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_size = itemp;
 
     if(!_is_driver(mpi_rank)) {
+      //
       ErrOut err_out;
+
       err_out << funame << "not a driver";
     }
 
@@ -307,29 +353,35 @@ void GraphExpansion::_centroid_driver (double temperature) const
     std::map<int, std::map<int, std::map<_mg_t, double> > > sym_zpe_map;
 
     // calculation stuff
+    //
     std::vector<double> tanh_factor;
     std::set<int> low_freq = _low_freq_set(temperature, tanh_factor);
 
     // graph cycle
+    //
     while(1) {
+      //
       // graph index request
-      MPI::COMM_WORLD.Send(0, 0, MPI::INT, MASTER, GINDEX_REQUEST);
+      //
+      MPI_Send(0, 0, MPI_INT, MASTER, GINDEX_REQUEST, MPI_COMM_WORLD);
 
       // graph index
+      //
       const int gindex = _gnode_t(MASTER, GINDEX_TAG);
 
       if(_graph_data.size() == gindex)
+        //
 	break;
     
       std::vector<_graph_t>::const_iterator graphit = _sorted_graph.begin() + gindex;
 
       // calculation stuff
+      //
       const std::vector<std::multiset<int> > vertex_map = graphit->vertex_bond_map();
       const int vertex_size = vertex_map.size();
 
       MultiIndexConvert corr_multi_index(graphit->size(), _red_freq_index.size());
 
-      //
       // normal mode indices cycle
       //
       for(long corr_li = 0; corr_li < corr_multi_index.size(); ++corr_li) {
@@ -541,16 +593,22 @@ void GraphExpansion::_centroid_driver (double temperature) const
     }
     
     if(temperature > 0. && sym_val_map.size() || temperature <= 0. && sym_zpe_map.size()) {
+      //
       ErrOut err_out;
+
       err_out << "some graphs in the symbolic map not resolved";
     } 
 
-    MPI::COMM_WORLD.Send(0, 0, MPI::INT, MASTER, END_TAG);
+    MPI_Send(0, 0, MPI_INT, MASTER, END_TAG, MPI_COMM_WORLD);
 
-    MPI::COMM_WORLD.Recv(0, 0, MPI::INT, MASTER, END_TAG);
+    MPI_Status stat;
+
+    MPI_Recv(0, 0, MPI_INT, MASTER, END_TAG, MPI_COMM_WORLD, &stat);
   }
   catch(Error::General) {
+    //
     std::cerr << funame << "Oops\n";
+
     throw;
   }
 }
@@ -564,12 +622,18 @@ void GraphExpansion::_centroid_driver_with_constrain (double temperature, const 
     double dtemp;
     bool   btemp;
 
-    // mpi stuff
-    const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-    const int mpi_size = MPI::COMM_WORLD.Get_size();
+    MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_rank = itemp;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_size = itemp;
 
     if(!_is_driver(mpi_rank)) {
+      //
       ErrOut err_out;
+
       err_out << funame << "not a driver";
     }
 
@@ -582,16 +646,18 @@ void GraphExpansion::_centroid_driver_with_constrain (double temperature, const 
     std::map<int, std::map<int, std::map<_mg_t, double> > >  sym_zpe_map;
 
     // calculation stuff
+    //
     std::vector<double> tanh_factor;
     std::set<int> low_freq = _low_freq_set(temperature, tanh_factor);
 
     while(1) {
-      // mpi stuff
-      MPI::COMM_WORLD.Send(0, 0, MPI::INT, MASTER, GINDEX_REQUEST);
+      //
+      MPI_Send(0, 0, MPI_INT, MASTER, GINDEX_REQUEST, MPI_COMM_WORLD);
 
       const int gindex = _gnode_t(MASTER, GINDEX_TAG);
 
       if(_graph_data.size() == gindex)
+	//
 	break;
     
       std::vector<_graph_t>::const_iterator graphit = _sorted_graph.begin() + gindex;
@@ -851,8 +917,11 @@ void GraphExpansion::_centroid_driver_with_constrain (double temperature, const 
     }  // graph cycle
 
     // complete rest of receives
+    //
     std::map<_fg_t, double> received;
+
     for(std::list<_gin_t>::iterator pit = receiving.begin(); pit != receiving.end(); ) {
+      //
       pit->Wait();
     
       received[pit->first] = pit->second;
@@ -861,79 +930,112 @@ void GraphExpansion::_centroid_driver_with_constrain (double temperature, const 
     }
 
     //update symbolic maps
-    if(temperature > 0.)
+    //
+    if(temperature > 0.) {
+      //
       _update_symbolic_map(sym_val_map, received, &sending);
+    }
     else
+      //
       _update_symbolic_map(sym_zpe_map, received, &sending);
     
     // complete rest of sends
+    //
     for(sent_t::iterator sit = sending.begin(); sit != sending.end(); ) {
+      //
       (*sit)->Wait();
     
       sit = sending.erase(sit);
     }
   
     if(temperature > 0. && sym_val_map.size() || temperature <= 0. && sym_zpe_map.size()) {
+      //
       ErrOut err_out;
+
       err_out << "some graphs in the symbolic map not resolved";
     }
 
-    MPI::COMM_WORLD.Send(0, 0, MPI::INT, MASTER, END_TAG);
+    MPI_Send(0, 0, MPI_INT, MASTER, END_TAG, MPI_COMM_WORLD);
 
-    MPI::COMM_WORLD.Recv(0, 0, MPI::INT, MASTER, END_TAG);
+    MPI_Status stat;
+
+    MPI_Recv(0, 0, MPI_INT, MASTER, END_TAG, MPI_COMM_WORLD, &stat);
   }
   catch(Error::General) {
+    //
     std::cerr << funame << "Oops\n";
+
     throw;
   }
 }
 
 // perturbation graph theory initializer
+//
 void GraphExpansion::init (const std::vector<double>& freq, const _potex_t& pex)
 {
   const char funame [] = "GraphExpansion::init: ";
 
   int itemp;
 
-  const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-  const int mpi_size = MPI::COMM_WORLD.Get_size();
+  MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+  const int mpi_rank = itemp;
+
+  MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+  const int mpi_size = itemp;
 
   if(!freq.size()) {
+    //
     ErrOut err_out;
+
     err_out << funame << "no frequencies";
   }
   
   if(pex.index_range() != freq.size()) {
+    //
     ErrOut err_out;
+
     err_out << funame << "potential expansion index range and frequencies number mismatch: " << pex.index_range() << ", " << freq.size();
   }
   
   // initialize frequencies
+  //
   _set_frequencies(freq);
 
   // initialize potential expansion
+  //
   _potex = pex;
 
   std::set<int> pex_rank_pool;
-  //
+
   for(_potex_t::const_iterator pit = _potex.begin(); pit != _potex.end(); ++pit)
+    //
     pex_rank_pool.insert(pit->first.size());
 
   std::vector<int> pex_rank;
+
   for(std::set<int>::const_iterator pit = pex_rank_pool.begin(); pit != pex_rank_pool.end(); ++pit)
+    //
     if(*pit > 2)
+      //
       pex_rank.push_back(*pit);
   
   if(!pex_rank.size()) {
+    //
     ErrOut err_out;
+
     err_out << funame << "anharmonic terms in the potential expansion do not exist";
   }
 
   std::vector<int> glimit(pex_rank.size());
+
   for(int i = 0; i < pex_rank.size(); ++i)
+    //
     glimit[i] = 2 * bond_max / pex_rank[i];
 
   // initialize frequency adapted graph converter (glimit[0] - maximal number of vertices)
+  //
   _convert.init(glimit[0], _red_freq.size());
 
   IO::Marker funame_marker(funame);
@@ -1256,8 +1358,13 @@ void GraphExpansion::_set_frequencies (std::vector<double> freq)
   double dtemp;
   int    itemp;
 
-  const int mpi_rank = MPI::COMM_WORLD.Get_rank();
-  const int mpi_size = MPI::COMM_WORLD.Get_size();
+  MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+  const int mpi_rank = itemp;
+
+  MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+  const int mpi_size = itemp;
 
   _red_freq_map.clear();
 
@@ -1558,19 +1665,26 @@ void GraphExpansion::_gbase_t::isend (int node, int tag, int flag) const
   const char funame [] = "GraphExpansion::_gbase_t::isend: ";
 
   if(IFREE != _state) {
+    //
     ErrOut err_out;
+
     err_out << funame << "buffer is used for communication: " << _state;
   }
 
   if(!_buff.size())
+    //
     _buff.resize(BUFF_SIZE);
 
   int pos = _pack(_buff);
 
-  if(!flag)
-    MPI::COMM_WORLD.Isend(0, 0, MPI::INT, node, tag).Free();
+  if(!flag) {
+    //
+    MPI_Isend(0, 0, MPI_INT, node, tag, MPI_COMM_WORLD, &_request);
+
+    MPI_Request_free(&_request);
+  }
   
-  _request = MPI::COMM_WORLD.Isend(_buff, pos, MPI::PACKED, node, tag);
+  MPI_Isend(_buff, pos, MPI_PACKED, node, tag, MPI_COMM_WORLD, &_request);
 
   _state = ISEND;
 }
@@ -1580,7 +1694,9 @@ void GraphExpansion::_gbase_t::send (int node, int tag) const
   const char funame [] = "GraphExpansion::_gbase_t::send: ";
 
   if(IFREE != _state) {
+    //
     ErrOut err_out;
+
     err_out << funame << "buffer is used for communication: " << _state;
   }
 
@@ -1588,7 +1704,7 @@ void GraphExpansion::_gbase_t::send (int node, int tag) const
   
   int pos = _pack(alt_buff);
   
-  MPI::COMM_WORLD.Send(alt_buff, pos, MPI::PACKED, node, tag);
+  MPI_Send(alt_buff, pos, MPI_PACKED, node, tag);
 }
 
 void GraphExpansion::_gbase_t::irecv (int node, int tag) const
@@ -1596,14 +1712,17 @@ void GraphExpansion::_gbase_t::irecv (int node, int tag) const
   const char funame [] = "GraphExpansion::_gbase_t::irecv: ";
 
   if(IFREE != _state) {
+    //
     ErrOut err_out;
+
     err_out << funame << "buffer is used for communication: " << _state;
   }
 
   if(!_buff.size())
+    //
     _buff.resize(BUFF_SIZE);
 
-  _request = MPI::COMM_WORLD.Irecv(_buff, _buff.size(), MPI::PACKED, node, tag);
+  MPI_Irecv(_buff, _buff.size(), MPI_PACKED, node, tag, MPI_COMM_WORLD, &_request);
 
   _state = IRECV;
 }
@@ -1613,13 +1732,17 @@ void GraphExpansion::_gbase_t::recv (int node, int tag)
   const char funame [] = "GraphExpansion::_gbase_t::recv: ";
 
   if(IFREE != _state) {
+    //
     ErrOut err_out;
+
     err_out << funame << "buffer is used for communication: " << _state;
   }
 
   Array<char> alt_buff((int)BUFF_SIZE);
   
-  MPI::COMM_WORLD.Recv(alt_buff, alt_buff.size(), MPI::PACKED, node, tag);
+  MPI_Status stat;
+
+  MPI_Recv(alt_buff, alt_buff.size(), MPI_PACKED, node, tag, MPI_COMM_WORLD, &stat);
 
   _unpack(alt_buff);
 }
@@ -1629,35 +1752,55 @@ bool GraphExpansion::_gbase_t::Test ()
   const char funame [] = "GraphExpansion::_gbase_t::Test: ";
       
   if(IFREE == _state) {
+    //
     ErrOut err_out;
+
     err_out << funame << "test on ifree buffer";
   }
+
+ int flag;
+
+ MPI_Status stat;
+
+ MPI_Test(&_request, &flag, &stat);
       
-  if(_request.Test()) {
+  if(flag) {
+    //
     if(IRECV == _state)
+      //
       _unpack(_buff);
 
     _state = IFREE;
+
     return true;
   }
 
   return false;
 }
     
-bool GraphExpansion::_gbase_t::Test (MPI::Status& stat)
+bool GraphExpansion::_gbase_t::Test (MPI_Status& stat)
 {
   const char funame [] = "GraphExpansion::_gbase_t::Test: ";
       
   if(IFREE == _state) {
+    //
     ErrOut err_out;
+
     err_out << funame << "test on ifree buffer";
   }
       
-  if(_request.Test(stat)) {
+  int flag;
+
+  MPI_Test(&_request, &flag, &stat);
+
+  if(flag) {
+    //
     if(IRECV == _state)
+      //
       _unpack(_buff);
 
     _state = IFREE;
+
     return true;
   }
 
@@ -1669,30 +1812,38 @@ void GraphExpansion::_gbase_t::Wait ()
   const char funame [] = "GraphExpansion::_gbase_t::Wait: ";
       
   if(IFREE == _state) {
+    //
     ErrOut err_out;
+
     err_out << funame << "wait on ifree buffer";
   }
       
-  _request.Wait();
-      
+  MPI_Status stat;
+
+  MPI_Wait(&_request, &stat);
+
   if(IRECV == _state)
+    //
     _unpack(_buff);
       
   _state = IFREE;
 }
     
-void GraphExpansion::_gbase_t::Wait (MPI::Status& stat)
+void GraphExpansion::_gbase_t::Wait (MPI_Status& stat)
 {
   const char funame [] = "GraphExpansion::_gbase_t::Wait: ";
       
   if(IFREE == _state) {
+    //
     ErrOut err_out;
+
     err_out << funame << "wait on ifree buffer";
   }
       
-  _request.Wait(stat);
+  MPI_Wait(&_request, &stat);
   
   if(IRECV == _state)
+    //
     _unpack(_buff);
       
   _state = IFREE;
@@ -1712,9 +1863,9 @@ int GraphExpansion::_gself_t::_pack (Array<char>& buff) const
 
   int pos = 0;
 
-  MPI::INT.Pack(&itemp, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&itemp, 1, MPI_INT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
-  MPI::SHORT.Pack(gconv, gconv.size(), buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(gconv, gconv.size(), MPI_SHORT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   return pos;
 }
@@ -1727,10 +1878,11 @@ void GraphExpansion::_gself_t::_unpack (const Array<char>& buff)
 
   int pos = 0;
 
-  MPI::INT.Unpack(buff, buff.size(), &itemp, 1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &itemp, 1, MPI_INT, MPI_COMM_WORLD);
     
   gconv.resize(itemp);
-  MPI::SHORT.Unpack(buff, buff.size(), gconv, gconv.size(), pos, MPI::COMM_WORLD);
+
+  MPI_Unpack(buff, buff.size(), &pos, gconv, gconv.size(), MPI_SHORT, MPI_COMM_WORLD);
 
   (_fg_t&)*this = _convert(gconv);
 }
@@ -1751,11 +1903,11 @@ int GraphExpansion::_gin_t::_pack (Array<char>& buff) const
 
   int pos = 0;
 
-  MPI::INT.Pack(&itemp, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&itemp, 1, MPI_INT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
-  MPI::SHORT.Pack(gconv, gconv.size(), buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(gconv, gconv.size(), MPI_SHORT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
-  MPI::DOUBLE.Pack(&this->second, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&this->second, 1, MPI_DOUBLE, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   return pos;
 }
@@ -1769,14 +1921,15 @@ void GraphExpansion::_gin_t::_unpack (const Array<char>& buff)
 
   int pos = 0;
 
-  MPI::INT.Unpack(buff, buff.size(), &itemp, 1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &itemp, 1, MPI_INT, MPI_COMM_WORLD);
     
   gconv.resize(itemp);
-  MPI::SHORT.Unpack(buff, buff.size(), gconv, gconv.size(), pos, MPI::COMM_WORLD);
+
+  MPI_Unpack(buff, buff.size(), &pos, gconv, gconv.size(), MPI_SHORT, MPI_COMM_WORLD);
 
   this->first = _convert(gconv);
 
-  MPI::DOUBLE.Unpack(buff, buff.size(), &this->second, 1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &this->second, 1, MPI_DOUBLE, MPI_COMM_WORLD);
 }
 
 /*******************************************************************************************
@@ -1794,16 +1947,16 @@ int GraphExpansion::_gpair_t::_pack (Array<char>& buff) const
   gconv = _convert(this->first);
   itemp = gconv.size();
 
-  MPI::INT.Pack(&itemp, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&itemp, 1, MPI_INT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
-  MPI::SHORT.Pack(gconv, gconv.size(), buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(gconv, gconv.size(), MPI_SHORT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   gconv = _convert(this->second);
   itemp = gconv.size();
 
-  MPI::INT.Pack(&itemp, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&itemp, 1, MPI_INT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
-  MPI::SHORT.Pack(gconv, gconv.size(), buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(gconv, gconv.size(), MPI_SHORT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   return pos;
 }
@@ -1816,17 +1969,17 @@ void GraphExpansion::_gpair_t::_unpack (const Array<char>& buff)
 
   int pos = 0;
 
-  MPI::INT.Unpack(buff, buff.size(), &itemp, 1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &itemp, 1, MPI_INT, MPI_COMM_WORLD);
     
   gconv.resize(itemp);
-  MPI::SHORT.Unpack(buff, buff.size(), gconv, gconv.size(), pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, gconv, gconv.size(), MPI_SHORT, MPI_COMM_WORLD);
 
   this->first = _convert(gconv);
 
-  MPI::INT.Unpack(buff, buff.size(), &itemp, 1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &itemp, 1, MPI_INT, MPI_COMM_WORLD);
     
   gconv.resize(itemp);
-  MPI::SHORT.Unpack(buff, buff.size(), gconv, gconv.size(), pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, gconv, gconv.size(), MPI_SHORT, MPI_COMM_WORLD);
 
   this->second = _convert(gconv);
 }
@@ -1839,8 +1992,8 @@ int GraphExpansion::_gval_t::_pack (Array<char>& buff) const
 {
   int pos = 0;
 
-  MPI::INT.Pack   (&this->first,  1, buff, buff.size(), pos, MPI::COMM_WORLD);
-  MPI::DOUBLE.Pack(&this->second, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&this->first,  1, MPI_INT,    buff, buff.size(), &pos, MPI_COMM_WORLD);
+  MPI_Pack(&this->second, 1, MPI_DOUBLE, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   return pos;
 }
@@ -1849,8 +2002,8 @@ void GraphExpansion::_gval_t::_unpack (const Array<char>& buff)
 {
   int pos = 0;
 
-  MPI::INT.Unpack   (buff, buff.size(), &this->first,  1, pos, MPI::COMM_WORLD);
-  MPI::DOUBLE.Unpack(buff, buff.size(), &this->second, 1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &this->first,  1, MPI_INT,    MPI_COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &this->second, 1, MPI_DOUBLE, MPI_COMM_WORLD);
 }
 
 /*******************************************************************************************
@@ -1861,7 +2014,7 @@ int GraphExpansion::_gnode_t::_pack (Array<char>& buff) const
 {
   int pos = 0;
 
-  MPI::INT.Pack(&_value,  1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&_value, 1, MPI_INT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   return pos;
 }
@@ -1870,7 +2023,7 @@ void GraphExpansion::_gnode_t::_unpack (const Array<char>& buff)
 {
   int pos = 0;
 
-  MPI::INT.Unpack(buff, buff.size(), &_value,  1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &_value, 1, MPI_INT, MPI_COMM_WORLD);
 }
 
 /*******************************************************************************************
@@ -1883,16 +2036,16 @@ int GraphExpansion::_gmap_t::_pack (Array<char>& buff) const
   
   int pos = 0;
 
-  MPI::INT.Pack(&this->first, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&this->first, 1, MPI_INT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   itemp = this->second.size();
 
-  MPI::INT.Pack(&itemp, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+  MPI_Pack(&itemp, 1, MPI_INT, buff, buff.size(), &pos, MPI_COMM_WORLD);
 
   for(std::map<int, double>::const_iterator mit = this->second.begin(); mit != this->second.end(); ++mit) {
-    MPI::INT.Pack(&mit->first, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
-    
-    MPI::DOUBLE.Pack(&mit->second, 1, buff, buff.size(), pos, MPI::COMM_WORLD);
+    //
+    MPI_Pack(&mit->first,  1, MPI_INT,    buff, buff.size(), &pos, MPI_COMM_WORLD);
+    MPI_Pack(&mit->second, 1, MPI_DOUBLE, buff, buff.size(), &pos, MPI_COMM_WORLD);
   }
   
   return pos;
@@ -1909,22 +2062,26 @@ void GraphExpansion::_gmap_t::_unpack (const Array<char>& buff)
   
   int pos = 0;
 
-  MPI::INT.Unpack(buff, buff.size(), &this->first,  1, pos, MPI::COMM_WORLD);
-
-  MPI::INT.Unpack(buff, buff.size(), &itemp,        1, pos, MPI::COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &this->first, 1, MPI_INT, MPI_COMM_WORLD);
+  MPI_Unpack(buff, buff.size(), &pos, &itemp,       1, MPI_INT, MPI_COMM_WORLD);
 
   const int map_size = itemp;
   
   for(int i = 0; i < map_size; ++i) {
-    MPI::INT.Unpack(buff, buff.size(), &itemp,    1, pos, MPI::COMM_WORLD);
-    
-    MPI::DOUBLE.Unpack(buff, buff.size(), &dtemp, 1, pos, MPI::COMM_WORLD);
+    //
+    MPI_Unpack(buff, buff.size(), &pos, &itemp, 1, MPI_INT,    MPI_COMM_WORLD);
+    MPI_Unpack(buff, buff.size(), &pos, &dtemp, 1, MPI_DOUBLE, MPI_COMM_WORLD);
 
     if(!this->second.insert(std::make_pair(itemp, dtemp)).second) {
+      //
       ErrOut err_out;
+
       err_out << funame << "cannot insert int-double pair: " << itemp << ", " << dtemp << ": available values:\n";
+
       for(std::map<int, double>::const_iterator mit = this->second.begin(); mit != this->second.end(); ++mit)
+	//
 	err_out << mit->first << "  " << mit->second << "\n";
+
       err_out << "\n";
     }
   }
@@ -1954,23 +2111,34 @@ void GraphExpansion::_node_work (double temperature) const
   
     // main loop
     while(1) {
-      MPI::Status stat;
-      MPI::COMM_WORLD.Recv(0, 0, MPI::INT, MPI::ANY_SOURCE, MPI::ANY_TAG, stat);
+      //
+      MPI_Status stat;
 
-      const int tag  = stat.Get_tag();
-      const int from = stat.Get_source();
+      MPI_Recv(0, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+
+      const int tag  = stat.MPI_TAG;
+      const int from = stat.MPI_SOURCE;
 
       // clean completed sends
+      //
       for(sent_t::iterator sit = sending.begin(); sit != sending.end(); )
-	if((*sit)->Test())
+	//
+	if((*sit)->Test()) {
+	  //
 	  sit = sending.erase(sit);
+	}
 	else
+	  //
 	  ++sit;
 
       // end of work
+      //
       if(tag ==  END_TAG) {
+	//
 	if(from != MASTER) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "end request should come from master: " << from;
 	}
 
@@ -1980,9 +2148,13 @@ void GraphExpansion::_node_work (double temperature) const
       const _fg_t graph = _gself_t(from, tag);
 
       // zpe calculation
+      //
       if(tag == ZPE_TAG) {
+	//
 	if(temperature > 0. && from != ZPE_SERV || temperature <= 0. && from != INT_SERV) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "zpe factor calculation request comes not from zpe server: " << from;
 	}
 
@@ -1996,17 +2168,27 @@ void GraphExpansion::_node_work (double temperature) const
       
 	sending.back()->isend(from, tag);
 
-	MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_RELEASE).Free();
+	MPI_Request r;
+
+	MPI_Isend(0, 0, MPI_INT, MASTER, NODE_RELEASE, MPI_COMM_WORLD, &r);
+
+ 	MPI_Request_free(&r);
       }
       // fourier sum calculation
+      //
       else if(tag == SUM_TAG) {
+	//
 	if(from != SUM_SERV) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "fourier sum calculation request does not come from  the server: " << from;
 	}
 
 	if(temperature <= 0.) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "fourier sum calculation request for zero temperature";
 	}
       
@@ -2020,12 +2202,20 @@ void GraphExpansion::_node_work (double temperature) const
       
 	sending.back()->isend(from, tag);
 
-	MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_RELEASE).Free();
+	MPI_Request r;
+
+	MPI_Isend(0, 0, MPI_INT, MASTER, NODE_RELEASE, MPI_COMM_WORLD, &r);
+
+	MPI_Request_free(&r);
       }
       // graph reduction to standard form
+      //
       else if(tag == STD_TAG) {
+	//
 	if(temperature <= 0. && from != INT_SERV || temperature > 0. && !_is_server(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "standard graph calculation request comes not from a server: " << from;
 	}
 
@@ -2040,32 +2230,43 @@ void GraphExpansion::_node_work (double temperature) const
       
 	sending.back()->isend(from, tag);
 
-	MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_RELEASE).Free();
+	MPI_Request r;
+
+	MPI_Isend(0, 0, MPI_INT, MASTER, NODE_RELEASE, MPI_COMM_WORLD, &r);
+
+	MPI_Request_free(&r);
       }
       // wrong tag
+      //
       else {
+	//
 	ErrOut err_out;
+
 	err_out << funame << "unknown tag: " << tag;
-      }
+      }//
       //
-      //
-    } // main loop
+    }// main loop
 
     // some checking
+    //
     if(sending.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "some sends not completed";
     }
 
-    MPI::COMM_WORLD.Send(&std_time, 1, MPI::DOUBLE, MASTER, STAT_TAG);
-    MPI::COMM_WORLD.Send(&zpe_time, 1, MPI::DOUBLE, MASTER, STAT_TAG);
+    MPI_Send(&std_time, 1, MPI_DOUBLE, MASTER, STAT_TAG, MPI_COMM_WORLD);
+    MPI_Send(&zpe_time, 1, MPI_DOUBLE, MASTER, STAT_TAG, MPI_COMM_WORLD);
 
     if(temperature > 0.)
-      MPI::COMM_WORLD.Send(&sum_time, 1, MPI::DOUBLE, MASTER, STAT_TAG);
-
+      //
+      MPI_Send(&sum_time, 1, MPI_DOUBLE, MASTER, STAT_TAG, MPI_COMM_WORLD);
   }
   catch(Error::General) {
+    //
     std::cerr << funame << "Oops\n";
+
     throw;
   }
 }
@@ -2102,40 +2303,54 @@ void GraphExpansion::_int_server (double temperature) const
     long conv_count = 0;
 
     while(1) {
-      MPI::Status stat;
-      MPI::COMM_WORLD.Recv(0, 0, MPI::INT, MPI::ANY_SOURCE, MPI::ANY_TAG, stat);
+      //
+      MPI_Status stat;
+      MPI_Recv(0, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 
-      const int tag  = stat.Get_tag();
-      const int from = stat.Get_source();
+      const int tag  = stat.MPI_TAG;
+      const int from = stat.MPI_SOURCE;
 
       // remove completed sends
+      //
       for(sent_t::iterator sit = sending.begin(); sit != sending.end(); )
-	if((*sit)->Test())
+	//
+	if((*sit)->Test()) {
+	  //
 	  sit = sending.erase(sit);
+	}
 	else
+	  //
 	  ++sit;
     
       // end of work
+      //
       if(tag ==  END_TAG) {
+	//
 	if(from != MASTER) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "end request should come from master: " << from;
 	}
       
 	break;
       }
 
-      //
       // getting working node
       //
       if(tag == NODE_TAG) {
+	//
 	if(from != MASTER) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "received node service from unexpected source: " << from; 
 	}
       
 	if(!waiting.size()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "no job for working node";
 	}
 	
@@ -2151,26 +2366,34 @@ void GraphExpansion::_int_server (double temperature) const
       // integral request
       //
       else if(tag == INT_TAG) {
-      
+	//
 	const _fg_t graph = _gself_t(from, tag);
 
 	if(raw_pool.find(graph) == raw_pool.end()) {
+	  //
 	  ++conv_count;
 
 	  waiting.push_back(std::make_pair(graph, STD_TAG));
 	
 	  // node request
-	  MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_TAG).Free();
+	  //
+ 	  MPI_Request r;
+
+	  MPI_Isend(0, 0, MPI_INT, MASTER, NODE_TAG, MPI_COMM_WORLD, &r);
+
+	  MPI_Request_free(&r);
 	}
 
 	raw_pool[graph].insert(from);
       }
-      //
       // standard graph result
       //
       else if(tag == STD_TAG) {
+	//
 	if(!_is_work_node(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "standard graph should come from working node: " << from;
 	}
 	  
@@ -2185,32 +2408,39 @@ void GraphExpansion::_int_server (double temperature) const
 	}
 
 	if(!std_pool[std_graph].raw_group.insert(raw_graph).second) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "raw graph already has corresponding standard one";
 	}
 
 	std_t::iterator sgit = std_pool.find(std_graph);
 
 	if(sgit->second.raw_group.size() == 1) {
-	
+	  //
 	  _db_t::const_iterator idit = int_data.find(_convert(std_graph));
 
 	  // graph in the database
+	  //
 	  if(idit != int_data.end()) {
+	    //
 	    ++read_count;
 
 	    const std::set<_fg_t>& rg = sgit->second.raw_group;
 	  
 	    for(std::set<_fg_t>::const_iterator git = rg.begin(); git != rg.end(); ++git) {
-
+	      //
 	      raw_t::iterator rit = raw_pool.find(*git);
 
 	      if(rit == raw_pool.end()) {
+		//
 		ErrOut err_out;
+
 		err_out << funame << "raw graph not in the pool";
 	      }
 	  
 	      for(std::multiset<int>::const_iterator nit = rit->second.begin(); nit != rit->second.end(); ++nit) {
+		//
 		sending.push_back(SharedPointer<_gbase_t>(new _gin_t(*git, idit->second)));
 	  
 		sending.back()->isend(*nit, INT_TAG, 1);
@@ -2221,16 +2451,25 @@ void GraphExpansion::_int_server (double temperature) const
 	    std_pool.erase(sgit);
 	  }
 	  // graph not in the database at zero temperature
+	  //
 	  else if(temperature <= 0.) {
+	    //
 	    ++calc_count;
 
 	    waiting.push_back(std::make_pair(std_graph, ZPE_TAG));
 	
 	    // node request
-	    MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_TAG).Free();
+	    //
+ 	    MPI_Request r;
+
+	    MPI_Isend(0, 0, MPI_INT, MASTER, NODE_TAG, MPI_COMM_WORLD, &r);
+
+	    MPI_Request_free(&r);
 	  }
 	  // non-zero temperature
+	  //
 	  else {
+	    //
 	    ++calc_count;
 
 	    _mg_t zpe_group;
@@ -2240,16 +2479,20 @@ void GraphExpansion::_int_server (double temperature) const
 	    sgit->second.zpe_group = zpe_group;
 
 	    if(!red_graph.size()) {
+	      //
 	      sgit->second.value /= temperature;
 	    }
 	    else if(red_pool.insert(red_graph).second) {
+	      //
 	      sending.push_back(SharedPointer<_gbase_t>(new _gself_t(red_graph)));
 	      
 	      sending.back()->isend(SUM_SERV, SUM_REQUEST);
 	    }
 	    
 	    for(_mg_t::const_iterator zgit = zpe_group.begin(); zgit != zpe_group.end(); ++zgit) {
+	      //
 	      if(zpe_pool.insert(zgit->first).second) {
+		//
 		sending.push_back(SharedPointer<_gbase_t>(new _gself_t(zgit->first)));
 
 		sending.back()->isend(ZPE_SERV, ZPE_REQUEST);
@@ -2262,9 +2505,13 @@ void GraphExpansion::_int_server (double temperature) const
       // zpe result
       //
       else if(tag == ZPE_TAG) {
+	//
 	if(temperature <= 0.) {
+	  //
 	  if(!_is_work_node(from)) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "at zero temperature zpe result should come from working node: " << from;
 	  }
 	
@@ -2275,14 +2522,18 @@ void GraphExpansion::_int_server (double temperature) const
 	  std_t::iterator sgit = std_pool.find(std_graph);
       
 	  if(sgit == std_pool.end()) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "standard graph is not in the pool: " << std_graph;
 	  }
 	
 	  _Convert::vec_t gconv = _convert(std_graph);
 	
 	  if(int_data.find(gconv) != int_data.end()) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "graph value is already in the database";
 	  }
 
@@ -2291,15 +2542,18 @@ void GraphExpansion::_int_server (double temperature) const
 	  const std::set<_fg_t>& rg = sgit->second.raw_group;
 	
 	  for(std::set<_fg_t>::const_iterator git = rg.begin(); git != rg.end(); ++git) {
-
+	    //
 	    raw_t::iterator rit = raw_pool.find(*git);
 	
 	    if(rit == raw_pool.end()) {
+	      //
 	      ErrOut err_out;
+
 	      err_out << funame << "raw graph not in the pool";
 	    }
 	  
 	    for(std::multiset<int>::const_iterator nit = rit->second.begin(); nit != rit->second.end(); ++nit) {
+	      //
 	      sending.push_back(SharedPointer<_gbase_t>(new _gin_t(*git, gin.second)));
 	    
 	      sending.back()->isend(*nit, INT_TAG, 1);
@@ -2309,9 +2563,13 @@ void GraphExpansion::_int_server (double temperature) const
 	  std_pool.erase(sgit);
 	}
 	// positive temperature      
+	//
 	else {
+	  //
 	  if(from != ZPE_SERV) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "at positive temperature zpe result should come from the server: " << from;
 	  }
 
@@ -2322,7 +2580,9 @@ void GraphExpansion::_int_server (double temperature) const
 	  //std::cout << funame << "zpe value = " << gin.second << std::endl;
 
 	  if(zpe_pool.find(zpe_graph) == zpe_pool.end()) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "zpe graph is not found in zpe pool";
 	  }
 	  zpe_pool.erase(zpe_graph);
@@ -2330,23 +2590,30 @@ void GraphExpansion::_int_server (double temperature) const
 	  std_t new_std_pool;
 	
 	  for(std_t::iterator sgit = std_pool.begin(); sgit != std_pool.end(); ++sgit) {
+	    //
 	    std::map<_fg_t, int>::iterator zgit = sgit->second.zpe_group.find(zpe_graph);
 
 	    // resolving zpe graph symbol and removing it from the group
+	    //
 	    if(zgit != sgit->second.zpe_group.end()) {
+	      //
 	      for(int i = 0; i < zgit->second; ++i)
+		//
 		sgit->second.value *= gin.second;
 	    
 	      sgit->second.zpe_group.erase(zgit);
 	    }
 
 	    // sending the result to the driver and removing the standard graph and associated with it group of raw graphs
+	    //
 	    if(!sgit->second.zpe_group.size() && !sgit->second.red_graph.size()) {
-	    
+	      //
 	      _Convert::vec_t gconv = _convert(sgit->first);
 	
 	      if(int_data.find(gconv) != int_data.end()) {
+		//
 		ErrOut err_out;
+
 		err_out << funame << "graph value is already in the database";
 	      }
 
@@ -2355,15 +2622,18 @@ void GraphExpansion::_int_server (double temperature) const
 	      const std::set<_fg_t>& rg = sgit->second.raw_group;
 	
 	      for(std::set<_fg_t>::const_iterator git = rg.begin(); git != rg.end(); ++git) {
-	      
+		//	      
 		raw_t::iterator rit = raw_pool.find(*git);
 	
 		if(rit == raw_pool.end()) {
+		  //
 		  ErrOut err_out;
+
 		  err_out << funame << "raw graph not in the pool";
 		}
 	  
 		for(std::multiset<int>::const_iterator nit = rit->second.begin(); nit != rit->second.end(); ++nit) {
+		  //
 		  sending.push_back(SharedPointer<_gbase_t>(new _gin_t(*git, sgit->second.value)));
 	    
 		  sending.back()->isend(*nit, INT_TAG, 1);
@@ -2372,6 +2642,7 @@ void GraphExpansion::_int_server (double temperature) const
 	      }  
 	    }
 	    else
+	      //
 	      new_std_pool.insert(*sgit);
 	  }
 	  std_pool = new_std_pool;
@@ -2381,13 +2652,18 @@ void GraphExpansion::_int_server (double temperature) const
       // fourier sum result
       //
       else if(tag == SUM_TAG) {
+	//
 	if(temperature <= 0.) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "fourier sum calculation only at positive temperature";
 	}
 
 	if(from != SUM_SERV) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "fourier sum result should come from the server: " << from;
 	}
       
@@ -2396,7 +2672,9 @@ void GraphExpansion::_int_server (double temperature) const
 	const _fg_t& red_graph = gin.first;
 
 	if(red_pool.find(red_graph) == red_pool.end()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "red graph is not found in the pool";
 	}
 	red_pool.erase(red_graph);
@@ -2404,21 +2682,26 @@ void GraphExpansion::_int_server (double temperature) const
 	std_t new_std_pool;
 	
 	for(std_t::iterator sgit = std_pool.begin(); sgit != std_pool.end(); ++sgit) {
-
+	  //
 	  // resolving reduced graph symbol and clearing it
+	  //
 	  if(red_graph == sgit->second.red_graph) {
+	    //
 	    sgit->second.value *= gin.second;
 	    
 	    sgit->second.red_graph.clear();
 	  }
 
 	  // sending the result to the driver and removing the standard graph and associated with it group of raw graphs
+	  //
 	  if(!sgit->second.zpe_group.size() && !sgit->second.red_graph.size()) {
-	    
+	    //
 	    _Convert::vec_t gconv = _convert(sgit->first);
 	
 	    if(int_data.find(gconv) != int_data.end()) {
+	      //
 	      ErrOut err_out;
+
 	      err_out << funame << "graph value is already in the database";
 	    }
 
@@ -2427,15 +2710,18 @@ void GraphExpansion::_int_server (double temperature) const
 	    const std::set<_fg_t>& rg = sgit->second.raw_group;
 	
 	    for(std::set<_fg_t>::const_iterator git = rg.begin(); git != rg.end(); ++git) {
-	      
+	      //	      
 	      raw_t::iterator rit = raw_pool.find(*git);
 	
 	      if(rit == raw_pool.end()) {
+		//
 		ErrOut err_out;
+
 		err_out << funame << "raw graph not in the pool";
 	      }
 	  
 	      for(std::multiset<int>::const_iterator nit = rit->second.begin(); nit != rit->second.end(); ++nit) {
+		//
 		sending.push_back(SharedPointer<_gbase_t>(new _gin_t(*git, sgit->second.value)));
 	      
 		sending.back()->isend(*nit, INT_TAG, 1);
@@ -2445,6 +2731,7 @@ void GraphExpansion::_int_server (double temperature) const
 	    }  
 	  }
 	  else
+	    //
 	    new_std_pool.insert(*sgit);
 	}
 	std_pool = new_std_pool;
@@ -2453,48 +2740,65 @@ void GraphExpansion::_int_server (double temperature) const
       // wrong tag
       //
       else {
+	//
 	ErrOut err_out;
+
 	err_out << funame << "unknown tag: " << tag;
       }
     }
 
     // some checking
+    //
     if(sending.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "some sends not completed";
     }
 
     if(raw_pool.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "raw graph pool is not empty";
     }
 
     if(std_pool.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "standard graph pool is not empty";
     }
 
     if(zpe_pool.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "there are some unresolved zpe graphs";
     }
 
     if(red_pool.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "there are some unresolved fourier sum graphs";
     }
 
     if(waiting.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "there are pending jobs";
     }
 
-    MPI::COMM_WORLD.Send(&calc_count, 1, MPI::LONG, MASTER, STAT_TAG);
-    MPI::COMM_WORLD.Send(&read_count, 1, MPI::LONG, MASTER, STAT_TAG);
-    MPI::COMM_WORLD.Send(&conv_count, 1, MPI::LONG, MASTER, STAT_TAG);
+    MPI_Send(&calc_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+    MPI_Send(&read_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+    MPI_Send(&conv_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
   }
   catch(Error::General) {
+    //
     std::cerr << funame << "Oops\n";
+
     throw;
   }
 }
@@ -2504,6 +2808,7 @@ void GraphExpansion::_zpe_server (double temperature) const
   const char funame [] = "GraphExpansion::_zpe_server: ";
 
   try {
+    //
     int    itemp;
     double dtemp;
   
@@ -2525,23 +2830,33 @@ void GraphExpansion::_zpe_server (double temperature) const
     long conv_count = 0;
 
     while(1) {
-      MPI::Status stat;
-      MPI::COMM_WORLD.Recv(0, 0, MPI::INT, MPI::ANY_SOURCE, MPI::ANY_TAG, stat);
+      //
+      MPI_Status stat;
+      MPI_Recv(0, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLd, &stat);
 
-      const int tag  = stat.Get_tag();
-      const int from = stat.Get_source();
+      const int tag  = stat.MPI_TAG;
+      const int from = stat.MPI_SOURCE;
 
       // remove completed sends
+      //
       for(sent_t::iterator sit = sending.begin(); sit != sending.end(); )
-	if((*sit)->Test())
+	//
+	if((*sit)->Test()) {
+	  //
 	  sit = sending.erase(sit);
+	}
 	else
+	  //
 	  ++sit;
     
       // end of work
+      //
       if(tag ==  END_TAG) {
+	//
 	if(from != MASTER) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "end request should come from master: " << from;
 	}
       
@@ -2549,21 +2864,27 @@ void GraphExpansion::_zpe_server (double temperature) const
       }
 
       if(temperature <= 0.) {
+	//
 	ErrOut err_out;
+
 	err_out << funame << "at zero temperature integral server gets zpe value directly from the working node";
       }
     
-      //
       // getting working node
       //
       if(tag == NODE_TAG) {
+	//
 	if(from != MASTER) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "received node service from unexpected source: " << from; 
 	}
       
 	if(!waiting.size()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "no job for working node";
 	}
 	
@@ -2579,8 +2900,11 @@ void GraphExpansion::_zpe_server (double temperature) const
       // zpe request
       //
       else if(tag == ZPE_REQUEST) {
+	//
 	if(from != INT_SERV) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "request should come from the integral server: " << from;
 	}
 
@@ -2589,12 +2913,18 @@ void GraphExpansion::_zpe_server (double temperature) const
 	const _fg_t& graph = gself;
       
 	if(raw_pool.find(graph) == raw_pool.end()) {
+	  //
 	  ++conv_count;
 
 	  waiting.push_back(std::make_pair(graph, STD_TAG));
       
 	  // node request
-	  MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_TAG).Free();
+	  //
+	  MPI_Request r;
+
+	  MPI_Isend(0, 0, MPI_INT, MASTER, NODE_TAG, MPI_COMM_WORLD, &r);
+
+	  MPI_Request_free(&r);
 	}
 
 	raw_pool[graph].insert(from);
@@ -2603,8 +2933,11 @@ void GraphExpansion::_zpe_server (double temperature) const
       // standard graph result
       //
       else if(tag == STD_TAG) {
+	//
 	if(!_is_work_node(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "standard graph should come from working node: " << from;
 	}
 	  
@@ -2614,36 +2947,44 @@ void GraphExpansion::_zpe_server (double temperature) const
 	const _fg_t& std_graph = graph_pair.second;
 	
 	if(raw_pool.find(raw_graph) == raw_pool.end()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "raw graph is not in the pool";
 	}
 
 	if(!std_pool[std_graph].insert(raw_graph).second) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "raw graph already has corresponding standard one";
 	}
       
 	if(std_pool[std_graph].size() == 1) {
-
+	  //
 	  _db_t::const_iterator zdit = zpe_data.find(_convert(std_graph));
 
 	  // graph in the database
+	  //
 	  if(zdit != zpe_data.end()) {
+	    //
 	    ++read_count;
 
 	    std::set<_fg_t>& rg = std_pool[std_graph];
 	  
 	    for(std::set<_fg_t>::const_iterator git = rg.begin(); git != rg.end(); ++git) {
-	    
+	      //	    
 	      raw_t::iterator rit = raw_pool.find(*git);
 
 	      if(rit == raw_pool.end()) {
+		//
 		ErrOut err_out;
+
 		err_out << funame << "raw graph is not in the pool";
 	      }
 	    
-	      for(std::multiset<int>::const_iterator mit = rit->second.begin();
-		  mit != rit->second.end(); ++mit) {
+	      for(std::multiset<int>::const_iterator mit = rit->second.begin(); mit != rit->second.end(); ++mit) {
+		//
 		sending.push_back(SharedPointer<_gbase_t>(new _gin_t(*git, zdit->second)));
 	    
 		sending.back()->isend(*mit, ZPE_TAG);
@@ -2653,24 +2994,32 @@ void GraphExpansion::_zpe_server (double temperature) const
 	    std_pool.erase(std_graph);
 	  }
 	  // graph not in the database
+	  //
 	  else {
+	    //
 	    ++calc_count;
 
 	    waiting.push_back(std::make_pair(std_graph, ZPE_TAG));
 	
 	    // node request
-	    MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_TAG).Free();
+	    //
+	    MPI_Request r;
+
+	    MPI_Isend(0, 0, MPI_INT, MASTER, NODE_TAG, MPI_COMM_WORLD, &r);
+
+	    MPI_Request_free(&r);
 	  }
 	}
       }
-      //
       // zpe result
       //
       else if(tag == ZPE_TAG) {
+	//
 	if(!_is_work_node(from)) {
+	  //
 	  ErrOut err_out;
-	  err_out << funame << "zpe result should come from working node: " 
-		  << from;
+
+	  err_out << funame << "zpe result should come from working node: " << from;
 	}
 
 	_gin_t gin(from, tag);
@@ -2680,14 +3029,18 @@ void GraphExpansion::_zpe_server (double temperature) const
 	std_t::iterator sgit = std_pool.find(graph);
       
 	if(sgit == std_pool.end()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "standard graph is not in the pool";
 	}
 	
 	_Convert::vec_t gconv = _convert(graph);
 	
 	if(zpe_data.find(gconv) != zpe_data.end()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "graph value is already in the database";
 	}
 
@@ -2696,16 +3049,18 @@ void GraphExpansion::_zpe_server (double temperature) const
 	const std::set<_fg_t>& rg = sgit->second;
 	
 	for(std::set<_fg_t>::const_iterator git = rg.begin(); git != rg.end(); ++git) {
-	
+	  //	
 	  raw_t::iterator rit = raw_pool.find(*git);
 	
 	  if(rit == raw_pool.end()) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "raw graph is not in the pool";
 	  }
 	    
-	  for(std::multiset<int>::const_iterator mit = rit->second.begin(); 
-	      mit != rit->second.end(); ++mit) {
+	  for(std::multiset<int>::const_iterator mit = rit->second.begin(); mit != rit->second.end(); ++mit) {
+	    //
 	    sending.push_back(SharedPointer<_gbase_t>(new _gin_t(*git, gin.second)));
 	    
 	    sending.back()->isend(*mit, ZPE_TAG);
@@ -2718,40 +3073,54 @@ void GraphExpansion::_zpe_server (double temperature) const
       // wrong tag
       //
       else {
+	//
 	ErrOut err_out;
+
 	err_out << funame << "unknown tag: " << tag;
       }
     }
 
     // some checking
+    //
     if(sending.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "some sends not completed";
     }
 
     if(raw_pool.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "raw graph pool is not empty";
     }
 
     if(std_pool.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "standard graph pool is not empty";
     }
 
     if(waiting.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "there are pending jobs";
     }
 
     if(temperature > 0.) {
-      MPI::COMM_WORLD.Send(&calc_count, 1, MPI::LONG, MASTER, STAT_TAG);
-      MPI::COMM_WORLD.Send(&read_count, 1, MPI::LONG, MASTER, STAT_TAG);
-      MPI::COMM_WORLD.Send(&conv_count, 1, MPI::LONG, MASTER, STAT_TAG);
+      //
+      MPI_Send(&calc_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+      MPI_Send(&read_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+      MPI_Send(&conv_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
     }
   }
   catch(Error::General) {
+    //
     std::cerr << funame << "Oops\n";
+
     throw;
   }
 }
@@ -2782,23 +3151,33 @@ void GraphExpansion::_sum_server (double temperature) const
     long conv_count = 0;
 
     while(1) {
-      MPI::Status stat;
-      MPI::COMM_WORLD.Recv(0, 0, MPI::INT, MPI::ANY_SOURCE, MPI::ANY_TAG, stat);
+      //
+      MPI_Status stat;
+      MPI_Recv(0, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 
-      const int tag  = stat.Get_tag();
-      const int from = stat.Get_source();
+      const int tag  = stat.MPI_TAG;
+      const int from = stat.MPI_SOURCE;
 
       // remove completed sends
+      //
       for(sent_t::iterator sit = sending.begin(); sit != sending.end(); )
-	if((*sit)->Test())
+	//
+	if((*sit)->Test()) {
+	  //
 	  sit = sending.erase(sit);
+	}
 	else
+	  //
 	  ++sit;
     
       // end of work
+      //
       if(tag ==  END_TAG) {
+	//
 	if(from != MASTER) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "should come from master: " << from;
 	}
       
@@ -2806,21 +3185,27 @@ void GraphExpansion::_sum_server (double temperature) const
       }
 
       if(temperature <= 0.) {
+	//
 	ErrOut err_out;
+
 	err_out << funame << "zero temperature fourier sum request";
       }
       
-      //
       // getting working node
       //
       if(tag == NODE_TAG) {
+	//
 	if(from != MASTER) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "received node service is not from node server: " << from; 
 	}
       
 	if(!waiting.size()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "no job for working node";
 	}
 	
@@ -2832,12 +3217,14 @@ void GraphExpansion::_sum_server (double temperature) const
       
 	waiting.erase(waiting.begin());
       }
-      //
       // sum request
       //
       else if(tag == SUM_REQUEST) {
+	//
 	if(from != INT_SERV) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "request should come from the integral server: " << from;
 	}
 
@@ -2846,22 +3233,28 @@ void GraphExpansion::_sum_server (double temperature) const
 	const _fg_t& graph = gself;
       
 	if(raw_pool.find(graph) == raw_pool.end()) {
+	  //
 	  ++conv_count;
 
 	  waiting.push_back(std::make_pair(graph, STD_TAG));
       
 	  // node request
-	  MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_TAG).Free();
+	  //
+	  MPI_Request r;
+	  MPI_Isend(0, 0, MPI_INT, MASTER, NODE_TAG, MPI_COMM_WORLD, &r);
+	  MPI_Request_free(&r);
 	}
 
 	raw_pool[graph].insert(from);
       }
-      //
       // standard graph result
       //
       else if(tag == STD_TAG) {
+	//
 	if(!_is_work_node(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "standard graph result should come from working node: " << from;
 	}
 	  
@@ -2871,36 +3264,44 @@ void GraphExpansion::_sum_server (double temperature) const
 	const _fg_t& std_graph = graph_pair.second;
 	
 	if(raw_pool.find(raw_graph) == raw_pool.end()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "raw graph is not in the pool";
 	}
 
 	if(!std_pool[std_graph].insert(raw_graph).second) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "raw graph already has corresponding standard one";
 	}
       
 	if(std_pool[std_graph].size() == 1){
-
+	  //
 	  _db_t::const_iterator sdit = sum_data.find(_convert(std_graph));
 
 	  // graph in the database
+	  //
 	  if(sdit != sum_data.end()) {
+	    //
 	    ++read_count;
 
 	    std::set<_fg_t>& rg = std_pool[std_graph];
 	  
 	    for(std::set<_fg_t>::const_iterator git = rg.begin(); git != rg.end(); ++git) {
-	    
+	      //
 	      raw_t::iterator rit = raw_pool.find(*git);
 
 	      if(rit == raw_pool.end()) {
+		//
 		ErrOut err_out;
+
 		err_out << funame << "raw graph is not in the pool";
 	      }
 	    
-	      for(std::multiset<int>::const_iterator mit = rit->second.begin(); 
-		  mit != rit->second.end(); ++mit) {
+	      for(std::multiset<int>::const_iterator mit = rit->second.begin(); mit != rit->second.end(); ++mit) {
+		//
 		sending.push_back(SharedPointer<_gbase_t>(new _gin_t(*git, sdit->second)));
 	    
 		sending.back()->isend(*mit, SUM_TAG);
@@ -2910,22 +3311,29 @@ void GraphExpansion::_sum_server (double temperature) const
 	    std_pool.erase(std_graph);
 	  }
 	  // graph not in the database
+	  //
 	  else {
+	    //
 	    ++calc_count;
 
 	    waiting.push_back(std::make_pair(std_graph, SUM_TAG));
 	
 	    // node request
-	    MPI::COMM_WORLD.Isend(0, 0, MPI::INT, MASTER, NODE_TAG).Free();
+	    //
+	    MPI_Request r;
+	    MPI_Isend(0, 0, MPI_INT, MASTER, NODE_TAG, MPI_COMM_WORLD, &r);
+	    MPI_Request_free(&r);
 	  }
 	}
       }
-      //
       // sum result
       //
       else if(tag == SUM_TAG) {
+	//
 	if(!_is_work_node(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "fourier sum result should come from working node: " << from;
 	}
 
@@ -2936,14 +3344,18 @@ void GraphExpansion::_sum_server (double temperature) const
 	std_t::iterator sgit = std_pool.find(graph);
       
 	if(sgit == std_pool.end()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "standard graph is not in the pool";
 	}
 	
 	_Convert::vec_t gconv = _convert(graph);
 	
 	if(sum_data.find(gconv) != sum_data.end()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "graph value is already in the database";
 	}
 
@@ -2952,16 +3364,18 @@ void GraphExpansion::_sum_server (double temperature) const
 	const std::set<_fg_t>& rg = sgit->second;
 	
 	for(std::set<_fg_t>::const_iterator git = rg.begin(); git != rg.end(); ++git) {
-	
+	  //
 	  raw_t::iterator rit = raw_pool.find(*git);
 	
 	  if(rit == raw_pool.end()) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "raw graph is not in the pool";
 	  }
 	    
-	  for(std::multiset<int>::const_iterator mit = rit->second.begin(); 
-	      mit != rit->second.end(); ++mit) {
+	  for(std::multiset<int>::const_iterator mit = rit->second.begin(); mit != rit->second.end(); ++mit) {
+	    //
 	    sending.push_back(SharedPointer<_gbase_t>(new _gin_t(*git, gin.second)));
 	    
 	    sending.back()->isend(*mit, SUM_TAG);
@@ -2974,40 +3388,54 @@ void GraphExpansion::_sum_server (double temperature) const
       // wrong tag
       //
       else {
+	//
 	ErrOut err_out;
+
 	err_out << funame << "unknown tag: " << tag;
       }
     }
 
     // some checking
+    //
     if(sending.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "some sends not completed";
     }
 
     if(raw_pool.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "raw graph pool is not empty";
     }
 
     if(std_pool.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "standard graph pool is not empty";
     }
 
     if(waiting.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "there are pending jobs";
     }
 
     if(temperature > 0.) {
-      MPI::COMM_WORLD.Send(&calc_count, 1, MPI::LONG, MASTER, STAT_TAG);
-      MPI::COMM_WORLD.Send(&read_count, 1, MPI::LONG, MASTER, STAT_TAG);
-      MPI::COMM_WORLD.Send(&conv_count, 1, MPI::LONG, MASTER, STAT_TAG);
+      //
+      MPI_Send(&calc_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+      MPI_Send(&read_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
+      MPI_Send(&conv_count, 1, MPI_LONG, MASTER, STAT_TAG, MPI_COMM_WORLD);
     }
   }
   catch(Error::General) {
+    //
     std::cerr << funame << "Oops\n";
+
     throw;
   }
 }
@@ -3020,33 +3448,50 @@ void GraphExpansion::_master (double temperature, int mode) const
     int    itemp;
     double dtemp;
 
-    const int mpi_size = MPI::COMM_WORLD.Get_size();
-    const int mpi_rank = MPI::COMM_WORLD.Get_rank();
+    MPI_Comm_size(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_size = itemp;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &itemp);
+
+    const int mpi_rank = itemp;
   
     if(mpi_rank) {
+      //
       ErrOut err_out;
+
       err_out << funame << "not a master";
     }
 
     if(temperature > 0.) {
+      //
       IO::log << IO::log_offset << "temperature(K) = " << temperature / Phys_const::kelv << "\n";
     }
     // zero temperature
+    //
     else {
+      //
       for(int i = 0.; i < _red_freq.size(); ++i)
+	//
 	if(_red_freq[i] <= 0.) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "for zero temperature calculation all frequencies should be real";
 	}
 
-      if(GLOBAL == mode)
+      if(GLOBAL == mode) {
+	//
 	IO::log << IO::log_offset << "zero-point energy calculation:\n";
+      }
       else
+	//
 	IO::log << IO::log_offset << "low temperature expansion calculation:\n";
     }
 
     std::set<int>    free_nodes;
     for(int i = WORK_NODE; i < mpi_size; ++i)
+      //
       free_nodes.insert(i);
 
     std::list<int>   waiting;
@@ -3062,22 +3507,24 @@ void GraphExpansion::_master (double temperature, int mode) const
     typedef std::list<SharedPointer<_gbase_t> > sent_t;
     sent_t sending;
   
-    //
     // main loop
     //
     while(graph_value.size() < _graph_data.size() && graphex_value.size() < _graph_data.size() || end_num < WORK_NODE - SUM_SERV - 1) {
-      MPI::Status stat;
-      MPI::COMM_WORLD.Recv(0, 0, MPI::INT, MPI::ANY_SOURCE, MPI::ANY_TAG, stat);
-    
-      const int tag  = stat.Get_tag();
-      const int from = stat.Get_source();
-
       //
+      MPI_Status stat;
+      MPI_Recv(0, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, stat);
+    
+      const int tag  = stat.MPI_TAG;
+      const int from = stat.MPI_SOURCE;
+
       // graph index result
       //
       if(tag == GINDEX_TAG) {
+	//
 	if(!_is_driver(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "graph index request should come from a driver: " << from;
 	}
 
@@ -3086,10 +3533,13 @@ void GraphExpansion::_master (double temperature, int mode) const
 
 	int gind;
 	if(temperature <= 0. && mode == CENTROID) {
+	  //
 	  gmap.recv(from, tag);
 
 	  if(!graphex_value.insert(gmap).second) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "graph value is already in the map: " << gmap.first;
 	  }
 
@@ -3098,15 +3548,20 @@ void GraphExpansion::_master (double temperature, int mode) const
 	  gind = gmap.first;
 
 	  if(gind < 0 || gind >= _graph_data.size()) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "graph index out of range: " << gmap.first;
 	  }
 	}
 	else {
+	  //
 	  gval.recv(from, tag);
 
 	  if(!graph_value.insert(gval).second) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "graph value is already in the map: " << gval.first;
 	  }
 
@@ -3115,7 +3570,9 @@ void GraphExpansion::_master (double temperature, int mode) const
 	  gind = gval.first;
 
 	  if(gind < 0 || gind >= _graph_data.size()) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "graph index out of range: " << gval.first;
 	  }
 	}
@@ -3129,12 +3586,14 @@ void GraphExpansion::_master (double temperature, int mode) const
 		<< "   received graphs # = " << std::setw(6) << itemp
 		<< std::endl;
       }
-      //
       // graph index request
       //
       else if(tag == GINDEX_REQUEST) {
+	//
 	if(!_is_driver(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "graph index request should come from a driver: " << from;
 	}
 
@@ -3143,57 +3602,68 @@ void GraphExpansion::_master (double temperature, int mode) const
 	sending.back()->isend(from, GINDEX_TAG, 1);
       
 	if(gindex < _graph_data.size())
+	  //
 	  ++gindex;
       }
-      //
       // driver stopped working
       //
       else if(tag == END_TAG) {
+	//
 	if(!_is_driver(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "end of work sygnal should come from the driver: " << from;
 	}
 
 	++end_num;
       }
-      //
       // woriking node release request
       //
       else if(tag == NODE_RELEASE) {
+	//
 	if(!_is_work_node(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "working node release request should come from a working node: " << from;
 	}
 	
 	if(free_nodes.find(from) != free_nodes.end()) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "free node " << from << " should not request for release";
 	}
 
 	free_nodes.insert(from);
       }
-      //
       // work node request
       //
       else if(tag == NODE_TAG) {
+	//
 	if(!_is_server(from)) {
+	  //
 	  ErrOut err_out;
+
 	  err_out << funame << "working node request should come from a server: " << from;
 	}
 	
 	waiting.push_back(from);
       }
-      //
       // wrong tag
       //
       else {
+	//
 	ErrOut err_out;
+
 	err_out << funame << "unknown tag: " << tag;
       }
 
       // respond to working node requests
+      //
       while(free_nodes.size() && waiting.size()) {
-      
+	//
 	sending.push_back(SharedPointer<_gbase_t>(new _gnode_t(*free_nodes.begin())));
 
 	sending.back()->isend(*waiting.begin(), NODE_TAG);
@@ -3203,26 +3673,36 @@ void GraphExpansion::_master (double temperature, int mode) const
       }
 
       // clean the completed sends
+      //
       for(sent_t::iterator sit = sending.begin(); sit != sending.end(); )
-	if((*sit)->Test())
+	//
+	if((*sit)->Test()) {
+	  //
 	  sit = sending.erase(sit);
+	}
 	else
+	  //
 	  ++sit;
       //
-      //
-    } // main loop
+    }// main loop
 
     for(int node = 1; node < mpi_size; ++node)
-      MPI::COMM_WORLD.Send(0, 0, MPI::INT, node, END_TAG);
+      //
+      MPI_Send(0, 0, MPI_INT, node, END_TAG, MPI_COMM_WORLD);
 
     // some checking
+    //
     if(waiting.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "there are pending requests";
     }
 
     if(sending.size()) {
+      //
       ErrOut err_out;
+
       err_out << funame << "some sends not completed";
     }
 
@@ -3237,60 +3717,90 @@ void GraphExpansion::_master (double temperature, int mode) const
     long sum_calc_count = 0;
     long sum_read_count = 0;
 
-    MPI::COMM_WORLD.Recv(&int_calc_count, 1, MPI::LONG, INT_SERV, STAT_TAG);
-    MPI::COMM_WORLD.Recv(&int_read_count, 1, MPI::LONG, INT_SERV, STAT_TAG);
-    MPI::COMM_WORLD.Recv(    &conv_count, 1, MPI::LONG, INT_SERV, STAT_TAG);
+    MPI_Status stat;
+
+    MPI_Recv(&int_calc_count, 1, MPI_LONG, INT_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
+    MPI_Recv(&int_read_count, 1, MPI_LONG, INT_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
+    MPI_Recv(&conv_count,     1, MPI_LONG, INT_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
 
     if(temperature > 0.) {
+      //
       long count;
 
-      MPI::COMM_WORLD.Recv(&zpe_calc_count, 1, MPI::LONG, ZPE_SERV, STAT_TAG);
-      MPI::COMM_WORLD.Recv(&zpe_read_count, 1, MPI::LONG, ZPE_SERV, STAT_TAG);
-      MPI::COMM_WORLD.Recv(         &count, 1, MPI::LONG, ZPE_SERV, STAT_TAG);
+      MPI_Recv(&zpe_calc_count, 1, MPI_LONG, ZPE_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
+      MPI_Recv(&zpe_read_count, 1, MPI_LONG, ZPE_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
+      MPI_Recv(&count,          1, MPI_LONG, ZPE_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
       conv_count += count;
 
-      MPI::COMM_WORLD.Recv(&sum_calc_count, 1, MPI::LONG, SUM_SERV, STAT_TAG);
-      MPI::COMM_WORLD.Recv(&sum_read_count, 1, MPI::LONG, SUM_SERV, STAT_TAG);
-      MPI::COMM_WORLD.Recv(         &count, 1, MPI::LONG, SUM_SERV, STAT_TAG);
+      MPI_Recv(&sum_calc_count, 1, MPI_LONG, SUM_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
+      MPI_Recv(&sum_read_count, 1, MPI_LONG, SUM_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
+      MPI_Recv(&count,          1, MPI_LONG, SUM_SERV, STAT_TAG, MPI_COMM_WORLD, &stat);
       conv_count += count;
     }
     
     IO::log << "\n";
-    IO::log << IO::log_offset
-	    << "Statistics:\n";
+    IO::log << IO::log_offset << "Statistics:\n";
 
     IO::log << IO::log_offset;
     if(conv_count)
+      //
       IO::log << std::setw(12) << "Conv #";
+
     if(int_calc_count)
+      //
       IO::log << std::setw(12) << "Int Calc #";
+
     if(int_read_count)
+      //
       IO::log << std::setw(12) << "Int Read #";
+
     if(zpe_calc_count)
+      //
       IO::log << std::setw(12) << "ZPE Calc #";
+
     if(zpe_read_count)
+      //
       IO::log << std::setw(12) << "ZPE Read #";
+
     if(sum_calc_count)
+      //
       IO::log << std::setw(12) << "Sum Calc #";
+
     if(sum_read_count)
+      //
       IO::log << std::setw(12) << "Sum Read #";
+
     IO::log << "\n";
 
     IO::log << IO::log_offset;
+
     if(conv_count)
       IO::log << std::setw(12) << conv_count;
+
     if(int_calc_count)
+      //
       IO::log << std::setw(12) << int_calc_count;
+
     if(int_read_count)
+      //
       IO::log << std::setw(12) << int_read_count;
+
     if(zpe_calc_count)
+      //
       IO::log << std::setw(12) << zpe_calc_count;
+
     if(zpe_read_count)
+      //
       IO::log << std::setw(12) << zpe_read_count;
+
     if(sum_calc_count)
+      //
       IO::log << std::setw(12) << sum_calc_count;
+
     if(sum_read_count)
+      //
       IO::log << std::setw(12) << sum_read_count;
+
     IO::log << "\n\n";
 
     double std_time = 0.;
@@ -3298,38 +3808,46 @@ void GraphExpansion::_master (double temperature, int mode) const
     double sum_time = 0.;
 
     for(int node = WORK_NODE; node < mpi_size; ++node) {
-
-      MPI::COMM_WORLD.Recv(&dtemp, 1, MPI::DOUBLE, node, STAT_TAG);
+      //
+      MPI_Recv(&dtemp, 1, MPI_DOUBLE, node, STAT_TAG, MPI_COMM_WORLD, &stat);
       std_time += dtemp;
 
-      MPI::COMM_WORLD.Recv(&dtemp, 1, MPI::DOUBLE, node, STAT_TAG);
+      MPI_Recv(&dtemp, 1, MPI_DOUBLE, node, STAT_TAG, MPI_COMM_WORLD, &stat);
       zpe_time += dtemp;
 
       if(temperature > 0.) {
-	MPI::COMM_WORLD.Recv(&dtemp, 1, MPI::DOUBLE, node, STAT_TAG);
+	//
+	MPI_Recv(&dtemp, 1, MPI_DOUBLE, node, STAT_TAG, MPI_COMM_WORLD, &stat);
 	sum_time += dtemp;
       }
     }
 
     IO::log << IO::log_offset << "Working time[sec]:\n";
     
-    IO::log << IO::log_offset
-	    << std::setw(15) << "Conv"
-	    << std::setw(15) << "ZPE";
+    IO::log << IO::log_offset << std::setw(15) << "Conv" << std::setw(15) << "ZPE";
+
     if(temperature > 0.)
+      //
       IO::log << std::setw(15) << "Sum";
+
     IO::log << "\n";
 
     IO::log << IO::log_offset
 	    << std::setw(15) << std_time / CLOCKS_PER_SEC
 	    << std::setw(15) << zpe_time / CLOCKS_PER_SEC;
+
     if(temperature > 0.)
+      //
       IO::log << std::setw(15) << sum_time / CLOCKS_PER_SEC;
+
     IO::log << "\n\n";
 
     if(temperature > 0.) {
+      //
       std::map<int, double> corr;
+
       for(int i = 0; i < _sorted_graph.size(); ++i)
+	//
 	corr[_sorted_graph[i].size()] += graph_value[i];
 
       IO::log << IO::log_offset << "total correction:\n";
@@ -3341,7 +3859,7 @@ void GraphExpansion::_master (double temperature, int mode) const
 
       double res = 0.;
       for(std::map<int, double>::const_iterator cit = corr.begin(); cit != corr.end(); ++cit) {
-
+	//
 	res += cit->second;
 
 	IO::log << IO::log_offset 
@@ -3352,12 +3870,17 @@ void GraphExpansion::_master (double temperature, int mode) const
       IO::log << "\n";
     }
     // zero temperature
+    //
     else {
+      //
       // global mode
+      //
       if(GLOBAL == mode) {
+	//
 	std::map<int, double> zpe;
 
 	for(int i = 0; i < _sorted_graph.size(); ++i)
+	  //
 	  zpe[_sorted_graph[i].size()] += graph_value[i];
 
 	IO::log << IO::log_offset << "zero-point energy correction, 1/cm:\n";
@@ -3369,7 +3892,7 @@ void GraphExpansion::_master (double temperature, int mode) const
 
 	double res = 0.;
 	for(std::map<int, double>::const_iterator gzit = zpe.begin(); gzit != zpe.end(); ++gzit) {
-
+	  //
 	  res += gzit->second;
 
 	  IO::log << IO::log_offset 
@@ -3380,13 +3903,17 @@ void GraphExpansion::_master (double temperature, int mode) const
 	IO::log << "\n";
       }
       // centroid mode
+      //
       else {
+	//
 	int print_term_max = 3;
 
 	std::map<int, std::map<int, double> > graphex;
 
 	for(int i = 0; i < _sorted_graph.size(); ++i)
+	  //
 	  for(std::map<int, double>::const_iterator gxit = graphex_value[i].begin(); gxit != graphex_value[i].end(); ++gxit)
+	    //
 	    graphex[_sorted_graph[i].size()][gxit->first] += gxit->second;
 
 	IO::log << IO::log_offset << "low temperature expansion:\n";
@@ -3402,25 +3929,30 @@ void GraphExpansion::_master (double temperature, int mode) const
 
 	std::map<int, double> res;
 	for(std::map<int, std::map<int, double> >::const_iterator gxit = graphex.begin(); gxit != graphex.end(); ++gxit) {
-	
+	  //
 	  for(std::map<int, double>::const_iterator it = gxit->second.begin(); it != gxit->second.end(); ++it)
+	    //
 	    res[it->first] += it->second;
 
 	  itemp = -res.begin()->first;
 	  if(itemp > 1) {
+	    //
 	    ErrOut err_out;
+
 	    err_out << funame << "low temperature expansion begins with 1/T^" << itemp << "terms";
 	  }
 
 	  IO::log << IO::log_offset << std::setw(2) << gxit->first;
 	
 	  for(int i = -1 ; i <= print_term_max; ++i) {
+	    //
 	    IO::log << std::setw(15);
 
 	    if(res.find(i) == res.end()) {
 	      IO::log << "0";
 	    }
 	    else {
+	      //
 	      dtemp = res[i];
 
 	      switch(i){
@@ -3443,7 +3975,9 @@ void GraphExpansion::_master (double temperature, int mode) const
     }
   }
   catch(Error::General) {
+    //
     std::cerr << funame << "Oops\n";
+
     throw;
   }
 }
@@ -3462,7 +3996,9 @@ std::vector<std::multiset<int> >  GraphExpansion::_graph_t::vertex_bond_map () c
   
   int bi = 0;
   for(const_iterator git = begin(); git != end(); ++git, ++bi)
+    //
     for(std::multiset<int>::const_iterator bit = git->begin(); bit != git->end(); ++bit)
+      //
       res[*bit].insert(bi);
 
   return res;

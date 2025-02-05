@@ -280,12 +280,6 @@ void IO::Marker::init(const char* h, int f, std::ostream* out)
 
   _flags = f;
 
-  // only master node can print
-  //
-  if(mpi_rank)
-    //
-    return;
-
   if(out) {
     //
     _to = out;
@@ -296,7 +290,7 @@ void IO::Marker::init(const char* h, int f, std::ostream* out)
   }
   else if(log.is_open()) {
     //
-    _to = &log;
+    _to = &(std::ostream&)log;
   }
   else
     //
@@ -320,7 +314,7 @@ IO::Marker::~Marker ()
 {
   // only master node can print
   //
-  if(!_isinit || mpi_rank)
+  if(!_isinit)
     //
     return;
   
@@ -335,7 +329,7 @@ IO::Marker::~Marker ()
 
   if(_flags & NOTIME) {
     //
-    *_to << "\n";
+    *_to << std::endl;
   }
   else {
     //

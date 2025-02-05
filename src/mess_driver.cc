@@ -13,16 +13,17 @@
         Library General Public License for more details.
 */
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <cmath>
+#include<iostream>
+#include<fstream>
+#include<sstream>
+#include<cmath>
 #include <sys/resource.h>
 
 #include "libmess/mess.hh"
 #include "libmess/key.hh"
 #include "libmess/units.hh"
 #include "libmess/io.hh"
+#include "libmess/offload.hh"
 
 int main (int argc, char* argv [])
 {
@@ -52,8 +53,6 @@ int main (int argc, char* argv [])
     }
   }
 
-    
-  
   int                 itemp;
   double              dtemp;
   bool                btemp;
@@ -88,6 +87,7 @@ int main (int argc, char* argv [])
   Key well_ext_key("WellExtension"              );
   Key ext_corr_key("ExtensionCorrection"        );
   Key eval_max_key("ChemicalEigenvalueMax"      );
+  Key chem_trs_key("ChemicalThreshold"          );
   Key eval_min_key("ChemicalEigenvalueMin"      );
   Key well_red_key("WellReductionThreshold"     );
   Key    float_key("FloatType"                  );
@@ -116,6 +116,12 @@ int main (int argc, char* argv [])
   Key mic_step_key("MicroEnerStep[kcal/mol]"    );
   Key tim_evol_key("TimeEvolution"              );
   Key       sl_key("StateLandscape"             );
+  Key save_mat_key("SaveKineticMatrix"          );
+  Key gpu_size_key("GpuSize"                    );
+  Key   gpu_id_key("GpuId"                      );
+
+  int gpu_id = 0;
+  int gpu_size = 0;
 
   std::vector<std::string> ped_spec;// product energy distribution pairs verbal
   std::vector<std::string> reduction_scheme;
@@ -205,33 +211,61 @@ int main (int argc, char* argv [])
 	IO::out << std::setprecision(Model::out_precision);
       }
 
-      // global energy limit check
+      Model::init(from);
+      
+      break;
+    }
+    // gpu size
+    //
+    else if(gpu_size_key == token) {
       //
-      if(!Model::is_energy_limit()) {
-	//
-	std::cerr << funame << "model energy limit should be set BEFORE model input section\n";
-	
-	throw Error::Init();
+      if(!(from >> gpu_size)) {
+        //
+        std::cerr << funame << token << ": corrupted" << std::endl;
+
+        throw Error::Input();
       }
 
-      // main initialization
+      if(gpu_size < 1) {
+        //
+        std::cerr << funame << token << ": out of range: " << gpu_size << std::endl;
+
+        throw Error::Range();
+      }
+        
+      std::getline(from, comment);
+    }
+    // gpu id
+    //
+    else if(gpu_id_key == token) {
       //
-      //try {
-      //
-      Model::init(from);
-      //}  
-      //catch(Error::General) {
-      //
-      //IO::log << std::flush;
-	
-      //throw;
-      //}
-      break;
+      if(!(from >> gpu_id)) {
+        //
+        std::cerr << funame << token << ": corrupted" << std::endl;
+
+        throw Error::Input();
+      }
+
+      if(gpu_id < 0) {
+        //
+        std::cerr << funame << token << ": out of range: " << gpu_id << std::endl;
+
+        throw Error::Range();
+      }
+        
+      std::getline(from, comment);
     }
     // out stream precision
     //
     else if(prec_out_key == token) {
       //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       IO::LineInput lin(from);
 
       if(!(lin >> itemp)) {
@@ -254,6 +288,13 @@ int main (int argc, char* argv [])
     //
     else if(prec_log_key == token) {
       //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       IO::LineInput lin(from);
 
       if(!(lin >> itemp)) {
@@ -298,6 +339,13 @@ int main (int argc, char* argv [])
     //
     else if(prec_ped_key == token) {
       //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       IO::LineInput lin(from);
 
       if(!(lin >> itemp)) {
@@ -320,6 +368,13 @@ int main (int argc, char* argv [])
     //
     else if(rate_out_key == token) {
       //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       if(IO::out.is_open()) {
 	//
         std::cerr << funame << token << ": allready opened\n";
@@ -350,6 +405,13 @@ int main (int argc, char* argv [])
     //
     else if(log_out_key == token) {
       //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       if(IO::log.is_open()) {
 	//
         std::cerr << funame << token << ": allready opened\n";
@@ -472,6 +534,13 @@ int main (int argc, char* argv [])
     //
     else if(react_key == token) {
       //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       if(!(from >> Model::reactant)) {
 	//
 	std::cerr << funame << token << ": corrupted\n";
@@ -685,6 +754,14 @@ int main (int argc, char* argv [])
     // model energy limit
     //
     else if(emax_key == token) {
+      //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       if(!(from >> dtemp)) {
         std::cerr << funame << token << ": corrupted\n";
         throw Error::Input();
@@ -696,6 +773,14 @@ int main (int argc, char* argv [])
     // minimal interatomic distance
     //
     else if(adm_bor_key == token || adm_ang_key == token) {
+      //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       if(!(from >> dtemp)) {
         std::cerr << funame << token << ": corrupted\n";
         throw Error::Input();
@@ -716,6 +801,13 @@ int main (int argc, char* argv [])
     //
     else if(xtun_key == token) {
       //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       if(!(from >> dtemp)) {
 	//
         std::cerr << funame << token << ": corrupted\n";
@@ -902,17 +994,31 @@ int main (int argc, char* argv [])
 	throw Error::Init();
       }
     }
-    // maximal chemical eigenvalue
+    // save kinetic matrix
     //
-    else if(eval_max_key == token) {
+    else if(save_mat_key == token) {
       //
-      if(!(from >> MasterEquation::chemical_threshold)) {
+      IO::LineInput lin(from);
+      
+      if(!(lin >> MasterEquation::save_kinetic_matrix)) {
+	//
+	MasterEquation::save_kinetic_matrix = base_name + ".skm";
+      }
+
+      std::remove(MasterEquation::save_kinetic_matrix.c_str());
+    }
+    // maximal chemical eigenvalue a.k.a. chemical threshold
+    //
+    else if(eval_max_key == token || chem_trs_key == token) {
+      //
+      IO::LineInput lin(from);
+      
+      if(!(lin >> MasterEquation::chemical_threshold)) {
 	//
         std::cerr << funame << token << ": corrupted\n";
 	
         throw Error::Input();
       }
-      std::getline(from, comment);
     }
     // minumal chemical eigenvalue
     //
@@ -930,39 +1036,57 @@ int main (int argc, char* argv [])
     // number of closest reductions to print
     //
     else if(red_out_key == token) {
+      //
       if(!(from >> MasterEquation::red_out_num)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
 
       if(MasterEquation::red_out_num < 1) {
+	//
         std::cerr << funame << token << ": out of range\n";
+	
         throw Error::Range();
       }
     }
     // species reduction algorithm for low-eigenvalue method
+    //
     else if(rat_red_key == token) {
+      //
       if(!(from >> stemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
 
-      if(stemp == "diagonalization")
+      if(stemp == "diagonalization") {
+	//
 	MasterEquation::reduction_method = MasterEquation::DIAGONALIZATION;
-      else if(stemp == "projection")
+      }
+      else if(stemp == "projection") {
+	//
 	MasterEquation::reduction_method = MasterEquation::PROJECTION;
+      }
       else {
-        std::cerr << funame << token << ": unknown reduction method: " << stemp 
-		  << "; available methods: diagonalization, projection\n";
+	//
+        std::cerr << funame << token << ": unknown reduction method: " << stemp << "; available methods: diagonalization, projection\n";
+	
         throw Error::Range();
       }
     }
     // well partition method
+    //
     else if(wpm_key == token) {
+      //
       if(!(from >> stemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
@@ -970,24 +1094,34 @@ int main (int argc, char* argv [])
       MasterEquation::set_well_partition_method(stemp);
     }
     // well partition threshold
+    //
     else if(wpt_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
       std::getline(from, comment);
 
       if(dtemp <= 0. || dtemp >= 1.) {
+	//
         std::cerr << funame << token << ": out of range\n";
+	
         throw Error::Range();
       }
 	
       MasterEquation::well_projection_threshold = dtemp;
     }
     // default reduction scheme
+    //
     else if(def_red_key == token) {
+      //
       IO::LineInput scheme_input(from);
+      
       while(scheme_input >> stemp)
+	//
 	reduction_scheme.push_back(stemp);
     }
     // default chemical subspace size
@@ -1166,6 +1300,7 @@ int main (int argc, char* argv [])
       micro_ener_min *= Phys_const::kcal;
     }
     // microscopic rate energy step
+    //
     else if(mic_step_key == token) {
       //
       if(!(from >> micro_ener_step)) {
@@ -1181,6 +1316,13 @@ int main (int argc, char* argv [])
     //
     else if(tim_evol_key == token) {
       //
+      if(Model::isinit()) {
+	//
+	std::cerr << funame << token << ": should be initialized before model initialization\n";
+
+	throw Error::Init();
+      }
+      
       if(Model::time_evolution) {
 	//
 	std::cerr << funame << token << ": already initialized\n";
@@ -1277,6 +1419,12 @@ int main (int argc, char* argv [])
     
     Model::names_translation(MasterEquation::ped_out);
   }
+
+#ifdef OFFLOAD_CUDA
+
+  Offload::Cuda::Init cuda_init(gpu_id);
+
+#endif
   
   /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
 
@@ -1351,27 +1499,31 @@ int main (int argc, char* argv [])
 
 	for(int b = 0; b < Model::inner_barrier_size(); ++b)
 	  //
-	  if(Model::inner_connect(b).first == w || Model::inner_connect(b).second == w)
+	  if(Model::inner_connect(b).first == w || Model::inner_connect(b).second == w) {
 	    //
 	    if(states != 0.) {
 	      //
 	      micro_out << std::setw(15) << Model::inner_barrier(b).states(ener) / states / 2. / M_PI / Phys_const::herz;
 	    }
-	    else
+	    else {
 	      //
 	      micro_out << std::setw(15) << "***";
-
+	    }
+	  }
+	
 	for(int b = 0; b < Model::outer_barrier_size(); ++b)
 	  //
-	  if(Model::outer_connect(b).first == w)
+	  if(Model::outer_connect(b).first == w) {
 	    //
 	    if(states != 0.) {
 	      //
 	      micro_out << std::setw(15) << Model::outer_barrier(b).states(ener) / states / 2. / M_PI / Phys_const::herz;
 	    }
-	    else
+	    else {
 	      //
 	      micro_out << std::setw(15) << "***";
+	    }
+	  }
 	
 	micro_out << "\n";
 	//
