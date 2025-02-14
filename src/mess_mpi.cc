@@ -92,9 +92,12 @@ int main (int argc, char* argv [])
   Key     etot_key("EnergyStepOverTemperature"  );
   Key     xtot_key("ExcessEnergyOverTemperature");
   Key ener_cut_key("EnergyCutoffOverTemperature");
+  Key cut_kcal_key("GlobalCutoff[kcal/mol]"     );
   Key cut_incm_key("GlobalCutoff[1/cm]"         );
   Key   cut_kj_key("GlobalCutoff[kJ/mol]"       );
-  Key     emax_key("ModelEnergyLimit[kcal/mol]" );
+  Key lim_kcal_key("ModelEnergyLimit[kcal/mol]" );
+  Key lim_incm_key("ModelEnergyLimit[1/cm]"     );
+  Key   lim_kj_key("ModelEnergyLimit[kJ/mol]"   );
   Key  adm_bor_key("AtomDistanceMin[bohr]"      );
   Key  adm_ang_key("AtomDistanceMin[angstrom]"  );
   Key     xtun_key("TunnelingActionCutoff"      );
@@ -104,6 +107,7 @@ int main (int argc, char* argv [])
   Key eval_max_key("ChemicalEigenvalueMax"      );
   Key chem_trs_key("ChemicalThreshold"          );
   Key eval_min_key("ChemicalEigenvalueMin"      );
+  Key chem_tol_key("ChemicalTolerance"          );
   Key well_red_key("WellReductionThreshold"     );
   Key    float_key("FloatType"                  );
   Key     calc_key("CalculationMethod"          );
@@ -719,7 +723,7 @@ int main (int argc, char* argv [])
       }
       // model energy limit
       //
-      else if(emax_key == token) {
+      else if(lim_kcal_key == token || lim_incm_key == token || lim_kj_key == token) {
 	//
 	if(Model::isinit()) {
 	  //
@@ -736,7 +740,55 @@ int main (int argc, char* argv [])
 	}
 	std::getline(from, comment);
 
-	Model::set_energy_limit(dtemp * Phys_const::kcal);
+	if(lim_kcal_key == token)
+	  //
+	  dtemp *= Phys_const::kcal;
+
+	if(lim_kj_key == token)
+	  //
+	  dtemp *= Phys_const::kjoul;
+
+	if(lim_incm_key == token)
+	  //
+	  dtemp *= Phys_const::incm;
+
+	Model::set_energy_limit(dtemp);
+      }
+      // global energy cutoff
+      //
+      else if(cut_incm_key == token || cut_kcal_key == token || cut_kj_key == token) {
+	//
+	if(MasterEquation::is_global_cutoff) {
+	  //
+	  std::cerr << funame << token << ": already initialized\n";
+
+	  throw Error::Init();
+	}
+
+	MasterEquation::is_global_cutoff = true;
+
+	IO::LineInput lin(from);
+
+	if(!(lin >> dtemp)) {
+	  //
+	  std::cerr << funame << token << ": lower cutoff corrupted\n";
+	
+	  throw Error::Input();
+	}
+	    
+	if(cut_incm_key == token)
+	  //
+	  dtemp *= Phys_const::incm;
+
+	if(cut_kcal_key == token)
+	  //
+	  dtemp *= Phys_const::kcal;
+
+	if(cut_kj_key == token)
+	  //
+	  dtemp *= Phys_const::kjoul;
+
+	MasterEquation::lower_global_cutoff = dtemp;
       }
       // minimal interatomic distance
       //
@@ -995,7 +1047,7 @@ int main (int argc, char* argv [])
       }
       // minumal chemical eigenvalue
       //
-      else if(eval_min_key == token) {
+      else if(eval_min_key == token || chem_tol_key == token) {
 	//
 	if(!(from >> MasterEquation::chemical_tolerance)) {
 	  //
@@ -1325,29 +1377,29 @@ int main (int argc, char* argv [])
 
     if(!Model::isinit()) {
       std::cerr << funame << "not initialized\n";
-      throw Error::Input();
+      throw Error::Init();
     }
 
     if(!temperature.size()) {
       std::cerr << funame << "temperature list has not been initialized\n";
-      throw Error::Input();
+      throw Error::Init();
     }
 
     if(!pressure.size()) {
       std::cerr << funame << "pressure list has not been initialized\n";
-      throw Error::Input();
+      throw Error::Init();
     }
 
     if(MasterEquation::energy_step_over_temperature < 0.) {
       //
       std::cerr << funame << "energy step over temperature has not been initialized\n";
     
-      throw Error::Input();
+      throw Error::Init();
     }
 
     if(xtot < 0.)
       //
-      std::cerr << funame << "WARNING: reference energy has not been initialized: using the default\n";
+      IO::log << IO::log_offset << "WARNING: reference energy has not been initialized: using the default\n";
 
     if(reduction_scheme.size())
       //
@@ -1363,7 +1415,181 @@ int main (int argc, char* argv [])
     
       Model::names_translation(MasterEquation::ped_out);
     }
+    
+    /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
+
+    if(!IO::mpi_rank) {
+      //
+      if(micro_rate_file.size()) {
+	//
+	if(micro_ener_max <= micro_ener_min || micro_ener_step <= 0.) {
+	  //
+	  std::cerr << funame << "microscopic rate output: out of range\n";
+      
+	  throw Error::Range();
+	}
+
+	std::ofstream micro_out(micro_rate_file.c_str());
+    
+	if(!micro_out.is_open()) {
+	  //
+	  std::cerr << funame << "microscopic rate output: cannot open " << micro_rate_file << " file\n";
+      
+	  throw Error::Open();
+	}
+
+	Model::names_translation(micro_out);
+    
+	// well cycle
+	//
+	for(int w = 0; w < Model::well_size(); ++w) {
+	  //
+	  micro_out << std::setw(15) << "E, kcal/mol"
+		    << std::setw(15) << "D, mol/kcal";
+
+	  for(int b = 0; b < Model::inner_barrier_size(); ++b) {
+	    //
+	    const int w1 = Model::inner_connect(b).first;
+	
+	    const int w2 = Model::inner_connect(b).second;
+	
+	    if(w1 == w) {
+	      //
+	      stemp = Model::well(w).short_name() + "->" + Model::well(w2).short_name();
+	  
+	      micro_out << std::setw(15) << stemp;
+	    }
+	    else if(w2 == w) {
+	      //
+	      stemp = Model::well(w).short_name() + "->" + Model::well(w1).short_name();
+	  
+	      micro_out << std::setw(15) << stemp;
+	    }
+	  }
+
+	  for(int b = 0; b < Model::outer_barrier_size(); ++b)
+	    //
+	    if(Model::outer_connect(b).first == w) {
+	      //
+	      const int p = Model::outer_connect(b).second;
+	  
+	      stemp = Model::well(w).short_name() + "->" + Model::bimolecular(p).short_name();
+	  
+	      micro_out << std::setw(15) << stemp;
+	    }
+      
+	  micro_out << "\n";
+
+	  // energy cycle
+	  //
+	  for(double ener = micro_ener_min; ener <= micro_ener_max; ener += micro_ener_step) {
+	    //
+	    double states = Model::well(w).states(ener);
+	
+	    micro_out << std::setw(15) << ener   / Phys_const::kcal
+		      << std::setw(15) << states * Phys_const::kcal;
+
+	    for(int b = 0; b < Model::inner_barrier_size(); ++b)
+	      //
+	      if(Model::inner_connect(b).first == w || Model::inner_connect(b).second == w) {
+		//
+		if(states != 0.) {
+		  //
+		  micro_out << std::setw(15) << Model::inner_barrier(b).states(ener) / states / 2. / M_PI / Phys_const::herz;
+		}
+		else {
+		  //
+		  micro_out << std::setw(15) << "***";
+		}
+	      }
+
+	    for(int b = 0; b < Model::outer_barrier_size(); ++b)
+	      //
+	      if(Model::outer_connect(b).first == w) {
+		//
+		if(states != 0.) {
+		  //
+		  micro_out << std::setw(15) << Model::outer_barrier(b).states(ener) / states / 2. / M_PI / Phys_const::herz;
+		}
+		else {
+		  //
+		  micro_out << std::setw(15) << "***";
+		}
+	      }
+	
+	    micro_out << "\n";
+	    //
+	  }// energy cycle
+	  //
+	}// well cycle
+
+	// bimolecular density of states
+	//
+	itemp = 0;
+    
+	for(int p = 0; p < Model::bimolecular_size(); ++p)
+	  //
+	  if(!Model::bimolecular(p).dummy())
+	    //
+	    for(int f = 0; f < 2; ++f)
+	      //
+	      if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+		//
+		itemp = 1;
+
+	if(itemp) {
+	  //
+	  micro_out << "Bimolecular fragments density of states, mol/kcal:\n";
+
+	  micro_out << std::setw(15) << "E, kcal/mol";
+
+	  std::vector<int> name_size(Model::bimolecular_size());
+      
+	  for(int p = 0; p < Model::bimolecular_size(); ++p)
+	    //
+	    if(!Model::bimolecular(p).dummy())
+	      //
+	      for(int f = 0; f < 2; ++f)
+		//
+		if(Model::bimolecular(p).mode(f) == Model::DENSITY) {
+		  //
+		  itemp = Model::bimolecular(p).short_name().size() + 3;
+
+		  name_size[p] = itemp > 15 ? itemp : 15;
+	      
+		  micro_out << std::setw(name_size[p]) << Model::bimolecular(p).short_name() + "_" + IO::String(f);
+		}
+      
+	  micro_out << "\n";
+
+	  for(double ener = micro_ener_min; ener <= micro_ener_max; ener += micro_ener_step) {
+	    //
+	    micro_out << std::setw(15) << ener / Phys_const::kcal;
+      
+	    for(int p = 0; p < Model::bimolecular_size(); ++p)
+	      //
+	      if(!Model::bimolecular(p).dummy())
+		//
+		for(int f = 0; f < 2; ++f)
+		  //
+		  if(Model::bimolecular(p).mode(f) == Model::DENSITY)
+		    //
+		    micro_out << std::setw(name_size[p]) << Model::bimolecular(p).states(f, ener) * Phys_const::kcal;
+
+	    micro_out << "\n";
+	  }//
+	  //
+	}//
+	//
+      }// micro output
+
+      Model::pes_print();
+
+      Model::pf_print();
+    
+    }// master node
   }
+  // handling error
   //
   catch(Error::General) {
     //
@@ -1374,6 +1600,13 @@ int main (int argc, char* argv [])
     return 0;
   }
   
+  if(Model::no_run()) {
+    //
+    MPI_Finalize();
+    
+    return 0;
+  }
+
 #ifdef OFFLOAD_CUDA
 
   Offload::Cuda::Init cuda_init(IO::mpi_rank);
@@ -1388,188 +1621,9 @@ int main (int argc, char* argv [])
     
     setenv("CUDA_VISIBLE_DEVICES", gpu.str().c_str(), 1);
   }
-#endif
-    
-  /************************** MICROSCOPIC RATE COEFFICIENTS **********************************/
-
-  if(!IO::mpi_rank) {
-    //
-    if(micro_rate_file.size()) {
-      //
-      if(micro_ener_max <= micro_ener_min || micro_ener_step <= 0.) {
-	//
-	std::cerr << funame << "microscopic rate output: out of range\n";
-      
-	throw Error::Range();
-      }
-
-      std::ofstream micro_out(micro_rate_file.c_str());
-    
-      if(!micro_out.is_open()) {
-	//
-	std::cerr << funame << "microscopic rate output: cannot open " << micro_rate_file << " file\n";
-      
-	throw Error::Open();
-      }
-
-      Model::names_translation(micro_out);
-    
-      // well cycle
-      //
-      for(int w = 0; w < Model::well_size(); ++w) {
-	//
-	micro_out << std::setw(15) << "E, kcal/mol"
-		  << std::setw(15) << "D, mol/kcal";
-
-	for(int b = 0; b < Model::inner_barrier_size(); ++b) {
-	  //
-	  const int w1 = Model::inner_connect(b).first;
-	
-	  const int w2 = Model::inner_connect(b).second;
-	
-	  if(w1 == w) {
-	    //
-	    stemp = Model::well(w).short_name() + "->" + Model::well(w2).short_name();
-	  
-	    micro_out << std::setw(15) << stemp;
-	  }
-	  else if(w2 == w) {
-	    //
-	    stemp = Model::well(w).short_name() + "->" + Model::well(w1).short_name();
-	  
-	    micro_out << std::setw(15) << stemp;
-	  }
-	}
-
-	for(int b = 0; b < Model::outer_barrier_size(); ++b)
-	  //
-	  if(Model::outer_connect(b).first == w) {
-	    //
-	    const int p = Model::outer_connect(b).second;
-	  
-	    stemp = Model::well(w).short_name() + "->" + Model::bimolecular(p).short_name();
-	  
-	    micro_out << std::setw(15) << stemp;
-	  }
-      
-	micro_out << "\n";
-
-	// energy cycle
-	//
-	for(double ener = micro_ener_min; ener <= micro_ener_max; ener += micro_ener_step) {
-	  //
-	  double states = Model::well(w).states(ener);
-	
-	  micro_out << std::setw(15) << ener   / Phys_const::kcal
-		    << std::setw(15) << states * Phys_const::kcal;
-
-	  for(int b = 0; b < Model::inner_barrier_size(); ++b)
-	    //
-	    if(Model::inner_connect(b).first == w || Model::inner_connect(b).second == w) {
-	      //
-	      if(states != 0.) {
-		//
-		micro_out << std::setw(15) << Model::inner_barrier(b).states(ener) / states / 2. / M_PI / Phys_const::herz;
-	      }
-	      else {
-		//
-		micro_out << std::setw(15) << "***";
- 	      }
-	    }
-
-	  for(int b = 0; b < Model::outer_barrier_size(); ++b)
-	    //
-	    if(Model::outer_connect(b).first == w) {
-	      //
-	      if(states != 0.) {
-		//
-		micro_out << std::setw(15) << Model::outer_barrier(b).states(ener) / states / 2. / M_PI / Phys_const::herz;
-	      }
-	      else {
-		//
-		micro_out << std::setw(15) << "***";
-	      }
-	    }
-	
-	  micro_out << "\n";
-	  //
-	}// energy cycle
-	//
-      }// well cycle
-
-      // bimolecular density of states
-      //
-      itemp = 0;
-    
-      for(int p = 0; p < Model::bimolecular_size(); ++p)
-	//
-	if(!Model::bimolecular(p).dummy())
-	  //
-	  for(int f = 0; f < 2; ++f)
-	    //
-	    if(Model::bimolecular(p).mode(f) == Model::DENSITY)
-	      //
-	      itemp = 1;
-
-      if(itemp) {
-	//
-	micro_out << "Bimolecular fragments density of states, mol/kcal:\n";
-
-	micro_out << std::setw(15) << "E, kcal/mol";
-
-	std::vector<int> name_size(Model::bimolecular_size());
-      
-	for(int p = 0; p < Model::bimolecular_size(); ++p)
-	  //
-	  if(!Model::bimolecular(p).dummy())
-	    //
-	    for(int f = 0; f < 2; ++f)
-	      //
-	      if(Model::bimolecular(p).mode(f) == Model::DENSITY) {
-		//
-		itemp = Model::bimolecular(p).short_name().size() + 3;
-
-		name_size[p] = itemp > 15 ? itemp : 15;
-	      
-		micro_out << std::setw(name_size[p]) << Model::bimolecular(p).short_name() + "_" + IO::String(f);
-	      }
-      
-	micro_out << "\n";
-
-	for(double ener = micro_ener_min; ener <= micro_ener_max; ener += micro_ener_step) {
-	  //
-	  micro_out << std::setw(15) << ener / Phys_const::kcal;
-      
-	  for(int p = 0; p < Model::bimolecular_size(); ++p)
-	    //
-	    if(!Model::bimolecular(p).dummy())
-	      //
-	      for(int f = 0; f < 2; ++f)
-		//
-		if(Model::bimolecular(p).mode(f) == Model::DENSITY)
-		  //
-		  micro_out << std::setw(name_size[p]) << Model::bimolecular(p).states(f, ener) * Phys_const::kcal;
-
-	  micro_out << "\n";
-	}//
-	//
-      }//
-      //
-    }// micro output
-
-    Model::pes_print();
-
-    Model::pf_print();
-    
-  }// master node
   
-  if(Model::no_run()) {
-    //
-    MPI_Finalize();
-    
-    return 0;
-  }
-
+#endif    
+  
   std::map<std::pair<int, int>, double> rate_data, hp_rate_data;
   std::map<int, double>                            capture_data;
   MasterEquation::Partition                      partition_data;
@@ -1607,8 +1661,9 @@ int main (int argc, char* argv [])
       
       if(xtot > 0.) {
 	//
-	MasterEquation::set_energy_reference(nearbyint((dtemp * xtot + Model::maximum_barrier_height())
-						       / Phys_const::incm) * Phys_const::incm);
+	dtemp = std::floor((MasterEquation::temperature() * xtot + Model::maximum_barrier_height())
+			   //
+			   / Phys_const::incm + 0.5) * Phys_const::incm;
       }
       else
 	//

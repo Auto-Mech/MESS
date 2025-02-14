@@ -5497,6 +5497,8 @@ double Model::Tunnel::weight (double temperature) const
 {
   const char funame [] = "Model::Tunnel::weight: ";
 
+  static const double exp_arg_max = 50.;
+  
   if(cutoff() < 0.) {
     //
     IO::log << IO::log_offset << funame << "cutoff energy is not initialized\n";
@@ -5509,25 +5511,29 @@ double Model::Tunnel::weight (double temperature) const
 
   const double estep = temperature * _wtol; // discretization energy step
 
-  double res = factor(0.);
-  
-  for(double ener = estep; ener < cutoff(); ener += estep) {
+  double res = 0.;
+
+  for(double ener = 0.; ener < cutoff(); ener += estep) {
     //
-    dtemp = std::exp(ener / temperature);
-    
-    res += factor(-ener) * dtemp;
+    dtemp = (cutoff() - ener) / temperature;
+
+    if(dtemp < exp_arg_max)
+      //
+      res += factor(-ener) / std::exp(dtemp);
   }
   
   const double emax = 10. * temperature;
 
   for(double ener = estep; ener < emax; ener += estep) {
     //
-    dtemp = std::exp(ener / temperature);
-    
-    res += factor(ener) / dtemp;
+    dtemp = (cutoff() + ener) / temperature;
+
+    if(dtemp < exp_arg_max)
+      //
+      res += factor(ener) / std::exp(dtemp);
   }
   
-  res *= _wtol / std::exp(cutoff() / temperature);
+  res *= _wtol;
   
   if(!std::isnormal(res)) {
     //
@@ -11835,7 +11841,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
   
   double pot_fac = -1.; // potential prefactor V_0
 
-  int tst_level = E_LEVEL;
+  int tst_level = EJ_LEVEL;
   
   int         itemp;
   double      dtemp;
