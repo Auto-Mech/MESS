@@ -27,7 +27,6 @@
 
 #if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
 
-#include "mpack.hh"
 #include "mpack_dd.hh"
 #include "mplapack_dd.hh"
 
@@ -52,10 +51,13 @@ namespace MasterEquation {
   class Partition;
 
   // eigenvector and eigenvalue output
+  //
   extern std::ofstream eval_out;// eigenvalues output
   extern std::ofstream evec_out;// eigenvalues output
   extern int           evec_out_num;// number of relaxation eigenvalues to print
 
+  extern std::string save_kinetic_matrix;
+  
   // pressure units
   //
   enum {TORR, BAR, ATM};
@@ -96,6 +98,10 @@ namespace MasterEquation {
 
   extern double            reference_pressure;
   
+  extern bool              is_global_cutoff;
+
+  extern double            lower_global_cutoff;  // lower global energy cutoff
+
   extern double            well_cutoff;// well cutoff parameter (lower part of the energy window)
   
   extern double            chemical_threshold;// threshold separating chemical and relaxational eigenstates
@@ -469,7 +475,6 @@ namespace MasterEquation {
     //
     double                  _weight;             // statistical weight
     double                  _weight_sqrt;        // square root of the statistical weight
-    double                  _real_weight;        // not truncated statistical weight
     double                  _min_relax_eval;     // minimal collisional relaxation eigenvalue
     double                  _max_relax_eval;     // maximal collisional relaxation eigenvalue
     
@@ -500,7 +505,6 @@ namespace MasterEquation {
 
     int              size ()                const { return _state_density.size(); }
     double         weight ()                const { return               _weight; }
-    double    real_weight ()                const { return          _real_weight; }
     double    weight_sqrt ()                const { return          _weight_sqrt; }
     double  state_density (int i)           const { return     _state_density[i]; }
     double       boltzman (int i)           const { return          _boltzman[i]; }
@@ -510,12 +514,12 @@ namespace MasterEquation {
     double minimal_relaxation_eigenvalue () const { return       _min_relax_eval; }
     double maximal_relaxation_eigenvalue () const { return       _max_relax_eval; }
 
-    int             crm_size ()             const { return      _crm_basis.size2(); }
+    int             crm_size ()             const { return      size() - 1;         }
     const double&  crm_basis (int i, int j) const { return      _crm_basis(i, j);   }
     double           crm_bra (int i, int j) const { return      _crm_bra(i, j);     }
     const double* crm_column (int i)        const { return     &_crm_basis(0, i);   }
     const double* crm_row    (int i)        const { return     &_crm_basis(i, 0);   }
-    const double& crm_kernel (int i, int j) const { return      _crm_kernel(i, j);  }// kernel in CRM basis 
+    double crm_kernel (int i, int j) const { return      _crm_kernel(i, j);  }// kernel in CRM basis 
 
     //double escape_rate(int i)               const { return       _escape_rate[i]; }
     //const double* escape_rate()             const { return       _escape_rate; }
@@ -540,7 +544,6 @@ namespace MasterEquation {
     //
     Lapack::Vector _state_number;
     double               _weight;
-    double          _real_weight;
 
   public:
     //
@@ -550,30 +553,13 @@ namespace MasterEquation {
     double  state_number (int i) const { return _state_number[i]; }
     double& state_number (int i)       { return _state_number[i]; }
     double        weight ()      const { return _weight; }
-    double   real_weight ()      const { return _real_weight; }
 
     void      truncate (int) ;
-  };
-
-  /********************************************************************************************
-   ************************************ BIMOLECULAR CLASS *************************************
-   ********************************************************************************************/
-
-  class Bimolecular {
-    //
-    double _weight;
-
-  public:
-    //
-    Bimolecular(const Model::Bimolecular& p);
-    
-    double   weight () const { return   _weight; }
   };
 
   /*********************************************************************************************/
 
   const Well&                            well (int w);
-  const Bimolecular&              bimolecular (int p);
   const Barrier&                inner_barrier (int b);
   const Barrier&                outer_barrier (int b);
 
@@ -614,6 +600,8 @@ namespace MasterEquation {
   //
   class Group : public std::set<int> {
     //
+    void _assert () const;
+    
   public:
     
     Group () {}
@@ -627,9 +615,10 @@ namespace MasterEquation {
     bool insert (int i) { return std::set<int>::insert(i).second; }
     bool erase  (int i) { return std::set<int>::erase(i); }
     
-    int    group_index () const;
-    double      weight () const;
-    double real_weight () const;
+    int    group_index ()       const;
+    double      weight ()       const;
+    double real_weight (double) const;
+    double real_ground ()       const; 
 
     double projection (Lapack::Matrix) const;
 
@@ -649,10 +638,11 @@ namespace MasterEquation {
 
     double projection (Lapack::Matrix) const;
 
-    Lapack::Matrix      basis       () const;
-    std::vector<int>    group_index () const;
-    std::vector<double> weight      () const;
-    std::vector<double> real_weight () const;
+    Lapack::Matrix      basis       ()       const;
+    std::vector<int>    group_index ()       const;
+    std::vector<double>      weight ()       const;
+    std::vector<double> real_weight (double) const;
+    std::vector<double> real_ground ()       const;
   };
 
   //  Generator of group of m elements from the pool of n elements
@@ -690,7 +680,6 @@ namespace MasterEquation {
 
     void operator++();
     void operator++(int) { operator++(); }
-
     bool end            ()      const { return _end; }
     int size            ()      const { return _group_index.size(); }
     int partition_size  ()      const { return _partition_size; }
@@ -700,16 +689,19 @@ namespace MasterEquation {
   };
 
   // description of the species as a group of equilibrated wells at high pressure
+  //
   struct HPWell : public Group {
     double weight; // statistical weight
   };
 
   // description of the barrier which connect two species at high pressure
+  //
   struct HPBarrier : public std::pair<int, int> {
     double weight; // statistical number of states (over 2 Pi)
   };
 
-  // auxilliary output
+  // auxilliary eigenvalue output
+  //
   extern std::ofstream eval_out; // eigenvalues output
 }
 

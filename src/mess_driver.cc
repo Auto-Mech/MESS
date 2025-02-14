@@ -78,8 +78,11 @@ int main (int argc, char* argv [])
   Key     xtot_key("ExcessEnergyOverTemperature");
   Key ener_cut_key("EnergyCutoffOverTemperature");
   Key cut_incm_key("GlobalCutoff[1/cm]"         );
+  Key cut_kcal_key("GlobalCutoff[kcal/mol]"     );
   Key   cut_kj_key("GlobalCutoff[kJ/mol]"       );
-  Key     emax_key("ModelEnergyLimit[kcal/mol]" );
+  Key lim_incm_key("ModelEnergyLimit[1/cm]"     );
+  Key lim_kcal_key("ModelEnergyLimit[kcal/mol]" );
+  Key   lim_kj_key("ModelEnergyLimit[kJ/mol]"   );
   Key  adm_bor_key("AtomDistanceMin[bohr]"      );
   Key  adm_ang_key("AtomDistanceMin[angstrom]"  );
   Key     xtun_key("TunnelingActionCutoff"      );
@@ -89,6 +92,7 @@ int main (int argc, char* argv [])
   Key eval_max_key("ChemicalEigenvalueMax"      );
   Key chem_trs_key("ChemicalThreshold"          );
   Key eval_min_key("ChemicalEigenvalueMin"      );
+  Key chem_tol_key("ChemicalTolerance"          );
   Key well_red_key("WellReductionThreshold"     );
   Key    float_key("FloatType"                  );
   Key     calc_key("CalculationMethod"          );
@@ -753,7 +757,7 @@ int main (int argc, char* argv [])
     }
     // model energy limit
     //
-    else if(emax_key == token) {
+    else if(lim_kcal_key == token || lim_incm_key == token || lim_kj_key == token) {
       //
       if(Model::isinit()) {
 	//
@@ -761,14 +765,29 @@ int main (int argc, char* argv [])
 
 	throw Error::Init();
       }
+
+      IO::LineInput lin(from);
       
-      if(!(from >> dtemp)) {
+      if(!(lin >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
-      std::getline(from, comment);
 
-      Model::set_energy_limit(dtemp * Phys_const::kcal);
+      if(lim_kcal_key == token)
+	//
+	dtemp *= Phys_const::kcal;
+      
+      if(lim_incm_key == token)
+	//
+	dtemp *= Phys_const::incm;
+      
+      if(lim_kj_key == token)
+	//
+	dtemp *= Phys_const::kjoul;
+      
+      Model::set_energy_limit(dtemp);
     }
     // minimal interatomic distance
     //
@@ -780,22 +799,64 @@ int main (int argc, char* argv [])
 
 	throw Error::Init();
       }
+
+      IO::LineInput lin(from);
       
-      if(!(from >> dtemp)) {
+      if(!(lin >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+	
         throw Error::Input();
       }
-      std::getline(from, comment);
 
-      if(dtemp <= 0) {
+      if(dtemp <= 0.) {
+	//
         std::cerr << funame << token << ": out of range\n";
+	
         throw Error::Range();
       }
       
       if(adm_ang_key == token)
+	//
 	dtemp *= Phys_const::angstrom;
 
       Model::atom_dist_min = dtemp;
+    }
+    // global energy cutoff
+    //
+    else if(cut_incm_key == token || cut_kcal_key == token || cut_kj_key == token) {
+      //
+      if(MasterEquation::is_global_cutoff) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      MasterEquation::is_global_cutoff = true;
+
+      IO::LineInput lin(from);
+      
+      if(!(lin >> dtemp)) {
+	//
+	std::cerr << funame << token << ": lower cutoff corrupted\n";
+	
+	throw Error::Input();
+      }
+	    
+      if(cut_incm_key == token)
+	//
+	dtemp *= Phys_const::incm;
+
+      if(cut_kcal_key == token)
+	//
+	dtemp *= Phys_const::kcal;
+
+      if(cut_kj_key == token)
+	//
+	dtemp *= Phys_const::kjoul;
+
+      MasterEquation::lower_global_cutoff = dtemp;
     }
     // maximum tunneling exponent
     //
@@ -1022,7 +1083,7 @@ int main (int argc, char* argv [])
     }
     // minumal chemical eigenvalue
     //
-    else if(eval_min_key == token) {
+    else if(eval_min_key == token || chem_tol_key == token) {
       //
       if(!(from >> MasterEquation::chemical_tolerance)) {
 	//
@@ -1709,8 +1770,9 @@ int main (int argc, char* argv [])
       
       if(xtot > 0.) {
 	//
-	MasterEquation::set_energy_reference(nearbyint((*t * xtot + Model::maximum_barrier_height())
-						       / Phys_const::incm) * Phys_const::incm);
+	dtemp = std::floor((*t * xtot + Model::maximum_barrier_height()) / Phys_const::incm + 0.5) * Phys_const::incm;
+
+	MasterEquation::set_energy_reference(dtemp);
       }
       else
 	//
