@@ -14,5 +14,13 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y g++ gfortran make cmake
 
-    - name: Run build script
-      run: ./rebuild.sh 
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+
+    - name: Build Project
+      run: |
+        cd build
+        make -j2 # Using 2 cores for the CI build 
