@@ -15,6 +15,19 @@ option(USE_SYSTEM_LIBS "Try to use system libraries before downloading" ON)
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 include(ExternalProject)
 
+# Check for direct SLATEC build
+if(USE_DIRECT_SLATEC)
+  message(STATUS "Using direct SLATEC build")
+  if(EXISTS "${CMAKE_SOURCE_DIR}/external/lib/libslatec.a")
+    set(SLATEC "${CMAKE_SOURCE_DIR}/external/lib/libslatec.a")
+    message(STATUS "Found direct SLATEC: ${SLATEC}")
+  else()
+    message(WARNING "Direct SLATEC build enabled but library not found. Please run ./slatec_direct.sh first.")
+    message(STATUS "Falling back to regular SLATEC build")
+    set(USE_DIRECT_SLATEC OFF)
+  endif()
+endif()
+
 # Function to conditionally download and build a dependency
 function(handle_dependency name)
   if(NOT ${name}_FOUND AND AUTO_DOWNLOAD_DEPENDENCIES)
@@ -56,6 +69,10 @@ else()
   message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
 endif()
 
+# Find Fortran compilation capabilities
+# This tells CMake to enable Fortran language for our project
+enable_language(Fortran OPTIONAL)
+
 # Find SLATEC
 if(USE_SYSTEM_LIBS)
   find_library(SLATEC NAMES slatec libslatec QUIET)
@@ -63,42 +80,166 @@ endif()
 
 if(NOT SLATEC AND AUTO_DOWNLOAD_DEPENDENCIES)
   message(STATUS "SLATEC not found. Will download and build it.")
+
+  # Create SLATEC wrapper file content for missing C interfaces
+  file(WRITE ${CMAKE_BINARY_DIR}/slatec_wrapper.f "
+! Explicit wrapper for SLATEC functions that need C-compatible interfaces
+      subroutine davint(x, y, n, xlo, xup, ans, ierr)
+      implicit none
+      integer n, ierr
+      double precision x(n), y(n), xlo, xup, ans
+      call davint_(x, y, n, xlo, xup, ans, ierr)
+      return
+      end
+
+      subroutine ddeabm(f, neq, t, y, tout, info, rtol, atol, idid,
+     &                 rwork, lrw, iwork, liw, rpar, ipar)
+      external f
+      integer neq, info(*), idid, lrw, iwork(*), liw
+      double precision t, y(*), tout, rtol(*), atol(*), rwork(*)
+      integer ipar(*)
+      double precision rpar(*)
+      call ddeabm_(f, neq, t, y, tout, info, rtol, atol, idid,
+     &            rwork, lrw, iwork, liw, rpar, ipar)
+      return
+      end
+
+      subroutine dbint4(x, y, n, ibcl, ibcr, fbcl, fbcr, kntopt, t, nc, 
+     &                 bc, ws, lws, ierr)
+      integer n, ibcl, ibcr, kntopt, nc, lws, ierr
+      double precision x(*), y(*), fbcl, fbcr, t(*), bc(*), ws(*)
+      call dbint4_(x, y, n, ibcl, ibcr, fbcl, fbcr, kntopt, t, nc, 
+     &            bc, ws, lws, ierr)
+      return
+      end
+
+      function dbvalu(t, a, n, k, ideriv, x, inbv, work)
+      integer n, k, ideriv, inbv
+      double precision t(*), a(*), x, work(*), dbvalu
+      dbvalu = dbvalu_(t, a, n, k, ideriv, x, inbv, work)
+      return
+      end
+")
+
+  # Create build script for SLATEC
+  file(WRITE ${CMAKE_BINARY_DIR}/build_slatec.sh "#!/bin/sh
+set -e
+# Use gfortran as default Fortran compiler if not specified
+FC=${CMAKE_Fortran_COMPILER}
+if [ -z \"$FC\" ]; then
+  FC=gfortran
+fi
+FFLAGS='-O2 -fPIC -fdefault-real-8 -fdefault-double-8 -std=legacy'
+AR=ar
+
+echo 'Compiling SLATEC modules...'
+for f in *.f; do
+  echo \"Compiling $f...\"
+  $FC $FFLAGS -c $f || exit 1
+done
+
+echo 'Creating library...'
+$AR rcs libslatec.a *.o
+echo 'Build complete'
+")
+
+  # Set up SLATEC build with more detailed configuration for reproducibility
+  set(SLATEC_SOURCE_DIR ${CMAKE_BINARY_DIR}/slatec_src)
+  set(SLATEC_BUILD_DIR ${CMAKE_BINARY_DIR}/slatec_build)
   
-  # Create a custom download method for SLATEC
-  # Use a known good direct source instead of GitHub or Netlib
+  include(ExternalProject)
   ExternalProject_Add(
     slatec_external
     URL https://www.netlib.org/slatec/slatec_src.tgz
-    # Don't use hash verification since the file seems to change
-    DOWNLOAD_NO_PROGRESS TRUE
-    # Configure step - create Makefile
-    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> <BINARY_DIR>
-                      && ${CMAKE_COMMAND} -E echo "FC = gfortran" > <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "FFLAGS = -O2 -fPIC" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "AR = ar" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "SRCS = $(wildcard *.f)" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "OBJS = $(SRCS:.f=.o)" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "all: libslatec.a" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "libslatec.a: $(OBJS)" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "\t$(AR) rcs $@ $^" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "%.o: %.f" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "\t$(FC) $(FFLAGS) -c $< -o $@" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "clean:" >> <BINARY_DIR>/Makefile
-                      && ${CMAKE_COMMAND} -E echo "\trm -f $(OBJS) libslatec.a" >> <BINARY_DIR>/Makefile
-    # Build step
-    BUILD_COMMAND make -j4
-    # Install step
+    DOWNLOAD_DIR ${CMAKE_BINARY_DIR}/downloads
+    SOURCE_DIR ${SLATEC_SOURCE_DIR}
+    BINARY_DIR ${SLATEC_BUILD_DIR}
+    # Configure step - create a simpler setup
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E copy_directory ${SLATEC_SOURCE_DIR} ${SLATEC_BUILD_DIR}
+                      # Copy wrapper file
+                      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+                              ${CMAKE_BINARY_DIR}/slatec_wrapper.f ${SLATEC_BUILD_DIR}/
+                      # Copy build script
+                      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+                              ${CMAKE_BINARY_DIR}/build_slatec.sh ${SLATEC_BUILD_DIR}/
+                      # Make build script executable
+                      COMMAND chmod +x ${SLATEC_BUILD_DIR}/build_slatec.sh
+    # Build step - run the build script
+    BUILD_COMMAND ${SLATEC_BUILD_DIR}/build_slatec.sh
+    # Install step - copy built library
     INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-                    <BINARY_DIR>/libslatec.a ${EXTERNAL_INSTALL_LOCATION}/lib/libslatec.a
-    # Disable hash verification
-    TLS_VERIFY FALSE
-    # Disable update step to avoid re-downloading if it succeeded once
+                    ${SLATEC_BUILD_DIR}/libslatec.a ${EXTERNAL_INSTALL_LOCATION}/lib/libslatec.a
+    # Disable updates
     UPDATE_COMMAND ""
+    # Logging
+    LOG_DOWNLOAD ON
+    LOG_CONFIGURE ON
+    LOG_BUILD ON
+    LOG_INSTALL ON
   )
+  
   set(SLATEC ${EXTERNAL_INSTALL_LOCATION}/lib/libslatec.a)
   set(SLATEC_DOWNLOADED TRUE)
 else()
   message(STATUS "Found SLATEC: ${SLATEC}")
+endif()
+
+# Find Fortran libraries needed for SLATEC
+# Try to find gfortran in multiple locations and with different possible names
+find_library(GFORTRAN_LIBRARY NAMES 
+  gfortran libgfortran libgfortran.so.5 libgfortran.so.4 libgfortran.so.3
+  PATHS
+  /usr/lib
+  /usr/lib64
+  /usr/lib/gcc
+  /usr/local/lib
+  /usr/local/lib64
+  /usr/lib/x86_64-linux-gnu
+  /lib/x86_64-linux-gnu
+  # Add location hints from gfortran compiler
+  PATH_SUFFIXES gcc/x86_64-linux-gnu/10 gcc/x86_64-linux-gnu/9 gcc/x86_64-linux-gnu/8 gcc/x86_64-linux-gnu/7
+)
+
+if(GFORTRAN_LIBRARY)
+  message(STATUS "Found gfortran: ${GFORTRAN_LIBRARY}")
+else()
+  # Fall back to trying to get library location from gfortran itself
+  find_program(GFORTRAN_EXECUTABLE gfortran)
+  if(GFORTRAN_EXECUTABLE)
+    message(STATUS "Found gfortran executable: ${GFORTRAN_EXECUTABLE}")
+    execute_process(
+      COMMAND ${GFORTRAN_EXECUTABLE} -print-file-name=libgfortran.so
+      OUTPUT_VARIABLE GFORTRAN_LIB_PATH
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(GFORTRAN_LIB_PATH)
+      get_filename_component(GFORTRAN_LIB_DIR ${GFORTRAN_LIB_PATH} DIRECTORY)
+      message(STATUS "gfortran lib directory: ${GFORTRAN_LIB_DIR}")
+      # Try to find the library in this directory
+      find_library(GFORTRAN_LIBRARY NAMES gfortran libgfortran
+        PATHS ${GFORTRAN_LIB_DIR} NO_DEFAULT_PATH)
+    endif()
+  endif()
+
+  if(GFORTRAN_LIBRARY)
+    message(STATUS "Found gfortran via fallback: ${GFORTRAN_LIBRARY}")
+  else()
+    # If we still can't find it, just hardcode as direct link option
+    message(WARNING "gfortran library not found, will try direct linking")
+    set(GFORTRAN_LIBRARY "-lgfortran")
+  endif()
+endif()
+
+# Find optional quadmath library (often needed with gfortran)
+find_library(QUADMATH_LIBRARY NAMES quadmath)
+if(QUADMATH_LIBRARY)
+  message(STATUS "Found quadmath: ${QUADMATH_LIBRARY}")
+endif()
+
+# Set up link libraries for SLATEC
+set(FORTRAN_LIBRARIES ${GFORTRAN_LIBRARY})
+if(QUADMATH_LIBRARY)
+  list(APPEND FORTRAN_LIBRARIES ${QUADMATH_LIBRARY})
 endif()
 
 # Find GSL
@@ -203,6 +344,11 @@ if(DEPENDENCIES_TARGETS)
   add_dependencies(messlibs ${DEPENDENCIES_TARGETS})
 endif()
 
+# Set Fortran-compatible flags for C/C++ code
+set_target_properties(messlibs PROPERTIES
+  COMPILE_FLAGS "-fPIC -fno-strict-aliasing"
+)
+
 # Set up executables
 add_executable(mess ${PROJECT_SOURCE_DIR}/src/mess_driver.cc)
 add_executable(mess-v2 ${PROJECT_SOURCE_DIR}/src/mess_test.cc)
@@ -212,29 +358,69 @@ add_executable(messsym ${PROJECT_SOURCE_DIR}/src/symmetry_number.cc)
 
 # Link libraries
 target_link_libraries(mess
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
-    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+    messlibs 
+    ${BLAS_LIBRARIES} 
+    ${LAPACK_LIBRARIES} 
+    ${GSL_LIBRARIES}
+    ${QD} 
+    -Wl,--start-group  # Use link groups to handle circular dependencies
+    ${SLATEC} 
+    ${FORTRAN_LIBRARIES} 
+    -lm  # Math library
+    -Wl,--end-group
+    ${CMAKE_DL_LIBS}
 )
 target_link_libraries(mess-v2
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
-    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+    messlibs 
+    ${BLAS_LIBRARIES} 
+    ${LAPACK_LIBRARIES} 
+    ${GSL_LIBRARIES}
+    ${QD} 
+    -Wl,--start-group
+    ${SLATEC} 
+    ${FORTRAN_LIBRARIES} 
+    -lm
+    -Wl,--end-group
+    ${CMAKE_DL_LIBS}
 )
 target_link_libraries(messpf
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
-    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+    messlibs 
+    ${BLAS_LIBRARIES} 
+    ${LAPACK_LIBRARIES} 
+    ${GSL_LIBRARIES}
+    ${QD} 
+    -Wl,--start-group
+    ${SLATEC} 
+    ${FORTRAN_LIBRARIES} 
+    -lm
+    -Wl,--end-group
+    ${CMAKE_DL_LIBS}
 )
 target_link_libraries(messabs
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
-    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+    messlibs 
+    ${BLAS_LIBRARIES} 
+    ${LAPACK_LIBRARIES} 
+    ${GSL_LIBRARIES}
+    ${QD} 
+    -Wl,--start-group
+    ${SLATEC} 
+    ${FORTRAN_LIBRARIES} 
+    -lm
+    -Wl,--end-group
+    ${CMAKE_DL_LIBS}
 )
 target_link_libraries(messsym
-    messlibs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GSL_LIBRARIES}
-    # ${MLAPACK_QD} ${MLAPACK_DD} ${MBLAS_QD} ${MBLAS_DD}
-    ${QD} ${SLATEC} ${CMAKE_DL_LIBS}
+    messlibs 
+    ${BLAS_LIBRARIES} 
+    ${LAPACK_LIBRARIES} 
+    ${GSL_LIBRARIES}
+    ${QD} 
+    -Wl,--start-group
+    ${SLATEC} 
+    ${FORTRAN_LIBRARIES} 
+    -lm
+    -Wl,--end-group
+    ${CMAKE_DL_LIBS}
 )
 
 install(TARGETS mess DESTINATION bin)
@@ -242,3 +428,54 @@ install(TARGETS mess-v2 DESTINATION bin)
 install(TARGETS messpf DESTINATION bin)
 install(TARGETS messabs DESTINATION bin)
 install(TARGETS messsym DESTINATION bin)
+
+# Create a direct wrapper for missing SLATEC functions
+file(WRITE ${CMAKE_BINARY_DIR}/slatec_wrapper.f "
+      subroutine davint(x, y, n, xlo, xup, ans, ierr)
+      implicit none
+      integer n, ierr
+      double precision x(n), y(n), xlo, xup, ans
+      call davint_(x, y, n, xlo, xup, ans, ierr)
+      return
+      end
+
+      subroutine ddeabm(f, neq, t, y, tout, info, rtol, atol, idid,
+     &                 rwork, lrw, iwork, liw, rpar, ipar)
+      external f
+      integer neq, info(*), idid, lrw, iwork(*), liw
+      double precision t, y(*), tout, rtol(*), atol(*), rwork(*)
+      integer ipar(*)
+      double precision rpar(*)
+      call ddeabm_(f, neq, t, y, tout, info, rtol, atol, idid,
+     &            rwork, lrw, iwork, liw, rpar, ipar)
+      return
+      end
+
+      subroutine dbint4(x, y, n, ibcl, ibcr, fbcl, fbcr, kntopt, t, nc, 
+     &                 bc, ws, lws, ierr)
+      integer n, ibcl, ibcr, kntopt, nc, lws, ierr
+      double precision x(*), y(*), fbcl, fbcr, t(*), bc(*), ws(*)
+      call dbint4_(x, y, n, ibcl, ibcr, fbcl, fbcr, kntopt, t, nc, 
+     &            bc, ws, lws, ierr)
+      return
+      end
+
+      function dbvalu(t, a, n, k, ideriv, x, inbv, work)
+      integer n, k, ideriv, inbv
+      double precision t(*), a(*), x, work(*), dbvalu
+      dbvalu = dbvalu_(t, a, n, k, ideriv, x, inbv, work)
+      return
+      end
+")
+
+# Compile the SLATEC wrapper
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/slatec_wrapper.o
+  COMMAND gfortran -c -O2 -fPIC ${CMAKE_BINARY_DIR}/slatec_wrapper.f -o ${CMAKE_BINARY_DIR}/slatec_wrapper.o
+  DEPENDS ${CMAKE_BINARY_DIR}/slatec_wrapper.f
+  COMMENT "Compiling SLATEC wrapper"
+)
+
+# Create a custom target for the wrapper
+add_custom_target(slatec_wrapper DEPENDS ${CMAKE_BINARY_DIR}/slatec_wrapper.o)
+add_dependencies(messlibs slatec_wrapper)
