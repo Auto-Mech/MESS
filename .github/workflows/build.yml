@@ -14,11 +14,14 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y g++ gfortran make cmake
 
+    - name: Install OpenBLAS
+      run: sudo apt-get install -y libopenblas-dev
+
     - name: Configure CMake
       run: |
         mkdir build
         cd build
-        cmake ..
+        cmake .. -DUSE_SYSTEM_LIBS=ON
 
     - name: Build Project
       run: |
