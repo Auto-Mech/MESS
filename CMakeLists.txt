@@ -333,6 +333,7 @@ add_library(messlibs
     ${PROJECT_SOURCE_DIR}/src/libmess/dynamic.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/structure.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/configuration.cc
+    ${PROJECT_SOURCE_DIR}/src/libmess/dynlib.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/monom.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/logical.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/potential.cc
