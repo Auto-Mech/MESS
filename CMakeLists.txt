@@ -366,6 +366,7 @@ target_link_libraries(mess
     -Wl,--start-group  # Use link groups to handle circular dependencies
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
+    -lgfortran  # Add explicit gfortran runtime
     -lm  # Math library
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
@@ -379,6 +380,7 @@ target_link_libraries(mess-v2
     -Wl,--start-group
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
+    -lgfortran  # Add explicit gfortran runtime
     -lm
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
@@ -392,6 +394,7 @@ target_link_libraries(messpf
     -Wl,--start-group
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
+    -lgfortran  # Add explicit gfortran runtime
     -lm
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
@@ -405,6 +408,7 @@ target_link_libraries(messabs
     -Wl,--start-group
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
+    -lgfortran  # Add explicit gfortran runtime
     -lm
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
@@ -418,6 +422,7 @@ target_link_libraries(messsym
     -Wl,--start-group
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
+    -lgfortran  # Add explicit gfortran runtime
     -lm
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
