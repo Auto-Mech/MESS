@@ -185,48 +185,39 @@ else()
 endif()
 
 # Find Fortran libraries needed for SLATEC
-# Try to find gfortran in multiple locations and with different possible names
-find_library(GFORTRAN_LIBRARY NAMES 
-  gfortran libgfortran libgfortran.so.5 libgfortran.so.4 libgfortran.so.3
+# Try to find Intel Fortran runtime
+find_library(IFORT_LIBRARY NAMES 
+  ifcore ifport ifcoremt ifportmt
   PATHS
-  /usr/lib
-  /usr/lib64
-  /usr/lib/gcc
-  /usr/local/lib
-  /usr/local/lib64
-  /usr/lib/x86_64-linux-gnu
-  /lib/x86_64-linux-gnu
-  # Add location hints from gfortran compiler
-  PATH_SUFFIXES gcc/x86_64-linux-gnu/10 gcc/x86_64-linux-gnu/9 gcc/x86_64-linux-gnu/8 gcc/x86_64-linux-gnu/7
+  /opt/aurora/24.347.0/oneapi/compiler/latest/lib
+  /opt/aurora/24.347.0/oneapi/compiler/latest/lib/intel64
+  /opt/intel/oneapi/compiler/latest/lib
+  /opt/intel/oneapi/compiler/latest/lib/intel64
 )
 
-if(GFORTRAN_LIBRARY)
-  message(STATUS "Found gfortran: ${GFORTRAN_LIBRARY}")
+if(IFORT_LIBRARY)
+  message(STATUS "Found Intel Fortran runtime: ${IFORT_LIBRARY}")
+  set(FORTRAN_LIBRARIES ${IFORT_LIBRARY})
 else()
-  # Fall back to trying to get library location from gfortran itself
-  find_program(GFORTRAN_EXECUTABLE gfortran)
-  if(GFORTRAN_EXECUTABLE)
-    message(STATUS "Found gfortran executable: ${GFORTRAN_EXECUTABLE}")
-    execute_process(
-      COMMAND ${GFORTRAN_EXECUTABLE} -print-file-name=libgfortran.so
-      OUTPUT_VARIABLE GFORTRAN_LIB_PATH
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    if(GFORTRAN_LIB_PATH)
-      get_filename_component(GFORTRAN_LIB_DIR ${GFORTRAN_LIB_PATH} DIRECTORY)
-      message(STATUS "gfortran lib directory: ${GFORTRAN_LIB_DIR}")
-      # Try to find the library in this directory
-      find_library(GFORTRAN_LIBRARY NAMES gfortran libgfortran
-        PATHS ${GFORTRAN_LIB_DIR} NO_DEFAULT_PATH)
-    endif()
-  endif()
-
+  message(WARNING "Intel Fortran runtime not found, will try gfortran")
+  # Fall back to gfortran if Intel runtime not found
+  find_library(GFORTRAN_LIBRARY NAMES 
+    gfortran libgfortran libgfortran.so.5 libgfortran.so.4 libgfortran.so.3
+    PATHS
+    /usr/lib
+    /usr/lib64
+    /usr/lib/gcc
+    /usr/local/lib
+    /usr/local/lib64
+    /usr/lib/x86_64-linux-gnu
+    /lib/x86_64-linux-gnu
+    PATH_SUFFIXES gcc/x86_64-linux-gnu/10 gcc/x86_64-linux-gnu/9 gcc/x86_64-linux-gnu/8 gcc/x86_64-linux-gnu/7
+  )
   if(GFORTRAN_LIBRARY)
-    message(STATUS "Found gfortran via fallback: ${GFORTRAN_LIBRARY}")
+    message(STATUS "Found gfortran: ${GFORTRAN_LIBRARY}")
+    set(FORTRAN_LIBRARIES ${GFORTRAN_LIBRARY})
   else()
-    # If we still can't find it, just hardcode as direct link option
-    message(WARNING "gfortran library not found, will try direct linking")
-    set(GFORTRAN_LIBRARY "-lgfortran")
+    message(FATAL_ERROR "No Fortran runtime found")
   endif()
 endif()
 
@@ -234,13 +225,11 @@ endif()
 find_library(QUADMATH_LIBRARY NAMES quadmath)
 if(QUADMATH_LIBRARY)
   message(STATUS "Found quadmath: ${QUADMATH_LIBRARY}")
+  list(APPEND FORTRAN_LIBRARIES ${QUADMATH_LIBRARY})
 endif()
 
 # Set up link libraries for SLATEC
-set(FORTRAN_LIBRARIES ${GFORTRAN_LIBRARY})
-if(QUADMATH_LIBRARY)
-  list(APPEND FORTRAN_LIBRARIES ${QUADMATH_LIBRARY})
-endif()
+set(FORTRAN_LIBRARIES ${FORTRAN_LIBRARIES})
 
 # Find GSL
 if(USE_SYSTEM_LIBS)
@@ -366,7 +355,6 @@ target_link_libraries(mess
     -Wl,--start-group  # Use link groups to handle circular dependencies
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
-    -lgfortran  # Add explicit gfortran runtime
     -lm  # Math library
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
@@ -380,7 +368,6 @@ target_link_libraries(mess-v2
     -Wl,--start-group
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
-    -lgfortran  # Add explicit gfortran runtime
     -lm
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
@@ -394,7 +381,6 @@ target_link_libraries(messpf
     -Wl,--start-group
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
-    -lgfortran  # Add explicit gfortran runtime
     -lm
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
@@ -408,7 +394,6 @@ target_link_libraries(messabs
     -Wl,--start-group
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
-    -lgfortran  # Add explicit gfortran runtime
     -lm
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
@@ -422,7 +407,6 @@ target_link_libraries(messsym
     -Wl,--start-group
     ${SLATEC} 
     ${FORTRAN_LIBRARIES} 
-    -lgfortran  # Add explicit gfortran runtime
     -lm
     -Wl,--end-group
     ${CMAKE_DL_LIBS}
