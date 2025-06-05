@@ -23,6 +23,8 @@ namespace Mess {
   
     int amom_size () const;
     
+    int ener_size (int a) const;
+
     int linear_index (int e, int a) const;
 
     int ener_index (int g) const;
@@ -31,13 +33,13 @@ namespace Mess {
 
     int amom_shift (int a) const;
 
-    int ener_size (int a) const;
-
     double states (int) const;
 
     double weight () const;
 
     double real_weight () const;
+
+    const std::string& name () const;
 
   private:
     //
@@ -54,12 +56,19 @@ namespace Mess {
 
     double kernel(int i, int j) const;
   };
+
+  class Barrier: public PesObject {
+    //
+  public:
+    //
+    std::pair<int, int> connect;
+  };
     
   extern std::vector<Well> well;
 
-  extern std::vector<PesObject> inner_barrier;
+  extern std::vector<Barrier> inner_barrier;
 
-  extern std::vector<PesObject> outer_barrier;
+  extern std::vector<Barrier> outer_barrier;
 
   inline double boltzmann_factor (int e) { return std::exp(energy_step / temperature * e); }
 }

@@ -28,6 +28,29 @@ namespace Offload {
     //
     Lapack::Vector eigenvalues (Lapack::SymmetricMatrix m, Lapack::Matrix* evec = 0);
   }
+
+  Lapack::Vector eigenvalues (Lapack::SymmetricMatrix m, Lapack::Matrix* evec = 0);
+
+  inline Lapack::Vector eigenvalues (Lapack::SymmetricMatrix m, Lapack::Matrix* evec)
+  {
+#if defined OFFLOAD_CUDA
+
+    return Cuda::eigenvalues(m, evec);
+
+#elif defined OFFLOAD_SYCL
+
+    return Sycl::eigenvalues(m, evec);
+
+#elif defined OFFLOAD_OMP
+
+    return Omp::eigenvalues(m, evec);
+
+#else
+
+    return m.eigenvalues(evec);
+
+#endif
+  }
 }
 
 #endif

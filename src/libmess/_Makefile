@@ -1,0 +1,91 @@
+
+VPATH=${HOME}/src/crossrate
+
+# ****************** C++ Compiler *********************
+#
+CXX = g++
+
+# Optimization Flags:
+#
+CXXFLAGS += -O3 -fno-inline
+
+# Debuging Flags:
+#
+CXXFLAGS += 
+
+# Warning Flags:
+#
+CXXFLAGS += -pedantic -Wno-long-long
+
+# Include Directories Flags:
+#
+#CXXFLAGS += -I${HOME}/src/FEAST/2.0/include
+
+# allow openmp parallelization
+//
+CXXFLAGS += -fopenmp
+
+# Macros
+#
+CXXFLAGS += -DWITH_MPACK
+
+# Linker Flags:
+#
+#LDFLAGS = -Wl,--export-dynamic
+#LDLIBS =  -ldl -L${HOME}/lib64 -lslatec -L${HOME}/lib64/pgi -lacml -lpgftnrtl -lpgc -lg2c -Wl,-rpath,${HOME}/lib64:${HOME}/lib64/pgi
+#LDLIBS =  -ldl -L${ROOT}/lib -lslatec -llapack -lcblas  -lf77blas -latlas  -Wl,-rpath,${ROOT}/gcc/lib:${ROOT}/lib
+#LDLIBS =  -ldl -L${ROOT}/lib -lslatec -llapack -lblas -lg2c  -Wl,-rpath,${ROOT}/gcc/lib:${ROOT}/lib
+#LDLIBS = -L${ROOT}/lib64 -llapack -lcblas -lf77blas -latlas -lslatec -ldl
+#LDLIBS = -L${ROOT}/lib64 -lfeast_sparse -lfeast -lslatec -L${ROOT}/libmkl.11 -lmkl_lapack -lmkl -L${ROOT}/libifort.11 -lguide -lirc -lpthread -ldl
+#parallel version
+LDLIBS = -L${ROOT}/lib64 -lslatec -L${ROOT}/libmkl.11 -lmkl -L${ROOT}/libifort.11 -liomp5 -lpthread -ldl
+#LDLIBS = -L${ROOT}/lib64 -lslatec -L${ROOT}/libmkl.11 -lmkl -lmkl_lapack -L${ROOT}/libifort.11 -lguide -lpthread -ldl
+#sequential version
+#LDLIBS = -L${ROOT}/lib64 -lslatec -L${ROOT}/libmkl.11 -lmkl_intel_lp64  -lmkl_sequential -lmkl_core -ldl
+
+.PHONY: clean tags all
+
+.o:
+	${CXX} ${CXXFLAGS} ${LDFLAGS} -o $@ $^ ${LDLIBS}
+
+%.d: %.cc
+	set -e; $(CXX) -MM $(CPPFLAGS) -I../common -I$(HOME)/include -I${HOME}/src/FEAST/2.0/include $< \
+            | sed 's/\($*\)\.o[ :]*/\1.o $@ : /g' > $@; \
+            [ -s $@ ] || rm -f $@
+
+#CXX_SOURCES = chem.cc math.cc units.cc lapack.cc
+COMMON_SOURCES = d3.cc lapack.cc linpack.cc structure.cc atom.cc dynamic.cc  \
+		 random.cc system.cc slatec.cc potential.cc io.cc logical.cc \
+		 read.cc units.cc key.cc math.cc multindex.cc
+
+OTHER_SOURCES = crossrate_driver.cc crossrate.cc divsur.cc trajectory.cc \
+		lr_test.cc lr.cc lr_driver.cc me.cc model.cc me_driver.cc \
+		abstraction.cc
+
+OBJECTS = $(COMMON_SOURCES:.cc=.o)
+
+all:  crossrate lr_test lr me abstraction multirotor_test
+
+crossrate: $(OBJECTS) crossrate_driver.o crossrate.o divsur.o trajectory.o
+
+lr_test: $(OBJECTS) lr_test.o lr.o
+
+lr: $(OBJECTS) lr_driver.o lr.o
+
+me: $(OBJECTS) me.o model.o me_driver.o
+
+abstraction: $(OBJECTS) model.o abstraction.o
+
+multirotor_test: $(OBJECTS) multirotor_test.o model.o
+
+include $(COMMON_SOURCES:.cc=.d) $(OTHER_SOURCES:.cc=.d)
+
+clean:
+	rm -f *.o
+	rm -f *~
+	rm -f *.d
+	rm -f a.out
+
+tags:
+	etags *.cc *.hh *.f
+

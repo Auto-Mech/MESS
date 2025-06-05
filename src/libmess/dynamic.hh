@@ -1,6 +1,6 @@
 /*
         Chemical Kinetics and Dynamics Library
-        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+        Copyright (C) 2008-2025, Yuri Georgievski <ygeorgi@anl.gov>
 
         This library is free software; you can redistribute it and/or
         modify it under the terms of the GNU Library General Public
@@ -26,113 +26,62 @@
 
 namespace Dynamic {
 
-  /*********************************************************************
-   *                    Dynamical variable derivatives                 *
-   ********************************************************************/
+  /************************************************************************************
+   *********************** DYNAMICAL VARIABLES DERIVATIVES ****************************
+   ************************************************************************************/
 
   void set_dvd (const D3::Vector* torque, const double* dv, double* dvd);
 
-
-  /*********************************************************************
-   *                 Cartesian data for Coordinates class              *
-   ********************************************************************/
-
-  class CartData 
-  {
-    int _frag;
-    std::vector<D3::Vector> _rel_pos; // relative positions of the fragment atoms in lab frame
-    D3::Matrix* _mfo; // rotational matrix for a nonlinear fragment
-    double* _ang;     // angular vector for a linear fragment    
-    void _delete ();
-    void _copy (const CartData&);
-
-  public:
-    CartData () : _mfo(0), _ang(0), _frag(-1) {}
-    void init (int frag);
-    CartData (int frag) : _mfo(0), _ang(0) { init(frag); }
-
-    ~CartData () { _delete(); }
-    CartData (const CartData& c) { _copy(c); }
-    CartData& operator= (const CartData& c) { _delete(); _copy(c); return *this; }
-
-    void mf2lf (const double* mf, double* lf) const ;
-    void lf2mf (const double* lf, double* mf) const ;
-
-    const std::vector<D3::Vector>& rel_pos () const { return _rel_pos; }
-
-    void update_mfo(const double* ang) ;
-    void update_rel()  ;
-
-    // inertia moments matrix element
-    double imm (int i, int j) const;
-
-  };
-
-  inline void CartData::_delete ()
-  {
-    if(_mfo) 
-      delete _mfo; 
-    if(_ang)
-      delete[] _ang;
-  }
-
-  /*********************************************************************
-   *                       Orientational coordinates                   *
-   *********************************************************************/
+  /**************************************************************************************
+   ***************************** GENERALIZED COORDINATES ********************************
+   **************************************************************************************/
 
   class Coordinates : private Array<double>
   {
-    mutable CartData _fragment [2];
-    double* _orb_pos;
-    double* _ang_pos [2];
-
-    double _length [2];
-
-    void _init (); // set pointers
-
-    void _normalize (int frag); // normalize fragment angular vector
-
-    enum {MFO = 0, REL = 2, SIZE = 4};
-    mutable bool _update [SIZE];
+    mutable D3::Matrix _mfo [2];                // rotational matrix for a nonlinear fragment
     
-    void _init_update ()   const;
+    mutable std::vector<bool> _need_mfo_update; // delayed mfo update flags
 
     void _update_mfo (int frag) const;
-    void _update_rel (int frag) const;
+
+    double _imm (int, int, int) const;
 
   public:
-    Coordinates ();
-    Coordinates (const double* dv);
-    Coordinates (const Coordinates& c);
-    Coordinates& operator= (const Coordinates& c);
-
+    //
     static int size () { return Structure::pos_size(); }
 
-    void get (const double*); // copy from
+    static double ang_len_tol; // maximal allowed angular vector length deviation from unity
+
+    void get (const double*, double* = 0); // copy from
     void put (double*) const; // copy to
-    double length (int frag) const { return _length[frag]; } // the length of original angular vector
+
+    // constructors
+    //
+    Coordinates () : Array<double>(size(), 0.), _need_mfo_update(2, true) {}
+    
+    explicit Coordinates (const double* dc) : Array<double>(size()), _need_mfo_update(2, true) { get(dc); }
 
     // cm-to-cm vector, 1->2
-    double*       orb_pos  ()            { return _orb_pos; }
-    const double* orb_pos  ()      const { return _orb_pos; }
+    //
+    const double* orb_pos  ()  const { return begin() + Structure::orb_pos(); }
+    double*       orb_pos  ()        { return begin() + Structure::orb_pos(); }
 
-    double&       orb_pos  (int i)       { return _orb_pos[i]; }
-    double        orb_pos  (int i) const { return _orb_pos[i]; }
-
-    double interfragment_distance () const { return vlength(_orb_pos, 3); }
+    double orb_len () const { return ::vlength(orb_pos(), 3); }
 
     // orientational variables
-    void    write_ang_pos (int frag, const double* pos) ;
+    //
+    const double*       ang_pos (int frag) const;
+    double*       write_ang_pos (int frag);
 
-    const double* ang_pos (int frag)              const ;
-    double*       ang_pos (int frag)                    ;
+    double get_ang_pos (int frag, const double* pos);
 
-    double        ang_pos (int frag, int i)       const ;
-    double&       ang_pos (int frag, int i)             ;
+    double normalize (int frag);// normalize fragment angular vector
 
-    const std::vector<D3::Vector>& rel_pos (int frag)    const;
     void mf2lf (int frag, const double* mf, double* lf)  const;
     void lf2mf (int frag, const double* lf, double* mf)  const;
+
+    void set_rel_pos (int frag, std::vector<D3::Vector>& rel_pos) const;
+
     Lapack::SymmetricMatrix imm () const;
 
     static double min_atom_dist;
@@ -140,130 +89,63 @@ namespace Dynamic {
 
     void print_geom (std::ostream&, const std::string&) const;
 
-    void                        dipole (int frag,                  double* d) const ;
-    void     quadrupole_vector_product (int frag, const double* v, double* q) const ;
-    void polarizability_vector_product (int frag, const double* v, double* p) const ;
-
+    void                        dipole (int frag,                  double* d) const;
+    void     quadrupole_vector_product (int frag, const double* v, double* q) const;
+    void polarizability_vector_product (int frag, const double* v, double* p) const;
   };
 
-  inline Coordinates::Coordinates (const double* dv) : Array<double>(size())
-  {
-    // set pointers and initialize cartesian data
-    _init();
-
-    // copy data and normalize angular vectors
-    get(dv);
-
-    // initialize update info
-    _init_update();
-  }
-
-  inline const double* Coordinates::ang_pos  (int frag) const 
+  inline const double* Coordinates::ang_pos (int f) const 
   {
     const char funame [] = "Dynamic::Coordinates::ang_pos: ";
     
-#ifdef DEBUG
-
-    if(Structure::fragment(frag).type() == Molecule::MONOATOMIC) {
+    if(Structure::type(f) == Molecule::MONOATOMIC) {
+      //
       std::cerr << funame << "should not be called for monoatomic molecule\n";
+
       throw Error::Logic();
     }
 
-#endif
-
-    return _ang_pos[frag]; 
+    return begin() + Structure::ang_pos(f);
   }
 
-  inline double* Coordinates::ang_pos  (int frag) 
+  inline double* Coordinates::write_ang_pos  (int f) 
   {
-    const char funame [] = "Dynamic::Coordinates::ang_pos: ";
+    const char funame [] = "Dynamic::Coordinates::write_ang_pos: ";
     
-#ifdef DEBUG
-
-    if(Structure::fragment(frag).type() == Molecule::MONOATOMIC) {
+    switch(Structure::type(f)) {
+      //
+    case Molecule::MONOATOMIC:
+      //
       std::cerr << funame << "should not be called for monoatomic molecule\n";
+
       throw Error::Logic();
+      //
+    case Molecule::NONLINEAR:
+      //
+      _need_mfo_update[f] = true;
     }
-
-#endif
-
-    return _ang_pos[frag]; 
-  }
-
-  inline double Coordinates::ang_pos  (int frag, int i) const 
-  {
-    const char funame [] = "Dynamic::Coordinates::ang_pos: ";
     
-#ifdef DEBUG
-
-    if(Structure::fragment(frag).type() == Molecule::MONOATOMIC) {
-      std::cerr << funame << "should not be called for monoatomic molecule\n";
-      throw Error::Logic();
-    }
-
-#endif
-
-    return _ang_pos[frag][i]; 
+    return begin() + Structure::ang_pos(f);
   }
 
-  inline double& Coordinates::ang_pos  (int frag, int i) 
+  inline void Coordinates::_update_mfo (int f) const 
   {
-    const char funame [] = "Dynamic::Coordinates::ang_pos: ";
-    
-#ifdef DEBUG
+    if(_need_mfo_update[f] == false)
+      //
+      return;
 
-    if(Structure::fragment(frag).type() == Molecule::MONOATOMIC) {
-      std::cerr << funame << "should not be called for monoatomic molecule\n";
-      throw Error::Logic();
-    }
+    if(Structure::type(f) == Molecule::NONLINEAR)
+      //
+      quat2mat(ang_pos(f), _mfo[f]);
 
-#endif
-
-    return _ang_pos[frag][i]; 
-  }
-
-  inline void Coordinates::mf2lf(int frag, const double* mf, double* lf) const
-  {
-    if(_update[MFO + frag]) _update_mfo(frag);
-
-    _fragment[frag].mf2lf(mf, lf); 
-  }
-
-  inline void Coordinates::lf2mf(int frag, const double* lf, double* mf) const
-  {
-    if(_update[MFO + frag]) _update_mfo(frag);
-
-    _fragment[frag].lf2mf(lf, mf);
-  }
-
-  inline void Coordinates::_update_mfo (int frag) const 
-  {
-    _fragment[frag].update_mfo(ang_pos(frag));
-
-    _update[MFO + frag] = false;
-  }
-
-  inline const std::vector<D3::Vector>& Coordinates::rel_pos (int frag) const
-  {
-    if(_update[REL + frag]) _update_rel(frag);
-
-    return _fragment[frag].rel_pos();
-  }
-
-  inline void Coordinates::_update_rel (int frag) const
-  {
-    if(_update[MFO + frag]) _update_mfo(frag);
-  
-    _fragment[frag].update_rel();
-
-    _update[REL + frag] = false;
+    _need_mfo_update[f] = false;
   }
 
   /*************************************************************************
-   ************************ Generalized Momenta ****************************
+   ************************ GENERALIZED MOMENTA ****************************
    *************************************************************************/
 
-  class Momenta : private Array<double>
+  class Momenta : public Array<double>
   {
     double* _orb_vel;
     double* _ang_vel [2];
@@ -271,6 +153,7 @@ namespace Dynamic {
     void _init(); // set pointers
 
   public:
+    //
     static int size () { return Structure::vel_size(); }
 
     Momenta () : Array<double>(size()) { _init(); }
@@ -281,28 +164,15 @@ namespace Dynamic {
     void get (const double* dv) { Array<double>::operator=(dv); }
     void put (double*) const;
 
-    Momenta& operator*= (double d) { Array<double>::operator*=(d); return *this; }
-    Momenta& operator/= (double d) { Array<double>::operator/=(d); return *this; }
+    // cm-to-cm velocity
+    //
+    double*       orb_vel ()       { return _orb_vel; }
+    const double* orb_vel () const { return _orb_vel; }
 
     // rotational frequencies
-    double*       ang_vel (int frag)            ;
-    const double* ang_vel (int frag)      const ;
-    double        ang_vel (int frag, int) const ;
-    double&       ang_vel (int frag, int)       ;
-
-    // cm-to-cm velocity
-    double*       orb_vel ()            { return _orb_vel; }
-    const double* orb_vel ()      const { return _orb_vel; }
-    double        orb_vel (int i) const { return _orb_vel[i]; }
-    double&       orb_vel (int i)       { return _orb_vel[i]; }
-
-    double& operator[] (int i)       { return Array<double>::operator[](i); }
-    double  operator[] (int i) const { return Array<double>::operator[](i); }
-
-    double*       begin ()       { return Array<double>::begin(); }
-    const double* begin () const { return Array<double>::begin(); }
-    double*         end ()       { return Array<double>::end(); }
-    const double*   end () const { return Array<double>::end(); }
+    //
+    double*       ang_vel (int frag);
+    const double* ang_vel (int frag) const;
 
     double orbital_kinetic_energy        () const;
     double total_kinetic_energy          () const;
@@ -312,66 +182,30 @@ namespace Dynamic {
   inline const double* Momenta::ang_vel (int frag) const 
   { 
 
-#ifdef DEBUG
-
     const char funame [] = "Dynamic::Momenta::ang_vel: ";
 
-    if(Structure::fragment(frag).type() == Molecule::MONOATOMIC) {
+    if(Structure::type(frag) == Molecule::MONOATOMIC) {
+      //
       std::cerr << funame << "should not be called for monoatomic molecule\n";
+
       throw Error::Logic();
     }
-
-#endif
 
     return _ang_vel[frag];
   }
 
   inline double* Momenta::ang_vel (int frag) 
   { 
-#ifdef DEBUG
-    const char funame [] = "Dynamic::Momenta::ang_vel (int): ";
+    const char funame [] = "Dynamic::Momenta::ang_vel: ";
 
-    if(Structure::fragment(frag).type() == Molecule::MONOATOMIC) {
+    if(Structure::type(frag) == Molecule::MONOATOMIC) {
+      //
       std::cerr << funame << "should not be called for monoatomic molecule\n";
+
       throw Error::Logic();
     }
-#endif
 
     return _ang_vel[frag];
-  }
-
-  inline double Momenta::ang_vel (int frag, int i) const 
-  { 
-
-#ifdef DEBUG
-
-    const char funame [] = "Dynamic::Momenta::ang_vel: ";
-
-    if(Structure::fragment(frag).type() == Molecule::MONOATOMIC) {
-      std::cerr << funame << "should not be called for monoatomic molecule\n";
-      throw Error::Logic();
-    }
-
-#endif
-
-    return _ang_vel[frag][i];
-  }
-
-  inline double& Momenta::ang_vel (int frag, int i)  
-  { 
-
-#ifdef DEBUG
-
-    const char funame [] = "Dynamic::Momenta::ang_vel: ";
-
-    if(Structure::fragment(frag).type() == Molecule::MONOATOMIC) {
-      std::cerr << funame << "should not be called for monoatomic molecule\n";
-      throw Error::Logic();
-    }
-
-#endif
-
-    return _ang_vel[frag][i];
   }
 
   /*************************************************************************
@@ -381,17 +215,15 @@ namespace Dynamic {
   class Vars : public Coordinates, public Momenta
   {
   public:
+    //
     static int size () { return Structure::dv_size(); }
 
+    void get (const double* dv, double* =0);
+    void put (double* dv) const { Coordinates::put(dv); Momenta::put(dv + Coordinates::size()); }
+
     Vars () {}
+    Vars (const double* dv) { get(dv); }
     Vars (const Coordinates& dc) : Coordinates(dc) {}
-    Vars (const double* dv): Coordinates(dv), Momenta(dv + Coordinates::size()) {}
-
-    void get (const double* dv) 
-    { Coordinates::get(dv); Momenta::get(dv + Coordinates::size()); }
-
-    void put (double* dv) const
-    { Coordinates::put(dv); Momenta::put(dv + Coordinates::size()); }
 
     void    total_angular_momentum (double*)      const;
     void  orbital_angular_momentum (double*)      const;
@@ -404,8 +236,21 @@ namespace Dynamic {
     double radial_kinetic_energy         ()    const;
     double total_angular_momentum_length ()    const;
     double angular_momentum_k_projection (int) const;
-    double angular_momentum_m_projection (int) const ;
+    double angular_momentum_m_projection (int) const;
   };
+
+  inline void Vars::get (const double* dv, double* len) 
+  {
+    Coordinates::get(dv, len); 
+
+    Momenta::get(dv + Coordinates::size()); 
+
+    for(int f = 0; f < 2; ++f)
+      //
+      if(Structure::type(f) == Molecule::LINEAR)
+	//
+	::orthogonalize(ang_vel(f), ang_pos(f), 3);
+  }
 
   inline D3::Vector Vars::total_angular_momentum () const 
   { 
@@ -444,47 +289,58 @@ namespace Dynamic {
    *************************************************************************/
 
   // abstract logical condition
-  class Condition
-  {
+  //
+  class Condition {
   public:
+    //
     virtual bool test (const Coordinates&) const =0;
-    virtual void print (std::ostream&, const std::string&) const {}
+
     virtual ~Condition () {}
+
+    virtual void print (std::ostream&, const std::string&) const {}
   };
 
   typedef ConstSharedPointer<Condition> CCP;
 
   // configuration region which is not sampled 
+  //
   extern CCP exclude_region;
 
   //distance condition
-  class DistanceCondition : public Condition
-  {
+  //
+  class DistanceCondition : public Condition {
+    //
     double _dist;
+
   public:
+    //
     DistanceCondition (double d) : _dist(d) {}
-    bool test (const Coordinates&) const;
+
     ~DistanceCondition () {}
+
+    bool test (const Coordinates&) const;
   };
 
   inline bool DistanceCondition::test (const Coordinates& dc) const 
   {
     if(::vlength(dc.orb_pos(), 3) > _dist)
+      //
       return true;
+
     return false;
   }
 
-  // compound conditions
   // binary condition
-  class BinaryCondition : public Condition
-  {
+  //
+  class BinaryCondition : public Condition {
+    //
     Logical::BinExpr::Oper _op;
-    CCP _c1;
-    CCP _c2;
+    CCP _c1, _c2;
 
     BinaryCondition(CCP c1, CCP c2, Logical::BinExpr::Oper o) : _op(o), _c1(c1) , _c2(c2) {}
 
   public:
+    //
     bool test (const Coordinates&) const;
 
     ~BinaryCondition () {}
@@ -505,17 +361,25 @@ namespace Dynamic {
     const char funame [] = "Dynamic::BinaryCondition::test: ";
 
     switch(_op) {
+    //
     case Logical::BinExpr::AND: 
+      //
       return  _c1->test(dc) && _c2->test(dc);
+
     case Logical::BinExpr::OR: 
+      //
       return  _c1->test(dc) || _c2->test(dc);
+
     default:
+      //
       std::cerr << funame << "unknown operation\n";
+
       throw Error::Logic();
     }
   }
 
   // negation condition
+  //
   class UnaryCondition : public Condition
   {
     CCP _c;
@@ -523,6 +387,7 @@ namespace Dynamic {
     UnaryCondition(CCP c) : _c(c) {}
 
   public:
+    //
     bool test (const Coordinates& dc) const { return !_c->test(dc); }
 
     ~UnaryCondition () {}
@@ -536,20 +401,25 @@ namespace Dynamic {
    ********************* CONFIGURATIONAL OBSERVABLE ************************
    *************************************************************************/
 
-
   class ObservBase {
+    //
   public:
+    //
     virtual double evaluate (const Coordinates&) const =0;
   };
 
   // atom-atom distance, atom-atom-atom angle, or atom-atom-atom-atom dihedral
+  //
   class ZmatObserv : public ObservBase {
+    //
     std::vector<int> _atom;
 
-    static D3::Vector _vector(int, int, const Coordinates&);
+    static D3::Vector _vector(int, int, const Coordinates&, const std::vector<D3::Vector> []);
 
   public:
+    //
     explicit ZmatObserv (const std::vector<int>&);
+    
     double evaluate (const Coordinates&) const;
   };
 

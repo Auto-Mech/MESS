@@ -114,45 +114,6 @@ ErrLog& ErrLog::operator<< (const C& c)
   return *this;
 }
 
-int make_dir (const std::string& dir, const std::string& funame) {
-
-  std::string token = funame;
-  token += dir + ": mkdir: ";
-
-  struct stat wstat;
-
-  if(mkdir(dir.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ))
-    switch(errno) {
-    case EEXIST:
-      if(stat(dir.c_str(), &wstat)) {
-	std::cerr << token << strerror(errno) << "\n";
-	return 1;
-      }
-
-      if(!S_ISDIR(wstat.st_mode)) {
-	std::cerr << token << "not a directory\n";
-	return 1;
-      }
-      
-      if(!(wstat.st_mode & S_IRUSR) || !(wstat.st_mode & S_IWUSR) || !(wstat.st_mode & S_IXUSR)) {
-	std::cerr << token << "wrong permissions\n";
-	return 1;
-      }
-
-      return 0;
-
-    case ENOENT:
-      std::cerr << token << "the parent directory does not exist\n";
-      return 1;
-
-    default:
-      std::cerr << token << strerror(errno) << "\n";
-      return 1;
-    }
-
-  return 0;
-}
-
 int main (int argc, char* argv[])
 {
   double      dtemp;
@@ -427,11 +388,11 @@ int main (int argc, char* argv[])
   
     // set working directory
     //
-    input_error |= make_dir(work_dir, funame);
+    input_error |= System::make_dir(work_dir, funame);
 
     stemp = work_dir + node_name.str();
 
-    input_error |= make_dir(stemp, funame);
+    input_error |= System::make_dir(stemp, funame);
 
     if(!input_error && chdir(stemp.c_str())) {
       //
@@ -442,10 +403,10 @@ int main (int argc, char* argv[])
 
     // set scratch directory
     //
-    input_error |= make_dir(scratch_dir, funame);
+    input_error |= System::make_dir(scratch_dir, funame);
   
     scratch_dir += node_name.str();
-    input_error |= make_dir(scratch_dir, funame);
+    input_error |= System::make_dir(scratch_dir, funame);
 
     if(!input_error)
       //

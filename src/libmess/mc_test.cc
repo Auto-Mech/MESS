@@ -25,10 +25,10 @@
 
 int main (int argc, char* argv [])
 {
-  const char funame [] = "partition_function: ";
+  const char funame [] = "mc_test: ";
 
   if (argc < 2) {
-    std::cout << "usage: partition_function input_file\n";
+    std::cout << "usage: mc_test input_file\n";
     return 0;
   }
 
@@ -42,17 +42,19 @@ int main (int argc, char* argv [])
 
   KeyGroup Main;
 
-  Key spec_key("Species"                   );
-  Key list_key("TemperatureList[K]"        );
-  Key grid_key("Temperature(step[K],size)" );
-  Key emax_key("ModelEnergyLimit[kcal/mol]");
-  Key tincr_key("RelativeTemperatureIncrement");
-  Key  adm_bor_key("AtomDistanceMin[bohr]"      );
-  Key  adm_ang_key("AtomDistanceMin[angstrom]"  );
+  Key spec_key("Species"                  );
+  Key temp_key("TemperatureList[K]"       );
+  Key freq_key("Frequencies[1/cm]"        );
+  Key   rc_key("RotationalConstants[1/cm]");
+  
+  Key emax_key("ModelEnergyLimit[kcal/mol]"   );
+  Key  adm_bor_key("AtomDistanceMin[bohr]"    );
+  Key  adm_ang_key("AtomDistanceMin[angstrom]");
 
 
   std::vector<double> temperature;
-  std::vector<SharedPointer<Model::Species> > species;
+  SharedPointer<Model::MonteCarlo> species;
+  std::vector<double> freq, rc;
 
   double temp_rel_incr = 0.001;
 
@@ -69,7 +71,7 @@ int main (int argc, char* argv [])
   }
 
   IO::log.open((base_name + ".log").c_str());
-  IO::out.open((base_name + ".dat").c_str());
+  IO::out.open((base_name + ".out").c_str());
 
   if(!from) {
     std::cerr << funame << "input file " << argv[1] << " is not found\n";
@@ -77,100 +79,162 @@ int main (int argc, char* argv [])
   }
 
   std::string token, comment, line, name;
+
   while(from >> token) {
+    //
     // model energy limit
+    //
     if(emax_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+
         throw Error::Input();
       }
+
       std::getline(from, comment);
 
       Model::set_energy_limit(dtemp * Phys_const::kcal);
     }
-    // relative temperature increment
-    else if(tincr_key == token) {
-      if(!(from >> temp_rel_incr)) {
-	std::cerr << funame << token << ": corrupted\n";
-	throw Error::Input();
-      }
-
-      std::getline(from, comment);
-
-      if(temp_rel_incr <= 0. || temp_rel_incr >= 1.) {
-	std::cerr << funame << token << ": out of range\n";
-	throw Error::Range();
-      }
-    }
     // minimal interatomic distance
+    //
     else if(adm_bor_key == token || adm_ang_key == token) {
+      //
       if(!(from >> dtemp)) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+
         throw Error::Input();
       }
+
       std::getline(from, comment);
 
       if(dtemp <= 0) {
+	//
         std::cerr << funame << token << ": out of range\n";
+
         throw Error::Range();
       }
       
       if(adm_ang_key == token)
+	//
 	dtemp *= Phys_const::angstrom;
 
       Model::atom_dist_min = dtemp;
     }
-    // species
+    // monte-carlo species
+    //
     else if(spec_key == token) {
-      if(!(from >> name)) {
+      //
+      if(species) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
+
+	throw Error::Init();
+      }
+
+      IO::LineInput lin(from);
+
+      if(!(lin >> name)) {
+	//
 	std::cerr << funame << token << ": corrupted\n";
+
 	throw Error::Input();
       }
-      std::getline(from, comment);
-      species.push_back(Model::new_species(from, name, Model::NOSTATES));
+
+      species.init(new Model::MonteCarlo(from, name, Model::NOSTATES));
     }
-    // temperature list
-    else if(list_key == token) {
+    // temperatures list
+    //
+    else if(temp_key == token) {
+      //
       if(temperature.size()) {
+	//
 	std::cerr << funame << "temperature list has been already defined\n";
+	
 	throw Error::Input();
       }
+      
       IO::LineInput line_input(from);
+      
       while(line_input >> dtemp)
+	//
 	temperature.push_back( dtemp * Phys_const::kelv);
       
       if(!temperature.size()) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+
         throw Error::Input();
       }
     }
-    // temperature grid
-    else if(grid_key == token) {
-      if(temperature.size()) {
-	std::cerr << funame << "temperature list has been already defined\n";
+    // frequencies at minimum
+    //
+    else if(freq_key == token) {
+      //
+      if(freq.size()) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+	
 	throw Error::Input();
       }
-
+      
       IO::LineInput line_input(from);
-      if(!(line_input >> dtemp >> itemp)) {
+      
+      while(line_input >> dtemp)
+	//
+	freq.push_back(dtemp * Phys_const::incm);
+      
+      if(!freq.size()) {
+	//
         std::cerr << funame << token << ": corrupted\n";
+
         throw Error::Input();
       }
-
-      if(dtemp <= 0. || itemp <= 0) {
-        std::cerr << funame << token << ": out of range\n";
-        throw Error::Range();
+    }
+    // rotational constants at minimum
+    //
+    else if(rc_key == token) {
+      //
+      if(rc.size()) {
+	//
+	std::cerr << funame << token << ": already defined\n";
+	
+	throw Error::Input();
       }
+      
+      IO::LineInput line_input(from);
+      
+      while(line_input >> dtemp) {
+	//
+	if(dtemp <= 0.) {
+	  //
+	  std::cerr << funame << token << ": " << rc.size() + 1 << "-th rotational constant out of range: " << dtemp << "\n";
 
-      dtemp *=  Phys_const::kelv;
-      for(int i = 0; i < itemp; ++i)
-	temperature.push_back(double(i + 1) * dtemp);
+	  throw Error::Range();
+	}
+	
+	rc.push_back(dtemp * Phys_const::incm);
+      }
+      
+      if(rc.size() != 3) {
+	//
+        std::cerr << funame << token << ": # of rotational constants out of range: " << rc.size() << "\n";
+
+        throw Error::Input();
+      }
     }
     // unknown keyword
+    //
     else if(IO::skip_comment(token, from)) {
+      //
       std::cerr << funame << "unknown keyword: " << token << "\n";
+
       Key::show_all(std::cerr);
+
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }
@@ -178,71 +242,58 @@ int main (int argc, char* argv [])
   /*************************** CHECKING ******************************************/
 
   if(!temperature.size()) {
+    //
     std::cerr << funame << "temperature list has not been initialized\n";
+
     throw Error::Init();
   }
 
-  if(!species.size()) {
+  if(!species) {
+    //
     std::cerr << funame << "no species\n";
+
     throw Error::Init();
   }
 
-  // add room temperature
-  temperature.push_back(298.2 * Phys_const::kelv);
+  dtemp = std::sqrt(M_PI);
 
+  for(int i = 0; i < rc.size(); ++i)
+    //
+    dtemp /= std::sqrt(rc[i]);
+
+  for(int i = 0; i < freq.size(); ++i)
+    //
+    dtemp /= freq[i];
+
+  const double ho_fac = dtemp;
+  
   /***************** PARTITION FUNCTION CALCULATION AND OUTPUT *******************/
 
-  const double volume_unit = Phys_const::cm * Phys_const::cm * Phys_const::cm;
+  IO::out << std::setw(13) << std::left << "T, K" << std::right
+	  << std::setw(13) << species->name()
+	  << std::setw(13) << "Error, %";
 
-  //  IO::out << "Partition function (relative to the ground,1/cm^3):\n"
-  IO::out << "Partition function (log) and its derivatives:\n"
-	  << std::left << std::setw(5) << "T, K" << std::right;
-  for(int s = 0; s < species.size(); ++s)
-    IO::out << std::setw(13) << species[s]->name() << std::setw(26);
+  if(rc.size() && freq.size())
+    //
+    IO::out << std::setw(13) << "Z/Z_HO";
+  
   IO::out << "\n";
   
   for(int t = 0; t < temperature.size(); ++t) {
-
-    const double tval = temperature[t];
-
-    double temp_incr = tval * temp_rel_incr;
-
-    double tt[3];
-    tt[0] = tval;
-    tt[1] = tval - temp_incr;
-    tt[2] = tval + temp_incr;
-
-    temp_incr /= Phys_const::kelv;
-
-    double zz[3];
-
-    IO::out << std::left << std::setw(5) << temperature[t] / Phys_const::kelv << std::right; 
-    for(int s = 0; s < species.size(); ++s) {
-      
-      for(int i = 0; i < 3; ++i) {
-	//
-	dtemp = species[s]->weight(tt[i]) * std::pow(species[s]->mass() * tt[i] / 2. / M_PI, 1.5) * volume_unit;
-
-	if(dtemp <= 0.) {
-	  //
-	  ErrOut err_out;
-
-	  err_out << funame << "negative weight: " << species[s]->weight(tt[i]);
-	}
-	
-	zz[i] = std::log(dtemp);
-      }
-      
-      IO::out << std::setw(13) << zz[0]
-	      << std::setw(13) << (zz[2] - zz[1]) / 2. / temp_incr
-	      << std::setw(13) << (zz[2] + zz[1] - 2. * zz[0]) / temp_incr / temp_incr;
-
-      //IO::out << std::setw(13) << species[s]->weight(temperature[t]) 
-      //* std::exp((species[s]->real_ground() - species[s]->ground())/ temperature[t])
-      //* std::pow(species[s]->mass() * temperature[t] / 2. / M_PI, 1.5) * volume_unit;
-    }
+    //
+    double err;
+    double z = species->weight_with_error(temperature[t], err);
+    
+    IO::out << std::setw(13) << std::left << temperature[t] / Phys_const::kelv << std::right
+	    << std::setw(13) << z
+	    << std::setw(13) << err;
+    
+    if(rc.size() && freq.size())
+      //
+      IO::out << std::setw(13) << z / ho_fac / std::pow(temperature[t], (double)freq.size() + (double)rc.size() / 2.);
+    
     IO::out << "\n";
   }
-
+  
   return 0;
 }

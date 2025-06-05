@@ -211,15 +211,15 @@ Lapack::Matrix Lapack::Matrix::operator= (SymmetricMatrix m)
 {
   resize(m.size());
   
-  int n = m.size() * m.size();
+  int_t n = m.size() * m.size();
 
 #pragma omp parallel for default(shared)  schedule(static)
 
-  for(int k = 0; k < n; ++k) {
+  for(int_t k = 0; k < n; ++k) {
     //
-    int i = k / m.size();
+    int_t i = k / m.size();
 
-    int j = k % m.size();
+    int_t j = k % m.size();
 
     (*this)(i, j) = m(i, j);
   }
@@ -244,15 +244,15 @@ Lapack::Matrix Lapack::Matrix::transpose () const
 
   Matrix res(size2(), size1());
 
-  int n = size1() * size2();
+  int_t n = size1() * size2();
 
 #pragma omp parallel for default(shared)  schedule(static)
 
-  for(int k = 0; k < n; ++k) {
+  for(int_t k = 0; k < n; ++k) {
     //
-    int i = k / size2();
+    int_t i = k / size2();
 
-    int j = k % size2();
+    int_t j = k % size2();
 
     res(j, i) = (*this)(i, j);
   }
@@ -273,15 +273,15 @@ Lapack::Matrix Lapack::Matrix::operator* (Matrix m) const
 
   Matrix res(size1(), m.size2());
 
-  int n = size1() * m.size2();
+  int_t n = size1() * m.size2();
 
 #pragma omp parallel for default(shared)  schedule(static)
 
-  for(int k = 0; k < n; ++k) {
+  for(int_t k = 0; k < n; ++k) {
     //
-    int i = k / m.size2();
+    int_t i = k / m.size2();
 
-    int j = k % m.size2();
+    int_t j = k % m.size2();
 
     res(i, j) = vdot(row(i), (ConstSlice<double>)m.column(j));
   }
@@ -321,7 +321,7 @@ Lapack::Vector Lapack::Matrix::operator* (const double* v) const
   
 #pragma omp parallel for default(shared)  schedule(static)
 
-  for(int i = 0; i < size1(); ++i)
+  for(int_t i = 0; i < size1(); ++i)
     //
     res[i] = vdot(row(i), v);
     
@@ -337,7 +337,7 @@ Lapack::Vector Lapack::operator* (const double* v, Matrix m)
 
 #pragma omp parallel for default(shared)  schedule(static)
 
-  for(int i = 0; i < m.size2(); ++i)
+  for(int_t i = 0; i < m.size2(); ++i)
     //
     res[i] = vdot(m.column(i), v);
   
@@ -2010,7 +2010,7 @@ double Lapack::Matrix::orthogonalize (double tol)
 
   double dtemp;
   
-  int    itemp;
+  int_t    itemp;
 
   if(!isinit()) {
     //
@@ -2036,7 +2036,7 @@ double Lapack::Matrix::orthogonalize (double tol)
   //
   double res = 1.;
 
-  for(int v = 0; v < size2(); ++v) {
+  for(int_t v = 0; v < size2(); ++v) {
     //
     Slice<double> col = column(v);
     
@@ -2051,7 +2051,7 @@ double Lapack::Matrix::orthogonalize (double tol)
       res *= dtemp;
     }
     
-    for(int u = 0; u < v; ++u)
+    for(int_t u = 0; u < v; ++u)
       //
       ::orthogonalize(col, column(u));
 
@@ -2072,13 +2072,13 @@ double Lapack::Matrix::orthogonalize (double tol)
 
 // find complimentary basis to the non-orthogonal vector set
 //
-double Lapack::orthogonalize (Matrix basis, int vsize)
+double Lapack::orthogonalize (Matrix basis, int_t vsize)
 {
   const char funame [] = "Lapack::orthogonalize: ";
 
   double dtemp;
   
-  int    itemp;
+  int_t    itemp;
 
   if(vsize <= 0 || vsize > basis.size()) {
     //
@@ -2091,9 +2091,9 @@ double Lapack::orthogonalize (Matrix basis, int vsize)
   //
   double res = 1.;
 
-  for(int u = 0; u < vsize; ++u) {
+  for(int_t u = 0; u < vsize; ++u) {
     //
-    for(int v = 0; v < u; ++v)
+    for(int_t v = 0; v < u; ++v)
       //
       ::orthogonalize(&basis(0, u), &basis(0, v), basis.size());
 
@@ -2102,19 +2102,19 @@ double Lapack::orthogonalize (Matrix basis, int vsize)
   
   // build complimentary basis set
   //
-  for(int u = vsize; u < basis.size(); ++u) {
+  for(int_t u = vsize; u < basis.size(); ++u) {
     //
     // find the basis unity vector with minimal projection on the orthogonalized vector set
     //
     double pmin;
     
-    int    imin;
+    int_t    imin;
 
-    for(int i = 0; i < basis.size(); ++i) {
+    for(int_t i = 0; i < basis.size(); ++i) {
       //
       dtemp = 0.;
 	
-      for(int v = 0;  v < u; ++v)
+      for(int_t v = 0;  v < u; ++v)
 	//
 	dtemp += basis(i, v) * basis(i, v);
 	    
@@ -2128,13 +2128,13 @@ double Lapack::orthogonalize (Matrix basis, int vsize)
 
     // new vector with the smallest projection
     //
-    for(int i = 0; i < basis.size(); ++i)
+    for(int_t i = 0; i < basis.size(); ++i)
       //
       basis(i, u) = i != imin ? 0. : 1.;
 
     // orthogonalize and normalize new vector
     //
-    for(int v = 0; v < u; ++v)
+    for(int_t v = 0; v < u; ++v)
       //
       ::orthogonalize(&basis(0, u), &basis(0, v), basis.size());
     
@@ -2146,13 +2146,13 @@ double Lapack::orthogonalize (Matrix basis, int vsize)
 
 // solve linear equations by singular value decomposition
 //
-Lapack::Vector Lapack::svd_solve(Matrix a, Vector b, double* residue, double prec, double (*weight)(double))
+Lapack::Vector Lapack::svd_solve(Matrix a, Vector b, double prec, double (*weight)(double))
 {
   const char funame [] = "Lapack::svd_solve: ";
 
   static const double default_prec = 1.e-12;
 
-  int    itemp;
+  int_t    itemp;
   double dtemp;
 
   if(a.size1() < a.size2()) {
@@ -2165,6 +2165,7 @@ Lapack::Vector Lapack::svd_solve(Matrix a, Vector b, double* residue, double pre
   if(b.size() != a.size1()) {
     //
     std::cerr << funame << "right-hand side vector size, " << b.size()
+	//
 	      << ", differs from the number of equations, " << a.size1() << "\n";
 
     throw Error::Range();
@@ -2180,11 +2181,12 @@ Lapack::Vector Lapack::svd_solve(Matrix a, Vector b, double* residue, double pre
   
   b = b.copy();
 
+
   // weighting
   //
   if(weight) {
     //
-    for(int i = 0; i < a.size1(); ++i) {
+    for(int_t i = 0; i < a.size1(); ++i) {
       //
       dtemp = weight(b[i]);
 
@@ -2239,45 +2241,119 @@ Lapack::Vector Lapack::svd_solve(Matrix a, Vector b, double* residue, double pre
     throw Error::Run();
   }
 
-  if(rank < a.size2()) {
+  if(rank < a.size2())
     //
-    std::cerr << funame << "matrix rank, " << rank << ", is less than the number of coefficients, " << a.size2() << "\n";
+    std::cerr << funame << "WARNING: SVD matrix rank, " << rank << ", is less than the number of coefficients, " << a.size2() << "\n";
+
+  b.resize(a.size2());
+  
+  return b;
+}
+
+//
+Lapack::Matrix Lapack::svd_solve(Matrix a, Matrix b, int_t& rank_out, double prec)
+{
+  const char funame [] = "Lapack::svd_solve: ";
+
+  static const double default_prec = 1.e-12;
+
+  int_t    itemp;
+  double dtemp;
+
+  if(a.size1() < a.size2()) {
+    //
+    std::cerr << funame << "number of equations, " << a.size1() << ", should be no less than the number of variables, " << a.size2() << "\n";
+
+    throw Error::Range();
+  }
+  
+  if(b.size1() != a.size1()) {
+    //
+    std::cerr << funame << "right-hand side vector size, " << b.size()
+	      << ", differs from the number of equations, " << a.size1() << "\n";
+
+    throw Error::Range();
+  }
+
+  if(prec < 0.)
+    //
+    prec = default_prec;
+  
+  // make a copy
+  //
+  a = a.copy();
+  
+  b = b.copy();
+
+  Vector sv(a.size2());
+  int_t rank, lwork, info;
+
+  lwork = -1;
+  Array<double> work(1);
+  Array<int_t> iwork(1);
+
+  dgelsd_(a.size1(), a.size2(), b.size2(), a, a.size1(), b, b.size1(), sv, prec, rank, work, lwork, iwork, info);        
+
+  if(info) {
+    //
+    std::cerr << funame << "dgelsd(lwork=-1) failed with info = " << info;
+
+    throw Error::Run();
+  }
+  
+  int_t liwork = iwork[0];
+  
+  if(liwork <= 0) {
+    //
+    std::cerr << funame << "dgelsd(lwork=-1) failed: liwork = " << liwork << "\n";
+
+    throw Error::Run();
+  }
+  
+  lwork = (int_t)work[0];
+
+  if(lwork <= 0) {
+    //
+    std::cerr << funame << "dgelsd(lwork=-1) failed: new lwork = " << lwork << "\n";
+
+    throw Error::Run();
+  }
+  
+  work.resize(lwork);
+  iwork.resize(liwork);
+
+  dgelsd_(a.size1(), a.size2(), b.size2(), a, a.size1(), b, b.size1(), sv, prec, rank, work, lwork, iwork, info);        
+
+  if(info) {
+    //
+    std::cerr << funame << "dgelsd failed with info = " << info;
 
     throw Error::Run();
   }
 
-  /*
-  if(IO::loglevel() >= IO::DEBUG) {
+  rank_out = rank;
+
+  if(rank < a.size2())
+    //
+    std::cerr << funame << "WARNING: matrix rank, " << rank << ", is less than the number of coefficients, " << a.size2() << "\n";
+
+  if(IO::loglevel() >= IO::DEVEL) {
+    //
     IO::log << IO::log_offset << "diagonal SVD values:";
       
     int old_prec = IO::log.precision(3);
 
-    for(int i = 0; i < sv.size(); ++i) {
+    for(int_t i = 0; i < sv.size(); ++i) {
+      //
       if(!(i % 10))
+	//
         IO::log << "\n" << IO::log_offset;
+
       IO::log << std::setw(10) << sv[i];
     }
 
     IO::log << std::setprecision(old_prec) << std::endl;
   }
-  */
-
-  // residual solution
-  //
-  if(residue) {
-    //
-    dtemp = 0.;
-
-    for(int i = a.size2(); i < a.size1(); ++i)
-      //
-      dtemp += b[i] * b[i];
-
-    dtemp = std::sqrt(dtemp);
-
-    *residue = dtemp;
-  }
-
-  b.resize(a.size2());
   
   return b;
 }
@@ -2309,7 +2385,7 @@ Lapack::Matrix Lapack::Matrix::kernel () const
 
   Matrix res(size2(), size2() - size1());
 
-  for(int i = size1(); i < size2(); ++i)
+  for(int_t i = size1(); i < size2(); ++i)
     //
     res.column(i - size1()) = v.column(i);
 
@@ -2322,7 +2398,7 @@ void Lapack::svd (Matrix a, Vector s, Matrix u, Matrix v)
 {
   const char funame [] = "Lapack::svd: ";
 
-  int    itemp;
+  int_t    itemp;
   double dtemp;
 
   if(!a.isinit()) {
@@ -2336,7 +2412,7 @@ void Lapack::svd (Matrix a, Vector s, Matrix u, Matrix v)
 
   v.resize(a.size2());
 
-  int rank = std::min(a.size1(), a.size2());
+  int_t rank = std::min(a.size1(), a.size2());
   
   s.resize(rank);
   

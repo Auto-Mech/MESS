@@ -50,7 +50,7 @@ namespace Mpack_dd {
     typedef       dd_real      value_type;
 
     Vector () {}
-    explicit Vector (int_t s)            : RefArr<dd_real>(s)    {}
+    explicit Vector (int s)            : RefArr<dd_real>(s)    {}
     Vector          (int_t s, dd_real p)  : RefArr<dd_real>(s, p) {}
 
     bool isinit () const { return RefArr<dd_real>::isinit(); }

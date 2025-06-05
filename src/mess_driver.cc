@@ -24,6 +24,8 @@
 #include "libmess/units.hh"
 #include "libmess/io.hh"
 #include "libmess/offload.hh"
+#include "libmess/mpack.hh"
+#include "libmess/limits.hh"
 
 int main (int argc, char* argv [])
 {
@@ -85,7 +87,7 @@ int main (int argc, char* argv [])
   Key   lim_kj_key("ModelEnergyLimit[kJ/mol]"   );
   Key  adm_bor_key("AtomDistanceMin[bohr]"      );
   Key  adm_ang_key("AtomDistanceMin[angstrom]"  );
-  Key     xtun_key("TunnelingActionCutoff"      );
+  Key     xtun_key("TunnelActionMax"            );
   Key well_cut_key("WellCutoff"                 );
   Key well_ext_key("WellExtension"              );
   Key ext_corr_key("ExtensionCorrection"        );
@@ -95,6 +97,7 @@ int main (int argc, char* argv [])
   Key chem_tol_key("ChemicalTolerance"          );
   Key well_red_key("WellReductionThreshold"     );
   Key    float_key("FloatType"                  );
+  Key   use_mp_key("UseMultiPrecision"          );
   Key     calc_key("CalculationMethod"          );
   Key  rat_red_key("ReductionMethod"            );
   Key      wpm_key("WellPartitionMethod"        );
@@ -123,6 +126,7 @@ int main (int argc, char* argv [])
   Key save_mat_key("SaveKineticMatrix"          );
   Key gpu_size_key("GpuSize"                    );
   Key   gpu_id_key("GpuId"                      );
+  Key  exp_max_key("ExpArgMax"                  );
 
   int gpu_id = 0;
   int gpu_size = 0;
@@ -258,6 +262,27 @@ int main (int argc, char* argv [])
       }
         
       std::getline(from, comment);
+    }
+    // exponent argument max
+    //
+    else if(exp_max_key == token) {
+      //
+      if(!(from >> dtemp)) {
+        //
+        std::cerr << funame << token << ": corrupted" << std::endl;
+
+        throw Error::Input();
+      }
+      std::getline(from, comment);
+
+      if(dtemp <= 0.) {
+        //
+        std::cerr << funame << token << ": out of range: " << dtemp << std::endl;
+
+        throw Error::Range();
+      }
+
+      Limits::set_exp_pow_max(dtemp);       
     }
     // out stream precision
     //
@@ -999,6 +1024,14 @@ int main (int argc, char* argv [])
       }
       std::getline(from, comment);
     }
+    // use multi-precision for global kinetic matrix diagonalization
+    //
+    else if(use_mp_key == token) {
+      //
+      MasterEquation::use_mp = 1;
+
+      std::getline(from, comment);
+    }
     // float type
     //
     else if(float_key == token) {
@@ -1022,31 +1055,31 @@ int main (int argc, char* argv [])
 
       if(stemp == "double") {
 	//
-	MasterEquation::float_type = MasterEquation::DOUBLE;
+	Mpack::mp_type = Mpack::DOUBLE;
       }
       else if(stemp == "dd") {
 	//
-	MasterEquation::float_type = MasterEquation::DD;
+	Mpack::mp_type = Mpack::DD;
       }
       else if(stemp == "qd") {
 	//
-	MasterEquation::float_type = MasterEquation::QD;
+	Mpack::mp_type = Mpack::QD;
       }
       else if(stemp == "mpfr") {
 	//
-	MasterEquation::float_type = MasterEquation::MPFR;
+	Mpack::mp_type = Mpack::MPFR;
       }
       else if(stemp == "gmp") {
 	//
-	MasterEquation::float_type = MasterEquation::GMP;
+	Mpack::mp_type = Mpack::GMP;
       }
       else if(stemp == "float128") {
 	//
-	MasterEquation::float_type = MasterEquation::FLOAT128;
+	Mpack::mp_type = Mpack::FLOAT128;
       }
       else if(stemp == "float64x") {
 	//
-	MasterEquation::float_type = MasterEquation::FLOAT64X;
+	Mpack::mp_type = Mpack::FLOAT64X;
       }
       else {
 	//
@@ -1431,7 +1464,7 @@ int main (int argc, char* argv [])
     //
     MasterEquation::set_precision(prec_num);
   
-  IO::log << IO::log_offset << "numeric precision: digits10 = " << MasterEquation::get_precision() << "\n";
+  IO::log << IO::log_offset << "numerical precision: digits10 = " << MasterEquation::get_precision() << "\n";
 
   /*************************** CHECKING ******************************************/
 

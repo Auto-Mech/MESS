@@ -1,6 +1,6 @@
 /*
         Chemical Kinetics and Dynamics Library
-        Copyright (C) 2008-2013, Yuri Georgievski <ygeorgi@anl.gov>
+        Copyright (C) 2008-2025, Yuri Georgievski <ygeorgi@anl.gov>
 
         This library is free software; you can redistribute it and/or
         modify it under the terms of the GNU Library General Public
@@ -66,12 +66,8 @@ namespace MasterEquation {
 
   typedef FLOAT float_t;
   
-  // float type
-  //
-  enum {DOUBLE, DD, QD, MPFR, GMP, FLOAT128, FLOAT64X};
+  extern int use_mp;
 
-  extern int float_type;
-  
   int get_precision ();
 
   void set_precision (int);

@@ -19,6 +19,45 @@
 
 double Quaternion::tolerance = 1.e-12;
 
+// transformation from euler angles in appropriate convention to quaternion
+//
+void euler2quat (const double* euler, double* quat, char conv)
+{
+  const char funame [] = "euler2quat: ";
+
+  double theta = euler[0], phi, psi;
+
+  switch(conv) {
+    //
+  case 'X':
+    //
+    phi   = euler [1];
+    psi   = euler [2];
+
+    break;
+    //
+  case 'Y':
+    //
+    phi   = euler [1] + M_PI_2;
+    psi   = euler [2] - M_PI_2;
+
+    break;
+    //
+  default:
+    //
+    std::cerr << funame << "unknown convention: " << conv << "\n";
+
+    throw Error::Range();
+  }
+
+   double s = (phi + psi) / 2.0, d = (phi - psi) / 2.0, t = theta / 2.;
+
+   quat[0] = std::cos(t) * std::cos(s);
+   quat[1] = std::sin(t) * std::cos(d);
+   quat[2] = std::sin(t) * std::sin(d);
+   quat[3] = std::cos(t) * std::sin(s);
+}
+
 /*********************** 3-D reference frame ***********************/
 
 void D3::Frame::fv2lv (const double* fv, double* lv) const // frame vector to lab vector
@@ -417,6 +456,8 @@ D3::Vector D3::operator- (const double* p, const D3::Vector& v)
 
 std::ostream& D3::operator<< (std::ostream& to, const Vector& v)
 {
+  int old_precision = to.precision(3);
+
   to << "{";
   for(int i = 0; i < 3; ++i) {
     if(i)
@@ -425,7 +466,9 @@ std::ostream& D3::operator<< (std::ostream& to, const Vector& v)
   }
   to << "}";
 
-    return to;
+  to.precision(old_precision);
+
+  return to;
 }
 
 std::istream& D3::operator>> (std::istream& from, Vector& v)
@@ -507,6 +550,7 @@ double D3::volume (const double* a, const double* a1, const double* a2)
 
 
 /********************************************************************
+*
 template <typename T>
 void quat2mat (const double* quat, T& mat)
 {// normalized quaternion-to-matrix transformation
@@ -535,8 +579,8 @@ void quat2mat (const double* quat, T& mat)
 }
 *****************************************************************/
 
-
 // quaternion-to-matrix transformation
+//
 void quat2mat (const double* q, D3::Matrix& m) 
 {
   const char funame [] = "quat2mat: ";
@@ -544,42 +588,61 @@ void quat2mat (const double* q, D3::Matrix& m)
   double qq = vdot(q, 4);
 
   if(qq == 0.) {
-    std::cerr << funame << "quaternion is 0\n";
+    //
+    std::cerr << funame << "quaternion length is 0\n";
+
     throw Error::Range();
   }
 
   m = 0.;
 
   double qterm;
-  for(int i = 0; i < 4; ++i)
-    for(int j = i; j < 4; ++j) {
 
+  for(int i = 0; i < 4; ++i)
+    //
+    for(int j = i; j < 4; ++j) {
+      //
       qterm = q[i] * q[j] / qq;
 
       // q_0 * q_0 terms
+      //
       if(!j) {
+	//
 	m.diagonal() += qterm;
       }
       // q_i  * q_i terms
+      //
       else if(i == j) {
+	//
 	for(int k = 0; k < 3; ++k)
-	  if(k + 1 == i)
+	  //
+	  if(k + 1 == i) {
+	    //
 	    m(k, k) += qterm;
+	  }
 	  else
+	    //
 	    m(k, k) -= qterm;
       }
       // q_0 * q_i terms
+      //
       else if(!i) {
+	//
 	int j1 = j % 3;
 	int j2 = (j + 1) % 3;
+
 	qterm *= 2.;
+	
 	m(j1, j2) += qterm;
 	m(j2, j1) -= qterm;
       }
       // q_i * q_j terms
+      //
       else {
+	//
 	int i1 = i - 1;
 	int j1 = j - 1;
+
 	qterm *= 2.;
 
 	m(i1, j1) += qterm;
@@ -589,6 +652,7 @@ void quat2mat (const double* q, D3::Matrix& m)
 }
 
 // (orthogonal) matrix-to-quaternion transformation
+//
 void mat2quat (const D3::Matrix& mat, double* quat, int flags) 
 {
   const char funame [] = "mat2quat: ";
@@ -644,16 +708,19 @@ void mat2quat (const D3::Matrix& mat, double* quat, int flags)
   *quat = (mat(i1, i2) - mat(i2, i1)) / 4. / dmax;
 }
 
-// quaternion-quaternion product
+// quaternion-quaternion product, q1 * q2
+//
 void Quaternion::qprod (const double* q1, const double* q2, double* q) 
-{//q1 * q2
+{
 
   const double* v1 = q1 + 1;
   const double* v2 = q2 + 1;
   double*       v  = q  + 1;
 
   D3::vprod(v1, v2, v);
+
   for(int i = 0; i < 3; ++i)
+    //
     v[i] += *q1 * v2[i] + *q2 * v1[i];
 
   *q = *q1 * *q2 - vdot(v1, v2, 3);

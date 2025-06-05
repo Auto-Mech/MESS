@@ -22,16 +22,16 @@
 
 /********************** General Vector Operations ***************************/
 
-double normalize (double*, int, int =1) ;
-double orthogonalize (double*, const double*, int, int =1, int =1) ;
-double parallel_orthogonalize (double*, const double*, int, int =1, int =1) ;
-double vdot      (const double*, int, int =1) ;
-double vlength   (const double*, int, int =1) ;
-double vdot      (const double*, const double*, int, int =1, int =1) ;
-double parallel_vdot  (const double*, const double*, int, int =1, int =1) ;
-double vdistance (const double*, const double*, int, int =1, int =1) ;
+double normalize (double*, int64_t, int64_t =1);
+double orthogonalize (double*, const double*, int64_t, int64_t =1, int64_t =1);
+double parallel_orthogonalize (double*, const double*, int64_t, int64_t =1, int64_t =1);
+double vdot      (const double*, int64_t, int64_t =1);
+double vlength   (const double*, int64_t, int64_t =1);
+double vdot      (const double*, const double*, int64_t, int64_t =1, int64_t =1);
+double parallel_vdot  (const double*, const double*, int64_t, int64_t =1, int64_t =1);
+double vdistance (const double*, const double*, int64_t, int64_t =1, int64_t =1);
 
-void multiply (double*, double, int, int= 1);
+void multiply (double*, double, int64_t, int64_t= 1);
 
 template <typename V>
 typename V::value_type vdot (const V& v)
@@ -62,10 +62,10 @@ typename V::value_type vdot (const V& v1, const V& v2)
 }
 
 template <typename V>
-typename V::value_type vdot (const V& v, const typename V::value_type* vit, int stride = 1);
+typename V::value_type vdot (const V& v, const typename V::value_type* vit, int64_t stride = 1);
 
 template <typename V>
-typename V::value_type vdot (const V& v, const typename V::value_type* vit, int stride)
+typename V::value_type vdot (const V& v, const typename V::value_type* vit, int64_t stride)
 {
   typename V::value_type res = 0;
   
@@ -155,14 +155,14 @@ typename V::value_type vdistance (const V& v1, const V& v2)
   return std::sqrt(res);
 }
 
-template <typename V> typename V::value_type max (const V&, int* p = 0);
-template <typename V> typename V::value_type min (const V&, int* p = 0);
+template <typename V> typename V::value_type max (const V&, int64_t* p = 0);
+template <typename V> typename V::value_type min (const V&, int64_t* p = 0);
 
 template <typename V>
-typename V::value_type max (const V& v, int* p)
+typename V::value_type max (const V& v, int64_t* p)
 {
   typename V::value_type res;
-  int count = 0;
+  int64_t count = 0;
   for(typename V::const_iterator it = v.begin(); it != v.end(); ++it, ++count)
     if(it == v.begin() || *it > res) {
       res = *it;
@@ -173,10 +173,10 @@ typename V::value_type max (const V& v, int* p)
 }
 
 template <typename V>
-typename V::value_type min (const V& v, int* p)
+typename V::value_type min (const V& v, int64_t* p)
 {
   typename V::value_type res;
-  int count = 0;
+  int64_t count = 0;
   for(typename V::const_iterator it = v.begin(); it != v.end(); ++it, ++count)
     if(it == v.begin() || *it < res) {
       res = *it;

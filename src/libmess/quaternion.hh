@@ -20,13 +20,13 @@
 #include "error.hh"
 
 /********************************************************************************************/
-
+// normalized quaternion-to-matrix transformation
+//
 template <typename T>
 void nquat2mat (const double* quat, T& mat)
-{// normalized quaternion-to-matrix transformation
-
-  register     double    q0, q1, q2, q3, qq0, qq1, qq2, qq3;
-  register     double    a01, a02, a03, a12, a13, a23;
+{
+  double    q0, q1, q2, q3, qq0, qq1, qq2, qq3;
+  double    a01, a02, a03, a12, a13, a23;
   
   q0 = quat[0];  q1 = quat[1]; q2 = quat[2];  q3 = quat[3];
 
@@ -49,11 +49,12 @@ void nquat2mat (const double* quat, T& mat)
 }
 
 // quaternion-to-matrix transformation
+//
 template <typename T>
 void quat2mat (const double* quat, T& mat)
 {
-  register     double    q0, q1, q2, q3, qq0, qq1, qq2, qq3, qq;
-  register     double    a01, a02, a03, a12, a13, a23;
+  double    q0, q1, q2, q3, qq0, qq1, qq2, qq3, qq;
+  double    a01, a02, a03, a12, a13, a23;
   
   q0 = quat[0];  q1 = quat[1]; q2 = quat[2];  q3 = quat[3];
 

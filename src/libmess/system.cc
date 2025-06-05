@@ -54,6 +54,7 @@ void System::clean_dir (const char* dname)
 }
 
 // copy files
+//
 int System::file_copy(const char* old_fname, const char* new_fname)
 {
     std::ifstream from(old_fname);
@@ -67,6 +68,50 @@ int System::file_copy(const char* old_fname, const char* new_fname)
   while(from.get(ch))
     if (!to.put(ch))
       return -1;
+  return 0;
+}
+
+int System::make_dir (const std::string& dir, const std::string& funame)
+{
+  std::string token = funame;
+  token += dir + ": mkdir: ";
+
+  struct stat wstat;
+
+  if(mkdir(dir.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ))
+    //
+    switch(errno) {
+      //
+    case EEXIST:
+      //
+      if(stat(dir.c_str(), &wstat)) {
+	//
+	std::cerr << token << strerror(errno) << "\n";
+	return 1;
+      }
+
+      if(!S_ISDIR(wstat.st_mode)) {
+	//
+	std::cerr << token << "not a directory\n";
+	return 1;
+      }
+      
+      if(!(wstat.st_mode & S_IRUSR) || !(wstat.st_mode & S_IWUSR) || !(wstat.st_mode & S_IXUSR)) {
+	std::cerr << token << "wrong permissions\n";
+	return 1;
+      }
+
+      return 0;
+
+    case ENOENT:
+      std::cerr << token << "the parent directory does not exist\n";
+      return 1;
+
+    default:
+      std::cerr << token << strerror(errno) << "\n";
+      return 1;
+    }
+
   return 0;
 }
 
@@ -256,81 +301,4 @@ void System::Semaphore::free (int n) const
     }
 }
 
-/*********************************************************************************************
- *                                     Dynamic Libraries                                     *
- ********************************************************************************************/
-
-void System::DynLib::open (const std::string& lib)  
-{    
-    const char funame [] = "System::DynLib::_open: ";
-
-    if(_lib == lib)
-	return;
-
-    _delete_ref();
-
-    _lib.clear();
-    _count = 0;
-    _handle = 0;
-
-    if(!lib.size())
-	return;
-
-    _handle = dlopen(lib.c_str(), RTLD_NOW);
-    if(!_handle) {
-	std::cerr << funame << "error encountered while opening " 
-		  << lib << " library:\n";
-	const char* messg = dlerror();
-	if(messg)
-	    std::cerr <<messg << "\n";
-	throw Error::Init();
-    }
-    
-    _lib = lib;
-    _count = new int(1);
-
-}
-
-void System::DynLib::_delete_ref ()
-{
-    const char funame [] = "System::DynLib::_delete_ref: ";
-    
-    if(!_count)
-	return;
-    
-    if(!(--(*_count))) {
-	delete _count;
-	_count  = 0;
-	if(dlclose(_handle)) {
-	    std::cerr << funame << "error occurred while closing " 
-		      << _lib << " library:\n";
-	    const char* messg = dlerror();
-	    if(messg)
-		std::cerr << messg << "\n";
-	}		
-	_lib.clear();
-	_handle = 0;
-
-    }
-}
-
-void* System::DynLib::member (const std::string& sym) 
-{
-    const char funame [] = "System::DynLib::member: ";
-
-    if(!_handle) {
-	std::cerr << funame << "library has not been opened\n";
-	throw Error::Init();
-    }
-
-    dlerror();
-    void* res = dlsym(_handle, sym.c_str());
-    const char* messg = dlerror();
-    if(messg) {
-	std::cerr << funame << "failed to get " << sym << " symbol from the " 
-		  << _lib  << " library: " << messg << "\n";
-	throw Error::Init();
-    }
-    return res;
-}
 

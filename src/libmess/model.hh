@@ -1,6 +1,6 @@
 /*
         Chemical Kinetics and Dynamics Library
-        Copyright (C) 2008-2017, Yuri Georgievski <ygeorgi@anl.gov>
+        Copyright (C) 2008-2025, Yuri Georgievski <ygeorgi@anl.gov>
 
         This library is free software; you can redistribute it and/or
         modify it under the terms of the GNU Library General Public
@@ -198,6 +198,8 @@ namespace Model {
 
     Tunnel (double c, double f) : _cutoff(c), _freq(f), _efac(0.) {}
     
+    void _adjust_cutoff ();
+
   public:
     //
     virtual ~Tunnel () {}
@@ -206,14 +208,14 @@ namespace Model {
 
     void set_cutoff (double c) { _cutoff = c; }
 
-    static double  action_max               () { return _action_max; }
+    static double  action_max () { return _action_max; }
     
     static void    set_action_max (double val) { _action_max = val; }
 
-    double  factor (double) const; // tunneling factor
-    double density (double) const; // energy derivative of tunneling factor
-    double  weight (double) const; // statistical weight relative to cutoff energy
-    void convolute (Array<double>&, double) const;// convolute number of states with tunneling density
+    double  factor (double) const;			// tunneling factor
+    double density (double) const;			// energy derivative of tunneling factor
+    double  weight (double) const;			// statistical weight relative to cutoff energy
+    void convolute (Array<double>&, double) const;	// convolute number of states with tunneling density
 
     virtual double action (double, int =0) const =0; // semiclassical action
   };
@@ -1941,6 +1943,8 @@ namespace Model {
 
     void _assert_spec() const;
 
+    int _well_extension;
+
   public:
     //
     Well (IO::KeyBufferStream&, const std::string&);
@@ -1990,6 +1994,8 @@ namespace Model {
     double dissociation_limit;
 
     double well_ext_cap;
+
+    bool well_extension () const { return _well_extension; }
   };
 
   inline void Well::_assert_spec() const

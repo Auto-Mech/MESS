@@ -25,7 +25,7 @@
 
 namespace Lapack {
 
-  typedef int int_t;
+  typedef int64_t int_t;
 
   typedef std::complex<double> complex;
 
@@ -55,7 +55,7 @@ namespace Lapack {
     template<typename V> explicit Vector (const V& v) : RefArr<double>(v) {}
     
     bool isinit   () const { return RefArr<double>::isinit(); }
-    int_t  size   () const { _assert(); return RefArr<double>::size  (); }
+    int_t  size   () const { if(isinit()) return RefArr<double>::size(); return 0; }
 
     double*       begin ()       { return  RefArr<double>::begin(); }
     double*         end ()       { return  RefArr<double>::end(); }
@@ -176,9 +176,9 @@ namespace Lapack {
 
     double&       operator() (int_t i1, int_t i2)       { _assert(i1, i2); return RefArr<double>::operator[](i1 + size1() * i2); }
 
-    inline int_t size1 () const { _assert(); return *_size1; }
+    inline int_t size1 () const { if(_size1) return *_size1; return 0; }
     
-    inline int_t size2 () const { _assert(); return *_size2; }
+    inline int_t size2 () const { if(_size2) return *_size2; return 0; }
     
     int_t size  () const; // square matrix size
 
@@ -257,7 +257,9 @@ namespace Lapack {
 
     if(i1 < 0 || i1 >= size1() || i2 < 0 || i2 >= size2()) {
       //
-      std::cerr << funame << "out of range: " << i1 << ", " << i2 << "\n";
+      std::cerr << funame << "out of range: i1 = " << i1 << ", i2 = " << i2 
+		//
+		<< ", size1 = " << size1() << ", size2 = " << size2() << "\n";
       
       throw Error::Range();
     }
@@ -413,7 +415,7 @@ namespace Lapack {
     //
     void _assert ()   const;
 
-    void _assert (int) const;
+    void _assert (int_t) const;
     
     void resize (int_t) ;
 
@@ -430,7 +432,7 @@ namespace Lapack {
 
     SymmetricMatrix copy () const { return SymmetricMatrix(*this, 0); }
 
-    int_t size () const { _assert(); return *_size; }
+    int_t size () const { if(_size) return *_size; return 0; }
 
     // referencing as an upper triangle column-wise
     //
@@ -484,7 +486,7 @@ namespace Lapack {
     throw Error::Init();
   }
   
-  inline void SymmetricMatrix::_assert (int i) const
+  inline void SymmetricMatrix::_assert (int_t i) const
   {
     const char funame [] = "Lapack::SymmetricMatrix::_assert: ";
 
@@ -492,7 +494,7 @@ namespace Lapack {
 
     if(i < 0 || i >= size()) {
       //
-      std::cerr << funame << "out of range: " << i << "\n";
+      std::cerr << funame << "out of range: " << i << ", " << size() << "\n";
 
       throw Error::Init();
     }
@@ -770,7 +772,11 @@ namespace Lapack {
     const char funame [] = "Lapack::ComplexMatrix::_index_check: ";
 
     if(i1 < 0 || i1 >= size1() || i2 < 0 || i2 >= size2()) {
-      std::cerr << funame << "out of range: i1 = " << i1 << " i2 = " << i2 << "\n";
+      //
+      std::cerr << funame << "out of range: i1 = " << i1 << ", i2 = " << i2 
+	//
+		<< ", size1 = " << size1() << ", size2 = " << size2() << "\n";
+
       throw Error::Range();
     }
   }
@@ -833,8 +839,11 @@ namespace Lapack {
       std::swap(i1, i2);
 
     if(i1 < 0 || i2 >= size()) {
+      //
       std::cerr << funame << "out of range: i1 = " << i1 
-		<< " i2 = " << i2 << std::endl;
+		//
+		<< ", i2 = " << i2 << ", size = " << size() << "\n";
+
       throw Error::Range();
     }
 
@@ -849,8 +858,11 @@ namespace Lapack {
       std::swap(i1, i2);
 
     if(i1 < 0 || i2 >= size()) {
+
       std::cerr << funame << "out of range: i1 = " << i1 
-		<< " i2 = " << i2 << std::endl;
+		//
+		<< ", i2 = " << i2 << ", size =" << size() << "\n";
+
       throw Error::Range();
     }
 
@@ -877,11 +889,13 @@ namespace Lapack {
 
   // find a complimentary orthogonal basis set to the non-orthogonal vector set
   //
-  double orthogonalize (Matrix basis, int vsize);
+  double orthogonalize (Matrix basis, int_t vsize);
 
   // solve linear equations by svd-decomposition
   //
-  Vector svd_solve (Matrix a, Vector b, double* residue = 0,double pres = -1., double (*weight)(double) = 0);
+  Vector svd_solve (Matrix a, Vector b, double pres = -1., double (*weight)(double) = 0);
+  //
+  Matrix svd_solve (Matrix a, Matrix b, int_t& rank, double pres = -1.);
 
   // singular value decomposition, A = U * S * V**T
   //

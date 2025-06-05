@@ -27,7 +27,7 @@ namespace Random {
   double norm      ();             // rand_norm ();
   double exp       ();             // rand_exp ();
   void   orient    (double*, int); // rand_orient (double*, int);
-  double vol       (double*, int); 
+  void   volume    (double*, int); 
 
   void spherical_layer (double* vec, int dim, double rmin, double rmax) ;
 }

@@ -70,6 +70,10 @@ extern "C" {
   int dsyev_(const char& jobz, const char& uplo, const Lapack::int_t& n, double* a, const Lapack::int_t& lda, 
 	     double* w, double* work, const Lapack::int_t& lwork, Lapack::int_t& info);
 
+  int dsyevd_(const char& jobz, const char& uplo, const Lapack::int_t& n, double* a, const Lapack::int_t& lda, 
+	     double* w, double* work, const Lapack::int_t& lwork, Lapack::int_t* iwork, const Lapack::int_t& liwork, 
+	     Lapack::int_t& info);
+
   int dspsv_(const char& uplo, const Lapack::int_t& n, const Lapack::int_t& nrhs, double* ap,
 	     Lapack::int_t* ipiv, double* b, const Lapack::int_t& ldb, Lapack::int_t& info);
 

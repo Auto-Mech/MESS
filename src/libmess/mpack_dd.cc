@@ -965,7 +965,7 @@ Mpack_dd::SymmetricMatrix Mpack_dd::SymmetricMatrix::operator= (dd_real d)
     throw Error::Init();
   }
 
-  RefArr<dd_real>::operator=(0.);
+  RefArr<dd_real>::operator=((dd_real)0.);
 
 #pragma omp parallel for default(shared)  schedule(static)
   //

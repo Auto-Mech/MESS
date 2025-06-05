@@ -679,6 +679,8 @@ double Opt::ZOpt::anharmonic_correction (double temperature, int count_max, doub
 
     for(int i = 0; i < _con_modes.size(); ++i) {
       //
+//#pragma omp critical (omp_random_section)
+      //
       dtemp = Random::norm();
 
       eref += dtemp * dtemp;

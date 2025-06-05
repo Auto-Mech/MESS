@@ -49,12 +49,12 @@ class ArrayWithDefault {
 
   _D*       _begin;
   _D*       _end;
-  int       _size;
+  int64_t       _size;
   const T*  _default;
 
   void _delete ();
-  void _create (int);
-  void _isinit ();
+  void _create (int64_t);
+  void _isinit () const;
 
 public:
 
@@ -75,11 +75,11 @@ public:
     bool operator != (iterator       it) { return _value != it._value; }
     bool operator != (const_iterator it) { return _value != it._value; }
 
-    iterator operator+  (int i) { return _value +  i; }
-    iterator operator-  (int i) { return _value -  i; }
+    iterator operator+  (int64_t i) { return _value +  i; }
+    iterator operator-  (int64_t i) { return _value -  i; }
 
-    iterator& operator+= (int i) { _value += i; return *this; }
-    iterator& operator-= (int i) { _value -= i; return *this; }
+    iterator& operator+= (int64_t i) { _value += i; return *this; }
+    iterator& operator-= (int64_t i) { _value -= i; return *this; }
 
     friend class const_iterator;
   };
@@ -102,20 +102,20 @@ public:
     bool operator != (const_iterator it) { return _value != it._value; }
     bool operator != (iterator       it) { return _value != it._value; }
 
-    const_iterator operator+  (int i) { return _value +  i; }
-    const_iterator operator-  (int i) { return _value -  i; }
+    const_iterator operator+  (int64_t i) { return _value +  i; }
+    const_iterator operator-  (int64_t i) { return _value -  i; }
 
-    const_iterator& operator+= (int i) { _value += i; return *this; }
-    const_iterator& operator-= (int i) { _value -= i; return *this; }
+    const_iterator& operator+= (int64_t i) { _value += i; return *this; }
+    const_iterator& operator-= (int64_t i) { _value -= i; return *this; }
 
     friend class iterator;
   };
 
   typedef T value_type;
 
-  ArrayWithDefault (int =0);
+  ArrayWithDefault (int64_t =0);
 
-  ArrayWithDefault (int s, const T& t) : _begin(0), _end(0), _size(0), _default(new T(t)) { _create(s); }
+  ArrayWithDefault (int64_t s, const T& t) : _begin(0), _end(0), _size(0), _default(new T(t)) { _create(s); }
 
   ~ArrayWithDefault () { _delete(); delete _default; }
 
@@ -123,10 +123,10 @@ public:
 
   ArrayWithDefault (const ArrayWithDefault& a) : _begin(0), _end(0), _size(0), _default(new T(*a._default)) { *this = a; }
 
-  int  size () const { return _size; }
+  int64_t  size () const { return _size; }
 
-  void resize (int =0);
-  void resize (int s, const T& t) { delete _default; _default = new T(t); resize(s); }
+  void resize (int64_t =0);
+  void resize (int64_t s, const T& t) { delete _default; _default = new T(t); resize(s); }
 
   const_iterator begin () const { return _begin; }
   iterator       begin ()       { return _begin; }
@@ -134,8 +134,8 @@ public:
   const_iterator   end () const { return _end; }
   iterator         end ()       { return _end; }
 
-  const T& operator[] (int i) const { return *(_begin + i); }
-  T&       operator[] (int i)       { return *(_begin + i); }
+  const T& operator[] (int64_t i) const { return *(_begin + i); }
+  T&       operator[] (int64_t i)       { return *(_begin + i); }
 
   operator const T* () const { _isinit(); return &(*_begin); }
   operator       T* ()       { _isinit(); return &(*_begin); }
@@ -176,7 +176,8 @@ template<typename T>
 const T* ArrayWithDefault<T>::_D::_default = new T;
 
 template<typename T>
-void ArrayWithDefault<T>::_isinit () {
+void ArrayWithDefault<T>::_isinit () const
+{
   const char funame [] = "ArrayWithDefault<T>::_isinit: ";
  
   if(!size()) {
@@ -197,7 +198,7 @@ void ArrayWithDefault<T>::_delete () {
 }
 
 template<typename T>
-void ArrayWithDefault<T>::_create (int s) {
+void ArrayWithDefault<T>::_create (int64_t s) {
   const char funame [] = "ArrayWithDefault<T>::_create: ";
 
   if(size()) {
@@ -222,7 +223,7 @@ void ArrayWithDefault<T>::_create (int s) {
 
 
 template<typename T>
-ArrayWithDefault<T>::ArrayWithDefault (int s) : _begin(0), _end(0), _size(0), _default(new T(_D::default_value())) {
+ArrayWithDefault<T>::ArrayWithDefault (int64_t s) : _begin(0), _end(0), _size(0), _default(new T(_D::default_value())) {
   _create(s);
 }
 
@@ -248,7 +249,7 @@ ArrayWithDefault<T>& ArrayWithDefault<T>::operator= (const ArrayWithDefault& a) 
 }
 
 template<typename T>
-void ArrayWithDefault<T>::resize (int s) {
+void ArrayWithDefault<T>::resize (int64_t s) {
   const char funame [] = "ArrayWithDefault<T>::resize: ";
 
   if(!s) {
@@ -487,24 +488,37 @@ template <typename T>
 //
 class Array {
   //
-  int _capacity;
-  int _size;
+  int64_t _capacity;
+  int64_t _size;
   T*  _begin;
   T*  _end;
 
-  int _compare (const Array&) const;
+  void _init () {  _capacity = 0; _size = 0; _begin = 0; _end = 0; }
+
+  int64_t _compare (const Array&) const;
   
 public:
+  //
   typedef       T*       iterator;
   typedef const T* const_iterator;
   typedef       T      value_type;
 
-  Array () : _capacity(0), _size(0), _begin(0), _end(0) {}
+  Array& operator=  (const T&);
+
+  void resize  (int64_t);
+  void reserve (int64_t);
+  void compact ();
+
   Array (const Array&);
   Array& operator= (const Array&);
 
-  explicit Array (int)  ;
-  Array (int, const T&) ;
+  Array		 ()		   { _init();		 }
+  explicit Array (int64_t	s) { _init(); resize(s); }
+  explicit Array (int		s) { _init(); resize(s); }
+  explicit Array (unsigned	s) { _init(); resize(s); }
+  explicit Array (long unsigned s) { _init(); resize(s); }
+
+  Array (int64_t  s, const T& t) { _init(); resize(s); (*this) = t; }
 
   template <typename V>
   explicit Array (const V&);
@@ -530,22 +544,19 @@ public:
   bool operator== (const Array& v) const { if(!_compare(v)) return true; return false; }
   bool operator!= (const Array& v) const { if(_compare(v))  return true; return false; }
   
-  T&       front ()       ;
-  T&       back  ()       ;
-  const T& front () const ;
-  const T& back  () const ;
+  T&       front ();
+  T&       back  ();
+  const T& front () const;
+  const T& back  () const;
 
-  int size     () const { return _size; }
-  int capacity () const { return _capacity; }
+  int64_t size     () const { return _size; }
+  int64_t capacity () const { return _capacity; }
 
-  void resize  (int) ;
-  void reserve (int) ;
-  void compact ();
-
-  T&       operator[] (int)       ;
-  const T& operator[] (int) const ;
+  T&       operator[] (int64_t);
+  const T& operator[] (int64_t) const;
 
   // block operations
+  //
   Array& operator- ();
 
   template <typename V> Array& operator=  (const V&);
@@ -558,7 +569,6 @@ public:
   Array& operator+= (const T*);
   Array& operator-= (const T*);
 
-  Array& operator=  (const T&);
   Array& operator+= (const T&); 
   Array& operator-= (const T&); 
   Array& operator*= (const T&); 
@@ -576,7 +586,7 @@ Array<T>::operator std::vector<T>() const
 {
   std::vector<T> res(size());
 
-  for(int i = 0; i < size(); ++i)
+  for(int64_t i = 0; i < size(); ++i)
     //
     res[i] = (*this)[i];
 
@@ -585,7 +595,7 @@ Array<T>::operator std::vector<T>() const
 
 template <typename T>
 //
-int Array<T>::_compare (const Array& v) const
+int64_t Array<T>::_compare (const Array& v) const
 {
   if(size() > v.size())
     return 1;
@@ -649,55 +659,14 @@ Array<T>& Array<T>::operator= (const Array& v)
 }
 
 template <typename T>
-Array<T>::Array (int s) 
-  : _size(s), _capacity(s)
-{
-  const char funame [] = "Array<T>::Array: ";
-
-  if(_size < 0) {
-    std::cerr << funame << "negative size\n";
-    throw Error::Range();
-  }
-
-  if(!_size) {
-    _end = _begin = 0;
-    return;
-  }
-
-  _begin = new T[_size];
-  _end = _begin + _size;
-}
-
-template <typename T>
-Array<T>::Array (int s, const T& t) 
-  : _size(s), _capacity(s)
-{
-  const char funame [] = "Array<T>::Array: ";
-
-  if(_size < 0) {
-    std::cerr << funame << "negative size\n";
-    throw Error::Range();
-  }
-
-  if(!_size) {
-    _end = _begin = 0;
-    return;
-  }
-
-  _begin = new T[_size];
-  _end = _begin + _size;
-
-  for(T* it = begin(); it != end(); ++it)
-    *it = t;
-}
-
-template <typename T>
 template <typename V>
 Array<T>::Array (const V& v)
   : _size(v.size()), _capacity(v.size())
 {
   if(!_size) {
+    //
     _end = _begin = 0;
+
     return;
   }
   
@@ -736,12 +705,18 @@ void Array<T>::compact ()
 }
 
 template <typename T>
-void Array<T>::resize (int s) 
+void Array<T>::resize (int64_t s) 
 {
   const char funame [] = "Array<T>::resize: ";
 
-  if(s < 0) {
-    std::cerr << funame << "negative array size\n";
+  if(!_begin && !s)
+    //
+    return;
+
+  if(s <= 0) {
+    //
+    std::cerr << funame << "out of range: " << s << "\n";
+
     throw Error::Range();
   }
 
@@ -766,7 +741,7 @@ void Array<T>::resize (int s)
 }
 
 template <typename T>
-void Array<T>::reserve (int s) 
+void Array<T>::reserve (int64_t s) 
 {
   const char funame [] = "Array<T>::reserve: ";
 
@@ -788,7 +763,7 @@ void Array<T>::reserve (int s)
 }
 
 template <typename T>
-T& Array<T>::operator[] (int i) 
+T& Array<T>::operator[] (int64_t i) 
 {
   const char funame [] = "Array<T>::operator[]: ";
 
@@ -803,7 +778,7 @@ T& Array<T>::operator[] (int i)
 }
 
 template <typename T>
-const T& Array<T>::operator[] (int i) const 
+const T& Array<T>::operator[] (int64_t i) const 
 {
   const char funame [] = "Array<T>::operator[]: ";
 
@@ -873,12 +848,14 @@ Array<T>& Array<T>::operator= (const V& v)
 {
   const char funame [] = "Array<T>::operator=: ";
 
-  if (size() != v.size()) {
+  if (!v.size()) {
     //
-    std::cerr << funame << "sizes mismatch: " << size() << " vs. " << v.size() << "\n";
+    std::cerr << funame << "empty source\n";
     
-    throw Error::Range();
+    throw Error::Init();
   }
+
+  resize(v.size());
 
   typename V::const_iterator vit = v.begin();
   
@@ -1042,12 +1019,12 @@ template<typename T> class ConstStridePointer;
 template<typename T>
 class StridePointer {
   T* _pnt;
-  int _stride;
+  int64_t _stride;
 
 public:
   StridePointer () : _pnt(0), _stride(0) {}
-  StridePointer (T*, int =1) ;
-  int stride () const { return _stride; }
+  StridePointer (T*, int64_t =1) ;
+  int64_t stride () const { return _stride; }
 
   T& operator*  () const { return *_pnt; }
   T* operator-> () const { return  _pnt; }
@@ -1059,24 +1036,24 @@ public:
   StridePointer operator-- ()      { _pnt -= _stride; return *this; }
   StridePointer operator++ (int)   { StridePointer p = *this; _pnt += _stride; return p; }
   StridePointer operator-- (int)   { StridePointer p = *this; _pnt -= _stride; return p; }
-  void          operator+= (int d) { _pnt += d * _stride; }
-  void          operator-= (int d) { _pnt -= d * _stride; }
+  void          operator+= (int64_t d) { _pnt += d * _stride; }
+  void          operator-= (int64_t d) { _pnt -= d * _stride; }
 
-  StridePointer operator+  (int d)         const { return StridePointer(_pnt + d * _stride, _stride); }
-  StridePointer operator-  (int d)         const { return StridePointer(_pnt - d * _stride, _stride); }
+  StridePointer operator+  (int64_t d)         const { return StridePointer(_pnt + d * _stride, _stride); }
+  StridePointer operator-  (int64_t d)         const { return StridePointer(_pnt - d * _stride, _stride); }
 
-  int           operator-  (StridePointer) const ;
+  int64_t           operator-  (StridePointer) const ;
   bool          operator!= (StridePointer) const ;
 };
 
 template <typename T> 
-StridePointer<T> operator+ (int d, StridePointer<T> p) 
+StridePointer<T> operator+ (int64_t d, StridePointer<T> p) 
 { 
   return p + d;
 }
 
 template <typename T> 
-int distance (StridePointer<T> first, StridePointer<T> last)
+int64_t distance (StridePointer<T> first, StridePointer<T> last)
 {
   return last - first;
 }
@@ -1107,7 +1084,7 @@ bool StridePointer<T>::operator!= (StridePointer p) const
 }
 
 template<typename T> 
-int StridePointer<T>::operator- (StridePointer p) const 
+int64_t StridePointer<T>::operator- (StridePointer p) const 
 {
   const char funame [] = "StridePointer<T>::operator-: ";
 
@@ -1129,7 +1106,7 @@ int StridePointer<T>::operator- (StridePointer p) const
 }
 
 template<typename T>
-StridePointer<T>::StridePointer (T* p, int s)  : _pnt(p), _stride(s) 
+StridePointer<T>::StridePointer (T* p, int64_t s)  : _pnt(p), _stride(s) 
 {
   const char funame [] = "StridePointer<T>::StridePointer: ";
 
@@ -1156,13 +1133,13 @@ StridePointer<T>::StridePointer (T* p, int s)  : _pnt(p), _stride(s)
 template<typename T> 
 class ConstStridePointer {
   const T*  _pnt;
-  int    _stride;
+  int64_t    _stride;
 
 public:
   ConstStridePointer () : _pnt(0), _stride(0) {}
-  ConstStridePointer (const T*, int =1) ;
+  ConstStridePointer (const T*, int64_t =1) ;
   ConstStridePointer (StridePointer<T> p) : _pnt(p), _stride(p.stride()) {}
-  int stride () const { return _stride; }
+  int64_t stride () const { return _stride; }
 
   const T& operator*  () const { return *_pnt; }
   const T* operator-> () const { return  _pnt; }
@@ -1172,18 +1149,18 @@ public:
   ConstStridePointer operator-- ()      { _pnt -= _stride; return *this; }
   ConstStridePointer operator++ (int)   { ConstStridePointer p = *this; _pnt += _stride; return p; }
   ConstStridePointer operator-- (int)   { ConstStridePointer p = *this; _pnt -= _stride; return p; }
-  void               operator+= (int d) { _pnt += d * _stride; }
-  void               operator-= (int d) { _pnt -= d * _stride; }
+  void               operator+= (int64_t d) { _pnt += d * _stride; }
+  void               operator-= (int64_t d) { _pnt -= d * _stride; }
 
-  ConstStridePointer operator+ (int d) const { return ConstStridePointer(_pnt + d * _stride, _stride); }
-  ConstStridePointer operator- (int d) const { return ConstStridePointer(_pnt - d * _stride, _stride); }
+  ConstStridePointer operator+ (int64_t d) const { return ConstStridePointer(_pnt + d * _stride, _stride); }
+  ConstStridePointer operator- (int64_t d) const { return ConstStridePointer(_pnt - d * _stride, _stride); }
 
-  int  operator-  (ConstStridePointer) const ;
+  int64_t  operator-  (ConstStridePointer) const ;
   bool operator!= (ConstStridePointer) const ;
 };
 
 template <typename T> 
-int distance (ConstStridePointer<T> first, ConstStridePointer<T> last)
+int64_t distance (ConstStridePointer<T> first, ConstStridePointer<T> last)
 {
   return last - first;
 }
@@ -1214,13 +1191,13 @@ bool ConstStridePointer<T>::operator!= (ConstStridePointer p) const
 }
 
 template <typename T> 
-ConstStridePointer<T> operator+ (int d, ConstStridePointer<T> p) 
+ConstStridePointer<T> operator+ (int64_t d, ConstStridePointer<T> p) 
 { 
   return p + d;
 }
 
 template <typename T> 
-int ConstStridePointer<T>::operator- (ConstStridePointer p) const 
+int64_t ConstStridePointer<T>::operator- (ConstStridePointer p) const 
 {
   const char funame [] = "ConstStridePointer::operator-: ";
 
@@ -1243,7 +1220,7 @@ int ConstStridePointer<T>::operator- (ConstStridePointer p) const
 }
 
 template <typename T>
-ConstStridePointer<T>::ConstStridePointer (const T* p, int s)  
+ConstStridePointer<T>::ConstStridePointer (const T* p, int64_t s)  
     : _pnt(p), _stride(s) 
 {
   const char funame [] = "ConstStridePointer<T>::ConstStridePointer: ";
@@ -1272,8 +1249,8 @@ template <typename T>
 class ConstSlice {
   const T* _begin;
   const T*   _end;
-  int       _size;
-  int     _stride;
+  int64_t       _size;
+  int64_t     _stride;
 
   ConstSlice& operator= (const ConstSlice&);
 
@@ -1281,20 +1258,20 @@ public:
   typedef ConstStridePointer<T> const_iterator;
   typedef                    T      value_type;
 
-  ConstSlice (const T* st, int sz, int sd =1) ;
+  ConstSlice (const T* st, int64_t sz, int64_t sd =1) ;
 
   const_iterator begin () const { return ConstStridePointer<T>(_begin, _stride); }
   const_iterator end   () const { return ConstStridePointer<T>(_end,   _stride); }
 
-  int   size () const { return   _size; }
-  int stride () const { return _stride; }
+  int64_t   size () const { return   _size; }
+  int64_t stride () const { return _stride; }
 
-  const T&  operator[] (int) const ;
+  const T&  operator[] (int64_t) const ;
 
 };
 
 template <typename T>
-ConstSlice<T>::ConstSlice(const T* st, int sz, int sd) 
+ConstSlice<T>::ConstSlice(const T* st, int64_t sz, int64_t sd) 
   : _begin(st), _size(sz), _stride(sd), _end(st + sz * sd)
 {
   const char funame [] = "ConstSlice<T>::ConstSlice: ";
@@ -1321,7 +1298,7 @@ ConstSlice<T>::ConstSlice(const T* st, int sz, int sd)
 }
 
 template <typename T>
-const T& ConstSlice<T>::operator[] (int i) const 
+const T& ConstSlice<T>::operator[] (int64_t i) const 
 {
   const char funame [] = "ConstSlice<T>::operator[]: ";
 
@@ -1346,8 +1323,8 @@ class Slice
 {
   T*  _begin;
   T*  _end;
-  int _size;
-  int _stride;
+  int64_t _size;
+  int64_t _stride;
 
 public:
   typedef      StridePointer<T>       iterator;
@@ -1356,7 +1333,7 @@ public:
 
   void operator= (const Slice&) ;
   
-  Slice(T* st, int sz, int sd =1) ;
+  Slice(T* st, int64_t sz, int64_t sd =1) ;
 
   iterator       begin ()       { return      StridePointer<T>(_begin, _stride); }
   iterator         end ()       { return      StridePointer<T>(_end,   _stride); }
@@ -1365,11 +1342,11 @@ public:
 
   operator ConstSlice<T> () { return ConstSlice<T>(_begin, _size, _stride); }
   
-  int size   () const { return _size; }
-  int stride () const { return _stride; }
+  int64_t size   () const { return _size; }
+  int64_t stride () const { return _stride; }
 
-  const T&  operator[] (int) const ;
-  T&        operator[] (int)       ;
+  const T&  operator[] (int64_t) const ;
+  T&        operator[] (int64_t)       ;
 
   // block operations
   template <typename V>  void operator=  (const V&) ;
@@ -1399,7 +1376,7 @@ public:
 };
 
 template <typename T>
-Slice<T>::Slice(T* st, int sz, int sd) 
+Slice<T>::Slice(T* st, int64_t sz, int64_t sd) 
   : _begin(st), _size(sz), _stride(sd), _end(st + sz * sd)
 {
   const char funame [] = "Slice<T>::Slice: ";
@@ -1443,7 +1420,7 @@ void Slice<T>::operator= (const Slice& v)
 }
 
 template <typename T>
-const T& Slice<T>::operator[] (int i) const 
+const T& Slice<T>::operator[] (int64_t i) const 
 {
   const char funame [] = "Slice<T>::operator[]: ";
 
@@ -1460,7 +1437,7 @@ const T& Slice<T>::operator[] (int i) const
 }
 
 template <typename T>
-T& Slice<T>::operator[] (int i) 
+T& Slice<T>::operator[] (int64_t i) 
 {
   const char funame [] = "Slice<T>::operator[]: ";
 
@@ -1694,45 +1671,53 @@ class RefArr {
   void delete_ref ();
   void create_ref (const RefArr&);
 
+  void _assert () const;
+  
 public:
 
   bool isinit () const { return _data; }
 
-  RefArr ()                      : _data(0), _count(0) {}
-  explicit RefArr (int s)        : _data(new Array<T>(s)),    _count(new int(1)) {}
-  RefArr (int s, const T& t)     : _data(new Array<T>(s, t)), _count(new int(1)) {}
- 
+  RefArr ()				  : _data(0), _count(0) {}
+  explicit RefArr (int64_t	 s)	  : _data(0), _count(0) { if(!s) return; _data = new Array<T>(s); _count = new int(1); }
+  explicit RefArr (int		 s)	  : _data(0), _count(0) { if(!s) return; _data = new Array<T>(s); _count = new int(1); }
+  explicit RefArr (unsigned	 s)	  : _data(0), _count(0) { if(!s) return; _data = new Array<T>(s); _count = new int(1); }
+  explicit RefArr (long unsigned s)	  : _data(0), _count(0) { if(!s) return; _data = new Array<T>(s); _count = new int(1); }
+
+  RefArr (int64_t s, const T& t)	  : _data(0), _count(0) { if(!s)	return; _data = new Array<T>(s, t); _count = new int(1); }
+
+  template<typename V> RefArr(const V& v) : _data(0), _count(0) { if(!v.size()) return; _data = new Array<T>(v);    _count = new int(1); }
+
   RefArr (const RefArr& a) { create_ref(a); }
   ~RefArr () { delete_ref(); }
 
   RefArr& operator= (const RefArr& a) { if(_data != a._data) { delete_ref(); create_ref(a); } return *this; }
   RefArr copy() const;// make a new copy
     
-  void resize  (int s);
-  void reserve (int s);
-  void compact () ;
+  void resize  (int64_t s);
+  void reserve (int64_t s);
+  void compact ();
 
-  int size      () const ;
-  int capacity  () const ;
-  int ref_count () const ;
+  int64_t size      () const;
+  int64_t capacity  () const;
+  int64_t ref_count () const;
 
-  T*       begin ()       ;
-  const T* begin () const ;
-  T*       end   ()       ;
-  const T* end   () const ;
+  T*       begin ();
+  const T* begin () const;
+  T*       end   ();
+  const T* end   () const;
 
-  T&       front ()       ;
-  const T& front () const ;
-  T&       back  ()       ;
-  const T& back  () const ;
+  T&       front ();
+  const T& front () const;
+  T&       back  ();
+  const T& back  () const;
 
   // conversions
   operator       T* ();
   operator const T* () const;
 
   // indexing
-  const T& operator[] (int i) const ;
-  T&       operator[] (int i)       ;
+  const T& operator[] (int64_t i) const ;
+  T&       operator[] (int64_t i)       ;
 
   // comparisons
   bool operator== (const RefArr& a) const { return _data == a._data; }
@@ -1745,6 +1730,8 @@ public:
   RefArr operator+= (const RefArr& a) ;
   RefArr operator-= (const RefArr& a) ;
 
+  template<typename V> RefArr operator= (const V&);
+
   RefArr operator= (const T*);
 
   RefArr operator-  ()           ;
@@ -1754,6 +1741,19 @@ public:
 
 };// class RefArr
 
+template<typename T>
+inline void RefArr<T>::_assert () const
+{
+  const char funame [] = "RefArr<T>::_assert: ";
+
+  if(_data)
+    //
+    return;
+
+  std::cerr << funame << "not initialized\n";
+
+  throw Error::Init();
+}
 template <typename T>
 inline void RefArr<T>::create_ref (const RefArr& a)
 {
@@ -1783,6 +1783,7 @@ RefArr<T> RefArr<T>::copy() const
   const char funame [] = "RefArr<T>::copy: ";
 
   if(!isinit())
+    //
     return RefArr<T>();
 
   RefArr<T> res(size());
@@ -1794,7 +1795,7 @@ RefArr<T> RefArr<T>::copy() const
 }
 
 template <typename T>
-inline int  RefArr<T>::size ()  const 
+inline int64_t  RefArr<T>::size ()  const 
 { 
   const char funame [] = "RefArr<T>::size: ";
 
@@ -1806,7 +1807,7 @@ inline int  RefArr<T>::size ()  const
 }
 
 template <typename T>
-inline void RefArr<T>::resize  (int s) 
+inline void RefArr<T>::resize  (int64_t s) 
 { 
   if(!_data) {
     _data = new Array<T>(s);
@@ -1817,7 +1818,7 @@ inline void RefArr<T>::resize  (int s)
 }
 
 template <typename T>
-inline void RefArr<T>::reserve (int s) 
+inline void RefArr<T>::reserve (int64_t s) 
 { 
   if(!_data) {
     _data = new Array<T>(0);
@@ -1839,7 +1840,7 @@ inline void  RefArr<T>::compact ()
 }
 
 template <typename T>
-inline int  RefArr<T>::capacity () const 
+inline int64_t  RefArr<T>::capacity () const 
 { 
   const char funame [] = "RefArr<T>::capacity: ";
 
@@ -1851,7 +1852,7 @@ inline int  RefArr<T>::capacity () const
 }
 
 template <typename T>
-inline int  RefArr<T>::ref_count () const 
+inline int64_t  RefArr<T>::ref_count () const 
 { 
   const char funame [] = "RefArr<T>::ref_count: ";
 
@@ -1977,7 +1978,7 @@ inline RefArr<T>::operator const T* () const
 
   // indexing
 template <typename T>
-const T&  RefArr<T>::operator[] (int i) const 
+const T&  RefArr<T>::operator[] (int64_t i) const 
 {
   const char funame [] = "RefArr<T>::operator[]: ";
 
@@ -1989,7 +1990,7 @@ const T&  RefArr<T>::operator[] (int i) const
 }
 
 template <typename T>
-T& RefArr<T>::operator[] (int i) 
+T& RefArr<T>::operator[] (int64_t i) 
 {
   const char funame [] = "RefArr<T>::operator[]: ";
 
@@ -2063,6 +2064,21 @@ inline RefArr<T>  RefArr<T>::operator=  (const T* t)
 
   if(_data) {
     *_data =  t;
+    return *this;
+  }
+    
+  std::cerr << funame << "not initialized\n";
+  throw Error::Init();
+}
+
+template <typename T>
+template <typename V>
+inline RefArr<T>  RefArr<T>::operator=  (const V& v)  
+{
+  const char funame [] = "RefArr<T>::operator=: ";
+
+  if(_data) {
+    *_data =  v;
     return *this;
   }
     
@@ -2150,58 +2166,58 @@ template<class C>
 class Array_2 : public Array<C>
 {// class Array_2
 
-  int dd_1;
-  int dd_2;
+  int64_t dd_1;
+  int64_t dd_2;
   
 public:
 
-  Array_2 (int d1, int d2) : Array<C>(d1 * d2), dd_1(d1), dd_2(d2) {}
+  Array_2 (int64_t d1, int64_t d2) : Array<C>(d1 * d2), dd_1(d1), dd_2(d2) {}
   
-  void resize (int d1, int d2) { Array<C>::resize(d1 * d2); dd_1 = d1; dd_2 = d2; }
+  void resize (int64_t d1, int64_t d2) { Array<C>::resize(d1 * d2); dd_1 = d1; dd_2 = d2; }
 
-  const C& operator () (int i1, int i2) const
+  const C& operator () (int64_t i1, int64_t i2) const
   {
     return (*this) [i1 + dd_1 * i2];
   }
   
-  C& operator () (int i1, int i2)
+  C& operator () (int64_t i1, int64_t i2)
   {
     return (*this) [i1 + dd_1 * i2];
   }
 
-  int dim_1 () const { return dd_1; }
-  int dim_2 () const { return dd_2; }
+  int64_t dim_1 () const { return dd_1; }
+  int64_t dim_2 () const { return dd_2; }
 };
 
 template <class C>
 class Array_3 : public Array<C>
 {// class Array_3
 
-  int dd_1;
-  int dd_2;
-  int dd_3;
+  int64_t dd_1;
+  int64_t dd_2;
+  int64_t dd_3;
 
 public:
 
-  Array_3 (int d1, int d2, int d3)
+  Array_3 (int64_t d1, int64_t d2, int64_t d3)
     : Array<C>(d1 * d2 * d3), dd_1(d1), dd_2(d2), dd_3(d3)
   {}
 
-  void resize (int d1, int d2, int d3) { Array<C>::resize(d1 * d2 * d3); dd_1 = d1; dd_2 = d2; dd_3 = d3; }
+  void resize (int64_t d1, int64_t d2, int64_t d3) { Array<C>::resize(d1 * d2 * d3); dd_1 = d1; dd_2 = d2; dd_3 = d3; }
 
-  const C& operator () (int i1, int i2, int i3) const
+  const C& operator () (int64_t i1, int64_t i2, int64_t i3) const
   {
     return (*this)[i1 + dd_1 * i2 + dd_1 * dd_2 * i3];
   }
 
-  C& operator () (int i1, int i2, int i3)
+  C& operator () (int64_t i1, int64_t i2, int64_t i3)
   {
     return (*this)[i1 + dd_1 * i2 + dd_1 * dd_2 * i3];
   }
 
-  int dim_1 () const { return dd_1; }
-  int dim_2 () const { return dd_2; }
-  int dim_3 () const { return dd_3; }
+  int64_t dim_1 () const { return dd_1; }
+  int64_t dim_2 () const { return dd_2; }
+  int64_t dim_3 () const { return dd_3; }
 
 };
 
@@ -2210,68 +2226,229 @@ public:
  **************************************************************************/
 
 template <typename T>
-class Matrix : private ArrayWithDefault<T> {
-  int _size1, _size2;
+class Vector : public ArrayWithDefault<T> {
+  //
+public:
+  //
+  Vector () {}
 
-  void _resize (int s1, int s2);
+  explicit Vector (int64_t i) : ArrayWithDefault<T>(i) {}
 
+  template<typename V> explicit Vector (const V& v) : ArrayWithDefault<T>(v) {}
+};
+
+template <typename T>
+class Matrix : public ArrayWithDefault<T> {
+  //
+  int64_t _size1, _size2;
+
+  void _resize (int64_t s1, int64_t s2);
+
+  void _assert () const;
+
+  void _assert (int64_t i1, int64_t i2) const;
+
+  void _assert (const Matrix&) const;
+  
 public:
 
-  void resize (int s1, int s2)             { _resize(s1, s2); ArrayWithDefault<T>::resize(s1 * s2);    }
-  void resize (int s1, int s2, const T& t) { _resize(s1, s2); ArrayWithDefault<T>::resize(s1 * s2, t); }
+  bool isinit () const { return _size1; }
+  
+  void resize (int64_t s1, int64_t s2)             { _resize(s1, s2); ArrayWithDefault<T>::resize(s1 * s2);    }
+  void resize (int64_t s1, int64_t s2, const T& t) { _resize(s1, s2); ArrayWithDefault<T>::resize(s1 * s2, t); }
 
+  void resize (int64_t s) { resize(s, s); }
+  
   Matrix () : _size1(0), _size2(0) {} 
 
-  Matrix (int s1, int s2)             { resize(s1, s2);    }
-  Matrix (int s1, int s2, const T& t) { resize(s1, s2, t); }
+  Matrix (int64_t s1, int64_t s2)             { resize(s1, s2);    }
+  Matrix (int64_t s1, int64_t s2, const T& t) { resize(s1, s2, t); }
 
-  Matrix (int s)             { resize(s, s);    }
-  Matrix (int s, const T& t) { resize(s, s, t); }
+  Matrix (int64_t s)             { resize(s, s);    }
+  Matrix (int64_t s, const T& t) { resize(s, s, t); }
 
-  int size1 () const { return _size1; }
-  int size2 () const { return _size2; }
+  int64_t size1 () const { return _size1; }
+  int64_t size2 () const { return _size2; }
+
+  int64_t size () const;
 
   operator       T* ()       { return ArrayWithDefault<T>::operator       T*(); }
   operator const T* () const { return ArrayWithDefault<T>::operator const T*(); }
 
-  ConstSlice<T> column (int i) const { return ConstSlice<T>(*this + i * size1(), size1()); }
-  Slice<T>      column (int i)       { return      Slice<T>(*this + i * size1(), size1()); }
+  ConstSlice<T> column (int64_t i) const { _assert(0, i); return ConstSlice<T>((const T*)*this + i * size1(), size1()); }
+  Slice<T>      column (int64_t i)       { _assert(0, i); return      Slice<T>((T*)*this + i * size1(), size1()); }
 
-  ConstSlice<T> row (int i) const { return ConstSlice<T>(*this + i, size2(), size1()); }
-  Slice<T>      row (int i)       { return      Slice<T>(*this + i, size2(), size1()); }
+  ConstSlice<T> row (int64_t i) const { _assert(i, 0); return ConstSlice<T>((const T*)*this + i, size2(), size1()); }
+  Slice<T>      row (int64_t i)       { _assert(i, 0); return      Slice<T>((T*)*this + i, size2(), size1()); }
 
-  ConstSlice<T> diagonal (int =0) const;
-  Slice<T>      diagonal (int =0);
+  ConstSlice<T> diagonal (int64_t =0) const;
+  Slice<T>      diagonal (int64_t =0);
 
-  const T& operator () (int i0, int i1) const { return (*this)[i0 + _size1 * i1]; }
-  T&       operator () (int i0, int i1)       { return (*this)[i0 + _size1 * i1]; }
+  const T& operator () (int64_t i1, int64_t i2) const { _assert(i1, i2); return (*this)[i1 + _size1 * i2]; }
+  T&       operator () (int64_t i1, int64_t i2)       { _assert(i1, i2); return (*this)[i1 + _size1 * i2]; }
+
+  // arithmetic operations with matrix
+  //
+  Matrix& operator+= (const Matrix& m) { _assert(m); ArrayWithDefault<T>::operator+=(m); return *this; }
+  Matrix& operator-= (const Matrix& m) { _assert(m); ArrayWithDefault<T>::operator-=(m); return *this; }
+
+  Matrix operator+  (const Matrix& m) const { Matrix res(*this); return res += m; }
+  Matrix operator-  (const Matrix& m) const { Matrix res(*this); return res -= m; }
+
+  // arithmetic operations with double
+  //
+  Matrix& operator-  ()           { _assert();  ArrayWithDefault<T>::operator-  ();  return *this; }
+  Matrix& operator=  (const T& d) { _assert();  ArrayWithDefault<T>::operator=  (d); return *this; }
+  Matrix& operator*= (const T& d) { _assert();  ArrayWithDefault<T>::operator*= (d); return *this; }
+  Matrix& operator/= (const T& d) { _assert();  ArrayWithDefault<T>::operator/= (d); return *this; }
 };
 
 template <typename T>
-void Matrix<T>::_resize (int s1, int s2)
+void Matrix<T>::_assert () const
+{
+  const char funame [] = " Matrix<T>: ";
+
+  if(isinit())
+    //
+    return;
+  
+  std::cerr << funame << "not initialized\n";
+  
+  throw Error::Init();
+}
+
+template <typename T>
+void Matrix<T>::_assert (int64_t i1, int64_t i2) const
+{
+  const char funame [] = " Matrix<T>::_assert: ";
+
+  _assert();
+
+  if(i1 >= 0 && i1 < _size1 && i2 >= 0 && i2 < _size2)
+    //
+    return;
+  
+  std::cerr << funame << "indices out of range: " << i1 << ", " << i2 << "\n";
+    
+  throw Error::Range();
+}
+
+template <typename T>
+inline void Matrix<T>::_assert (const Matrix& m) const 
+{
+  const char funame [] = "Matrix<T>::_assert: ";
+
+  _assert();
+
+  m._assert();
+    
+  if(m.size1() != size1() || m.size2() != size2()) {
+    //
+    std::cerr << funame << "dimensions mismatch: " << size1() << ", " << size2() << ", " << m.size1() << ", " << m.size2() << "\n";
+      
+    throw Error::Range();
+  }
+}
+
+template <typename T>
+void Matrix<T>::_resize (int64_t s1, int64_t s2)
 {
   const char funame [] = " Matrix<T>::_resize: ";
 
-  if((s1 <= 0 || s2 <= 0) && (s1 || s2)) {
-    std::cerr << funame << "wrong dimensions\n";
-    throw std::exception();
+  if(s1 <= 0 || s2 <= 0) {
+    //
+    std::cerr << funame << "out of range: " << s1 << ", " << s2 << "\n";
+    
+    throw Error::Range();
   }
-
   _size1 = s1;
   _size2 = s2;
 }
 
-template <typename T>
-Slice<T> Matrix<T>::diagonal (int i)
+template<typename T>
+int64_t Matrix<T>::size () const
 {
-  int sz;
-  if(i > 0) {// upper diagonal
-    sz = size2() - i < size1() ? size2() - i : size1();
-    return Slice<double>(*this + i * size1(), sz, size1() + 1);
+  const char funame [] = " Matrix<T>::size: ";
+
+  if(size1() != size2()) {
+    //
+    std::cerr << funame << "sizes mismatch: " << size1() << ", " << size2() << "\n";
+    
+    throw Error::Logic();
   }
-  else {// lower diagonal
-    sz = size1() + i < size2() ? size1() + i : size2();
-    return Slice<double>(*this - i, sz, size1() + 1);
+
+  return size1();
+}  
+
+template <typename T>
+Slice<T> Matrix<T>::diagonal (int64_t i)
+{
+  const char funame [] = "Matrix<T>::diagonal: ";
+  
+  int64_t sz, itemp;
+
+  if(i >= size2() || i <= -size1()) {
+    //
+    std::cerr << funame << "out of range: " << i << "\n";
+
+    throw Error::Range();
+  }
+
+  // upper diagonal
+  //
+  if(i > 0) {
+    //
+    itemp = size2() - i;
+    
+    sz = itemp < size1() ? itemp : size1();
+    
+    return Slice<double>((T*)*this + i * size1(), sz, size1() + 1);
+  }
+  // lower diagonal
+  //
+  else {
+    //
+    itemp = size1() + i;
+    
+    sz = itemp < size2() ? itemp : size2();
+    
+    return Slice<double>((T*)*this - i, sz, size1() + 1);
+  }
+}
+
+template <typename T>
+ConstSlice<T> Matrix<T>::diagonal (int64_t i) const
+{
+  const char funame [] = "Matrix<T>::diagonal: ";
+  
+  int64_t sz, itemp;
+
+  if(i >= size2() || i <= -size1()) {
+    //
+    std::cerr << funame << "out of range: " << i << "\n";
+
+    throw Error::Range();
+  }
+
+  // upper diagonal
+  //
+  if(i > 0) {
+    //
+    itemp = size2() - i;
+    
+    sz = itemp < size1() ? itemp : size1();
+    
+    return ConstSlice<double>((const T*)*this + i * size1(), sz, size1() + 1);
+  }
+  // lower diagonal
+  //
+  else {
+    //
+    itemp = size1() + i;
+    
+    sz = itemp < size2() ? itemp : size2();
+    
+    return ConstSlice<double>((const T*)*this - i, sz, size1() + 1);
   }
 }
 

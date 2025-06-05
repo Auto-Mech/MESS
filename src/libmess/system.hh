@@ -24,130 +24,76 @@
 
 namespace System {
 
-    // delete all files in the directory
-    void clean_dir (const char*);
+  // delete all files in the directory
+  //
+  void clean_dir (const char*);
 
-    // file copy
-    int file_copy(const char*, const char*);
+  // file copy
+  //
+  int file_copy(const char*, const char*);
 
-    /**********************************************************************
-     * call to external executable (substitute for system());             *
-     * list of arguments in call_exe() should be terminated by 0 pointer  *
-     *********************************************************************/
-
-    int call_exe (const char* ...);
-
-    /*************************************************************************
-     *                                 Pipes                                 *
-     *************************************************************************/
-
-    class Pipe_base
-    {
-	int fd [2];
-
-	Pipe_base (const Pipe_base&);
-	Pipe_base& operator= (const Pipe_base&);
-
-	Pipe_base () ;
-
-	friend class Pipe;
-    };
-
-    class Pipe : public Pipe_base
-    {
-	Pipe (const Pipe&);
-	Pipe& operator= (const Pipe&);
-
-    public:
-
-	std::ifstream pin;
-	std::ofstream pout;
-	Pipe();
-    };
-
-    /*************************************************************************************
-     *                                       Semaphores                                  *
-     ************************************************************************************/
-
-    class Semaphore
-    {
-	key_t key;   // semaphore key
-	int   id;    // semaphore id
-	int   num;   // number of semaphores in the set
-	pid_t creator; // creator of semaphore
-
-	Semaphore(const Semaphore&);
-	Semaphore& operator= (const Semaphore&);
-
-    public:
-
-	explicit Semaphore (int) ; // creates set of n semaphores & initilizes them 
-	Semaphore (key_t, int)   ; // initializes existing semaphore set
-	~Semaphore();
+  int make_dir (const std::string& dir, const std::string& funame);
   
-	key_t get_key () const {return key;}
-	void busy (int) const ; // raise n-th semaphore (P, wait)
-	void free (int) const ; // free n-th semaphore  (V, signal)
-    };
+  /**********************************************************************
+   * call to external executable (substitute for system());             *
+   * list of arguments in call_exe() should be terminated by 0 pointer  *
+   *********************************************************************/
 
-    /*********************************************************************************************
-     *                                     Dynamic Libraries                                     *
-     ********************************************************************************************/
+  int call_exe (const char* ...);
 
-    class DynLib : public IO::Read {
-	std::string _lib;
-	void* _handle;
-	int*  _count;
+  /*************************************************************************
+   *                                 Pipes                                 *
+   *************************************************************************/
 
-	void _delete_ref ();
-	void _create_ref (const DynLib& dl);
+  class Pipe_base
+  {
+    int fd [2];
 
-    public:
-	void open (const std::string&) ;
+    Pipe_base (const Pipe_base&);
+    Pipe_base& operator= (const Pipe_base&);
 
-	DynLib () : _handle(0), _count(0) {}
-	explicit DynLib (const std::string& lib)  
-	    : _handle(0), _count(0) { open(lib); }
+    Pipe_base () ;
 
-	DynLib (const DynLib& dl) { _create_ref(dl); }
-	DynLib& operator= (const DynLib& dl) { _delete_ref(); _create_ref(dl); return *this; }
+    friend class Pipe;
+  };
 
-	virtual ~DynLib () { _delete_ref(); }
-	virtual void read (std::istream&) ;
-	
-	bool isopen () const;
-	void* member (const std::string&) ;
-    };
+  class Pipe : public Pipe_base
+  {
+    Pipe (const Pipe&);
+    Pipe& operator= (const Pipe&);
 
-    inline bool DynLib::isopen () const
-    {
-	if(_handle)
-	    return true;
-	return false;
-    }
+  public:
 
-    inline void DynLib::read (std::istream& from) 
-    {
-	const char funame [] = "System::DynLib::read: ";
-    
-	std::string lib;
-	from >> lib;
-	if(!from) {
-	    std::cerr << funame << "input stream is corrupted\n";
-	    throw Error::Form();
-	}
-	open(lib);
-    }
+    std::ifstream pin;
+    std::ofstream pout;
+    Pipe();
+  };
 
-    inline void DynLib::_create_ref (const DynLib& dl)
-    { 
-	_handle = dl._handle;
-	_count = dl._count;
-	_lib = dl._lib;
-	if(_count)
-	    ++(*_count); 
-    }
- 
+  /*************************************************************************************
+   *                                       Semaphores                                  *
+   ************************************************************************************/
+
+  class Semaphore
+  {
+    key_t key;   // semaphore key
+    int   id;    // semaphore id
+    int   num;   // number of semaphores in the set
+    pid_t creator; // creator of semaphore
+
+    Semaphore(const Semaphore&);
+    Semaphore& operator= (const Semaphore&);
+
+  public:
+
+    explicit Semaphore (int) ; // creates set of n semaphores & initilizes them 
+    Semaphore (key_t, int)   ; // initializes existing semaphore set
+    ~Semaphore();
+  
+    key_t get_key () const {return key;}
+    void busy (int) const ; // raise n-th semaphore (P, wait)
+    void free (int) const ; // free n-th semaphore  (V, signal)
+  };
+
 }// System
 
 #endif

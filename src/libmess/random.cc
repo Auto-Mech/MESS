@@ -14,10 +14,20 @@
 */
 
 #include "random.hh"
+#include "linpack.hh"
+#include "array.hh"
+#include "io.hh"
+
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <omp.h>
+
+namespace Random {
+  //
+  Array<unsigned short> buffer;
+}
 
 /****************************************************************
  ******************* Random Number Generators *******************
@@ -25,100 +35,192 @@
 
 void Random::init ()
 {
+  const char funame [] = "Random::init: ";
+
+  int itemp = std::time(0);
+
+#ifdef OPENMP
+
+#pragma omp parallel
+  {
+#pragma omp master
+    //
+    buffer.resize(3 * omp_get_num_threads());
+
+#pragma omp barrier
+
+    // may be initialization for an individual thread should be more sofisticated
+    //
+    (int&)buffer[3 * omp_get_thread_num() + 1] = itemp + omp_get_thread_num();
+
+    buffer[3 * omp_get_thread_num()] = 0x330E;
+  }
+  IO::log << IO::log_offset << funame << buffer.size() / 3 << " independent channels have been initialized\n\n";
+
+#else
+
   srand48(std::time(0));
+
+#endif
 }
 
 void Random::init (int i)
 {
+  const char funame [] = "Random::init: ";
+
+#ifdef OPENMP
+
+#pragma omp parallel
+  {
+#pragma omp master
+    //
+    buffer.resize(3 * omp_get_num_threads());
+
+#pragma omp barrier
+    //
+    // may be initialization for an individual thread should be more sofisticated
+    //
+    (int&)buffer[3 * omp_get_thread_num() + 1] = i + omp_get_thread_num();
+
+    buffer[3 * omp_get_thread_num()] = 0x330E;
+  }
+  IO::log << IO::log_offset << funame << buffer.size() / 3 << " independent channels have been initialized\n\n";
+
+#else
+
   srand48(i);
+
+#endif
 }
 
 double Random::flat ()
 {
-    return drand48 ();
+  const char funame [] = "Random::flat()";
+
+#ifdef OPENMP
+
+  return erand48(3 * omp_get_thread_num() + (unsigned short*)buffer);
+  
+#else
+
+  return  drand48 ();
+
+#endif
+
 }
 
-// normal distribution RNG
+// normal distribution with unity standard deviation
 //
 double Random::norm ()
 {
-  double dtemp;
+  double dtemp, r, a;
+
+  static int saved = 0;
+
+  static double saved_value;
+ 
+  if(saved) {
+    //
+    saved = 0;
+
+    return saved_value;
+  }
 
   dtemp = Random::flat();
 
-  if(dtemp == 0.)
+  if(dtemp <= 0.)
     //
     return 100.;
 
-  if(dtemp == 1.)
+  if(dtemp >= 1.)
     //
     return 0.;
   
-  return std::sqrt(-2. * std::log(dtemp)) * std::cos(2. * M_PI * Random::flat());
+  r = std::sqrt(-2. * std::log(dtemp));
+
+  a = 2. * M_PI * Random::flat();
+
+  saved_value = r * std::sin(a);
+
+  saved = 1;
+
+  return r * std::cos(a);
 }
 
+// exponential RNG
+//
 double Random::exp ()
-{// RNG for the distribution exp(-u**2/2)u*du
-  return std::sqrt(-2.0 * std::log(Random::flat()));
+{
+  return -std::log(Random::flat());
 }
 
+// randomly orients vector _vec_ of the dimension _dim_ of unity length
+//
 void Random::orient (double* vec, int dim)
-{ // randomly orients vector _vec_ of the dimension _dim_ of unity length
-  double norm, temp;
-  do {
-    norm = 0.0;
-    for (int i = 0; i < dim; ++i)
-      {
-	temp = 2.0 * Random::flat () - 1.0;
-	norm += temp * temp;
-	vec[i] = temp;
-      }
-  } while (norm >= 1.0 || norm < 0.0001);
+{
+  const char funame [] = "Random::orient: ";
 
-  norm = std::sqrt(norm);
-  for (int i = 0; i < dim; ++i)
-    vec[i] /= norm;
+  if(dim < 2) {
+    //
+    std::cerr << funame << "out of range: " << dim << "\n";
+
+    throw Error::Range();
+  }
+
+//#pragma omp critical (omp_random_section)
+  //
+  for(int i = 0; i < dim; ++i)
+    //
+    vec[i] = norm();
+
+  ::normalize(vec, dim);
 }
 
-double Random::vol (double* vec, int dim)
-{ // random point inside the sphere of unity radius
-  double norm, temp;
-  do {
-    norm = 0.0;
-    for (int i = 0; i < dim; ++i) {
-      temp = 2.0 * Random::flat () - 1.0;
-      norm += temp * temp;
-      vec[i] = temp;
-    }
-  } while (norm > 1.0);
+// random point inside the sphere of unity radius
+//
+void Random::volume (double* vec, int dim)
+{ 
+  const char funame [] = "Random::vol: ";
 
-  return norm;
+  if(dim < 2) {
+    //
+    std::cerr << funame << "out of range: " << dim << "\n";
+
+    throw Error::Range();
+  }
+
+  orient(vec, dim);
+
+  const double r = std::pow(flat(), 1. / (double)dim);
+
+  for(int i = 0; i < dim; ++i)
+    //
+    vec[i] *= r;
 }
 
 // random point inside the spherical layer 
+//
 void Random::spherical_layer (double* vec, int dim, double rmin, double rmax) 
 { 
   const char funame [] = "Random::spherical_layer: ";
 
-  if(rmin <= 0. || rmax <= 0. || rmin >= rmax || dim <= 0 || vec == 0) {
+  if(rmin <= 0. || rmax <= 0. || rmin >= rmax || dim < 2 || vec == 0) {
+    //
     std::cerr << funame << "out of range\n";
+
     throw Error::Range();
   }
-    
-  double norm, dtemp;
+
+  orient(vec, dim);
+
+  rmin = std::pow(rmin, (double)dim);
+
+  rmax = std::pow(rmax, (double)dim);
   
-  const double rmin2 = rmin * rmin;
-  const double rmax2 = rmax * rmax;
+  double r = std::pow((rmax - rmin) * flat() + rmin, 1. / (double)dim);
 
-  double* const end = vec + dim;
-
-  do {
-    norm = 0.;
-    for (double* it = vec; it != end; ++it) {
-      dtemp = (2. * Random::flat () - 1.) * rmax;
-      *it = dtemp;
-      norm += dtemp * dtemp;
-    }
-  } while (norm < rmin2 || norm > rmax2);
+  for(int i = 0; i < dim; ++i)
+    //
+    vec[i] *= r;
 }
 

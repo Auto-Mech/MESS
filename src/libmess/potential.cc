@@ -16,8 +16,13 @@
 #include "potential.hh"
 #include "units.hh"
 #include "key.hh"
+#include "limits.hh"
 
 #include <sstream>
+
+/*********************************************************************
+ ************************ POTENTIAL WRAPPER **************************
+ *********************************************************************/
 
 Potential::Wrap default_pot;
 
@@ -27,56 +32,78 @@ void Potential::Wrap::read (std::istream& from)
 
   KeyGroup PotentialWrap;
 
-  Key  anal_key("Analytic"       );
-  //Key  harm_key("Harmonic"       );
+  Key    tn_key("TorqueNumeric"  );
   Key    cl_key("ChargeLinear"   );
   Key    cn_key("ChargeNonlinear");
   Key    dd_key("DipoleDipole"   );
   Key multi_key("Multipole"      );
 
   if(_fun) {
+    //
     std::cerr << funame << "potential has been already initialized\n";
+
     throw Error::Init();
   }
 
   std::string token, comment;
+
   while(from >> token) {
-    if(anal_key == token) {// analytic
+    //
+    // torque-numeric
+    //
+    if(tn_key == token) {
+      //
       std::getline(from, comment);
-      _fun = ConstSharedPointer<Base>(new Analytic(from));
-      return;
-    }// analytic
-    /*
-    else if(harm_key == token) {// Harmonic
-      std::getline(from, comment);
-      _fun = ConstSharedPointer<Base>(new Harmonic(from));
+
+      _fun = ConstSharedPointer<Base>(new TorqueNumeric(from));
+      
       return;
     }
-    */
-    else if(cl_key == token) {// charge-linear molecule
+    // charge-linear molecule
+    //
+    else if(cl_key == token) {
+      //
       std::getline(from, comment);
+
       _fun = ConstSharedPointer<Base>(new ChargeLinear(from));
       return;
-    }// charge-linear molecule
-    else if(cn_key == token) {// charge-nonlinear molecule
+    }
+    // charge-nonlinear molecule
+    //
+    else if(cn_key == token) {
+      //
       std::getline(from, comment);
+
       _fun = ConstSharedPointer<Base>(new ChargeNonlinear(from));
       return;
-    }// charge-nonlinear molecule
-    else if(dd_key == token) {// dipole-dipole
+    }
+    // dipole-dipole
+    //
+    else if(dd_key == token) {
+      //
       std::getline(from, comment);
+
       _fun = ConstSharedPointer<Base>(new DipoleDipole(from));
       return;
-    }// dipole-dipole
-    else if(multi_key == token) {// multipole
+    }
+    // multipole
+    //
+    else if(multi_key == token) {
+      //
       std::getline(from, comment);
+
       _fun = ConstSharedPointer<Base>(new Multipole(from));
       return;
-    }// multipole
+    }
+    // unknown keyword
+    //
     else {
+      //
       std::cerr << funame << "unknown keyword " << token << "\n";
+
       Key::show_all(std::cerr);
       std::cerr << "\n";
+
       throw Error::Init();
     }
   }
@@ -86,117 +113,367 @@ void Potential::Wrap::read (std::istream& from)
   
 }
 
-/*
-Potential::Harmonic::Harmonic (std::istream& from) 
+Potential::TorqueNumeric::TorqueNumeric (std::istream& from) : _dist_incr(1.e-4),  _ang_incr(1.e-4)
 {
-  const char funame [] = "Potential::Harmonic::Harmonic: ";
+  const char funame [] = "Potential::TorqueNumeric::TorqueNumeric: ";
 
-  int         itemp;
-  double      dtemp;
-  std::string stemp;
+  double dtemp;
+  int    itemp;
 
-  // layout
-  std::vector<int> lt(2);
-  lt[0] = 3;
-  lt[1] = 4;
+  KeyGroup TorqueNumericGroup;
 
-  Configuration::State::layout.set(lt);
+  Key dist_key("DistanceIncrement"  );
+  Key angl_key("AngularIncrement"   );
+  Key bare_key("BareEnergyMethod"   );
+  
+  std::string token, line, comment, stemp;
+  
+  // read cycle
+  //
+  while(from >> token) {
+    //
+    // input end
+    //
+    if(token == IO::end_key()) {
+      //
+      std::getline(from, comment);
+      
+      break;
+    }
+    // bare energy potential
+    //
+    else if(token == bare_key) {
+      //
+      if(_bare_ener) {
+	//
+	std::cerr << funame << token << ": already initialized\n";
 
-  // input
-  std::ifstream from(file);
+	throw Error::Init();
+      }
+
+      if(!(from >> stemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+      std::getline(from, comment);
+
+      if(stemp == "sjk") {
+	//
+	_bare_ener = ConstSharedPointer<BareEnergy>(new SJK(from));
+      }
+      // unknown bare energy potential type
+      //
+      else {
+	//
+	std::cerr << funame << token << ": unknown bare energy potential type: " << stemp << ": available types: sjk\n";
+
+	throw Error::Init();
+      }
+    }
+    // distance displacement
+    //
+    else if(token == dist_key) {
+      //
+      if(!(from >> _dist_incr)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+      
+      if(_dist_incr <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+	
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+    }
+    // angular displacement
+    //
+    else if(token == angl_key) {
+      //
+      if(!(from >> _ang_incr)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Init();
+      }
+
+      if(_ang_incr <= 0.) {
+	//
+	std::cerr << funame << token << ": out of range\n";
+	
+	throw Error::Range();
+      }
+
+      std::getline(from, comment);
+    }
+    // unknown key
+    //
+    else {
+      //
+      std::cerr << funame << "unknown key: " << token << "\n";
+      
+      Key::show_all(std::cerr);
+      std::cerr << "\n";
+      
+      throw Error::Init();
+    }
+  }// read cycle
+  
+  // checking input
+  //
   if(!from) {
-    std::cerr << funame << "cannot open " << file << " file";
-    std::exit(1);
-  }
-
-  // monom dimensions
-  int rdim, qdim;
-  from >> rdim >> qdim; 
-
-  // distance grid
-  from >> itemp;
-  Array<double> dist_grid(itemp);
-
-  for(int dist = 0; dist < dist_grid.size(); ++dist)
-    from >> dist_grid[dist_grid.size() - dist - 1];
-
-
-  // energy conversion scale
-  from >> _convert.scale;
-
-  // harmonic expansion vectors
-  itemp = 0;
-  for(int pack = 0; pack < 2; itemp += _harmonic_expansion[pack++]->size()) {
-    std::ostringstream xname;
-    xname << "hex_" << rdim - pack << "_" << qdim << ".vec";
-    std::ifstream xin(xname.str().c_str());
-    if(!xin) {
-      std::cerr << funame << "cannot open " << xname.str() << " file\n";
-      std::exit(1);
-    } 
-    harmonic_expansion[pack].init(new HarmonicExpansion(xin, rdim - pack, qdim));
-  }
-
-  const int xsize = itemp;
-  expansion_coefficient.resize(xsize);
-
-  // energy expansion coefficients
-  Array<double> vtemp(dist_grid.size());
-  for(int x = 0; x < xsize; ++x) {
-    for(int d = 0; d < dist_grid.size(); ++d)
-      from >> vtemp[dist_grid.size() - d - 1];
-    expansion_coefficient[x].init(dist_grid, vtemp, dist_grid.size());
-  }
-
-  if(!from) {
+    //
     std::cerr << funame << "input stream is corrupted\n";
-    std::exit(1);
+    
+    throw Error::Form();
+  }
+
+  if(!_bare_ener) {
+    //
+    std::cerr << funame << "no bare energy calculation method was provided\n";
+    
+    throw Error::Init();
   }
 }
-*/
 
-Potential::Analytic::Analytic (std::istream& from)  
-  :  _pot_ener(0), _pot_init(0), _corr_ener(0), _corr_init(0),
-     _dist_incr(1.e-4),  _angl_incr(1.e-4)
+void Potential::TorqueNumeric::_set_torque (const Dynamic::Coordinates& _dc, D3::Vector* torque) const 
+{
+  const char funame [] = "Potential::TorqueNumeric::_set_torque: ";
+
+  D3::Vector& force = *torque;
+
+  torque += 1;
+
+  Dynamic::Coordinates dc = _dc;
+
+  double ener [2];
+  
+  for(int i = 0; i < 3; ++i) {
+    //
+    for(int j = 0; j < 2; ++j) {
+      //
+      dc.orb_pos()[i] = _dc.orb_pos()[i] + ((double)j - 0.5) * _dist_incr;
+
+      ener[j] = _bare_ener->evaluate(dc);
+    }
+
+    force[i] = (ener[0] - ener[1]) / _dist_incr;
+    
+    dc.orb_pos()[i] = _dc.orb_pos()[i];
+  }
+
+  double q[4];
+
+  double* v = q + 1;
+  
+  const double* n;
+  
+  for(int frag = 0; frag < 2; ++frag) {
+    //
+    switch(Structure::type(frag)) {
+      //
+    case Molecule::MONOATOMIC:
+      //
+      torque[frag] = 0.;
+
+      break;
+      //
+    case Molecule::LINEAR:
+      //
+      for(int i = 0; i < 3; ++i) {
+	//
+	v[i] = 0.;
+
+	// right sign?
+	//
+	v[(i + 1) % 3] = -_dc.ang_pos(frag)[(i + 2) % 3];
+	v[(i + 2) % 3] =  _dc.ang_pos(frag)[(i + 1) % 3];
+
+	for(int j = 0; j < 2; ++j) {
+	  //
+	  for(int k = 0; k < 3; ++k)
+	    //
+	    dc.write_ang_pos(frag)[k] = _dc.ang_pos(frag)[k] + ((double)j - 0.5) * v[k] * _ang_incr;
+
+	  dc.normalize(frag);
+	  
+	  ener[j] = _bare_ener->evaluate(dc);
+	}
+
+	torque[frag][i] = (ener[0] - ener[1]) / _ang_incr;
+
+	for(int k = 0; k < 3; ++k)
+	  //
+	  dc.write_ang_pos(frag)[k] = _dc.ang_pos(frag)[k];
+      }
+	
+      break;
+      //
+    case Molecule::NONLINEAR:
+      //
+      n = _dc.ang_pos(frag) + 1;
+      
+      for(int i = 0; i < 3; ++i) {
+	//
+	q[0] = -n[i];
+
+	v[i] = _dc.ang_pos(frag)[0];
+
+	// right sign ?
+	//
+	v[(i + 1) % 3] =  n[(i + 2) % 3];
+	v[(i + 2) % 3] = -n[(i + 1) % 3];
+
+	for(int j = 0; j < 2; ++j) {
+	  //
+	  for(int k = 0; k < 4; ++k)
+	    //
+	    dc.write_ang_pos(frag)[k] = _dc.ang_pos(frag)[k] + ((double)j - 0.5) * q[k] * _ang_incr / 2.;
+
+	  dc.normalize(frag);
+	  
+	  ener[j] = _bare_ener->evaluate(dc);
+	}
+
+	torque[frag][i] = (ener[0] - ener[1]) / _ang_incr;
+
+	for(int k = 0; k < 4; ++k)
+	  //
+	  dc.write_ang_pos(frag)[k] = _dc.ang_pos(frag)[k];
+      }
+    }
+  }
+
+#ifdef DEBUG
+  /*  
+  // test that total torque is zero
+  // 
+  D3::Vector tot_torque, orb_torque, lab_torque[2];
+
+  for(int f = 0; f < 2; ++f)
+    //
+    if(Structure::type(f) == Molecule::NONLINEAR) {
+      //
+      _dc.mf2lf(f, (const double*)torque[f], (double*)lab_torque[f]);
+    }
+    else
+      //
+      lab_torque[f] = torque[f];
+ 
+  D3::vprod(_dc.orb_pos(), (const double*)force, (double*)orb_torque);
+
+  tot_torque = orb_torque + lab_torque[0] + lab_torque[1];
+
+  std::cerr << " 0-th torque = " << std::setw(12) << lab_torque[0].vlength()
+    //
+	    << " 1-st torque = " << std::setw(12) << lab_torque[1].vlength()
+    //
+	    << " orb. torque = " << std::setw(12) << orb_torque.vlength()
+    //
+	    << " tot. torque = " << std::setw(12) << tot_torque.vlength()
+    //
+	    << "\n";
+  */
+#endif
+}
+
+double Potential::TorqueNumeric::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
+{
+  static const char funame [] = "Potential::TorqueNumeric::operator(): ";
+ 
+  _increment_count();
+ 
+  if(torque)
+    //
+    _set_torque(dc, torque);
+
+  return _bare_ener->evaluate(dc);
+}
+
+/*******************************************************************************************************
+ ********************************** SJK-STYLE BARE ENERGY POTENTIAL ************************************
+ *******************************************************************************************************/
+
+Potential::SJK::SJK (std::istream& from) : _pot_form(SJK_FORM), _pot_ener(0), _pot_init(0), _corr_ener(0), _corr_init(0)
 {    
-  const char funame [] = "Potential::Analytic::Analytic: ";
+  const char funame [] = "Potential::SJK::SJK: ";
 
   double dtemp;
   int    itemp;
   
-  KeyGroup AnaliticPotential;
+  KeyGroup SjkGroup;
 
+  Key  pot_form_key("Format");
+  
   Key  pot_libr_key("Library");
-  Key  pot_ener_key("EnergyMethod");
+  Key  pot_ener_key("Symbol");
   Key  pot_init_key("InitMethod");
   Key  pot_data_key("InitData");
   Key  pot_rpar_key("ParameterReal");
   Key  pot_ipar_key("ParameterInteger");
 
   Key corr_libr_key("CorrectionLibrary");
-  Key corr_ener_key("CorrectionEnergyMethod");
+  Key corr_ener_key("CorrectionSymbol");
   Key corr_init_key("CorrectionInitMethod");
   Key corr_data_key("CorrectionInitData");
   Key corr_rpar_key("CorrectionParameterReal");
   Key corr_ipar_key("CorrectionParameterInteger");
 
-  Key dist_key("DistanceIncrement");
-  Key angl_key("AngularIncrement");
-
   std::string token, line, comment, stemp;
 
   std::string pot_data, corr_data;
-  while(from >> token) {// read cycle
+
+  // read cycle
+  //
+  while(from >> token) {
+    //
     // input end
+    //
     if(token == IO::end_key()) {
+      //
       std::getline(from, comment);
+      
       break;
     }
-    // potential library name
-    else if(token == pot_libr_key) {
-
+    // potential format
+    //
+    else if(token == pot_form_key) {
+      //
       if(!(from >> stemp)) {
-	std::cerr << funame << token << ": is corrupted\n";
+	//
+	std::cerr << funame << token << ": corrupted\n";
+
+	throw Error::Input();
+      }
+      std::getline(from, comment);
+
+      if(stemp == "sjk") {
+	//
+	_pot_form = SJK_FORM;
+      }
+      // unknown format
+      //
+      else {
+	//
+	std::cerr << funame << "unknown format: " << stemp << ": available formats: sjk\n";
+	
+	throw Error::Range();
+      }
+    }
+    // potential library name
+    //
+    else if(token == pot_libr_key) {
+      //
+      if(!(from >> stemp)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
@@ -204,21 +481,27 @@ Potential::Analytic::Analytic (std::istream& from)
       _pot_libr.open(stemp);
     }
     // potential energy method
+    //
     else if(token == pot_ener_key) {
-
+      //
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": is corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
-      _pot_ener = (ener_t)_pot_libr.member(stemp);
+      _pot_ener = _pot_libr.member(stemp);
     }
     // potential initialization method
+    //
     else if(token == pot_init_key) {
-
+      //
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": is corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
@@ -226,41 +509,65 @@ Potential::Analytic::Analytic (std::istream& from)
       _pot_init = (init_t)_pot_libr.member(stemp);
     }
     // potential initialization data
+    //
     else if(token == pot_data_key) {
-
+      //
       if(!(from >> pot_data)) {
+	//
 	std::cerr << funame << token << ": is corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
     }
     // potential real parameters
+    //
     else if(token == pot_rpar_key) {
-
+      //
       IO::LineInput lin(from);
       std::vector<double> rpar;
 
-      while (lin >> dtemp)
+      while(lin >> dtemp)
+	//
 	rpar.push_back(dtemp);
+
+      if(!rpar.size()) {
+	//
+	std::cerr << funame << token << ": empty\n";
+
+	throw Error::Init();
+      }
 
       _pot_rpar = rpar;
     }
     // potential integer parameters
+    //
     else if(token == pot_ipar_key) {
-
+      //
       IO::LineInput lin(from);
       std::vector<int> ipar;
 
-      while (lin >> itemp)
+      while(lin >> itemp)
+	//
 	ipar.push_back(itemp);
+
+      if(!ipar.size()) {
+	//
+	std::cerr << funame << token << ": empty\n";
+
+	throw Error::Init();
+      }
 
       _pot_ipar = ipar;
     }
     // correction library name
+    //
     else if(token == corr_libr_key) {
-
+      //
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": is corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
@@ -268,21 +575,27 @@ Potential::Analytic::Analytic (std::istream& from)
       _corr_libr.open(stemp);
     }
     // correction energy method
+    //
     else if(token == corr_ener_key) {
-
+      //
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": is corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
 
-      _corr_ener = (ener_t)_corr_libr.member(stemp);
+      _corr_ener = _corr_libr.member(stemp);
     }
     // correction initialization method
+    //
     else if(token == corr_init_key) {
-
+      //
       if(!(from >> stemp)) {
+	//
 	std::cerr << funame << token << ": is corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
@@ -290,252 +603,770 @@ Potential::Analytic::Analytic (std::istream& from)
       _corr_init = (init_t)_corr_libr.member(stemp);
     }
     // correction initialization data
+    //
     else if(token == corr_data_key) {
-
+      //
       if(!(from >> corr_data)) {
+	//
 	std::cerr << funame << token << ": is corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
     }
     // correction real parameters
+    //
     else if(token == corr_rpar_key) {
-
+      //
       IO::LineInput lin(from);
       std::vector<double> rpar;
 
       while (lin >> dtemp)
+	//
 	rpar.push_back(dtemp);
+
+      if(!rpar.size()) {
+	//
+	std::cerr << funame << token << ": empty\n";
+
+	throw Error::Init();
+      }
 
       _corr_rpar = rpar;
     }
     // correction integer parameters
+    //
     else if(token == corr_ipar_key) {
-
+      //
       IO::LineInput lin(from);
       std::vector<int> ipar;
 
       while (lin >> itemp)
+	//
 	ipar.push_back(itemp);
+
+      if(!ipar.size()) {
+	//
+	std::cerr << funame << token << ": empty\n";
+
+	throw Error::Init();
+      }
 
       _corr_ipar = ipar;
     }
-    // distance displacement
-    else if(token == dist_key) {
-
-      if(!(from >> _dist_incr)) {
-	std::cerr << funame << token << ": corrupted\n";
-	throw Error::Init();
-      }
-      
-      if(_dist_incr <= 0.) {
-	std::cerr << funame << token << ": out of range\n";
-	throw Error::Range();
-      }
-
-      std::getline(from, comment);
-    }
-    // angular displacement
-    else if(token == angl_key) {
-
-      if(!(from >> _angl_incr)) {
-	std::cerr << funame << token << ": corrupted\n";
-	throw Error::Init();
-      }
-
-      if(_angl_incr <= 0.) {
-	std::cerr << funame << token << ": out of range\n";
-	throw Error::Range();
-      }
-
-      std::getline(from, comment);
-    }
     // unknown key
+    //
     else {
+      //
       std::cerr << funame << "unknown key: " << token << "\n";
+      
       Key::show_all(std::cerr);
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }// read cycle
 
   // checking input
+  //
   if(!from) {
+    //
     std::cerr << funame << "input stream is corrupted\n";
+    
     throw Error::Form();
   }
 
   if(!_pot_ener) {
+    //
     std::cerr << funame << "no energy calculation method was provided\n";
+    
     throw Error::Init();
   }
 
   if(_pot_init)
+    //
     _pot_init(pot_data.c_str());
 
   if(_corr_init)
+    //
     _corr_init(corr_data.c_str());
+}
+
+double Potential::SJK::evaluate (const Dynamic::Coordinates& dc) const 
+{
+  const char funame [] = "Potential::SJK::evaluate: ";
+
+  std::vector<D3::Vector> rel_pos [2];
+  
+  for(int f = 0; f < 2; ++f)
+    //
+    dc.set_rel_pos(f, rel_pos[f]);
+  
+  double res = 0.;
+
+  if(_format() == SJK_FORM) { 
+    //
+    Array_3<double> r(2, 100, 3);
     
-}
+    for(int f = 0; f < 2; ++f)
+      //
+      for(int a = 0; a < Structure::fragment(f).size(); ++a)
+	//
+        for(int i = 0; i < 3; ++i)
+	  //
+	  if(!f) {
+	    //
+	    r(f, a, i) = rel_pos[f][a][i];
+	  }
+	  else
+	    //
+	    r(f, a, i) = rel_pos[f][a][i] + dc.orb_pos()[i];
+    
+    res = ((sjk_t)_pot_ener)(r,  _pot_rpar,  _pot_ipar);
 
-void Potential::Analytic::_dc2cart (const Dynamic::Coordinates& dc, Array_2<double>& coord)
-{
-  int at_shift = Structure::fragment(0).size();
-  
-  for(int frag = 0; frag < 2; ++frag)
-    for(int at = 0; at < Structure::fragment(frag).size(); ++at)
-      for(int i = 0; i < 3; ++i)
-	if(!frag)
-	  coord(i, at)            = dc.rel_pos(frag)[at][i];
-	else
-	  coord(i, at + at_shift) = dc.rel_pos(frag)[at][i] + dc.orb_pos(i);
-}
-
-double Potential::Analytic::_tot_ener (const double* coord) const 
-{
-  const char funame [] = "Potential::Analytic::_tot_ener: ";
-
-  int ifail = 0;
-
-  double res = _pot_ener(coord,  _pot_rpar,  _pot_ipar, ifail);
-  if(ifail)
-    throw Error::Run();
-
-  if(_corr_ener) {
-    res += _corr_ener(coord, _corr_rpar, _corr_ipar, ifail);
-    if(ifail)
-      throw Error::Run();
+    if(_corr_ener)
+      //
+      res += ((sjk_t)_corr_ener)(r, _corr_rpar, _corr_ipar);
   }
-  
 
   return res;
 }
 
-double Potential::Analytic::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
+/********************************************************************************************
+ ************************************** YG POTENTIAL ****************************************
+ ********************************************************************************************/
+
+void Potential::YG::Base::read_coefficients (const std::string& file)
 {
-  static const char funame [] = "Potential::Analytic::operator(): ";
-  
-  int    itemp;
+  const char funame [] = "Potential::YG::Base::read_coefficients: ";
+
   double dtemp;
+  int    itemp;
+  
+  assert();
 
-  Array_2<double> coord(3, Structure::size());
-  _dc2cart(dc, coord);
+  std::ifstream from(file.c_str());
 
-  if(!torque)
-    return _tot_ener(coord);
+  if(!from) {
+    //
+    std::cerr << funame << "cannot open " << file << " file\n";
 
-  D3::Vector& force = *torque;
-  torque += 1;
-
-  D3::Vector vtemp;
-  D3::Vector atom_force;
-
-  // initialization
-  force = 0.;
-  for(int frag = 0; frag < 2; ++frag)
-    torque[frag] = 0.;
-	
-  // numerical gradient
-
-  double ener_val = _tot_ener(coord);
-
-  const int sfrag = Structure::fragment(0).size() < Structure::fragment(1).size() ? 0 : 1;         // small fragment
-  const int lfrag = 1 - sfrag; // large fragment
-
-  const int at_shift = sfrag ? Structure::fragment(0).size() : 0;
-
-  // force calculation on small fragment
-  double incr2 = 2. * _dist_incr;
-
-  for(int i = 0; i < 3; ++i) {
-    for(int at = 0; at < Structure::fragment(sfrag).size(); ++at)
-      coord(i, at + at_shift) -= _dist_incr;
-    force[i] += _tot_ener(coord);
-
-    for(int at = 0; at < Structure::fragment(sfrag).size(); ++at)
-      coord(i, at + at_shift) += incr2;
-    force[i] -= _tot_ener(coord);
-
-    for(int at = 0; at < Structure::fragment(sfrag).size(); ++at)
-      coord(i, at + at_shift) -= _dist_incr;
-	
-    if(sfrag)
-      force[i] /=  incr2;
-    else
-      force[i] /= -incr2;
+    throw Error::Input();
   }
 
-  // torque calculation
-  if (Structure::fragment(sfrag).type() == Molecule::MONOATOMIC) {// small fragment is an atom
-    switch(Structure::fragment(lfrag).type()) {
-    case Molecule::LINEAR:
-      D3::vprod(force, dc.orb_pos(), torque[lfrag]);
-      // enforce orthogonality with the angular vector
-      torque[lfrag].orthogonalize(dc.ang_pos(lfrag));
-      break;
-    case Molecule::NONLINEAR:
-      D3::vprod(force, dc.orb_pos(), vtemp);
-      dc.lf2mf(lfrag, vtemp, torque[lfrag]);
-      break;
-    }
-    return ener_val;
-  }// atom
+  std::string token, comment;
+  
+  int basis_size, dist_size, index_size;
 
-  // torque on the small fragment
-  incr2 = 2. * _angl_incr;
-  double cos_val = std::cos(_angl_incr) - 1.;
-  double sin_val = std::sin(_angl_incr);
+  IO::LineInput lin(from);
 
-  for(int i = 0; i < 3; ++i) {
-    const int i1 = (i + 1) % 3;
-    const int i2 = (i + 2) % 3;
+  if(!(lin >> basis_size >> dist_size >> index_size)) {
+    //
+    std::cerr << funame << "cannot read # of basis functions OR # of distances OR basis function index size\n";
 
-    for(int at = 0; at < Structure::fragment(sfrag).size(); ++at) {
-      coord(i1, at + at_shift) += cos_val * dc.rel_pos(sfrag)[at][i1] + sin_val * dc.rel_pos(sfrag)[at][i2];
-      coord(i2, at + at_shift) += cos_val * dc.rel_pos(sfrag)[at][i2] - sin_val * dc.rel_pos(sfrag)[at][i1];
-    }
-    torque[sfrag][i] += _tot_ener(coord);
-
-    for(int at = 0; at < Structure::fragment(sfrag).size(); ++at) {
-      coord(i1, at + at_shift) -= 2. * sin_val * dc.rel_pos(sfrag)[at][i2];
-      coord(i2, at + at_shift) += 2. * sin_val * dc.rel_pos(sfrag)[at][i1];
-    }
-    torque[sfrag][i] -= _tot_ener(coord);
-
-    if(!sfrag)
-      for(int at = 0; at < Structure::fragment(sfrag).size(); ++at) {
-	coord(i1, at + at_shift) = dc.rel_pos(sfrag)[at][i1];
-	coord(i2, at + at_shift) = dc.rel_pos(sfrag)[at][i2];
-      }
-    else
-      for(int at = 0; at < Structure::fragment(sfrag).size(); ++at) {
-	coord(i1, at + at_shift) = dc.rel_pos(sfrag)[at][i1] + dc.orb_pos(i1);
-	coord(i2, at + at_shift) = dc.rel_pos(sfrag)[at][i2] + dc.orb_pos(i2);
-      }
-
-    torque[sfrag][i] /= incr2;
+    throw Error::Input();
   }
 
-  // torque on the large fragment
-  D3::vprod(force, dc.orb_pos(), vtemp);
-  for(int i = 0; i < 3; ++i)
-    torque[lfrag][i] = vtemp[i] - torque[sfrag][i];
+  if(basis_size < 2 || dist_size < 2 || index_size < 1) {
+    //
+    std::cerr << funame << "# of basis functions OR # of distances OR basis function index size out of range: "
+      //
+	      << basis_size << ", " << dist_size << ", " << index_size << "\n";
+
+    throw Error::Range();
+  }
+
+  Array<double> dist(dist_size);
+  Array<double> coef(dist_size);
+  
+  std::vector<int>   index(index_size);
+  
+  // read distances in bohr
+  //
+  std::getline(from, comment);
+
+  for(int i = 0; i < dist_size; ++i) {
+    //
+    if(!(from >> dtemp)) {
+      //
+      std::cerr << funame << "cannot read " << i << "-th distance\n";
+
+      throw Error::Input();
+    }
+
+    if(dtemp <= 0.) {
+      //
+      std::cerr << funame << "negative distance: " << dtemp << ", " << i << "\n";
+
+      throw Error::Range();
+    }
+    else if(i && dtemp <= dist[i - 1]) {
+      //
+      std::cerr << funame << "distances are not in increasing order: " << i << ", " << dtemp << "\n";
+
+      throw Error::Logic();
+    }
+  }
+
+  std::getline(from, comment);
+
+  for(int b = 0; b < basis_size; ++b) {
+    //
+    // empty line
+    //
+    std::getline(from, comment);
     
-  // convert torques to molecular frame for nonlinear fragments
-  for(int frag = 0; frag < 2; ++frag)
-    switch(Structure::fragment(frag).type()) {
-    case Molecule::LINEAR:
-      // enforce orthogonality with the angular vector
-      torque[frag].orthogonalize(dc.ang_pos(frag));
-      break;
-    case Molecule::NONLINEAR:
-      dc.lf2mf(frag, torque[frag], vtemp);
-      torque[frag] = vtemp;
-      break;
+    // read basis function composite index
+    //
+    lin.read_line(from);
+
+    for(int i = 0; i < index.size(); ++i) {
+      //
+      if(!(lin >> itemp)) {
+	//
+	std::cerr << funame << b << "-th basis function: cannot read " << i << "-th index value\n";
+
+	throw Error::Input();
+      }
+  
+      if(itemp < 0) {
+	//
+	std::cerr << funame << b << "-th basis function: " << i << "-th index value out of range: "  << itemp << "\n";
+
+	throw Error::Input();
+      }
+
+      index[i] = itemp;
     }
 
-  return ener_val;
+    if(_coef.find(index) != _coef.end()) {
+      //
+      std::cerr << funame << b << "-th basis function: index already has been used\n";
+
+      throw Error::Logic();
+    }
+    
+    // read basis function coefficient distance dependence
+    //
+    for(int i = 0; i < dist_size; ++i)
+      //
+      if(!(from >> coef[i])) {
+	//
+	std::cerr << funame << b << "-th basis function: cannot read " << i << "-th coefficient\n";
+
+	throw Error::Input();
+      }
+
+    std::getline(from, comment);
+    
+    _coef[index].init(dist, coef, dist_size);
+  }
+
+  _dist_min = dist.front();
+  _dist_max = dist.back();
 }
+
+double Potential::YG::Base::evaluate (const Dynamic::Coordinates& dc) const
+{
+  const char funame [] = "Potential::YG::Base::evaluate: ";
+
+  assert();
+
+  double dtemp;
+  int    itemp;
+      
+  Array<double> vtemp(4);
+      
+  if(!size()) {
+    //
+    std::cerr << funame << "basis function coefficients have not been initialized\n";
+      
+    throw Error::Init();
+  }
+      
+  Array<double> state(3 + Structure::pos_size(1));
+
+  // orbital part of the state vector
+  //
+  dc.lf2mf(0, dc.orb_pos(), (double*)state);
+      
+  const double dist = ::normalize((double*)state, 3);
+
+  if(dist < _dist_min || dist > _dist_max) {
+    //
+    std::cerr << funame << "interfragment distance is out of range: " << dist << ": [" << _dist_min << ", " << _dist_max << "]\n";
+
+    throw Error::Range();
+  }
+
+  // angular part of the state vector
+  //
+  switch(Structure::type(1)) {
+    //
+  case Molecule::LINEAR:
+    //
+    dc.lf2mf(0, dc.ang_pos(1), (double*)state +3);
+
+    break;
+    //
+  case Molecule::NONLINEAR:
+    //
+    // inverse first fragment orientation
+    //
+    for(int i = 0; i < 4; ++i)
+      //
+      if(!i) {
+	//
+	vtemp[i] = dc.ang_pos(0)[i];
+      }
+      else
+	//
+	vtemp[i] = -dc.ang_pos(0)[i];
+
+    // 2nd fragment orientation in the reference frame of the first fragment: q_0^{-1}q_1
+    //
+    Quaternion::qprod(vtemp, dc.ang_pos(1), (double*)state + 3);
+  }
+      
+  double res = 0.;
+      
+  for(coef_t::const_iterator cit = _coef.begin(); cit != _coef.end(); ++cit)
+    //
+    res += cit->second(dist) * basis_function(cit->first, state);
+
+  return res;
+}
+
+// axis index to name
+//
+std::string i2n (int i)
+{
+  const char funame [] = "i2n: ";
+
+  switch(i) {
+    //
+  case 0:
+    //
+    return "X";
+    //
+  case 1:
+    //
+    return "Y";
+    //
+  case 2:
+    //
+    return "Z";
+    //
+  default:
+    //
+    std::cerr << funame << "axis index out of range: " << i << "\n";
+
+    throw Error::Range();
+  }
+}
+
+ConstSharedPointer<Potential::YG::Base> Potential::YG::pot;
+    
+void Potential::YG::init(std::istream& from)
+{
+  const char funame [] = "Potential::YG::init: ";
+
+  int         itemp;
+  double      dtemp;
+  std::string stemp;
+
+  std::string token, comment, name;
+  
+  IO::LineInput lin(from);
+
+  if(!(lin >> name)) {
+    //
+    std::cerr << funame << "cannot read potential name\n";
+
+    throw Error::Input();
+  }
+
+  if(name == "Cs+Atom" || name == "C1+Atom") {
+    //
+    int axis = -1;
+    
+    Key axis_key("Axis");
+
+    while(from >> token) {
+      //
+      if(token == IO::end_key()) {
+	//
+	break;
+      }
+      // reflection symmetry axis
+      //
+      else if(token == axis_key) {
+	//
+	lin.read_line(from);
+
+	if(!(lin >> stemp)) {
+	  //
+	  std::cerr << funame << token << ": corrupted\n";
+
+	  throw Error::Input();
+	}
+
+	if(stemp == "X" || stemp == "x") {
+	  //
+	  axis = 0;
+	}
+	else if(stemp == "Y" || stemp == "y") {
+	  //
+	  axis = 1;
+	}
+	else if(stemp == "Z" || stemp == "z") {
+	  //
+	  axis = 2;
+	}
+	else {
+	  //
+	  std::cerr << funame << token << ": unknown axis symbol: " << stemp << ": available symbols: X, Y, Z\n";
+
+	  throw Error::Range();
+	}
+      }
+      // unknown keyword
+      //
+      else if(IO::skip_comment(token, from)) {
+	//
+	std::cerr << funame << "unknown keyword " << token << "\n";
+      
+	Key::show_all(std::cerr);
+      
+	std::cerr << "\n";
+
+	throw Error::Init();
+      }
+    }
+
+    if(axis < 0) {
+      //
+      std::cerr << funame << "axis not initialized\n";
+
+      throw Error::Init();
+    }
+
+    if(name == "Cs+Atom") {
+      //
+      pot.init(new Cs_Atom(axis));
+    }
+
+    if(name == "C1+Atom") {
+      //
+      pot.init(new C1_Atom(axis));
+    }
+  }  
+  // unknown potential name
+  //
+  else {
+    //
+    std::cerr << funame << "unknown potential name: " << stemp << "\n";
+
+    throw Error::Init();
+  }
+}
+
+/*******************************************************************************
+ ********************************* Cs + ATOM ***********************************
+ *******************************************************************************/
+//
+Potential::YG::Cs_Atom::Cs_Atom (int z) : _x((z + 1) % 3) 
+{
+  const char funame [] = "Potential::YG::Cs_Atom:Cs_Atom: ";
+
+  double      dtemp;
+  int         itemp;
+  std::string stemp;
+
+  if(z < 0 || z > 2) {
+    //
+    std::cerr << funame << "symmetry axis index out of range: " << z << "\n";
+
+    throw Error::Range();
+  }
+  
+  if(!Structure::fragment(0).symmetry_group) {
+    //
+    std::cerr << funame << "the anchor fragment symmetry group is not initialized\n";
+
+    throw Error::Range();
+  }
+
+  stemp = Structure::fragment(0).symmetry_group->name();
+  
+  if(stemp != "Cs") {
+    //
+    std::cerr << funame << "the anchor fragment symmetry is not Cs: " << stemp << "\n";
+
+    throw Error::Range();
+  }
+
+  if(!Structure::fragment(0).is_symmetric(Symmetry::reflection(z))) {
+    //
+    std::cerr << funame << "the anchor fragment reflection symmetry axis is not " << i2n(z) << "\n";
+
+    throw Error::Range();
+  }
+
+  if(Structure::type(1) != Molecule::MONOATOMIC) {
+    //
+    std::cerr << funame << "the mobile fragment is not monoatomic\n";
+
+    throw Error::Range();
+  }
+}
+
+// Cs + Atom basis function
+//
+double Potential::YG::Cs_Atom::basis_function (const std::vector<int>& index, const Array<double>& state) const
+{
+  const char funame [] = "Potential::YG::Cs_Atom:basis_function: ";
+
+  double dtemp;
+  int    itemp;
+
+  if(index.size() != 2 || index[0] < 0 || index[1] < 0) {
+    //
+    std::cerr << funame << "index out of range: " << index.size();
+
+    for(int i = 0; i < index.size(); ++i)
+      //
+      std::cerr << ", " << index[i];
+
+    std::cerr << "\n";
+
+    throw Error::Range();
+  }
+  
+  if(state.size() != 3) {
+    //
+    std::cerr << funame << "state vector dimension out of range: " << state.size() << "\n";
+
+    throw Error::Logic();
+  }
+
+  double res = 1.;
+
+  double lval = 0.;
+
+  itemp = 1;
+  
+  for(int i = 0; i < 2; ++i) 
+    //
+    if(!index[i]) {
+      //
+      itemp = 1 - i;
+
+      if(!index[itemp])
+	//
+	return 1.;
+      
+      dtemp = state[(_x + itemp) % 3];
+
+      if(dtemp == 0.)
+	//
+	return 0.;
+      
+      lval = std::log(std::fabs(dtemp)) * (double)index[itemp];
+
+      if(lval < -Limits::exp_pow_max())
+	//
+	return 0.;
+      
+      res = std::exp(lval);
+
+      if(index[itemp] % 2 && dtemp < 0.) {
+	//
+	return -res;
+      }
+      else
+	//
+	return res;
+    }
+
+  lval = 0.;
+
+  itemp = 1;
+  
+  for(int i = 0; i < 2; ++i) {
+    //
+    dtemp = state[(_x + i) % 3];
+
+    if(dtemp == 0.)
+      //
+      return 0.;
+    
+    lval += std::log(dtemp * dtemp * double(index[0] + index[1]) / (double)index[i]) / 2. * (double)index[i];
+
+    if(index[i] % 2 && dtemp < 0.)
+      //
+      itemp = -itemp;
+  }
+  
+  if(lval < -Limits::exp_pow_max())
+    //
+    return 0.;
+      
+  return std::exp(lval) * double(itemp);
+  //
+}// Cs_Atom basis function
+
+/*******************************************************************************
+ ********************************* C1 + ATOM ***********************************
+ *******************************************************************************/
+//
+Potential::YG::C1_Atom::C1_Atom (int z) : _x((z + 1) % 3) 
+{
+  const char funame [] = "Potential::YG::Cs_Atom:Cs_Atom: ";
+
+  double      dtemp;
+  int         itemp;
+  std::string stemp;
+
+  if(z < 0 || z > 2) {
+    //
+    std::cerr << funame << "symmetry axis index out of range: " << z << "\n";
+
+    throw Error::Range();
+  }
+  
+  if(!Structure::fragment(0).symmetry_group) {
+    //
+    std::cerr << funame << "the anchor fragment symmetry group is not initialized\n";
+
+    throw Error::Range();
+  }
+
+  stemp = Structure::fragment(0).symmetry_group->name();
+  
+  if(stemp != "C1")
+    //
+    std::cerr << funame << "WARNING: the anchor fragment symmetry is not C1: " << stemp << "\n";
+
+  if(Structure::type(1) != Molecule::MONOATOMIC) {
+    //
+    std::cerr << funame << "the mobile fragment is not monoatomic\n";
+
+    throw Error::Range();
+  }
+}
+
+double Potential::YG::C1_Atom::basis_function (const std::vector<int>& index, const Array<double>& state) const
+{
+  const char funame [] = "Potential::YG::Cs_Atom:basis_function: ";
+
+  double dtemp;
+  int    itemp;
+
+  if(index.size() != 3 || index[0] < 0 || index[1] < 0 || index[2] < 0 || index[2] > 1) {
+    //
+    std::cerr << funame << "index out of range: " << index.size();
+
+    for(int i = 0; i < index.size(); ++i)
+      //
+      std::cerr << ", " << index[i];
+
+    std::cerr << "\n";
+
+    throw Error::Range();
+  }
+  
+  if(state.size() != 3) {
+    //
+    std::cerr << funame << "state vector dimension out of range: " << state.size() << "\n";
+
+    throw Error::Logic();
+  }
+
+  double res = 1.;
+
+  if(index[2])
+    //
+    res = state[(_x + 2) % 3];
+
+  double lval;
+  
+  for(int i = 0; i < 2; ++i) 
+    //
+    if(!index[i]) {
+      //
+      itemp = 1 - i;
+
+      if(!index[itemp])
+	//
+	return res;
+      
+      dtemp = state[(_x + itemp) % 3];
+
+      if(dtemp == 0.)
+	//
+	return 0.;
+      
+      lval = std::log(std::fabs(dtemp)) * (double)index[itemp];
+      
+      if(lval < -Limits::exp_pow_max())
+	//
+	return 0.;
+      
+      res *= std::exp(lval);
+
+      if(index[itemp] % 2 && dtemp < 0.) {
+	//
+	return -res;
+      }
+      else
+	//
+	return res;
+    }
+
+  itemp = 1;
+
+  lval = 0.;
+  
+  for(int i = 0; i < 2; ++i) {
+    //
+    dtemp = state[(_x + i) % 3];
+
+    if(dtemp == 0.)
+      //
+      return 0.;
+    
+    lval += std::log(dtemp * dtemp * double(index[0] + index[1]) / (double)index[i]) / 2. * (double)index[i];
+
+    if(index[i] % 2 && dtemp < 0.)
+      //
+      itemp = -itemp;
+  }
+  
+  if(lval < -Limits::exp_pow_max())
+    //
+    return 0.;
+      
+  res *= std::exp(lval);
+
+  switch(itemp) {
+    //
+  case 1:
+    //
+    return res;
+    //
+  case -1:
+    //
+    return -res;
+    //
+  default:
+    //
+    std::cerr << funame << "wrong case: " << itemp << "\n";
+
+    throw Error::Range();
+  }//
+  //
+}// C1_Atom basis function
 
 /*************************************************************************
  ******************************** Charge-Linear **************************
@@ -608,13 +1439,16 @@ double Potential::ChargeLinear::operator() (const Dynamic::Coordinates& dc, D3::
   return ener_val;
 }
 
-Potential::ChargeLinear::ChargeLinear (std::istream& from) 
+Potential::ChargeLinear::ChargeLinear (std::istream& from)
+  //
   : _charge(1.), _dipole(0.), _quadrupole(0.), _isotropic_polarizability(0.), _anisotropic_polarizability(0.)
 {
   static const char funame [] = "Potential::ChargeLinear::ChargeLinear (std::istream&): ";
 
   if(Structure::fragment(1).type() != Molecule::LINEAR) {
+    //
     std::cerr << funame << "second fragment should be linear for this potential\n";
+    
     throw Error::Logic();
   }
 
@@ -629,55 +1463,86 @@ Potential::ChargeLinear::ChargeLinear (std::istream& from)
   Key anis_key("AnisotropicPolarizability[au]");
 
   std::string token, line, comment;
-  while(from >> token) {// read cycle
+
+  // read cycle
+  //
+  while(from >> token) {
+    //
     if(token == IO::end_key()) {
+      //
       std::getline(from, comment);
+      
       break;
     }
+    // charge
+    //
     else if(token == chr_key) {
-      from >> _charge;
-      if(!from) {
-	std::cerr << funame << token << ": bad input\n";
+      //
+      if(!(from >> _charge)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
+	throw Error::Input();
+      }
+       std::getline(from, comment);
+    }
+    // dipole
+    //
+    else if(token == dip_key) {
+      //
+      if(!(from >> _dipole)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
     }
-    else if(token == dip_key) { // dipole
-      from >> _dipole;
-      if(!from) {
-	std::cerr << funame << token << ": bad input\n";
+    // quadrupole
+    //
+    else if(token == quad_key) {
+      //
+      if(!(from >> _quadrupole)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
     }
-    else if(token == quad_key) { // quadrupole
-      from >> _quadrupole;
-      if(!from) {
-	std::cerr << funame << token << ": bad input\n";
+    // isotropic polarizability
+    //
+    else if(token == isot_key) {
+      //
+      if(!(from >> _isotropic_polarizability)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
     }
-    else if(token == isot_key) { // isotropic polarizability
-      from >> _isotropic_polarizability;
-      if(!from) {
-	std::cerr << funame << token << ": bad input\n";
+    // anisotropic polarizability
+    //
+    else if(token == anis_key) {
+      //
+      if(!(from >> _anisotropic_polarizability)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Input();
       }
       std::getline(from, comment);
     }
-    else if(token == anis_key) { // anisotropic polarizability
-      from >> _anisotropic_polarizability;
-      if(!from) {
-	std::cerr << funame << token << ": bad input\n";
-	throw Error::Input();
-      }
-      std::getline(from, comment);
-    }
+    // unknown key
+    //
     else {
+      //
       std::cerr << funame << "unknown keyword: " << token << "\n";
+      
       Key::show_all(std::cerr);
       std::cerr << "\n";
+      
       throw Error::Input();
     }
   }// read cycle
@@ -690,6 +1555,7 @@ Potential::ChargeLinear::ChargeLinear (std::istream& from)
 	    << "  Anisotropic Polarizability = " << _anisotropic_polarizability << "\n\n";
 
   // renormalize multipole moments
+  //
   _dipole                     *= _charge;
   _quadrupole                 *= _charge;
   _isotropic_polarizability   *= _charge * _charge;
@@ -704,6 +1570,7 @@ double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D
 {
   D3::Vector lfr(dc.orb_pos());
   D3::Vector mfr; // r in molecular frame
+  
   dc.lf2mf(1, lfr, mfr);
 
   const double r = lfr.vlength();
@@ -724,6 +1591,7 @@ double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D
   double ener_val = -prd * r3 + prq * r5 / 2.  - prp * r6 / 2.;
 
   if(!torque)
+    //
     return ener_val;
 
   D3::Vector& force = *torque;
@@ -732,7 +1600,9 @@ double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D
   torque[0] = 0.;
 
   D3::Vector vtemp;
+  
   // dipole
+  //
   force = r3 * _dipole - (3. * prd * r5) * mfr;
 
   D3::vprod(_dipole, mfr, vtemp);
@@ -740,6 +1610,7 @@ double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D
   torque[1] = vtemp;
 
   //quadrupole
+  //
   force += (2.5 * prq * r7) * mfr - r5 * mfq;
 
   D3::vprod(mfr, mfq, vtemp);
@@ -747,6 +1618,7 @@ double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D
   torque[1] += vtemp;
 
   // polarizability
+  //
   force += r6 * mfp - (3. * prp * r8) * mfr;
 
   D3::vprod(mfp, mfr, vtemp);
@@ -754,219 +1626,294 @@ double Potential::ChargeNonlinear::operator() (const Dynamic::Coordinates& dc, D
   torque[1] += vtemp;
 
   // convert force to laboratory frame
+  //
   dc.mf2lf(1, force, vtemp);
   force = vtemp;
 
   return ener_val;
 }
 
-Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from) 
-  : _charge(1.)
+Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from) : _charge(1.)
 {
-  static const char funame [] = "Potential::ChargeNonlinear::ChargeNonlinear (std::istream&): ";
+  static const char funame [] = "Potential::ChargeNonlinear::ChargeNonlinear: ";
 
   if(Structure::fragment(1).type() != Molecule::NONLINEAR || Structure::fragment(1).top() == Molecule::SPHERICAL) {
+    //
     std::cerr << funame << "second fragment should be nonlinear for and non-spherical this potential\n";
+    
     throw Error::Logic();
   }
 
   IO::Marker funame_marker(funame);
 
-  double dtemp;
+  double              dtemp;
   std::vector<double> vtemp;
 
   KeyGroup ChargeNonlinearPotential;
 
-  Key   chr_key("Charge[au]");
-  Key   dip_key("DipoleMoment[au]");
+  Key   chr_key("Charge[au]"          );
+  Key   dip_key("DipoleMoment[au]"    );
   Key  quad_key("QuadrupoleMoment[au]");
-  Key polar_key("Polarizability[au]");
+  Key polar_key("Polarizability[au]"  );
 
   for(int i = 0; i < 3; ++i)
+    //
     _dipole[i] = 0.;
+  
   for(int i = 0; i < 3; ++i)
+    //
     for(int j = i; j < 3; ++j) {
+      //
       _quadrupole(i, j) = 0.;
       _quadrupole(j, i) = 0.;
+      
       _polarizability(i, j) = 0.;
       _polarizability(j, i) = 0.;
     }
 
   std::string token, line, comment;
-  while(from >> token) {// read cycle
+
+  // read cycle
+  //
+  while(from >> token) {
+    //
     if(token == IO::end_key()) {
+      //
       std::getline(from, comment);
+      
       break;
     }
+    // charge
+    //
     else if(token == chr_key) {
-      from >> _charge;
-      if(!from) {
-	std::cerr << funame << token << ": bad input\n";
+      //
+      if(!(from >> _charge)) {
+	//
+	std::cerr << funame << token << ": corrupted\n";
+	
 	throw Error::Init();
       }
       std::getline(from, comment);
     }
-    else if(token == dip_key) { // dipole
+    // dipole
+    //
+    else if(token == dip_key) {
+      //
       std::getline(from, line);
+      
       std::istringstream iss(line);
+      
       vtemp.clear();
+      
       while(iss >> dtemp)
+	//
 	vtemp.push_back(dtemp);
 
-      switch(Structure::fragment(1).top()) {
+      switch(Structure::top(1)) {
+	//
       case Molecule::ASYM:
+	//
 	if(vtemp.size() == 3) {
+	  //
 	  for(int i = 0; i < 3; ++i)
+	    //
 	    _dipole[i] = vtemp[i];
 	}
 	else {
+	  //
 	  std::cerr << funame << "dipole moment of non-spherical fragment should have three components\n";
+	  
 	  throw Error::Input();
 	}
+	
 	break;
+	//
       case Molecule::PROLATE:
-	if(vtemp.size() == 1) {
-	  _dipole[0] = vtemp[0];
+	//
+	if(vtemp.size() != 1) {
+	  //
+	  std::cerr << funame << "there should be only one component for the dipole moment along the symmetry axis\n";
+
+	  throw Error::Init();
 	}
-	else if(vtemp.size() == 3) {
-	  std::cerr << funame << "WARNING: there should be only one component for the dipole moment "
-		    << "along the symmetry axis, ignoring others\n";
-	  _dipole[0] = vtemp[0];
-	}
-	else {
-	  std::cerr << funame << "dipole moment should have one component along the symmetry axis\n";
-	  throw Error::Input();
-	}
+	_dipole[0] = vtemp[0];
+
 	break;
+	//
       case Molecule::OBLATE:
-	if(vtemp.size() == 1) {
-	  _dipole[2] = vtemp[0];
+	//
+	if(vtemp.size() != 1) {
+	  //
+	  std::cerr << funame << "there should be only one component for the dipole moment along the symmetry axis\n";
+
+	  throw Error::Init();
 	}
-	else if(vtemp.size() == 3) {
-	  std::cerr << funame << "WARNING: there should be only one component for the dipole moment "
-		    << "along the symmetry axis, ignoring others\n";
-	  _dipole[2] = vtemp[2];
-	}
-	else {
-	  std::cerr << funame << "dipole moment should have one component along the symmetry axis\n";
-	  throw Error::Input();
-	}
+	_dipole[2] = vtemp[0];
       }
     }
-    else if(token == quad_key) { // quadrupole
+    // quadrupole
+    //
+    else if(token == quad_key) {
+      //
       std::getline(from, line);
+      
       std::istringstream iss(line);
+      
       vtemp.clear();
       while(iss >> dtemp)
+	//
 	vtemp.push_back(dtemp);
+      
       int k = 0;
-      switch(Structure::fragment(1).top()) {
+      switch(Structure::top(1)) {
+	//
       case Molecule::ASYM:
+	//
 	if(vtemp.size() == 5) {
+	  //
 	for(int i = 0; i < 2; ++i)
+	  //
 	  for(int j = i; j < 3; ++j) {
+	    //
 	    _quadrupole(i, j) = vtemp[k++];
+	    
 	    if(i != j)
+	      //
 	      _quadrupole(j, i) = _quadrupole(i, j);
 	  }
 	}
 	else {
+	  //
 	  std::cerr << funame << "quadrupole moment of non-spherical top should have five components: qxx, qxy, qxz, qyy, qyz\n";
+	  
 	  throw Error::Input();
 	}
+	
 	break;
+	//
       case Molecule::PROLATE:
-	if(vtemp.size() == 1) {
-	  _quadrupole(0, 0) = vtemp[0];
-	  _quadrupole(1, 1) = -_quadrupole(0, 0) / 2.;
-	  _quadrupole(2, 2) = -_quadrupole(0, 0) / 2.;
-	}
-	else {
+	//
+	if(vtemp.size() != 1) {
+	  //
 	  std::cerr << funame << "quadrupole moment of symmetric top should have one component along the symmetry axis\n";
+	  
 	  throw Error::Input();
 	}
+	_quadrupole(0, 0) = vtemp[0];
+	_quadrupole(1, 1) = -_quadrupole(0, 0) / 2.;
+	_quadrupole(2, 2) = -_quadrupole(0, 0) / 2.;
+
 	break;
+	//
       case Molecule::OBLATE:
-	if(vtemp.size() == 1) {
-	  _quadrupole(2, 2) = vtemp[0];
-	  _quadrupole(0, 0) = -_quadrupole(2, 2) / 2.;
-	  _quadrupole(1, 1) = -_quadrupole(2, 2) / 2.;
-	}
-	else {
+	//
+	if(vtemp.size() != 1) {
+	  //
 	  std::cerr << funame << "quadrupole moment of symmetric top should have one component along the symmetry axis\n";
 	  throw Error::Input();
 	}
+	_quadrupole(2, 2) = vtemp[0];
+	_quadrupole(0, 0) = -_quadrupole(2, 2) / 2.;
+	_quadrupole(1, 1) = -_quadrupole(2, 2) / 2.;
+	
 	break;
+	//
       default:
-	std::cerr << funame << "should not be here\n";
+	//
+	std::cerr << funame << token << "should not be here\n";
 	throw Error::Logic();
       }
     }
-    else if(token == polar_key) { //  polarizability
+    //  polarizability
+    //
+    else if(token == polar_key) {
+      //
       std::getline(from, line);
+      
       std::istringstream iss(line);
       vtemp.clear();
+      
       while(iss >> dtemp)
+	//
 	vtemp.push_back(dtemp);
+      
       int k = 0;
 
-      switch(Structure::fragment(1).top()) {
+      switch(Structure::top(1)) {
+	//
       case Molecule::ASYM:
-	if(vtemp.size() == 6) {
+	//
+	if(vtemp.size() != 6) {
+	  //
+	  std::cerr << funame << "polarizability of non-spherical top should have six components: pxx, pxy, pxz, pyy, pyz, pzz\n";
+	  
+	  throw Error::Input();
+	}
 	for(int i = 0; i < 3; ++i)
+	  //
 	  for(int j = i; j < 3; ++j) {
+	    //
 	    _polarizability(i, j) = vtemp[k++];
+	    
 	    if(i != j)
+	      //
 	      _polarizability(j, i) = _polarizability(i, j);
 	  }
-	}
-	else {
-	  std::cerr << funame << "polarizability of non-spherical top should have six components: pxx, pxy, pxz, pyy, pyz, pzz\n";
-	  throw Error::Input();
-	}
+
 	break;
+	//
       case Molecule::PROLATE:
-	if(vtemp.size() == 3) {
-	  for(int i = 0; i < 3; ++i)
-	    _polarizability(i, i) = vtemp[i];
-	  if(_polarizability(2, 2) != _polarizability(1, 1)) {
-	    std::cerr << funame << "p_zz should be equal to p_yy\n";
-	    throw Error::Input();
-	  }
-	}
-	else {
-	  std::cerr << funame << "polarizability of prolate symmetric top should have three components: p_xx, p_yy, p_zz = p_yy\n";
+	//
+	if(vtemp.size() != 2) {
+	  //
+	  std::cerr << funame << "polarizability of prolate symmetric top should have two components: p_xx, p_yy\n";
 	  throw Error::Input();
 	}
+	for(int i = 0; i < 2; ++i)
+	  //
+	  _polarizability(i, i) = vtemp[i];
+
+	_polarizability(2, 2) = _polarizability(1, 1);
+	
 	break;
+	//
       case Molecule::OBLATE:
-	if(vtemp.size() == 3) {
-	  for(int i = 0; i < 3; ++i)
-	    _polarizability(i, i) = vtemp[i];
-	  if(_polarizability(0, 0) != _polarizability(1, 1)) {
-	    std::cerr << funame << "p_xx should be equal to p_yy\n";
-	    throw Error::Input();
-	  }
-	}
-	else {
-	  std::cerr << funame << "polarizability of oblate symmetric top should have three components: p_xx, p_yy = p_xx, p_zz\n";
+	//
+	if(vtemp.size() != 2) {
+	  //
+	  std::cerr << funame << "polarizability of oblate symmetric top should have two components: p_yy, p_zz\n";
 	  throw Error::Input();
 	}
+	
+	for(int i = 1; i < 3; ++i)
+	  //
+	  _polarizability(i, i) = vtemp[i - 1];
+	
+	_polarizability(0, 0) = _polarizability(1, 1);
+	
 	break;
+	//
       default:
-	std::cerr << funame << "should not be here\n";
+	//
+	std::cerr << funame << token << ": should not be here\n";
 	throw Error::Logic();
       }
     }
+    // unknown key
+    //
     else {
+      //
       std::cerr << funame << "unknown keyword: " << token << "\n";
+      
       Key::show_all(std::cerr);
       std::cerr << "\n";
+      
       throw Error::Init();
     }
   }// read cycle
 
   // print out
+  //
   IO::log << "Charge-Nonlinear potential:\n";
   IO::log << "  Charge = " << _charge << "\n";
   IO::log << std::setw(15) << "DX"
@@ -1000,12 +1947,17 @@ Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from)
   IO::log << "\n\n";
 
   // renormalize multipole moments
+  //
   for(int i = 0; i < 3; ++i)
+    //
     _dipole[i] *= _charge;
 
   for(int i = 0; i < 3; ++i)
+    //
     for(int j = 0; j < 3; ++j) {
+      //
       _quadrupole    (i, j) *= _charge;
+      
       _polarizability(i, j) *= _charge * _charge;
     }
 }
@@ -1014,8 +1966,8 @@ Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from)
    ******************************** Dipole-Dipole **************************
    *************************************************************************/
 
-  double Potential::DipoleDipole::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
-  {
+double Potential::DipoleDipole::operator() (const Dynamic::Coordinates& dc, D3::Vector* torque) const 
+{
     static const char funame [] = "Potential::DipoleDipole::operator(): ";
   
     double dtemp;
@@ -1106,6 +2058,7 @@ Potential::ChargeNonlinear::ChargeNonlinear (std::istream& from)
     }  
 
     // for nonlinear fragments convert torques to their molecular frames
+    //
     for(int frag = 0; frag < 2; ++frag)
       if(Structure::fragment(frag).type() == Molecule::NONLINEAR) {
 	dc.lf2mf(frag, torque[frag], vtemp);

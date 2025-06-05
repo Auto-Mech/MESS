@@ -274,80 +274,108 @@ void LongRange::init (std::istream& from)
   }
 
   if(!from) {
+    //
     std::cerr << funame << "input stream is corrupted\n";
+
     throw Error::Form();
   }
 
   // check if all parameters were initialized
+  //
   btemp = true;
   for(idit = input.begin(); idit != input.end(); ++idit)
+    //
     if(!idit->second.is_init()) {
+      //
       std::cerr << funame << idit->first << " is not initialized\n";
+
       btemp = false;
     }
   if(!btemp)
+    //
     throw Error::Init();
 
   // default values
+  //
   std::cout << funame << "Default parameters:\n" << std::left;
+
   for(idit = input.begin(); idit != input.end(); ++idit)
+    //
     if(idit->second.is_default())
+      //
       std::cout << "   " << std::setw(20) << idit->first << " = " << idit->second << "\n";
+
   std::cout << std::right << "\n";
 
   // default M-integral step
+  //
   MIntegral::step[1] = MIntegral::step[0];
 
   // changing units
+  //
   bar_ener_tol *= Phys_const::kcal;
 
   // molecular potential symmetry type
+  //
   for(int frag = 0; frag < 2; ++frag) {
-    if(pot.type() == Potential::MULTIPOLE && Structure::fragment(frag).charge())
+    //
+    if(pot.type() == Potential::MULTIPOLE && Structure::fragment(frag).charge()) {
+      //
       _sym_type[frag] = SPHERICAL;
+    }
     else
+      //
       switch(Structure::type(frag)) {
+	//
       case Molecule::MONOATOMIC:
-
+	//
 	_sym_type[frag] = SPHERICAL;
-	break;
 
+	break;
+	//
       case Molecule::LINEAR:
-
+	//
 	_sym_type[frag] = LINEAR;
+
 	break;
-
+	//
       case Molecule::NONLINEAR:
-
+	//
 	switch(Structure::top(frag)) {
+	  //
 	case Molecule::SPHERICAL:
-
+	  //
 	  _sym_type[frag] = SPHERICAL;
-	  break;
 
+	  break;
+	  //
 	case Molecule::ASYM:
-
+	  //
 	  _sym_type[frag] = GENERIC;
+
 	  break;
-
+	  //
 	case Molecule::PROLATE:
-
+	  //
 	  _sym_type[frag] = SYMMETRIC;
+
 	  symmetric_fragment.push_back(frag);
 	  symmetry_axis_imom.push_back(Structure::fragment(frag).imom(0));
+
 	  break;
-
+	  //
 	case Molecule::OBLATE:
-
+	  //
 	  _sym_type[frag] = SYMMETRIC;
+
 	  symmetric_fragment.push_back(frag);
 	  symmetry_axis_imom.push_back(Structure::fragment(frag).imom(2));
-	  break;
 	}
+
 	break;
-
+	//
       default:
-
+	//
 	std::cerr << funame << "wrong molecular type\n";
 	throw Error::Logic();
       }
@@ -825,7 +853,7 @@ void LongRange::ang2dc (const std::vector<double>& angle, Dynamic::Coordinates& 
 	polar[1] = angle[itemp];
       
       polar2cart(polar, q1);
-      dc.write_ang_pos(frag, q1);
+      dc.get_ang_pos(frag, q1);
       break;
 		 
     default:// nonlinear
@@ -846,14 +874,14 @@ void LongRange::ang2dc (const std::vector<double>& angle, Dynamic::Coordinates& 
       case Molecule::PROLATE:
 
 	axis_quaternion(1, theta - M_PI / 2., q1); // rotation about Y axis on theta-pi/2 to bring X axis to Z position
-	dc.write_ang_pos(frag, q1);
+	dc.get_ang_pos(frag, q1);
 
 	break;
 
       case Molecule::OBLATE:
 
 	axis_quaternion(1, theta, q1);
-	dc.write_ang_pos(frag, q1);
+	dc.get_ang_pos(frag, q1);
 	break;
 	
       case Molecule::ASYM:
@@ -873,7 +901,7 @@ void LongRange::ang2dc (const std::vector<double>& angle, Dynamic::Coordinates& 
 	axis_quaternion(1, theta, q1); //rotation about Y axis on theta angle
 	axis_quaternion(2, psi,   q2); //rotation about Z axis on psi angle
 	Quaternion::qprod(q1, q2, q3);
-	dc.write_ang_pos(frag, q3);
+	dc.get_ang_pos(frag, q3);
 	
 	break;
 
@@ -894,7 +922,7 @@ void LongRange::ang2dc (const std::vector<double>& angle, Dynamic::Coordinates& 
       axis_quaternion(2, phi, q2); // rotation about Z axis on phi angle
       Quaternion::qprod(q2, q1, q3);
 
-      dc.write_ang_pos(frag, q3);
+      dc.get_ang_pos(frag, q3);
     }//symmetry type
   }// fragment cycle
 }
@@ -920,8 +948,8 @@ double LongRange::StatesNumberDensity::integral (double distance, double* mep) c
 
   Dynamic::Coordinates dc;
   for(int i = 0; i < 2; ++i)
-    dc.orb_pos(i) = 0.;
-  dc.orb_pos(2) = distance;
+    dc.orb_pos()[i] = 0.;
+  dc.orb_pos()[2] = distance;
 
   double res = -1.;
   MultiIndexConvert multi_grid(std::vector<int>(orientational_dimension(), angular_grid_size()));
@@ -1020,8 +1048,8 @@ double LongRange::minimum_energy (double distance)
 
   Dynamic::Coordinates dc;
   for(int i = 0; i < 2; ++i)
-    dc.orb_pos(i) = 0.;
-  dc.orb_pos(2) = distance;
+    dc.orb_pos()[i] = 0.;
+  dc.orb_pos()[2] = distance;
 
   std::vector<int> grid_size(orientational_dimension());
   for(IndexMapIterator it = index_map.begin(); it != index_map.end(); ++it) {
@@ -1112,7 +1140,7 @@ extern "C" void LongRange::pos2drv (const double& t, const double* pos0, double*
 
     default:
 
-      dc.write_ang_pos(frag, pos);
+      dc.get_ang_pos(frag, pos);
       pos += Structure::pos_size(frag);      
 
     }
@@ -1186,7 +1214,9 @@ double LongRange::gradient_search(Dynamic::Coordinates& dc, double evar)
     default:
 
       for(int i = 0; i < Structure::pos_size(frag); ++i)
-	pos[i] = dc.ang_pos(frag, i); 
+	//
+	pos[i] = dc.ang_pos(frag)[i]; 
+
       pos += Structure::pos_size(frag);      
     }
 
@@ -1214,7 +1244,7 @@ double LongRange::gradient_search(Dynamic::Coordinates& dc, double evar)
 
       default:
 
-	dc.write_ang_pos(frag, pos);
+	dc.get_ang_pos(frag, pos);
 	pos += Structure::pos_size(frag);      
       }
     ener = pot(dc, force);

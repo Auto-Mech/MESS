@@ -37,9 +37,9 @@ Lapack::Vector Offload::Sycl::eigenvalues (Lapack::SymmetricMatrix m, Lapack::Ma
     jobz = oneapi::MATH::job::V;
   }
   
-  std::int64_t n = m.size();
+  int64_t n = m.size();
 
-  std::int64_t nn = n * n;
+  int64_t nn = n * n;
 
   // compute on device
   //

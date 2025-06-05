@@ -491,12 +491,14 @@ void Atom::_read (std::istream& from)
 
 std::ostream& operator<< (std::ostream& out , const Atom& a)
 {
-  out << std::setw(2) << a.name() 
-      << std::fixed; // fixed format
+  out << std::setw(2) << a.name() << std::fixed; // fixed format
+
   for(int i = 0; i < 3; ++i)
-    out << std::setw(11) << a[i];
+    //
+    out << std::setw(11) << a[i] / Phys_const::angstrom; // output in angstrom
 
   out.setf(std::ios_base::fmtflags(0), std::ios_base::floatfield);
+
   return out;
 }
 

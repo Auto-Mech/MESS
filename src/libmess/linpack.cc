@@ -19,13 +19,13 @@
 
 /*********************** Vector operations *******************************/
 
-void multiply (double* v, double val, int size, int step)
+void multiply (double* v, double val, int64_t size, int64_t step)
 {
   for (double* end = v + step * size; v != end; v += step)
     *v *= val;
 }
 
-double normalize (double* v, int size, int step) 
+double normalize (double* v, int64_t size, int64_t step) 
 {
   const char funame [] = "normalize: ";
 
@@ -44,7 +44,7 @@ double normalize (double* v, int size, int step)
   return norm;
 }
 
-double orthogonalize (double* vstart, const double* nstart, int size, int vstep, int nstep) 
+double orthogonalize (double* vstart, const double* nstart, int64_t size, int64_t vstep, int64_t nstep) 
 {
   const char funame [] = "orthogonalize: ";
   
@@ -93,7 +93,7 @@ double orthogonalize (double* vstart, const double* nstart, int size, int vstep,
   return cos2;
 }
 
-double parallel_orthogonalize (double* v, const double* n, int size, int vstep, int nstep)
+double parallel_orthogonalize (double* v, const double* n, int64_t size, int64_t vstep, int64_t nstep)
   
 {
   const char funame [] = "parallel_orthogonalize: ";
@@ -116,7 +116,7 @@ double parallel_orthogonalize (double* v, const double* n, int size, int vstep, 
 
 #pragma omp parallel for default(shared) reduction(+: nlen, proj, vlen) schedule(static)
 	
-  for(int i = 0; i < size; ++i) {
+  for(int64_t i = 0; i < size; ++i) {
     double nval = n[i * nstep];
     double vval = v[i * vstep];
 
@@ -141,7 +141,7 @@ double parallel_orthogonalize (double* v, const double* n, int size, int vstep, 
 
 #pragma omp parallel for default(shared) schedule(static)
 	
-  for(int i = 0; i < size; ++i) {
+  for(int64_t i = 0; i < size; ++i) {
     v[i * vstep] -= proj * n[i * nstep];
   }
 
@@ -159,7 +159,7 @@ double parallel_orthogonalize (double* v, const double* n, int size, int vstep, 
   return cos2;
 }
 
-double vdistance (const double* v1, const double* v2, int size, int step1, int step2) 
+double vdistance (const double* v1, const double* v2, int64_t size, int64_t step1, int64_t step2) 
 {
   const char funame [] = "vdistance: ";
 
@@ -185,7 +185,7 @@ double vdistance (const double* v1, const double* v2, int size, int step1, int s
   return std::sqrt(res);
 }
 
-double vdot (const double* v1, const double* v2, int size, int step1, int step2) 
+double vdot (const double* v1, const double* v2, int64_t size, int64_t step1, int64_t step2) 
 {
   const char funame [] = "vdot: ";
 
@@ -208,7 +208,7 @@ double vdot (const double* v1, const double* v2, int size, int step1, int step2)
   return res;
 }
 
-double parallel_vdot (const double* v1, const double* v2, int size, int step1, int step2) 
+double parallel_vdot (const double* v1, const double* v2, int64_t size, int64_t step1, int64_t step2) 
 {
   const char funame [] = "vdot: ";
 
@@ -226,14 +226,14 @@ double parallel_vdot (const double* v1, const double* v2, int size, int step1, i
 
 #pragma omp parallel for default(shared) reduction(+: res) schedule(static)
 	
-  for (int i = 0; i < size; ++i) {
+  for (int64_t i = 0; i < size; ++i) {
     res += v1[i * step1] * v2[i * step2];
   }
 
   return res;
 }
 
-double vdot (const double* v, int size, int step) 
+double vdot (const double* v, int64_t size, int64_t step) 
 {
   const char funame [] = "vdot: ";
 
@@ -255,7 +255,7 @@ double vdot (const double* v, int size, int step)
   return res;
 }
 
-double vlength (const double* v, int size, int step) 
+double vlength (const double* v, int64_t size, int64_t step) 
 {
   return std::sqrt(vdot(v, size, step));
 }

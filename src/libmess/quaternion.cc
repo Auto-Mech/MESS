@@ -21,18 +21,22 @@
 
 void axis_rotation_quaternion (int axis, double angle, double* q)
 {
-  q[0] = cos(angle / 2.);
-  q[axis + 1] = sin(angle / 2.);
+  q[0] =        std::cos(angle / 2.);
+  q[axis + 1] = std::sin(angle / 2.);
 }
 
-void quat_product (const double* q1, const double* q2, double* q) {
-  // q1*q2
+// q1*q2
+//
+void quat_product (const double* q1, const double* q2, double* q) 
+{
   const double* v1 = q1 + 1;
   const double* v2 = q2 + 1;
   double*       v  = q  + 1;
 
   vector_product(v1, v2, v);
+
   for(int i = 0; i < 3; ++i)
+    //
     v[i] += q1[0] * v2[i] + q2[0] * v1[i];
 
   q[0] = q1[0] * q2[0] - vdot(v1, v2, 3);
