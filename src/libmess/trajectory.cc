@@ -17,54 +17,88 @@
 #include "units.hh"
 
 namespace Trajectory {
-  double Propagator::step = 100;
-  //Flags Propagator::flags;
-  //Dynamic::CCP fail_condition;
+  //
+  // default integration step
+  //
+  double default_step = 100.;
+
+  std::vector<double> traj_rel_tol; // trajectory relative tolerance
+  std::vector<double> traj_abs_tol; // trajectory absolute tolerance
+
 }
 
 // dvd calculator
-extern "C" void Trajectory::set_dvd (const double& time, const double* dv, double* dvd, 
-				     void*, void* par) 
+//
+extern "C" void Trajectory::set_dvd (const double& time, const double* dv, double* dvd, void*, void* par) 
 {
   DvdPar& dvd_par = *static_cast<DvdPar*>(par);
 
-  // Comulative force acting on a second fragment
-  // and Torques on each fragment: This can be either 
-  // laboratory frame torque for a linear fragment or
-  // molecular  frame torque for a nonlinear fragment
-  D3::Vector torque [3]; 
+ /****************************************************
+  * Comulative force acting on a second fragment     *
+  * and Torques on each fragment: This can be either *
+  * laboratory frame torque for a linear fragment or *
+  * molecular  frame torque for a nonlinear fragment *
+  ****************************************************/
+
+  D3::Vector torque[3]; 
   Dynamic::Coordinates dc(dv);
 
+  //dvd_par.ener = dvd_par.pot(dc, torque);
+
+  // long jump facility seems to interfere with OpenMP parallelization
+  //
   try {
-      // energies, forces and torques
-      dvd_par.ener = dvd_par.pot(dc, torque);
+    //
+    // energies, forces and torques
+
+    dvd_par.ener = dvd_par.pot(dc, torque);
   }
   catch (Error::General) {
+    //
     longjmp(dvd_par.jmp, 1);
   }
-  // dynamic variables derivatives
-  Dynamic::set_dvd(torque, dv, dvd);
 
-  // something else
-  // ...
+  // dynamic variables derivatives
+  //
+  Dynamic::set_dvd(torque, dv, dvd);
 }
 
-void Trajectory::Propagator::run (Dynamic::CCP stop, const Dynamic::Classifier& sort) 
+// propagate trajectory
+//
+void Trajectory::Propagator::run (const Dynamic::CCP& stop, const Dynamic::Classifier& sort, Dynamic::CCP special_stop) 
 {
   const char funame [] = "Trajectory::Propagator::run: ";
+
+  //std::cerr << funame << "relative tolerance = " << rel_tol[0] << "\n";
 
   double dtemp;
   int itemp;
   D3::Vector vtemp;
 	
-  // Long jump facility to transfer failure information 
-  // between the dvd calculator and calling function
-  DvdPar dvd_par;
-  dvd_par.pot = _pot;
+  // Long jump facility to transfer failure information  between the dvd calculator and calling function
+  //
+  DvdPar dvd_par(_pot);
 
+  // longjmp facility seems to inerfere with OpenMP parallelization
+  //
   if(setjmp(dvd_par.jmp)) {
-    //std::cerr << funame << "potential calculation failed\n"; 
+    //
+    std::cerr << funame << "potential calculation failed\n"; 
+
     throw PotentialFailure();
+  }
+
+  if(_out) {
+    //
+    _out << std::setw(15) << "time, au" 
+	//
+	 << std::setw(15) << "dist, bohr"
+	//
+	 << std::setw(15) << "ener, kcal"
+	//
+	 << std::setw(15) << "amom, au"
+	//
+	 << "\n";
   }
 
   // dynamic variables
@@ -76,93 +110,134 @@ void Trajectory::Propagator::run (Dynamic::CCP stop, const Dynamic::Classifier& 
 
   double timeout;
   int adjust_count = 0;
-  while(1) {// main cycle
 
+  // main cycle
+  //
+  while(1) {
+    //
     switch(_dir) {
+      //
     case FORWARD:
-      timeout = _time + step;
+      //
+      timeout = _time + _step;
+
       break;
+      //
     case BACKWARD:
-      timeout = _time - step;
+      //
+      timeout = _time - _step;
+
       break;
+      //
     default:
+      //
       std::cerr << funame << "wrong case\n";
       throw Error::Logic();
     }
 
     try {
+      //
       AdamSolver::run(_time, dv, timeout, static_cast<void*>(&dvd_par), mode);
     }
     catch(Error::General) {
+      //
       throw RunFailure();
     }
 
     // get dynamical variables data and normalize
-    get(dv);
+    //
+    double ang_len [2];
+    get(dv, ang_len);
 
-    // checking orthogonality of angular velocity to the molecular axis 
-    // for linear fragments  and normalization of the angular vectors
-    // for all nonatomic fragments
+    /********************************************************************
+     * checking orthogonality of angular velocity to the molecular axis *
+     * for linear fragments  and normalization of the angular vectors   *
+     * for all nonatomic fragments                                      *
+    **********************************************************************/
 
     bool need_adjustment = false;
-    for(int frag = 0; frag < 2; ++frag) {// fragment cycle
-      if(Structure::fragment(frag).type() == Molecule::MONOATOMIC)
+
+    for(int frag = 0; frag < 2; ++frag) {
+      //
+      if(Structure::type(frag) == Molecule::MONOATOMIC)
+	//
 	continue;
 
-      if(length(frag) > 2. || length(frag) < 0.5) {
-	std::cerr << funame << "WARNING: length of " << frag << "-th fragment is not normalized\n";
+      if(ang_len[frag] > ang_len_tol || ang_len[frag] < 1. / ang_len_tol) {
+	//
+	std::cerr << funame << "WARNING: " << frag << "-th fragment: angular vector not normalized: " << ang_len[frag] << "\n";
+
 	need_adjustment = true;
       }
 
-      if(Structure::fragment(frag).type() == Molecule::LINEAR) {
-	// velocity projection
+      if(Structure::type(frag) == Molecule::LINEAR) {
+	//
+	// velocity projection to molecular axis
+	//
 	dtemp = vdot(ang_pos(frag), ang_vel(frag), 3);
 	dtemp = dtemp > 0. ? dtemp : -dtemp;
 
+	double avl = ::vlength(ang_vel(frag), 3);
+
 	// checking if velocity projection on the molecular axis does exceed the calculation error
+	//
 	itemp = Structure::pos_size() + Structure::ang_vel(frag);
-	double avl = vlength(ang_vel(frag), 3);
+
 	if(dtemp > abs_tol[itemp] + rel_tol[itemp] * avl) {
-	  std::cerr << funame << "WARNING: angular velocity of the " << frag 
-		    << "-th fragment is not orthogonal, angle = "
-		    << dtemp / avl / length(frag) << " rad, adjusting " << ++adjust_count << " time\n";
+	  //
+	  std::cerr << funame << "WARNING: " << frag << "-th fragment: angular velocity is not orthogonal to molecular axis, angle = "
+	    //
+		    << dtemp / avl << " rad, adjusting " << ++adjust_count << " time\n";
 
 	  orthogonalize(ang_vel(frag), ang_pos(frag), 3);
+
 	  need_adjustment = true;
 	}
       }
-      // ...
-    }// fragment cycle
+    }
 
     if(need_adjustment) { 
+      //
       put(dv);
+
       mode = RESTART;
     }
     else
+      //
       mode = CONTINUE;
 
-    /*	
-    // do some output with the flags
-    // ...
-	
-    // run watch tests
-    for(int i = 0; i < watch.size(); ++i)
-    watch[i].test(*this);
-
-    // execute registered actions
-    for(int i = 0; i < act.size(); ++i)
-    act[i]->execute(*this);
-    */
-
-    // stop condition
-    if(stop->test(*this)) {
-      _spec = sort.classify(*this);
-      _ener = total_kinetic_energy() + _pot(*this);
-      return;
+    // intermediate output
+    //
+    if(_out) {
+      //
+      _out << std::setw(15) << _time
+	//
+	   << std::setw(15) << orb_len()
+	//
+	   << std::setw(15) << (current_energy() - _start_ener) / Phys_const::kcal
+	//
+	   << std::setw(15) << (total_angular_momentum() - _start_amom).vlength()
+	//
+	   << "\n";
     }
 
-    // exclude region
-    if(Dynamic::exclude_region && Dynamic::exclude_region->test(*this))
-      throw ExcludeRegionHit();
+    // stop condition
+    //
+    if(special_stop && !special_stop->test(*this) || stop->test(*this) || Dynamic::exclude_region && Dynamic::exclude_region->test(*this)) {
+      //
+      // remove colinear velocity component
+      //
+      for(int f = 0; f < 2; ++f)
+	//
+	if(Structure::type(f) == Molecule::LINEAR)
+	  //
+	  orthogonalize(ang_vel(f), ang_pos(f), 3);
+
+      _spec = sort.classify(*this);
+
+      _ener = current_energy();
+
+      return;
+    }
   }
 }

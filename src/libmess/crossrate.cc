@@ -18,51 +18,75 @@
 #include "read.hh"
 #include "units.hh"
 #include "key.hh"
+#include "limits.hh"
 
 #include <iomanip>
 #include <cmath>
 #include <set>
 
 namespace CrossRate {
-
+  //
   bool _isinit = false;
   bool isinit () { return _isinit; }
 
   // random potential error flag; opposite assumes that potential error corresponds to large positive potential
+  //
   int rand_pot_err_flag = 0;
 
-  // output
+  // output flags and files
+  //
   int         raden_flag;
   std::string raden_file;
   int         amproj_flag;
   std::string amproj_file;
 
- // minimum number of surface samplings to find facets
-  int    MultiArray::min_sur_size;
- // minimal importance samplings array size for the facet
-  int    MultiArray::min_imp_size;
- // maximum importance samplings array size for the facet
-  int    MultiArray::max_imp_size;
+  // minimum number of surface samplings to find facets
+  //
+  int MultiArray::min_sur_size;
+
+  // minimal importance samplings array size for the facet
+  //
+  int MultiArray::min_imp_size;
+
+  // maximum importance samplings array size for the facet
+  //
+  int MultiArray::max_imp_size;
+
   // minimum number of facet samplings before the accuracy can be estimated
-  int    MultiArray::min_pot_size;
-  // maximum number of facet samplings
-  int    MultiArray::max_pot_size;
+  //
+  int MultiArray::min_pot_size;
+
+  // number of samplings performed at once
+  //
+  int MultiArray::smp_set_size;
+
+  // maximal primitive's sampling failurs
+  //
+  int max_fail_num;
 
   // tolerances
+  //
   double MultiArray::face_rel_tol;  // facet   statistical flux relative tolerance
   double MultiArray::spec_rel_tol;  // species statistical flux relative tolerance
   double MultiArray::reac_rel_tol;  // species    reactive flux relative tolerance
   double MultiArray::tran_rel_tol;  // reactive transition flux relative tolerance
 
+  // energy and angular momentum trajectory deviation thresholds
+  //
+  double MultiArray::amom_dev_max = -1.;
+  double MultiArray::ener_dev_max = -1.;
+  
   // reactive transition
+  //
   std::vector<int> MultiArray::reactive_transition;
 
-  // output stream
-  std::ofstream xout;
-
+  // job type
+  //
   job_t _job;
   job_t job () { return _job; }
    
+  // calculation mode
+  //
   mode_t _mode;
   mode_t mode () { return _mode; }
 
@@ -87,248 +111,414 @@ namespace CrossRate {
   
   int _seed;
   int seed () { return _seed; }
-
-  std::vector<double> traj_rel_tol;
-  std::vector<double> traj_abs_tol;
 }
 
 void CrossRate::init (std::istream& from) 
 {
-    const char funame [] = "CrossRate::init: ";
+  const char funame [] = "CrossRate::init: ";
 
-    if(isinit()) {
-      std::cerr << funame << "has been initialized already\n";
-      throw Error::Init();
-    }
-    _isinit = true;
+  if(isinit()) {
+    //
+    std::cerr << funame << "has been initialized already\n";
 
-    if(!Structure::isinit()) {
-      std::cerr << funame << "structure has not been initialized\n";
-      throw Error::Init();
-    }
+    throw Error::Init();
+  }
+  _isinit = true;
 
-    IO::Marker funame_marker(funame);
+  if(!Structure::isinit()) {
+    //
+    std::cerr << funame << "structure should be initialized first\n";
 
-    int itemp;
-    double dtemp;
-    bool btemp;
+    throw Error::Init();
+  }
 
-    std::map<std::string, Read> input;
-    std::map<std::string, Read>::iterator idit;
+  IO::Marker funame_marker(funame);
 
-    double trt;
-    std::string calc_mode, job_type;
-    input ["JobType"                    ] = Read(job_type, "dynamical");
-    input ["CalculationMode"            ] = Read(calc_mode, "canonical");
-    input ["Reactant"                   ] = Read(_reactant, -1);
-    input ["Temperature"                ] = Read(_temperature, -1);
-    input ["Energy"                     ] = Read(_tot_ener, -100);
-    input ["AngularMomentum"            ] = Read(_tot_amom, -1);
-    input ["MinSurfaceSamplingNumber"   ] = Read(MultiArray::min_sur_size, 10000);
-    input ["MinImportanceSamplingNumber"] = Read(MultiArray::min_imp_size, 100);
-    input ["MaxImportanceSamplingNumber"] = Read(MultiArray::max_imp_size, 10000);
-    input ["MinPotentialSamplingNumber" ] = Read(MultiArray::min_pot_size, 100);
-    input ["MaxPotentialSamplingNumber" ] = Read(MultiArray::max_pot_size, 1000000);
-    input ["FacetStatisticalTolerance"  ] = Read(MultiArray::face_rel_tol, 0.1);
-    input ["SpeciesStatisticalTolerance"] = Read(MultiArray::spec_rel_tol, 0.1);
-    input ["SpeciesReactiveTolerance"   ] = Read(MultiArray::reac_rel_tol, 0.1);
-    input ["ReactiveTransitionTolerance"] = Read(MultiArray::tran_rel_tol, 0.1);
-    input ["ReactiveTransition"         ] = Read(MultiArray::reactive_transition, std::vector<int>());
-    input ["TrajectRelativeTolerance"   ] = Read(trt, 1.e-5);
-    input ["RandomPotentialErrorFlag"   ] = Read(rand_pot_err_flag, 0);
-    input ["RadialEnergyFlag"           ] = Read(raden_flag, 0);
-    input ["RadialEnergyFile"           ] = Read(raden_file, "raden.out");
-    input ["AngularMomentumProjectFlag" ] = Read(amproj_flag, 0);
-    input ["AngularMomentumProjectFile" ] = Read(amproj_file, "amproj.out");
-    input ["RandomSeed"                 ] = Read(_seed, 0);
-    input ["MinAtomDistance"            ] = Read(Dynamic::Coordinates::min_atom_dist, 1.5);
+  int    itemp;
+  double dtemp;
+  bool   btemp;
 
-    std::string key, comment;
-    while(from >> key) {
-	if(key == IO::end_key())
-	    break;
-	idit = input.find(key);
-	if (idit == input.end()) {
-	  std::cerr << funame << "WARNING: did not find the key " << key
-		    << ", taking it as a comment\n";
-	  std::getline(from, comment);
-	}
-	else
-	    from >> idit->second;
-    }
+  std::map<std::string, Read> input;
+  std::map<std::string, Read>::iterator idit;
 
-    if(!from) {
-	std::cerr << funame << "input stream is corrupted\n";
-	throw Error::Form();
-    }
+  double trt, exp_max;
+  std::string calc_mode, job_type;
 
-    // check if all parameters were initialized
-    btemp = true;
-    for(idit = input.begin(); idit != input.end(); ++idit)
-	if(!idit->second.is_init()) {
-	    std::cerr << funame << idit->first << " is not initialized\n";
-	    btemp = false;
-	}
-    if(!btemp)
-	throw Error::Init();
+  input ["JobType"                ] = Read(job_type,  "dynamical");
+  input ["CalculationMode"        ] = Read(calc_mode, "canonical");
+  input ["Reactant"               ] = Read(_reactant, -1);
+  input ["ReactiveTransition"     ] = Read(MultiArray::reactive_transition, std::vector<int>());
+  input ["Temperature"            ] = Read(_temperature, -1.);
+  input ["Energy"                 ] = Read(_tot_ener, -100.);
+  input ["AngularMomentum"        ] = Read(_tot_amom, -1.);
+  input ["SamplingSize"           ] = Read(MultiArray::smp_set_size, 1000);
+  input ["SurfaceSamplingMin"     ] = Read(MultiArray::min_sur_size, 1000000);
+  input ["PotentialSamplingMin"   ] = Read(MultiArray::min_pot_size, 100);
+  input ["ImportanceSamplingMin"  ] = Read(MultiArray::min_imp_size, 100);
+  input ["ImportanceSamplingMax"  ] = Read(MultiArray::max_imp_size, 10000);
+  input ["FailSamplingMax"        ] = Read(max_fail_num, 10);
+  input ["TrajEnerDeviationMax"   ] = Read(MultiArray::ener_dev_max, -1.);
+  input ["TrajAmomDeviationMax"   ] = Read(MultiArray::amom_dev_max, -1.);
+  input ["FaceStatTolerance"      ] = Read(MultiArray::face_rel_tol, 0.1);
+  input ["SpecStatTolerance"      ] = Read(MultiArray::spec_rel_tol, 0.1);
+  input ["SpecReacTolerance"      ] = Read(MultiArray::reac_rel_tol, 0.1);
+  input ["ReacTranTolerance"      ] = Read(MultiArray::tran_rel_tol, 0.1);
+  input ["TrajTolerance"          ] = Read(trt, 1.e-5);
+  input ["AngLengthTolerance"     ] = Read(Dynamic::Coordinates::ang_len_tol, 2.);
+  input ["TrajTimeStep[au]"       ] = Read(Trajectory::default_step, 100.);
+  input ["RandomPotErrorFlag"     ] = Read(rand_pot_err_flag, 0);
+  input ["RadialEnergyFlag"       ] = Read(raden_flag, 0);
+  input ["RadialEnergyFile"       ] = Read(raden_file, "raden.out");
+  input ["AmomProjectFlag"        ] = Read(amproj_flag, 0);
+  input ["AmomProjectFile"        ] = Read(amproj_file, "amproj.out");
+  input ["RandomSeed"             ] = Read(_seed, 0);
+  input ["MinAtomDist[Bohr]"      ] = Read(Dynamic::Coordinates::min_atom_dist, 1.5);
+  input ["ExpPowerMax"            ] = Read(exp_max, 200.);
 
-    // default values
-    IO::log << IO::log_offset << "Default parameters:\n" << std::left;
-    for(idit = input.begin(); idit != input.end(); ++idit)
-      if(idit->second.is_default())
-	IO::log << IO::log_offset << "   " << std::setw(20) << idit->first << " = " << idit->second << "\n";
-    IO::log << std::right;
+  std::string token, key, comment, name;
 
-    if(job_type == "dynamical")
-	_job = DYN_JOB;
-    else if(job_type == "statistical")
-	_job = STAT_JOB;
-    else if(job_type == "test")
-	_job = TEST_JOB;
-    else {
-      std::cerr << funame << "unknown job type: " << job_type
-		<< "; possible jobs: dynamical, statistical, and test\n";
-      throw Error::Init();
-    }
+  // maximal parameter name size
+  //
+  itemp = 0;
     
-    if(calc_mode == "canonical")
-      _mode = T_MODE;
-    else if(calc_mode == "microcanonical")
-      _mode = E_MODE;
-    else if(calc_mode == "e,j-resolved")
-      _mode = J_MODE;
-    else {
-      std::cerr << funame << "unknown caculation mode: " << calc_mode
-		<< "; possible modes: canonical, microcanonical, and e,j-resolved\n";
+  for(idit = input.begin(); idit != input.end(); ++idit)
+    //
+    if(idit->first.size() > itemp)
+      //
+      itemp = idit->first.size();
+
+  const int name_len_max = itemp;
+
+  IO::log << IO::log_offset << "taken as a comment:\n";
+  
+  itemp = 0;
+
+  while(from >> token) {
+    //
+    if(token == IO::end_key())
+      //
+      break;
+
+    idit = input.find(token);
+
+    if(idit == input.end()) {
+      //
+      ++itemp;
+
+      IO::log << IO::log_offset << "   " << token << "\n";
+
+      std::getline(from, comment);
+    }
+    else
+      //
+      from >> idit->second;
+  }
+
+  if(!itemp)
+    //
+    IO::log << IO::log_offset << "   " << "None\n";
+
+  if(!from) {
+    //
+    std::cerr << funame << "input stream is corrupted\n";
+
+    throw Error::Form();
+  }
+
+  // check if all parameters were initialized
+  //
+  btemp = false;
+
+  for(idit = input.begin(); idit != input.end(); ++idit)
+    //
+    if(!idit->second.is_init()) {
+      //
+      std::cerr << funame << idit->first << " is not initialized\n";
+
+      btemp = true;
+    }
+
+  if(btemp)
+    //
+    throw Error::Init();
+
+  // default values
+  //
+  IO::log << IO::log_offset << "default parameters:\n" << std::left;
+
+  for(idit = input.begin(); idit != input.end(); ++idit)
+    //
+    if(idit->second.is_default())
+      //
+      IO::log << IO::log_offset << "   " << std::setw(name_len_max) << idit->first << " = " << idit->second << "\n";
+
+  IO::log << std::right;
+  
+  // maximal exponent power
+  //
+  if(exp_max <= 0.) {
+    //
+    std::cerr << funame << "ExpPowerMax out of range: " << exp_max << "\n";
+
+    throw Error::Range();
+  }
+
+  Limits::set_exp_pow_max(exp_max);
+
+  // job type
+  //
+  if(job_type == "dynamical") {
+    //
+    _job = DYN_JOB;
+  }
+  else if(job_type == "statistical") {
+    //
+    _job = STAT_JOB;
+  }
+  else if(job_type == "test") {
+    //
+    _job = TEST_JOB;
+  }
+  else {
+    //
+    std::cerr << funame << "unknown job type: " << job_type << "; possible jobs: dynamical, statistical, and test\n";
+
+    throw Error::Init();
+  }
+    
+  // calculation mode
+  //
+  if(calc_mode == "canonical") {
+    //
+    _mode = T_MODE;
+  }
+  else if(calc_mode == "microcanonical") {
+    //
+    _mode = E_MODE;
+  }
+  else if(calc_mode == "e,j-resolved") {
+    //
+    _mode = J_MODE;
+  }
+  else {
+    //
+    std::cerr << funame << "unknown caculation mode: " << calc_mode << "; possible modes: canonical, microcanonical, or e,j-resolved\n";
+
+    throw Error::Init();
+  }
+
+  switch(mode()) {
+    //
+  case T_MODE:
+    //
+    if(temperature() <= 0.) {
+      //
+      std::cerr << funame << "Temperature, " << temperature() / Phys_const::kelv << " K, should be positive\n";
+
       throw Error::Init();
     }
 
-    switch(mode()) {
-    case T_MODE:
-      if(temperature() <= 0.) {
-	std::cerr << funame << "Temperature, " << temperature() / Phys_const::kelv << " K, should be positive\n";
-	throw Error::Init();
-      }
-      break;
-    case E_MODE:
-      if(energy_value() < -1.) {
-	std::cerr << funame << "Energy, " << energy_value() / Phys_const::kcal << " kcal/mol, is out of range\n";
-	throw Error::Init();
-      }
-      break;
-    case J_MODE:
-      if(energy_value() <= -1.) {
-	std::cerr << funame << "Energy, " << energy_value() / Phys_const::kcal << " kcal/mol, is out of range\n";
-	throw Error::Init();
-      }
-      if(amom_value() < 0.) {
-	std::cerr << funame << "Angular momentum, " << amom_value() << ", should not be negative\n";
-	throw Error::Init();
-      }
-      break;
+    break;
+    //
+  case E_MODE:
+    //
+    if(energy_value() < -.01) {
+      //
+      std::cerr << funame << "Energy, " << energy_value() / Phys_const::kcal << " kcal/mol, is out of range\n";
+
+      throw Error::Init();
     }
 
-    // trajectories tolerances
-    traj_rel_tol.resize(Structure::dv_size(), trt);
-    traj_abs_tol.resize(Structure::dv_size(), trt);
+    break;
+    //
+  case J_MODE:
+    //
+    if(energy_value() <= -1.) {
+      //
+      std::cerr << funame << "Energy, " << energy_value() / Phys_const::kcal << " kcal/mol, is out of range\n";
 
-    double scale;
-    if(mode() == T_MODE) // using the temperature as a scaling factor
-      scale = std::sqrt(temperature());
-    else if(energy_value() < 0.)// using total energy as a scaling factor
-      scale = std::sqrt(-energy_value());
-    else
-      scale = std::sqrt(energy_value());
-
-    for(int i = 0; i < 3; ++i) {
-      itemp = Structure::pos_size() + Structure::orb_vel() + i;
-      traj_abs_tol[itemp] *= scale/Structure::mass_sqrt();
-    }
-    for(int frag = 0; frag < 2; ++frag)
-      for(int i = 0; i < Structure::fragment(frag).vel_size(); ++i) {
-	itemp = Structure::pos_size() + Structure::ang_vel(frag) + i;
-	traj_abs_tol[itemp] *= scale/Structure::fragment(frag).imom_sqrt(i);
-      }
-
-    // normalization factor
-    _norm_factor = std::pow(Structure::mass(), 1.5) * 2. / M_PI / M_PI;
-    for(int frag = 0; frag < 2; ++frag)
-      switch (Structure::fragment(frag).type()) {
-      case Molecule::MONOATOMIC:
-	_norm_factor *= M_PI;
-	break;
-      case Molecule::LINEAR:
-	_norm_factor *= 2. * M_PI * Structure::fragment(frag).imom(0);
-      break;
-      case Molecule::NONLINEAR:
-	for (int i = 0; i < 3; ++i)
-	  _norm_factor *= std::sqrt(2. * M_PI * Structure::fragment(frag).imom(i));
-	break;
+      throw Error::Init();
     }
 
-    switch(mode()) {
-    case T_MODE:
-      _norm_factor *= std::pow(temperature(), double(Structure::tm_dof() - 1) / 2.);
-      break;
-    case E_MODE:
-      _norm_factor /= tgamma(double(Structure::tm_dof() + 1) / 2.);
-      break;
-    case J_MODE:
-      //_norm_factor *= amom_value() * amom_value() * std::sqrt(2. / M_PI) 
-      // / tgamma(double(Structure::tm_dof() - 2) / 2.);
-      _norm_factor *= std::sqrt(2. / M_PI) / tgamma(double(Structure::tm_dof() - 2) / 2.);
-      break;
+    if(amom_value() < 0.) {
+      //
+      std::cerr << funame << "Angular momentum, " << amom_value() << ", should not be negative\n";
+
+      throw Error::Init();
     }
+  }
+
+  // trajectories tolerances
+  //
+  Trajectory::traj_rel_tol.resize(Structure::dv_size(), trt);
+  Trajectory::traj_abs_tol.resize(Structure::dv_size(), trt);
+
+  // scaling factor
+  //
+  double scale;
+
+  // using the temperature as a scaling factor
+  //
+  if(mode() == T_MODE) {
+    //
+    //
+    scale = std::sqrt(temperature());
+  }
+  // using total energy as a scaling factor
+  //
+  else if(energy_value() < 0.) {
+    //
+    scale = std::sqrt(-energy_value());
+  }
+  else
+    //
+    scale = std::sqrt(energy_value());
+
+  for(int i = 0; i < 3; ++i) {
+    //
+    itemp = Structure::pos_size() + Structure::orb_vel() + i;
+
+    Trajectory::traj_abs_tol[itemp] *= scale / Structure::mass_sqrt();
+  }
+
+  for(int frag = 0; frag < 2; ++frag)
+    //
+    for(int i = 0; i < Structure::fragment(frag).vel_size(); ++i) {
+      //
+      itemp = Structure::pos_size() + Structure::ang_vel(frag) + i;
+
+      Trajectory::traj_abs_tol[itemp] *= scale / Structure::fragment(frag).imom_sqrt(i);
+    }
+
+  // normalization factor
+  //
+  _norm_factor = std::pow(Structure::mass(), 1.5) * 2. / M_PI / M_PI;
+
+  for(int frag = 0; frag < 2; ++frag)
+    //
+    switch (Structure::fragment(frag).type()) {
+      //
+    case Molecule::MONOATOMIC:
+      //
+      _norm_factor *= M_PI;
+
+      break;
+      //
+    case Molecule::LINEAR:
+      //
+      _norm_factor *= 2. * M_PI * Structure::fragment(frag).imom(0);
+
+      break;
+      //
+    case Molecule::NONLINEAR:
+      //
+      for(int i = 0; i < 3; ++i)
+	//
+	_norm_factor *= std::sqrt(2. * M_PI * Structure::fragment(frag).imom(i));
+    }
+
+  switch(mode()) {
+    //
+  case T_MODE:
+    //
+    _norm_factor *= std::pow(temperature(), double(Structure::tm_dof() - 1) / 2.);
+
+    break;
+    //
+  case E_MODE:
+    //
+    _norm_factor /= tgamma(double(Structure::tm_dof() + 1) / 2.);
+
+    break;
+    //
+  case J_MODE:
+    //
+    _norm_factor *= std::sqrt(2. / M_PI) / tgamma(double(Structure::tm_dof() - 2) / 2.) * amom_value() * amom_value();
+  }
 }
 
 /**************************************************************************
- *                           Sampling methods                             *
+ ************************ DYNAMIC SAMPLING METHODS ************************
  **************************************************************************/
 
-
-CrossRate::DynSmp::DynSmp (Potential::Wrap pot, const DivSur::MultiSur& surface, int prim, const Dynamic::Coordinates& dc)
-  : Dynamic::Vars(dc)
+void CrossRate::DynSmp::init (const Potential::Wrap& pot, const DivSur::MultiSur& ms, int prim, const Dynamic::Coordinates& dc)
 {
-  const char funame [] = "CrossRate::DynSmp::DynSmp: ";
+  const char funame [] = "CrossRate::DynSmp::init: ";
   
-  static const double max_exp = 100.;
-
   double dtemp;
 
+  if(back) {
+    //
+    //std::cerr << funame << "already initialized\n";
+
+    throw InitErr();
+  }
+
+  // generalized coordinates
+  //
+  (Dynamic::Coordinates&)*this = dc;
+
   // potential energy
+  //
   _energy = pot(dc);
-  
+
+  //  
+  if(_energy < reactive_energy()) {
+    //
+    throw LowEnerErr();
+  }
+
   // random variable
+  //
   _ranval = Random::flat();
 
   // statistical weight and random velocities
+  //
   switch(mode()) {
+    //
   case T_MODE: // canonical calculation
-    _weight = surface.t_velocity(prim, temperature(), *this);
+    //
+    _weight = ms.t_velocity(prim, temperature(), *this);
 
-    dtemp = - potential_energy() / temperature();
-    if(dtemp > max_exp) {
-      std::cerr << funame << "potential energy, " << potential_energy() / Phys_const::kcal << " kcal/mol, is too low\n";
-      throw Error::Range();
+    dtemp = -potential_energy() / temperature();
+    
+    // high energy
+    //
+    if(dtemp < -Limits::exp_pow_max()) {
+      //
+      _weight = -1.;
     }
-    else if(dtemp > - max_exp)
-      _weight *= std::exp(dtemp);
     else
-      _weight = -1.;
+      //
+      _weight *= std::exp(dtemp);
 
     break;
+    //
   case E_MODE: // microcanonical calculation
-    if(potential_energy() < energy_value())
-      _weight = surface.e_velocity(prim, energy_value() - potential_energy(), *this);
+    //
+    dtemp = energy_value() - potential_energy();
+    
+    if(dtemp > 0.) {
+      //
+      _weight = ms.e_velocity(prim, dtemp, *this);
+    }
     else
+      //
       _weight = -1.;
+    
     break;
+    //
   case J_MODE: // E,J-resolved calculation
-    if(potential_energy() < energy_value())
-      _weight = surface.j_velocity(prim, energy_value() - potential_energy(), amom_value(), *this);
+    //
+    dtemp = energy_value() - potential_energy();
+    
+    if(dtemp > 0.) {
+      //
+      _weight = ms.j_velocity(prim, dtemp, amom_value(), *this);
+    }
     else
+      //
       _weight = -1.;
-    break;
   }
 
   back.init(new DynRes(pot, *this, BACKWARD));
@@ -336,263 +526,378 @@ CrossRate::DynSmp::DynSmp (Potential::Wrap pot, const DivSur::MultiSur& surface,
 }
 
 // propagate trajectory both forward and backward
-void CrossRate::DynSmp::run_traj (const DivSur::MultiSur& ms, const DivSur::face_t& face, Dynamic::CCP stop)
+//
+void CrossRate::DynSmp::run_traj (const DivSur::MultiSur& ms, const DivSur::face_t& face, const Dynamic::CCP& stop)
 {
   const char funame [] = "CrossRate::DynSmp::run_traj: ";
 
   if(!isinit()) {
+    //
     std::cerr << funame << "crossrate environment has not yet been initialized\n";
+
     throw Error::Init();
   }
 
   if(is_run()) {
+    //
     std::cerr << funame << "trajectory has been run already\n";
+
     throw Error::Init();
   }
-
-  if(reactant() >= 0 && face.first != reactant() && face.second != reactant())
-    return;
 
   int    itemp;
   double dtemp;
 
-  back->rel_tol = traj_rel_tol;
-  back->abs_tol = traj_abs_tol;
-  forw->rel_tol = traj_rel_tol;
-  forw->abs_tol = traj_abs_tol;
-  if(temperature() < 0.) {
-    dtemp = std::sqrt(energy_value() - potential_energy());
-    for(int i = 0; i < 3; ++i) {
-      itemp = Structure::pos_size() + Structure::orb_vel() + i;
-      back->abs_tol[itemp] *= dtemp / Structure::mass_sqrt();
-      forw->abs_tol[itemp] *= dtemp / Structure::mass_sqrt();
-    }
-  
-    for(int frag = 0; frag < 2; ++frag)
-      for(int i = 0; i < Structure::fragment(frag).vel_size(); ++i) {
-	itemp = Structure::pos_size() + Structure::ang_vel(frag) + i;
-	back->abs_tol[itemp] *= dtemp / Structure::fragment(frag).imom_sqrt(i);
-	forw->abs_tol[itemp] *= dtemp / Structure::fragment(frag).imom_sqrt(i);
+  // trajectory is directed away from the reactant
+  //
+  if(reactant() == face.first){
+    //
+    try {
+      //
+      back->run(stop, ms, Dynamic::CCP(new SpecCondition(ms, face.first)));
+
+      if(back->species() == face.first) {
+	//
+	back->stat = DynRes::DIRECT;
       }
+      else {
+	//
+	back->stat = DynRes::RECROSS;
+
+	return;
+      }
+    }
+    catch(Trajectory::PotentialFailure) {
+      //
+      back->stat =  DynRes::POT_FAIL;
+
+      return;
+    }
+    catch(Trajectory::RunFailure) {
+      //
+      back->stat =  DynRes::RUN_FAIL;
+
+      return;
+    }
+
+    try {
+      //
+      forw->run(stop, ms);
+	
+      forw->stat = DynRes::PASS;
+
+      return;
+    }
+    catch(Trajectory::PotentialFailure) {
+      //
+      forw->stat =  DynRes::POT_FAIL;
+
+      return;
+    }
+    catch(Trajectory::RunFailure) {
+      //
+      forw->stat =  DynRes::RUN_FAIL;
+
+      return;
+    }
   }
 
-  if(reactant() >= 0) {
-    if(reactant() == face.first){
-      try {
-	back->run(stop | Dynamic::negate(Dynamic::CCP(new SpecCondition(ms, face.first))), ms);
+  // trajectory is in the direction of reactant
+  //
+  if(reactant() == face.second){
+    //
+    try {
+      //
+      forw->run(stop, ms, Dynamic::CCP(new SpecCondition(ms, face.second)));
 
-	if(back->species() == face.first)
-	  back->stat = DynRes::DIRECT;
-	else {
-	  back->stat = DynRes::RECROSS;
-	  return;
-	}
+      if(forw->species() == face.second) {
+	//
+	forw->stat = DynRes::DIRECT;
       }
-      catch(Trajectory::PotentialFailure) {
-	back->stat =  DynRes::POT_FAIL;
-	return;
-      }
-      catch(Trajectory::RunFailure) {
-	back->stat =  DynRes::RUN_FAIL;
-	return;
-      }
-      catch(Trajectory::ExcludeRegionHit) {
-	back->stat =  DynRes::EXCLUDE;
-	return;
-      }
+      else {
+	//
+	forw->stat = DynRes::RECROSS;
 
-      try {
-	forw->run(stop, ms);
-	forw->stat = DynRes::PASS;
-      }
-      catch(Trajectory::PotentialFailure) {
-	forw->stat =  DynRes::POT_FAIL;
-	return;
-      }
-      catch(Trajectory::RunFailure) {
-	forw->stat =  DynRes::RUN_FAIL;
-	return;
-      }
-      catch(Trajectory::ExcludeRegionHit) {
-	forw->stat =  DynRes::EXCLUDE;
 	return;
       }
     }
-    else if(reactant() == face.second){
-      try {
-	forw->run(stop | Dynamic::negate(Dynamic::CCP(new SpecCondition(ms, face.second))), ms);
+    catch(Trajectory::PotentialFailure) {
+      //
+      forw->stat =  DynRes::POT_FAIL;
 
-	if(forw->species() == face.second)
-	  forw->stat = DynRes::DIRECT;
-	else {
-	  forw->stat = DynRes::RECROSS;
-	  return;
-	}
-      }
-      catch(Trajectory::PotentialFailure) {
-	forw->stat =  DynRes::POT_FAIL;
-	return;
-      }
-      catch(Trajectory::RunFailure) {
-	forw->stat =  DynRes::RUN_FAIL;
-	return;
-      }
-      catch(Trajectory::ExcludeRegionHit) {
-	forw->stat =  DynRes::EXCLUDE;
-	return;
-      }
-
-      try {
-	back->run(stop, ms);
-	back->stat = DynRes::PASS;
-      }
-      catch(Trajectory::PotentialFailure) {
-	back->stat =  DynRes::POT_FAIL;
-	return;
-      }
-      catch(Trajectory::RunFailure) {
-	back->stat =  DynRes::RUN_FAIL;
-	return;
-      }
-      catch(Trajectory::ExcludeRegionHit) {
-	back->stat =  DynRes::EXCLUDE;
-	return;
-      }
+      return;
     }
-    return;
-  }// reactant
+    catch(Trajectory::RunFailure) {
+      //
+      forw->stat =  DynRes::RUN_FAIL;
+
+      return;
+    }
+
+    try {
+      //
+      back->run(stop, ms);
+
+      back->stat = DynRes::PASS;
+
+      return;
+    }
+    catch(Trajectory::PotentialFailure) {
+      //
+      back->stat =  DynRes::POT_FAIL;
+
+      return;
+    }
+    catch(Trajectory::RunFailure) {
+      //
+      back->stat =  DynRes::RUN_FAIL;
+
+      return;
+    }
+  }
 
   try {
-    back->run(stop | Dynamic::negate(Dynamic::CCP(new SpecCondition(ms, face.first))), ms);
+    //
+    back->run(stop, ms, Dynamic::CCP(new SpecCondition(ms, face.first)));
 
-    if(back->species() == face.first)
+    if(back->species() == face.first) {
+      //
       back->stat = DynRes::DIRECT;
+    }
     else
+      //
       back->stat = DynRes::RECROSS;
   }
   catch(Trajectory::PotentialFailure) {
+    //
     back->stat =  DynRes::POT_FAIL;
+
     return;
   }
   catch(Trajectory::RunFailure) {
+    //
     back->stat =  DynRes::RUN_FAIL;
-    return;
-  }
-  catch(Trajectory::ExcludeRegionHit) {
-    back->stat =  DynRes::EXCLUDE;
+
     return;
   }
 
   try {
-    forw->run(stop | Dynamic::negate(Dynamic::CCP(new SpecCondition(ms, face.second))), ms);
+    //
+    forw->run(stop, ms, Dynamic::CCP(new SpecCondition(ms, face.second)));
 
-    if(forw->species() == face.second)
+    if(forw->species() == face.second) {
+      //
       forw->stat = DynRes::DIRECT;
+    }
     else
+      //
       forw->stat = DynRes::RECROSS;
   }
   catch(Trajectory::PotentialFailure) {
+    //
     forw->stat =  DynRes::POT_FAIL;
+
     return;
   }
   catch(Trajectory::RunFailure) {
+    //
     forw->stat =  DynRes::RUN_FAIL;
-    return;
-  }
-  catch(Trajectory::ExcludeRegionHit) {
-    forw->stat =  DynRes::EXCLUDE;
+
     return;
   }
 
   // either forward and backward trajectories both recrossed or both finished
+  //
   if(forw->stat == back->stat)
+    //
     return;
 
   // run backward to the end
-  if(back->stat == DynRes::RECROSS)
+  //
+  if(back->stat == DynRes::RECROSS) {
+    //
     try {
+      //
       back->run(stop, ms);
     }
     catch(Trajectory::PotentialFailure) {
+      //
       back->stat =  DynRes::POT_FAIL;
+
       return;
     }
     catch(Trajectory::RunFailure) {
+      //
       back->stat =  DynRes::RUN_FAIL;
+
       return;
     }
-    catch(Trajectory::ExcludeRegionHit) {
-      back->stat =  DynRes::EXCLUDE;
-      return;
-    }
+  }
 
   // run forward to the end
-  if(forw->stat == DynRes::RECROSS)
+  //
+  if(forw->stat == DynRes::RECROSS) {
+    //
     try {
+      //
       forw->run(stop, ms);
     }
     catch(Trajectory::PotentialFailure) {
+      //
       forw->stat =  DynRes::POT_FAIL;
+
       return;
     }
     catch(Trajectory::RunFailure) {
+      //
       forw->stat =  DynRes::RUN_FAIL;
+
       return;
     }
-    catch(Trajectory::ExcludeRegionHit) {
-      forw->stat =  DynRes::EXCLUDE;
-      return;
-    }
+  }
+}
+
+void CrossRate::DynSmp::print_traj_results () const
+{
+  int old_precision = IO::log.precision(3);
+  
+  IO::log << std::setw(20) << "time/a.u."
+	  << std::setw(13) << "dist/bohr"
+	  << std::setw(13) << "ener/kcal"
+	  << std::setw(13) << "amom/a.u."
+	  << std::setw(13) << "amom/a.u."
+	  << std::setw(13) << "amom/a.u."
+
+	  << "\n";
+
+  IO::log << std::setw(20) << "0"
+	  << std::setw(13) << orb_len()
+	  << std::setw(13) << total_energy() / Phys_const::kcal;
+
+  D3::Vector tam;
+      
+  total_angular_momentum(tam);
+      
+  for(int i = 0; i < 3; ++i)
+    //
+    IO::log << std::setw(13) << tam[i];
+      
+  IO::log << "\n";
+
+  if(forw->stat != DynRes::INIT) {
+    //
+    IO::log << std::setw(20) << forw->time()
+	    << std::setw(13) << forw->orb_len() 
+	    << std::setw(13) << forw->final_energy() / Phys_const::kcal;
+
+    forw->total_angular_momentum(tam);
+
+    for(int i = 0; i < 3; ++i)
+      //
+      IO::log << std::setw(13) << tam[i];
+	
+    IO::log << "\n";
+  }
+
+  if(back->stat != DynRes::INIT) {
+    //
+    IO::log << std::setw(20) << back->time()
+	    << std::setw(13) << back->orb_len() 
+	    << std::setw(13) << back->final_energy() / Phys_const::kcal;
+
+    back->total_angular_momentum(tam);
+	
+    for(int i = 0; i < 3; ++i)
+      //
+      IO::log << std::setw(13) << tam[i];
+	
+    IO::log << "\n";
+  }
+
+  IO::log.precision(old_precision);
 }
 
 /************************************************************************
- *               Facet sampling data methods: FacetArray                *
+ ************************* FACET ARRAY METHODS **************************
  ************************************************************************/
 
 int CrossRate::FacetArray::init_traj_num () const
 {
   int res = 0;
+  
   for(const_iterator fit = begin(); fit != end(); ++fit)
+    //
     if(!fit->is_run())
+      //
       ++res;
+  
   return res;
 }
 
 int CrossRate::FacetArray::potfail_traj_num () const
 {
   int res = 0;
+  
   for(const_iterator fit = begin(); fit != end(); ++fit)
+    //
     if(fit->is_pot_fail())
+      //
       ++res;
+  
   return res;
 }
 
 int CrossRate::FacetArray::runfail_traj_num () const
 {
   int res = 0;
+  
   for(const_iterator fit = begin(); fit != end(); ++fit)
+    //
     if(fit->is_run_fail())
+      //
       ++res;
+  
   return res;
 }
 
 int CrossRate::FacetArray::exclude_traj_num () const
 {
   int res = 0;
+  
   for(const_iterator fit = begin(); fit != end(); ++fit)
-    if(fit->is_exclude())
+    //
+    if(fit->is_exclude(0) || fit->is_exclude(1))
+      //
       ++res;
+  
   return res;
 }
 
 int CrossRate::FacetArray::run_traj_num () const
 {
   int res = 0;
-  for(const_iterator fit = begin(); fit != end(); ++fit) {
-    if(!fit->is_run() || fit->is_pot_fail() || fit->is_run_fail() || fit->is_exclude())
-      continue;
-    ++res;
-  }
+  
+  for(const_iterator fit = begin(); fit != end(); ++fit)
+    //
+    if(fit->is_run() && !fit->is_pot_fail() && !fit->is_run_fail())
+      //
+      ++res;
+
+  return res;
+}
+
+int CrossRate::FacetArray::direct_traj_num () const
+{
+  int res = 0;
+  
+  for(const_iterator fit = begin(); fit != end(); ++fit)
+    //
+    if(!fit->is_pot_fail() && !fit->is_run_fail() &&
+	//
+       fit->forw->stat == DynRes::DIRECT && fit->back->stat == DynRes::DIRECT)
+      //
+      ++res;
+
   return res;
 }
 
@@ -601,221 +906,308 @@ int CrossRate::FacetArray::recross_traj_num (int dir) const
   const char funame [] = "CrossRate::FacetArray::recross_traj_num: ";
 
   int res = 0;
-  for(const_iterator fit = begin(); fit != end(); ++fit) {
-    if(!fit->is_run() || fit->is_pot_fail() || fit->is_run_fail() || fit->is_exclude())
-      continue;
-
-    switch(dir) {
-    case BACKWARD:
-      if(fit->forw->stat == DynRes::RECROSS)
-	++res;
-      break;
-    case FORWARD:
-      if(fit->back->stat == DynRes::RECROSS)
-	++res;
-      break;
-    default:
-      std::cerr << funame << "wrong case\n";
-      throw Error::Logic();
-    }
-  }
+  
+  for(const_iterator fit = begin(); fit != end(); ++fit)
+    //
+    if(!fit->is_pot_fail() && !fit->is_run_fail() && 
+	//
+	fit->dyn_res(dir)->stat == DynRes::RECROSS)
+      //
+      ++res;
+      
   return res;
 }
 
-int CrossRate::FacetArray::reac_traj_num (int dir, int spec) const
+int CrossRate::FacetArray::direct_traj_num (int dir, int* exclude) const
+{
+  const char funame [] = "CrossRate::FacetArray::direct_traj_num: ";
+
+  int res = 0;
+  
+  if(exclude)
+    //
+    *exclude = 0;
+
+  for(const_iterator fit = begin(); fit != end(); ++fit) {
+    //
+    if(!fit->is_pot_fail() && !fit->is_run_fail() &&
+      //
+      fit->dyn_res(dir)->stat == DynRes::DIRECT) {
+      //
+      ++res;
+
+      if(exclude && fit->is_exclude(dir))
+	//
+	(*exclude)++;
+    }
+  }
+
+  return res;
+}
+
+int CrossRate::FacetArray::reac_traj_num (int dir, int spec, int* back, int* forw) const
 {
   const char funame [] = "CrossRate::FacetArray::reac_traj_num: ";
 
   int res = 0;
-  for(const_iterator fit = begin(); fit != end(); ++fit) {
-    if(!fit->is_run() || fit->is_pot_fail() || fit->is_run_fail() || fit->is_exclude())
-      continue;
+  
+  if(forw)
+    //
+    *forw = 0;
 
-    switch(dir) {
-    case BACKWARD:
-      if(fit->forw->stat == DynRes::DIRECT && fit->back->species() == spec)
-	++res;
-      break;
-    case FORWARD:
-      if(fit->back->stat == DynRes::DIRECT && fit->forw->species() == spec)
-	++res;
-      break;
-    default:
-      std::cerr << funame << "wrong case\n";
-      throw Error::Logic();
-    }
+  if(back)
+    //
+    *back = 0;
+
+
+  for(const_iterator fit = begin(); fit != end(); ++fit) {
+    //
+    if(!fit->is_pot_fail() && !fit->is_run_fail() &&
+       //
+       fit->dyn_res(!dir)->stat == DynRes::DIRECT && 
+       //
+       fit->dyn_res(dir)->species() == spec) {
+	 //
+	 ++res;
+      
+	if(forw && fit->is_exclude(dir))
+	  //
+	  (*forw)++;
+
+	if(back && fit->is_exclude(!dir))
+	  //
+	  (*back)++;
+      }
   }
+
   return res;
 }
 
 // propagate trajectories for facet samplings
+//
 void CrossRate::FacetArray::run_traj (const DivSur::MultiSur& ms, const DivSur::face_t& face, Dynamic::CCP stop)
 {
   const char funame [] = "CrossRate::FacetArray::run_traj: ";
   
   if(reactant() >= 0 && face.first != reactant() && face.second != reactant())
+    //
     return;
 
   if(!size())
+    //
     return;
 
-  int new_traj_num = init_traj_num();
-  if(!new_traj_num)
+  const int count_max = init_traj_num();
+  
+  if(!count_max)
+    //
     return;
-
-#ifndef DEBUG
 
   int new_share, old_share = 0;
 
-#endif
-
   int count = 0;
-  for(iterator fit = begin(); fit != end(); ++fit) // sampling cycle
-    if(!fit->is_run()) {
-      fit->run_traj(ms, face, stop);
-      ++count;
 
-#ifdef DEBUG
+  // run trajectory cycle
+  //
 
-      if(!fit->is_run_fail() &&  !fit->is_pot_fail() &&  !fit->is_exclude()) {
-	IO::log << count << "-th trajectory:\n";
-	IO::log << std::setw(13) << "time/a.u."
-		  << std::setw(13) << "dist/bohr"
-		  << std::setw(13) << "ener/kcal"
-		  << std::setw(13) << "amom/a.u." << "\n";
+#ifdef OPENMP
 
-	IO::log << std::setw(13) << "0"
-		  << std::setw(13) << fit->interfragment_distance()
-		  << std::setw(13) << fit->total_energy() / Phys_const::kcal;
+#pragma omp parallel for default(shared) schedule(static)
 
-	D3::Vector tam;
-	fit->total_angular_momentum(tam);
-	for(int i = 0; i < 3; ++i)
-	  IO::log << std::setw(13) << tam[i];
-	IO::log << "\n";
+  for(int traj = 0; traj < size(); ++traj) {
+    //
+    iterator fit = begin();
 
-	if(fit->forw->stat != DynRes::INIT) {
-	  IO::log << std::setw(13) << fit->forw->time()
-		    << std::setw(13) << fit->forw->interfragment_distance() 
-		    << std::setw(13) << fit->forw->total_energy() / Phys_const::kcal;
-
-	  fit->forw->total_angular_momentum(tam);
-	  for(int i = 0; i < 3; ++i)
-	    IO::log << std::setw(13) << tam[i];
-	  IO::log << "\n";
-	}
-
-	if(fit->back->stat != DynRes::INIT) {
-	  IO::log << std::setw(13) << fit->back->time()
-		    << std::setw(13) << fit->back->interfragment_distance() 
-		    << std::setw(13) << fit->back->total_energy() / Phys_const::kcal;
-
-	  fit->back->total_angular_momentum(tam);
-	  for(int i = 0; i < 3; ++i)
-	    IO::log << std::setw(13) << tam[i];
-	  IO::log << "\n";
-	}
-	IO::log << "\n";
-      }
-      else {
-	IO::log << "   failed\n\n";
-      }
+    std::advance(fit, traj);
 
 #else
 
-      new_share =(int)((double)count / (double)new_traj_num * 100.);
-      print_progress(old_share, new_share);
+  for(iterator fit = begin(); fit != end(); ++fit) {
 
 #endif
 
-    }// sampling cycle
+    if(fit->is_run())
+      //
+      continue;
+    
+    fit->run_traj(ms, face, stop);
+    
+    ++count;
 
-  //IO::log << "\n";
+#ifndef OPENMP
+#ifdef  DEBUG
 
+    if(fit->is_run_fail() || fit->is_pot_fail()) {
+      //
+      IO::log << "   failed\n\n";
+
+      continue;
+    }
+
+    IO::log << count << "-th trajectory:\n";
+      
+    fit->print_traj_results();
+
+    IO::log << "\n";
+
+#else
+
+    new_share =(int)((double)count / (double)count_max * 100.);
+    print_progress(old_share, new_share);
+
+#endif
+#endif
+
+  }// run trajectory cycle
+  
   // checking
-  for(const_iterator fit = begin(); fit != end(); ++fit) { // sampling cycle
-    if(fit->is_run_fail() || fit->is_pot_fail() || fit->is_exclude() || !fit->is_run())
+  //
+  for(const_iterator fit = begin(); fit != end(); ++fit) {
+    //
+    if(fit->is_run_fail() || fit->is_pot_fail() || !fit->is_run())
+      //
       continue;
 
     if(fit->back->stat == DynRes::DIRECT && fit->back->species() != face.first) {
-      std::cerr << funame << "WARNING: backward direct trajectory finished in the wrong well\n";
+      //
+      std::cerr << "WARNING: backward direct trajectory finished in the wrong well\n";
     }
 	    
     if(fit->forw->stat == DynRes::DIRECT && fit->forw->species() != face.second) {
-      std::cerr << funame << "WARNING: forward direct trajectory finished in the wrong well\n";
+      //
+      std::cerr << "WARNING: forward direct trajectory finished in the wrong well\n";
     }    
-  }// sampling cycle
+  }
 }
 
-bool CrossRate::FacetArray::add_smp (Potential::Wrap pot, const DivSur::MultiSur& surface, int prim, const Dynamic::Coordinates& dc)
+void CrossRate::FacetArray::merge (const FacetArray& a)
+{
+  _flux_num += a._flux_num;
+  _fail_num += a._fail_num;
+  _fake_num += a._fake_num;
+
+  _flux += a._flux;
+  _fvar += a._fvar;
+
+  if(a._min_ener < _min_ener) {
+    //
+    _min_ener = a._min_ener;
+    _min_geom = a._min_geom;
+  }
+
+  if(a._max_weight > _max_weight) {
+    //
+    _max_weight = a._max_weight;
+
+    // remove all non-quallifying samplings from the importance samplings list
+    //
+    iterator it = begin();
+
+    while(it != end()) {
+      //
+      if(it->weight() < it->ranval() * _max_weight) {
+	//
+	it = erase(it);
+      }
+      else
+	//
+	++it;
+    }
+    
+    for(const_iterator cit = a.begin(); cit != a.end(); ++cit)
+      //
+      push_back(*cit);
+  }
+  else
+    //
+    for(const_iterator cit = a.begin(); cit != a.end(); ++cit)
+      //
+      if(cit->weight() > cit->ranval() * _max_weight)
+	//
+	push_back(*cit);
+} 
+ 
+void CrossRate::FacetArray::add_smp (const DynSmp& smp)
 {
   const char funame [] = "CrossRate::FacetArray::add_smp: ";
 
-  try {
-    DynSmp smp(pot, surface, prim, dc);
+  // update minimal energy
+  //
+  if(!flux_num() || smp.potential_energy() < _min_ener) {
+    //
+    _min_ener = smp.potential_energy();
+    _min_geom = smp;
+  }
 
-    // update minimal energy
-    if(!flux_num() || smp.potential_energy() < _min_ener) {
-      _min_ener = smp.potential_energy();
-      _min_geom = dc;
-    }
+  ++_flux_num;
 
-    ++_flux_num;
-
-    // zero weight sampling
-    if(smp.weight() <= 0.)
-      return true;
-
-    // update flux
-    _flux += smp.weight();
-    _fvar += smp.weight() * smp.weight();
-
-    // update importance samplings data
-    if(!size()) {
-      _max_weight = smp.weight();
-      push_back(smp);
-      return true;
-    }
-
-    if(smp.weight() > _max_weight) {
-      // use new sampling weight as a reference weight
-      _max_weight = smp.weight();
-
-      // remove all non-quallifying samplings from the
-      // importance samplings list
-      iterator it = begin();
-      while(it != end())
-	if(it->ranval() * _max_weight >= it->weight())
-	  it = erase(it);
-	else
-	  ++it;
+  // zero weight sampling
+  //
+  if(smp.weight() <= 0.)
+    //
+    return;
     
-      // add sampling to the importance samplings list
-      push_back(smp);
-    }
-    else if(smp.weight() > smp.ranval() * _max_weight)
-      push_back(smp);
+  // update flux
+  //
+  _flux += smp.weight();
+  _fvar += smp.weight() * smp.weight();
 
-    return true;
+  // update importance samplings data
+  //
+  if(!size()) {
+    //
+    _max_weight = smp.weight();
+    push_back(smp);
+
+    return;
   }
-  catch(Error::General) {
-    //std::cerr << funame << "potential energy calculation failed\n";
-    ++_fail_num;
-    return false;
+
+  if(smp.weight() > _max_weight) {
+    //
+    // use new sampling weight as a reference weight
+    //
+    _max_weight = smp.weight();
+
+    // remove all non-quallifying samplings from the importance samplings list
+    //
+    iterator it = begin();
+
+    while(it != end())
+      //
+      if(it->weight() < it->ranval() * _max_weight) {
+	//
+	it = erase(it);
+      }
+      else
+	//
+	++it;
+    
+    // add sampling to the importance samplings list
+    //
+    push_back(smp);
   }
+  else if(smp.weight() > smp.ranval() * _max_weight)
+    //
+    push_back(smp);
+
+  return;
 }
-  
-inline int CrossRate::FacetArray::samp_num () const 
+
+long CrossRate::FacetArray::samp_num () const 
 { 
-  if(rand_pot_err_flag)
+  if(rand_pot_err_flag) {
+    //
     return  _flux_num;
+  }
   else
+    //
     return  _flux_num + _fail_num;
 }
 
-double CrossRate::FacetArray::flux_val () const
+double CrossRate::FacetArray::flux_value () const
 {
-  if(_flux == 0.) 
+  if(!samp_num()) 
+    //
     return 0.;
   
   return _flux / double(samp_num());
@@ -825,14 +1217,18 @@ double CrossRate::FacetArray::flux_var () const
 {
   const char funame [] = "CrossRate::FacetArray::flux_var: ";
 
-  if(_flux == 0.)
+  if(!samp_num())
+    //
     return 0.;
 
-  double dtemp = flux_val();
+  double dtemp = flux_value();
+
   double res   = _fvar / double(samp_num()) - dtemp * dtemp;
 
   if(res < 0.) {
+    //
     std::cerr << funame << "WARNING: negative variance\n";
+
     return 0.;
   }
 
@@ -843,21 +1239,55 @@ double CrossRate::FacetArray::flux_rel_var () const
 {
   const char funame [] = "CrossRate::FacetArray::flux_rel_var: ";
 
-  if(_flux == 0.)
+  if(!samp_num() || _flux == 0.)
+    //
     return 0.;
   
-  double res = _fvar / _flux / _flux - 1. / (double)(samp_num());
+  double res = _fvar / _flux / _flux - 1. / double(samp_num());
 
   if(res <= 0.) {
+    //
     IO::log << funame << "WARNING: negative variance\n";
+
     return 0.;
   }
 
   return res;
 }
 
+/**************************************************************************************
+ *************************************** SurArray *************************************
+ **************************************************************************************/
+
+int CrossRate::SurArray::merge (const SurArray& a)
+{
+  int res = 0;
+
+  _fail    += a._fail;
+  _inner   += a._inner;
+  _exclude += a._exclude;
+  _close   += a._close;
+
+
+  for(const_iterator sit = a.begin(); sit != a.end(); ++sit) {
+    //
+    if(find(sit->first) == end()) {
+      //
+      (*this)[sit->first] = sit->second;
+
+      res = 1;
+    }
+    else
+      //
+      (*this)[sit->first].merge(sit->second);
+  }
+
+  return res;
+}
+
+
 /****************************************************************************************
- *************************************** MULTIARRAY *************************************
+ *************************************** MultiArray *************************************
  ****************************************************************************************/
 
 std::ostream& operator<< (std::ostream& to, const DivSur::face_t& face) 
@@ -887,110 +1317,213 @@ namespace IO {
   }
 }
 
-
-// Satisfy requirements for the minimal potential energy facet samplings number,  
-// for the minimal importance facet samplings  number,
-// for the uniform relative facet flux error,  
-// and for the uniform facet volume fraction relative error 
-
-void CrossRate::MultiArray::run_traj (Dynamic::CCP stop) 
+void CrossRate::MultiArray::run_traj ()
 {
-  // check that minimal potential enery is bigger than reactive energy
-  for(const_iterator mit = begin(); mit != end(); ++mit)
-    for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit)
+  for(iterator mit = begin(); mit != end(); ++mit) {
+    //
+    bool btemp = true;
+
+    for(SurArray::iterator sit = mit->begin(); sit != mit->end(); ++sit) {
+      //
+      // check that minimal potential enery is bigger than reactive energy
+      //
       if(sit->second.size() && sit->second.min_ener() < reactive_energy()) {
+	//
 	std::cerr << mit - begin() << "-th surface,  " << sit->first << " facet: " 
 		  << "minimal energy[kcal/mol], "<< sit->second.min_ener() /Phys_const::kcal
 		  << ", is smaller than the reactive energy: "
 		  << "decrease the reactive energy or change the transition state dividing surface\n";
+
 	throw Error::Run();
       }
 
-  for(iterator mit = begin(); mit != end(); ++mit) {// primitives cycle
-    IO::log << "   " << mit - begin() << "-th surface:\n";
-    for(SurArray::iterator sit = mit->begin(); sit != mit->end(); ++sit)
-      if(sit->second.init_traj_num()) {// facet cycle
-	IO::log <<  "      " << sit->first << " facet:\n";
-	sit->second.run_traj(_ms, sit->first, stop);
-      }// facet cycle
-  }// primitives cycle
-}
+      if(sit->second.init_traj_num()) {
+	//
+	if(btemp) {
+	  //
+	  IO::log << "   " << mit - begin() << "-th surface:\n";
 
+	  btemp = false;
+        }
+
+
+#ifdef OPENMP
+
+	IO::log <<  "      " << sit->first << " facet: ... ";
+
+#else
+
+	IO::log <<  "      " << sit->first << " facet:\n";
+
+#endif
+
+	sit->second.run_traj(_ms, sit->first, _stop);
+
+#ifdef OPENMP
+
+	IO::log << "done\n";
+#endif
+
+      }//
+      //
+    }//
+    //
+  }//
+}//
 
 int CrossRate::MultiArray::_sample (iterator mit, const std::set<DivSur::face_t >& face_work)
 {
   const char funame [] = "CrossRate::MultiArray::_sample: ";
 
-  static int  imp_warn = 1;
-  static int samp_warn = 1;
+  int    itemp;
+  double dtemp;
 
-  Dynamic::Coordinates new_conf;
-  SurArray::iterator sit;
+  std::set<int> ierr;
 
   const int sur = mit - begin();
 
-  _ms.random_orient(sur, new_conf);
-  DivSur::MultiSur::SmpRes smp_res = _ms.facet_test(sur, new_conf);
+  std::vector<SmpRes> smp_res(smp_set_size);
 
-  switch(smp_res.stat) {
-  case DivSur::MultiSur::SmpRes::CLOSE:
-    mit->add_close();
-    return 0;
-  case DivSur::MultiSur::SmpRes::EXCLUDE:
-    mit->add_excl();
-    return 0;
-  case DivSur::MultiSur::SmpRes::INNER:
-    mit->add_inner();
-    return 0;
-  case DivSur::MultiSur::SmpRes::FAIL:
-    mit->add_fail();
-    return 0;
-  case DivSur::MultiSur::SmpRes::FACET:
-    // skip non-reactant facets
-    if(reactant() >= 0 && smp_res.face.first != reactant() && smp_res.face.second != reactant()) {
-      mit->add_skip();
-      return 0;
+#pragma omp parallel for default(shared) schedule(static)
+  //
+  for(int i = 0; i < smp_set_size; ++i) {
+    //
+    Dynamic::Coordinates dc;
+
+    _ms.random_orient(sur, dc);
+  
+    (DivSur::SmpRes&)smp_res[i] = _ms.surface_test(sur, dc);
+
+    if(smp_res[i].stat != DivSur::FACET)
+      //
+      continue;
+
+    // facet is not of interest
+    //
+    if(reactant() >= 0 && smp_res[i].face.first != reactant() && smp_res[i].face.second != reactant()) {
+      //
+      smp_res[i].smp_stat = SmpRes::FAKE;
+
+      continue;
     }
-
-    sit = mit->find(smp_res.face);
-    // new facet
-    if(sit == mit->end() || !sit->second.face_num()) {
-      IO::log << "      " << sur << "-th surface: new " << smp_res.face << " facet\n";
-      (*mit)[smp_res.face].add_smp(_pot, _ms, sur, new_conf);
-      return 1;
-    }
-
-    // maximum facet sampling number warning
-    if(samp_warn && sit->second.samp_num() >= max_pot_size) {
-      std::cerr << funame << sur << "-th surface, " << sit->first << " facet: "
-		<< "WARNING: maximal facet samplings number has been reached\n";
-      samp_warn = 0;
-    } 
-
-    // maximum importance sampling number warning
-    if(imp_warn && sit->second.size() >= max_imp_size) {
-      std::cerr << funame << sur << "-th surface, " << sit->first << " facet: "
-		<< "WARNING: maximal importance samplings number has been reached\n";
-      imp_warn = 0;
-    } 
 
     // no potential calculation is needed
-    if(face_work.find(smp_res.face) == face_work.end())
-      sit->second.add_fake();
-    // add facet samping
-    else
-      sit->second.add_smp(_pot, _ms, sur, new_conf);
+    //
+    if(mit->find(smp_res[i].face) != mit->end() && face_work.find(smp_res[i].face) == face_work.end()) {
+      //
+      smp_res[i].smp_stat = SmpRes::FAKE;
 
-    return 0;
-  default:
-    std::cerr << funame << "wrong case\n";
-    throw Error::Logic();
+      continue;
+    }
+
+    try {
+      //
+      smp_res[i].init(_pot, _ms, sur, dc);
+
+      smp_res[i].smp_stat = SmpRes::SUCCESS;
+    }
+    catch(Potential::Exception) {
+      //
+      smp_res[i].smp_stat = SmpRes::FAIL;
+    }
+    catch(DynSmp::InitErr) {
+    //
+      smp_res[i].error = DynSmp::INIT_ERR;
+    }
+    catch(DynSmp::LowEnerErr) {
+      //
+      smp_res[i].error = DynSmp::LOW_ENER_ERR;
+    }
   }
+
+  itemp = 0;
+  dtemp = 0.;
+
+  for(int i = 0; i < smp_set_size; ++i) {
+    //
+    itemp |= smp_res[i].error;
+
+    if(smp_res[i].error == DynSmp::LOW_ENER_ERR && smp_res[i].potential_energy() < dtemp)
+      //
+      dtemp = smp_res[i].potential_energy();
+  }
+
+  if(itemp & DynSmp::INIT_ERR)
+    //
+    std::cerr << sur << "-th surface: some samplings have been already initialized\n";
+
+  if(itemp & DynSmp::LOW_ENER_ERR)
+    //
+    std::cerr << sur << "-th surface: sampling potential energy, " << dtemp / Phys_const::kcal 
+	//
+	      << " kcal/mol, is lower than the reactive energy, " << reactive_energy() / Phys_const::kcal << "\n";
+
+  if(itemp)
+    //
+    throw Error::Run();
+
+  int isnew = 0;
+  
+  for(std::vector<SmpRes>::const_iterator rit = smp_res.begin(); rit != smp_res.end(); ++rit) {
+    //
+    switch(rit->stat) {
+      //
+    case DivSur::INNER:
+      //
+      mit->add_inner();
+
+      continue;
+      //
+    case DivSur::CLOSE:
+      //
+      mit->add_close();
+
+      continue;
+      //
+    case DivSur::EXCLUDE:
+      //
+      mit->add_excl();
+
+      continue;
+      //
+    case DivSur::FAIL:
+      //
+      mit->add_fail();
+
+      continue;
+    }
+
+    // new facet
+    //
+    if(mit->find(rit->face) == mit->end()) {
+      //
+      IO::log << "      new " << rit->face << " facet\n";
+      
+      isnew = 1;
+    }
+
+    switch(rit->smp_stat) {
+      //
+    case SmpRes::FAKE:
+      //
+      (*mit)[rit->face].add_fake();
+
+      continue;
+      //
+    case SmpRes::FAIL:
+      //
+      (*mit)[rit->face].add_fail();
+
+      continue;
+    }
+
+    (*mit)[rit->face].add_smp(*rit);
+  }
+  
+  return isnew;
 }
 
-void CrossRate::MultiArray::_get_stat_flux(std::vector<double>& flux_mean, 
-					   std::vector<double>& flux_rmsd, 
-					   std::vector<double>& flux_variance) const
+void CrossRate::MultiArray::_get_stat_flux(std::vector<double>& flux_mean, std::vector<double>& flux_rmsd, std::vector<double>& flux_variance) const
 {
   flux_mean.clear();
   flux_mean.resize(_ms.species_size());
@@ -1000,22 +1533,29 @@ void CrossRate::MultiArray::_get_stat_flux(std::vector<double>& flux_mean,
   flux_variance.resize(_ms.species_size());
 
   double face_flux, face_rmsd, face_var;
+
   for(const_iterator mit = begin(); mit != end(); ++mit) {// surface cycle
+    //
     for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit) {// facet cycle
+      //
       if(reactant() >= 0 && reactant() != sit->first.first && reactant() != sit->first.second)
+	//
 	continue;
 
       if(sit->second.size()) {
+	//
 	face_flux = mit->face_flux(sit);
 	face_rmsd = mit->vol_frac(sit) * std::sqrt(sit->second.flux_var());
 	face_var  = face_flux * face_flux * (sit->second.flux_rel_var() + mit->vol_rel_var(sit));
 
 	if(reactant() >= 0) {
+	  //
 	  flux_mean[reactant()]      += face_flux;
 	  flux_rmsd[reactant()]      += face_rmsd;
 	  flux_variance[reactant()]  += face_var;
 	}
 	else {
+	  //
 	  flux_mean[sit->first.first]      += face_flux;
 	  flux_rmsd[sit->first.first]      += face_rmsd;
 	  flux_variance[sit->first.first]  += face_var;
@@ -1023,10 +1563,14 @@ void CrossRate::MultiArray::_get_stat_flux(std::vector<double>& flux_mean,
 	  flux_mean[sit->first.second]      += face_flux;
 	  flux_rmsd[sit->first.second]      += face_rmsd;
 	  flux_variance[sit->first.second]  += face_var;
-	}
-      } 
+	}//
+	//
+      }//
+      //
     }// facet cycle
+    //
   }// surface cycle
+  //
 }
 
 void CrossRate::MultiArray::_get_reac_flux (std::map<DivSur::face_t, double>& flux_mean, 
@@ -1041,80 +1585,143 @@ void CrossRate::MultiArray::_get_reac_flux (std::map<DivSur::face_t, double>& fl
 
   double dtemp;
 
-  for(const_iterator mit = begin(); mit != end(); ++mit) {// surface cycle
-    for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit)// facet cycle
-      if(sit->second.run_traj_num()) {
-	double face_flux = mit->face_flux(sit);
-	for (int ward = 0; ward < 2; ++ward) {// ward cycle
-	  int react;
-	  switch(ward) {
-	  case BACKWARD:
-	    react = sit->first.second;
-	    break;
-	  case FORWARD:
-	    react = sit->first.first;
-	    break;
-	  }
-	  if(reactant() >= 0 && react != reactant())
-	    continue;
+  // primitive surface cycle
+  //
+  for(const_iterator mit = begin(); mit != end(); ++mit) {
+    //
+    // facet cycle
+    //
+    for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit) {
+      //
+      if(!sit->second.run_traj_num())
+	//
+	continue;
 
-	  for(int spec = 0; spec < _ms.species_size(); ++spec) {//product cycle
-	    if(spec != react && sit->second.reac_traj_num(ward, spec)) {
-	      // dynamical correction factor
-	      double dyn_fac = (double)sit->second.reac_traj_num(ward, spec) / (double)sit->second.run_traj_num();
-	      double dyn_var = dyn_fac * (1. - dyn_fac);
+      double face_flux = mit->face_flux(sit);
 
-	      DivSur::face_t tran(react, spec);
+      // ward cycle
+      //
+      for (int ward = 0; ward < 2; ++ward) {
+	//
+	int react;
+	
+	switch(ward) {
+	  //
+	case BACKWARD:
+	  //
+	  react = sit->first.second;
 
-	      // reactive flux
-	      flux_mean[tran] += dyn_fac * face_flux;
+	  break;
+	  //
+	case FORWARD:
+	  //
+	  react = sit->first.first;
+	}
 
-	      // reactive flux standard deviation
-	      flux_rmsd[tran] += std::sqrt(dyn_var) * face_flux;
+	if(reactant() >= 0 && react != reactant())
+	  //
+	  continue;
 
-	      // reactive flux variance
-	      flux_variance[tran] += dyn_var * face_flux * face_flux / (double)sit->second.run_traj_num();
-	    }
-	  }// product cycle
-	}// ward cycle
-      }// facet cycle 
+	//product cycle
+	//
+	for(int prod = 0; prod < _ms.species_size(); ++prod) {
+	  //
+	  if(prod != react && sit->second.reac_traj_num(ward, prod)) {
+	    //
+	    // dynamical correction factor
+	    //
+	    double dyn_fac = (double)sit->second.reac_traj_num(ward, prod) / (double)sit->second.run_traj_num();
+
+	    double dyn_var = dyn_fac * (1. - dyn_fac);
+
+	    DivSur::face_t tran(react, prod);
+
+	    // reactive flux
+	    //
+	    flux_mean[tran] += dyn_fac * face_flux;
+
+	    // reactive flux standard deviation
+	    //
+	    flux_rmsd[tran] += std::sqrt(dyn_var) * face_flux;
+
+	    // reactive flux variance
+	    //
+	    flux_variance[tran] += dyn_var * face_flux * face_flux / (double)sit->second.run_traj_num();
+	  }//
+	  //
+	}// product cycle
+	//
+      }// ward cycle
+      //
+    }// facet cycle 
+    //
   }// surface cycle
 } 
 
 void CrossRate::MultiArray::_print_sampling_results () const
 {
-  IO::log << "Sampling results:\n";
-  for(const_iterator cmit = begin(); cmit != end(); ++cmit) {// surface cycle
-    if(!cmit->size())
-      continue;
-    IO::log << cmit - begin() << "-th surface:\n";
-    if(cmit->tot_smp_num())
-      IO::log << "     Number of all samplings:             " << cmit->tot_smp_num()  << "\n";
-    if(cmit->fail_num())
-      IO::log << "     Number of failed samplings:          " << cmit->fail_num()  << "\n";
-    if(cmit->inner_num())
-      IO::log << "     Number of inner region samplings:    " << cmit->inner_num() << "\n";
-    if(cmit->excl_num())
-      IO::log << "     Number of excluded region samplings: " << cmit->excl_num()  << "\n";
-    if(cmit->close_num())
-      IO::log << "     Number of close atoms samplings:     " << cmit->close_num() << "\n";
-    if(cmit->skip_num())
-      IO::log <<  "     Number of skipped facets samplings:  " << cmit->skip_num()  << "\n";
+  IO::log << "sampling results:\n";
 
+  int old_prec = IO::log.precision(3);
+
+  // surface cycle
+  //
+  for(const_iterator cmit = begin(); cmit != end(); ++cmit) {
+    //
+    if(!cmit->size())
+      //
+      continue;
+    
+    IO::log << cmit - begin() << "-th surface:\n";
+    
+    if(cmit->tot_smp_num())
+      //
+      IO::log << "     number of all samplings:             " << cmit->tot_smp_num()  << "\n";
+    
+    if(cmit->fail_num())
+      //
+      IO::log << "     number of failed samplings:          " << cmit->fail_num()  << "\n";
+    
+    if(cmit->inner_num())
+      //
+      IO::log << "     number of inner region samplings:    " << cmit->inner_num() << "\n";
+    
+    if(cmit->excl_num())
+      //
+      IO::log << "     number of excluded region samplings: " << cmit->excl_num()  << "\n";
+    
+    if(cmit->close_num())
+      //
+      IO::log << "     number of close atoms samplings:     " << cmit->close_num() << "\n";
+    
     for(SurArray::const_iterator cit = cmit->begin(); cit != cmit->end(); ++cit) {
+      //
       IO::log << "     " << cit->first << " facet:\n"
-	      << "          Statistical flux:               "
-	      << cmit->face_flux(cit) * norm_factor() <<  " (" 
-	      << std::sqrt(cit->second.flux_rel_var() + cmit->vol_rel_var(cit)) * 100 << "%)\n"
-	      << "          Number of importance samplings: " << cit->second.size() << "\n"
-	      << "          Number of flux samplings:  " << cit->second.flux_num() << "\n";
+	//
+	      << "          statistical flux:               " << cmit->face_flux(cit) * norm_factor()
+	//
+	      <<  " (" << std::sqrt(cit->second.flux_rel_var() + cmit->vol_rel_var(cit)) * 100 << " %)\n"
+	//
+	      << "          number of importance samplings: " << cit->second.size() << "\n"
+	//
+	      << "          number of flux samplings:       " << cit->second.flux_num()
+	//
+	      << "\n";
+      
       if(cit->second.fake_num())
-	IO::log	<< "          Number of fake samplings:       " << cit->second.fake_num() << "\n";
+	//
+	IO::log	<< "          number of fake samplings:       " << cit->second.fake_num() << "\n";
+      
       if(cit->second.fail_num())
-	IO::log << "          Number of failed samplings:     " << cit->second.fail_num() << "\n";
-      IO::log	<< "          Minimal energy configuration:\n"
-		<< "             Energy, kcal/mol:       " 
+	//
+	IO::log << "          number of failed samplings:     " << cit->second.fail_num() << "\n";
+      
+      IO::log   << "          minimal energy configuration:\n"
+	//
+		<< "             energy, kcal/mol:            "
+	//
 		<< cit->second.min_ener() / Phys_const::kcal << "\n";
+      
       cit->second.min_geom().print_geom(IO::log, "             ");
     }
     IO::log << std::endl;
@@ -1124,301 +1731,558 @@ void CrossRate::MultiArray::_print_sampling_results () const
   _get_stat_flux(flux_mean, flux_rmsd, flux_variance);
 
   // output
-  int old_precision = IO::log.precision(3);
-  IO::log << "Statistical flux:\n";
-  IO::log << std::setw(13) << "Reactant" 
-	    << std::setw(13) << "Flux"
-	    << std::setw(13) << "Error, %"
-	    << "\n";
-  for(int spec = 0; spec < _ms.species_size(); ++spec)
-    if(reactant() < 0 || spec == reactant()) {
-      IO::log << std::setw(13) << spec
-		<< std::setw(13) << flux_mean[spec] * norm_factor();
-      if(flux_mean[spec] == 0.)
-	IO::log << std::setw(13) << "***";
-      else
-	IO::log << std::setw(13) << 100. * std::sqrt(flux_variance[spec]) / flux_mean[spec];
-      IO::log << "\n";
+  //
+  IO::log << "outgoing statistical flux:\n";
+  
+  IO::log << std::setw(10) << "reactant" 
+	  << std::setw(10) << "flux"
+	  << std::setw(10) << "err, %"
+	  << "\n";
+  
+  for(int spec = 0; spec < _ms.species_size(); ++spec) {
+    //
+    if(reactant() >= 0 && spec != reactant())
+      //
+      continue;
+
+    // statistical flux
+    //
+    IO::log << std::setw(10) << spec
+      //
+	    << std::setw(10) << flux_mean[spec] * norm_factor();
+
+    // flux rms
+    //
+    if(flux_mean[spec] == 0.) {
+      //
+      IO::log << std::setw(10) << "***";
     }
+    else
+      //
+      IO::log << std::setw(10) << 100. * std::sqrt(flux_variance[spec]) / flux_mean[spec];
+    
+    IO::log << "\n";
+  }
   IO::log << "\n";
-  IO::log.precision(old_precision);
+  
+  IO::log.precision(old_prec);
 }
 
 void CrossRate::MultiArray::_print_traj_results () const
 {
+  double dtemp;
+  int    itemp;
+
   int reac, prod;
-  SharedPointer<DynRes> DynSmp::* region [2];
+
+  double rms_dev, max_dev;
+	
+  int count, smp_index;
 
   double face_flux, dyn_fac;
-  double dtemp;
 
+  std::ostringstream oss;
+	
   int old_precision = IO::log.precision(3);
 
-  IO::log << "Trajectory results:\n"; 
+  IO::log << "trajectory results:\n"; 
+  
   for(const_iterator mit = begin(); mit != end(); ++mit) {// surface cycle
-    if(mit->size())
-      IO::log << mit - begin() << "-th surface:\n";
-    for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit)// facet cycle
-      if(sit->second.size()) {
-	face_flux =  mit->face_flux(sit) * norm_factor();
-	IO::log << "   " << sit->first <<  " facet:\n";
-	//IO::log << "      " << "Volume fraction:  " << mit->vol_frac(sit) << "\n"; 
-	//IO::log << "      " << "Statistical flux: " << face_flux << "\n"; 
-	IO::log << "      " << "Number of trajectories run: " << sit->second.run_traj_num() << "\n";
-	if(sit->second.potfail_traj_num())
-	  IO::log << "      " << "Number of potential failed trajectories: " 
-		    << sit->second.potfail_traj_num() << "\n";
-	if(sit->second.runfail_traj_num())
-	  IO::log << "      " << "Number of integrator failed trajectories: " 
-		    << sit->second.runfail_traj_num() << "\n";
-	if(sit->second.exclude_traj_num())
-	  IO::log << "      " << "Number of exlcuded trajectories: " 
-		    << sit->second.exclude_traj_num() << "\n";
-	if(sit->second.init_traj_num())
-	  IO::log << "      " << "Number of non running trajectories: " 
-		    << sit->second.init_traj_num() << "\n";
+    //
+    if(!mit->size())
+      //
+      continue;
+    
+    IO::log << mit - begin() << "-th surface:\n";
 
-	if(sit->second.run_traj_num()) 
-	  for (int ward = 0; ward < 2; ++ward) {// ward cycle
-	    switch(ward) {
+    // facet cycle
+    //
+    for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit) {
+      //
+      // no importance samplings
+      //
+      if(!sit->second.size())
+	//
+	continue;
+
+      face_flux =  mit->face_flux(sit) * norm_factor();
+
+      IO::log << "   " << sit->first <<  " facet:   " << sit->second.run_traj_num() << "\n";
+
+      //IO::log << "      " << "number of trajectories run:               " << sit->second.run_traj_num() << "\n";
+
+      IO::log << "      " << "number of direct trajectories:            " << sit->second.direct_traj_num() << "\n";
+      
+      //IO::log << "      " << "number of exlcuded region hits:           " << sit->second.exclude_traj_num() << "\n";
+
+      if(sit->second.potfail_traj_num())
+	//
+	IO::log << "      " << "number of potential-failed trajectories:  " << sit->second.potfail_traj_num() << "\n";
+
+      if(sit->second.runfail_traj_num())
+	//
+	IO::log << "      " << "number of integrator-failed trajectories: " << sit->second.runfail_traj_num() << "\n";
+
+      if(sit->second.init_traj_num())
+	//
+	IO::log << "      " << "number of non-run trajectories:           " << sit->second.init_traj_num() << "\n";
+      
+      // trajectories with large energy or angular momentum deviations
+      //
+      std::set<std::pair<int, int> > big_dev_traj;
+      
+      //sampling cycle
+      //
+      count = 0;
+
+      if(ener_dev_max > 0. || amom_dev_max > 0.) {
+	//
+	for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit, ++count) {
+	  //
+	  if(fit->is_run_fail() || fit->is_pot_fail())
+	    //
+	    continue;
+
+	  for(int dir = 0; dir < 2; ++dir) {
+	    //
+	    if(fit->dyn_res(dir)->stat == DynRes::INIT)
+	      //
+	      continue;
+	    
+	    if(ener_dev_max > 0.) {
+	      //
+	      dtemp = fit->ener_deviation(dir);
+
+	      if(dtemp > ener_dev_max)
+		//
+		big_dev_traj.insert(std::make_pair(dir, count));
+	    }
+	    
+	    if(amom_dev_max > 0.) {
+	      //
+	      dtemp = fit->amom_deviation(dir);
+
+	      if(dtemp > amom_dev_max)
+		//
+		big_dev_traj.insert(std::make_pair(dir, count));
+	    }
+	  }
+	}
+      }
+      
+      if(big_dev_traj.size()) {
+	//
+	IO::log << "      " << "number of large deviation trajectories:   " <<  big_dev_traj.size() << "      // ";
+
+
+	if(ener_dev_max > 0.) {
+	  //
+	  IO::log << "energy deviation threshold = " << ener_dev_max / Phys_const::kcal << " kcal/mol";
+
+	  if(amom_dev_max > 0.)
+	    //
+	    IO::log << ", ";
+	}
+
+	if(amom_dev_max > 0.)
+	  //
+	  IO::log << "angular momentum deviation threshold = " << amom_dev_max << " au";
+
+	IO::log << "\n";
+      }
+
+      // print large deviation trajectories to the standard error
+      //
+      count = 0;
+
+      if(big_dev_traj.size()) {
+	//
+	std::cerr << mit - begin() << "-th surface: " << sit->first << "-th facet: re-running " << big_dev_traj.size() << " troubled trajectories:\n";
+	
+	
+	for(std::set<std::pair<int, int> >::const_iterator bit = big_dev_traj.begin(); bit != big_dev_traj.end(); ++bit, ++count) {
+	  //
+	  std::cerr << "running " << count << "-th trajectory: starts\n";
+	
+	  FacetArray::const_iterator fit = sit->second.begin();
+
+	  std::advance(fit, bit->second);
+
+	  int dir = bit->first;
+
+	  Trajectory::Propagator prop(_pot, *fit, dir, std::cerr);
+
+	  prop.run(_stop, _ms);
+
+	  std::cerr << "running " << count << "-th trajectory: done\n\n";
+	}
+      }
+      
+      // no trajectories
+      //
+      if(!sit->second.run_traj_num()) 
+	//
+	continue;
+
+      // direction cycle
+      //
+      for (int ward = 0; ward < 2; ++ward) {
+	//
+	switch(ward) {
+	  //
+	case BACKWARD:
+	  //
+	  reac = sit->first.second;
+
+	  break;
+	  //
+	case FORWARD:
+	  //
+	  reac = sit->first.first;
+	}
+
+	if(reactant() >= 0 && reac != reactant())
+	  //
+	  continue;
+
+	IO::log << "      " << reac << "-th reactant:\n";
+
+	// recrossed trajectories
+	//
+	IO::log << "         " << "recrossed trajectories fraction (#): "
+	  //
+		<< std::setw(16) << (double)sit->second.recross_traj_num(!ward) / (double)sit->second.run_traj_num()
+	  //
+		<< " (" << sit->second.recross_traj_num(!ward) <<")\n";
+
+	// backward direct trajectories & their excluded region hits part
+	//
+	//IO::log << "         " << "backward  trajectories / excluded region hits: "
+	//
+	//	<< std::setw(6) << sit->second.direct_traj_num(!ward, &itemp) << "/" << itemp << "\n";
+
+
+	// reactive trajectories
+	//
+	IO::log << "         "   << "reactive  trajectories / excluded region hits:\n";
+	IO::log << std::setw(15) << "R -> P" 
+		<< std::setw(15) << "reactive flux"
+		<< std::setw(15) << "fraction"
+		<< std::setw(15) << "number"
+		<< std::setw(15) << "error, %"
+		<< "\n";
+
+	for(prod = 0; prod < _ms.species_size(); ++prod) {
+	  //
+	  oss.str("");
+	  oss << reac << " -> " << prod;
+	  
+	  dyn_fac = (double)sit->second.reac_traj_num(ward, prod) / (double)sit->second.run_traj_num();
+	  
+	  IO::log << std::setw(15)  << oss.str()
+		  << std::setw(15) << dyn_fac * face_flux
+		  << std::setw(15) << dyn_fac;
+
+	  // reactive trajectories number & its excluded region hits number part
+	  //
+	  oss.str("");
+	  
+	  int back, forw;
+
+	  oss << sit->second.reac_traj_num(ward, prod, &back, &forw) << "(" << back << "," << forw << ")";
+
+	  IO::log << std::setw(15)  << oss.str();
+	  
+	  if(sit->second.reac_traj_num(ward, prod)) {
+	    //
+	    dtemp = 1./(double)sit->second.reac_traj_num(ward, prod) - 1./(double)sit->second.run_traj_num();
+	    
+	    dtemp = dtemp > 0. ? std::sqrt(dtemp) * 100. : 0.;
+	    
+	    IO::log << std::setw(15) << dtemp;
+	  }
+	  else
+	    //
+	    IO::log << std::setw(15) << "***";
+	  
+	  IO::log << "\n";
+	  //
+	}//
+	
+	IO::log << "\n";
+
+	// energy conservation error output
+	//
+	IO::log << "         "   << "energy conservation error [kcal/mol]:\n"
+		<< std::setw(15) << "R -> P" 
+		<< std::setw(15) << "direction"
+		<< std::setw(15) << "average"
+		<< std::setw(15) << "max"
+		<< std::setw(15) << "max traj. #"
+		<< "\n";
+
+	// product cycle
+	//
+	for(prod = 0; prod < _ms.species_size(); ++prod) {
+	  //
+	  for(int dir = 0; dir < 2; ++dir) {
+	    //
+	    rms_dev = max_dev = 0.;
+
+	    count = smp_index = 0;
+
+	    int max_dev_smp = -1;
+	    
+	    //sampling cycle
+	    //
+	    for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit, ++smp_index) {
+	      //
+	      if(!fit->is_run_fail() && !fit->is_pot_fail() &&
+		 //
+		 fit->dyn_res(!ward)->stat == DynRes::DIRECT &&
+		 //
+		 fit->dyn_res(ward)->species() == prod) {
+		//
+		++count;
+
+		dtemp = fit->ener_deviation(1 - (ward + dir) % 2);
+
+		rms_dev += dtemp * dtemp;
+
+		if(dtemp > max_dev) {
+		  //
+		  max_dev = dtemp;
+
+		  max_dev_smp = smp_index;
+		}
+		//
+	      }//
+	      //
+	    }// sampling cycle
+
+	    if(count) {
+	      //
+	      rms_dev /= (double)count;
+
+	      rms_dev = std::sqrt(rms_dev);
+	    }
+	      
+	    // output
+	    //
+	    oss.str("");
+	  
+	    oss << reac << " -> " << prod;
+
+	    IO::log << std::setw(15) << oss.str();
+
+	    switch(dir) {
+	      //
 	    case BACKWARD:
-	      region[0] = &DynSmp::forw;
-	      region[1] = &DynSmp::back;
-	      reac = sit->first.second;
+	      //
+	      IO::log << std::setw(15) << "backward";
+
 	      break;
+	      //
 	    case FORWARD:
-	      region[0] = &DynSmp::back;
-	      region[1] = &DynSmp::forw;
-	      reac = sit->first.first;
-	      break;
+	      //
+	      IO::log << std::setw(15) << "forward";
 	    }
 
-	    if(reactant() >= 0 && reac != reactant())
-	      continue;
+	    IO::log << std::setw(15) << rms_dev / Phys_const::kcal
+	      //
+		    << std::setw(15) << max_dev / Phys_const::kcal
+	      //
+		    << std::setw(15) << max_dev_smp << "\n";
+	    //
+	  }// direction cycle
+	  //
+	}// product cycle
 
-	    IO::log << "      " << reac << "-th reactant:\n";
-	    IO::log << "         " << "Fraction (#) of recrossed trajectories: " 
-		      << (double)sit->second.recross_traj_num(ward) / (double)sit->second.run_traj_num() 
-		      << " (" << sit->second.recross_traj_num(ward) <<")\n";
-	    IO::log << "         " << "Fraction (#) of returned  trajectories: " 
-		      << (double)sit->second.reac_traj_num(ward, reac)  / (double)sit->second.run_traj_num()
-		      << " (" << sit->second.reac_traj_num(ward, reac) <<")\n";
+	IO::log << "\n";
+	
+	// angular momentum conservation error output
+	//
+	IO::log << "         "   << "angular momentum conservation error [a.u.]:\n"
+		<< std::setw(15) << "R -> P" 
+		<< std::setw(15) << "direction"
+		<< std::setw(15) << "average"
+		<< std::setw(15) << "max"
+		<< std::setw(15) << "max traj. #"
+		<< "\n";
+	
+	// product cycle
+	//
+	for(prod = 0; prod < _ms.species_size(); ++prod) {
+	  //
+	  for(int dir = 0; dir < 2; ++dir) {
+	    //
+	    rms_dev = max_dev = 0.;
 
-	    IO::log << "         "   << "Reactive trajectories:\n";
-	    IO::log << std::setw(20) << "R -> P" 
-		    << std::setw(15) << "Reactive Flux"
-		    << std::setw(15) << "Fraction"
-		    << std::setw(15) << "Number"
-		    << std::setw(15) << "Error, %"
-		    << "\n";
+	    count = smp_index = 0;
 
-	    for(prod = 0; prod < _ms.species_size(); ++prod) {// product cycle
-	      if(prod == reac)
-		continue;
-	      
-	      std::ostringstream oss;
-	      oss << reac << " -> " << prod;
-	      dyn_fac = (double)sit->second.reac_traj_num(ward, prod) / (double)sit->second.run_traj_num();
-	      IO::log << std::setw(20)  << oss.str()
-			<< std::setw(15) << dyn_fac * face_flux
-			<< std::setw(15) << dyn_fac
-			<< std::setw(15)  << sit->second.reac_traj_num(ward, prod);
-	      if(sit->second.reac_traj_num(ward, prod)) {
-		dtemp = 1./(double)sit->second.reac_traj_num(ward, prod) - 1./(double)sit->second.run_traj_num();
-		dtemp = dtemp > 0. ? std::sqrt(dtemp) * 100. : 0.;
-		IO::log << std::setw(15) << dtemp;
-	      }
-	      else
-		IO::log << std::setw(15) << "***";
-	      IO::log << "\n";
-	    }//product cycle
-	    IO::log << "\n";
-
-	    // energy and angular momentum conservation error output
-	    double ee[2][2];
-	    int ee_count;
-
-	    IO::log << "         "   << "Energy conservation error (kcal/mol):\n"
-		    << std::setw(20) << "R -> P" 
-		    << std::setw(15) << "Direction"
-		    << std::setw(15) << "Average"
-		    << std::setw(15) << "Max"
-		    << std::setw(15) << "Traj. #"
-		    << "\n";
-
-	    for(prod = 0; prod < _ms.species_size(); ++prod) {// product cycle
-	      if(prod == reac)
-		continue;
-
-	      ee_count = 0;
-	      for(int i = 0; i < 2; ++i)
-		for(int ireg = 0; ireg < 2; ++ireg)
-		  ee[ireg][i] = 0.;
-
-	      for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit) {//sampling cycle
-		if(!fit->is_run() || fit->is_run_fail() || fit->is_pot_fail() || fit->is_exclude())
-		  continue;
-
-		const DynSmp* s = fit.operator->();
-		if((s->*region[0])->stat == DynRes::DIRECT && (s->*region[1])->species() == prod) {
-		  ee_count++;
-		  for(int ireg = 0; ireg < 2; ++ireg) { 
-		    dtemp = (s->*region[ireg])->total_energy() - fit->total_energy();
-		    dtemp = dtemp > 0. ? dtemp : -dtemp;
-		    ee[ireg][0] += dtemp;
-		    ee[ireg][1] = dtemp > ee[ireg][1] ? dtemp : ee[ireg][1];
-		  }
-		}
-	      }// sampling cycle
-	      
-	      // normalization
-	      if(ee_count)
-		for(int ireg = 0; ireg < 2; ++ireg)
-		  ee[ireg][0] /= (double)ee_count;
-		
-	      
-	      // output
-	      std::ostringstream sso;
-	      sso << reac << " -> " << prod;
-
-	      for(int ireg = 0; ireg < 2; ++ireg) {
-		IO::log << std::setw(20) << sso.str();
-		if(!ireg)
-		  IO::log << std::setw(15) << "backward";
-		else
-		  IO::log << std::setw(15) << "forward";
-		for(int i = 0; i < 2; ++i)
-		  IO::log << std::setw(15) << ee[ireg][i] / Phys_const::kcal;
-		IO::log << std::setw(15) << ee_count << "\n";
-	      }
-	    }// product cycle
-	    IO::log << "\n";
+	    int max_dev_smp = -1;
 	    
-	    IO::log << "         "   << "Angular momentum conservation error (a.u.):\n"
-		    << std::setw(20) << "R -> P" 
-		    << std::setw(15) << "Direction"
-		    << std::setw(15) << "Average"
-		    << std::setw(15) << "Max"
-		    << std::setw(15) << "Traj. #"
-		    << "\n";
+	    //sampling cycle
+	    //
+	    for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit, ++smp_index) {
+	      //
+	      if(!fit->is_run_fail() && !fit->is_pot_fail() &&
+		 //
+		 fit->dyn_res(!ward)->stat == DynRes::DIRECT &&
+		 //
+		 fit->dyn_res(ward)->species() == prod) {
+		//
+		++count;
 
-	    for(prod = 0; prod < _ms.species_size(); ++prod) {// product cycle
-	      if(prod == reac)
-		continue;
+		dtemp = fit->amom_deviation(1 - (ward + dir) % 2);
 
-	      ee_count = 0;
-	      for(int i = 0; i < 2; ++i)
-		for(int ireg = 0; ireg < 2; ++ireg)
-		  ee[ireg][i] = 0.;
+		rms_dev += dtemp * dtemp;
 
-	      for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit) {//sampling cycle
-		if(!fit->is_run() || fit->is_run_fail() || fit->is_pot_fail() || fit->is_exclude())
-		  continue;
+		if(dtemp > max_dev) {
+		  //
+		  max_dev = dtemp;
 
-		const DynSmp* s = fit.operator->();
-		if((s->*region[0])->stat == DynRes::DIRECT && (s->*region[1])->species() == prod) {
-		  ee_count++;
-		  for(int ireg = 0; ireg < 2; ++ireg) { 
-		    dtemp = ((s->*region[ireg])->total_angular_momentum() - fit->total_angular_momentum()).vlength();
-		    ee[ireg][0] += dtemp;
-		    ee[ireg][1] = dtemp > ee[ireg][1] ? dtemp : ee[ireg][1];
-		  }
-		}
-	      }// sampling cycle
-	      
-	      // normalization
-	      if(ee_count)
-		for(int ireg = 0; ireg < 2; ++ireg)
-		  ee[ireg][0] /= (double)ee_count;
-	      
-	      // output
-	      std::ostringstream sso;
-	      sso << reac << " -> " << prod;
+		  max_dev_smp = smp_index;
+		}//
+		//
+	      }//
+	      //
+	    }// sampling cycle
 
-	      for(int ireg = 0; ireg < 2; ++ireg) {
-		IO::log << std::setw(20) << sso.str();
-		if(!ireg)
-		  IO::log << std::setw(15) << "backward";
-		else
-		  IO::log << std::setw(15) << "forward";
-		for(int i = 0; i < 2; ++i)
-		  IO::log << std::setw(15) << ee[ireg][i];
-		IO::log << std::setw(15) << ee_count << "\n";
-	      }
-	    }// product cycle
-	    IO::log << "\n";
+	    // normalization
+	    //
+	    if(count) {
+	      //
+	      rms_dev /= (double)count;
 
-	  }// ward cycle
-      }// facet cycle 
+	      rms_dev = std::sqrt(rms_dev);
+	    }
+	    
+	    // output
+	    //
+	    oss.str("");
+	  
+	    oss << reac << " -> " << prod;
+
+	    IO::log << std::setw(15) << oss.str();
+
+	    switch(dir) {
+	      //
+	    case BACKWARD:
+	      //
+	      IO::log << std::setw(15) << "backward";
+
+	      break;
+	      //
+	    case FORWARD:
+	      //
+	      IO::log << std::setw(15) << "forward";
+	    }
+	    
+	    IO::log << std::setw(15) << rms_dev
+	      //
+		    << std::setw(15) << max_dev
+	      //
+		    << std::setw(15) << max_dev_smp << "\n";
+	    
+	  }// direction cycle
+	  //
+	}// product cycle
+
+	IO::log << "\n";
+	//
+      }// ward cycle
+      //
+    }// facet cycle
+    //
   }// surface cycle
-  IO::log << "\n";
-
-
+  
   // crossrate output
+  //
   std::map<DivSur::face_t, double> flux_mean, flux_rmsd, flux_variance;
+  
   _get_reac_flux(flux_mean, flux_rmsd, flux_variance);
   
-  IO::log << "Reactive transition fluxes:\n"
-	  << std::setw(13) << "Transition"
-	  << std::setw(11) << "Flux"
-	  << std::setw(9) << "Err, %"
+  IO::log << "transition reactive flux:\n"
+    //
+	  << std::setw(10) << "transition"
+	  << std::setw(10) << "flux"
+	  << std::setw(10)  << "err, %"
 	  << "\n";
+  
   for(std::map<DivSur::face_t, double>::const_iterator it = flux_mean.begin(); it != flux_mean.end(); ++it) {
+    //
     if(reactant() >= 0 && it->first.first != reactant())
+      //
       continue; 
 
-    IO::log << std::setw(13) << it->first 
-	    << std::setw(11) << it->second * norm_factor();
+    IO::log << std::setw(10) << it->first
+      //
+	    << std::setw(10) << it->second * norm_factor();
 
-    if(it->second == 0.)
-      IO::log<< std::setw(9) << "***";
+    if(it->second == 0.) {
+      //
+      IO::log<< std::setw(10) << "***";
+    }
     else
-      IO::log<< std::setw(9) << 100. * std::sqrt(flux_variance.find(it->first)->second) / it->second;
+      //
+      IO::log<< std::setw(10) << 100. * std::sqrt(flux_variance[it->first]) / it->second;
 
     IO::log << "\n";
   }
   IO::log << "\n";
 
-  std::vector<double> reac_flux(_ms.species_size());
-  std::vector<double> reac_var(_ms.species_size());
+  std::vector<double> reac_flux(_ms.species_size(), 0.);
+  std::vector<double> reac_var(_ms.species_size(), 0.);
+  
   for(std::map<DivSur::face_t, double>::const_iterator it = flux_mean.begin(); it != flux_mean.end(); ++it) {
+    //
     if(reactant() >= 0 && it->first.first != reactant())
-      continue; 
+      //
+      continue;
+    
     reac_flux[it->first.first] += it->second;
-    reac_var[it->first.first]  += flux_variance.find(it->first)->second;
+    reac_var[it->first.first]  += flux_variance[it->first];
   }
 
-  IO::log << "Cumulative reactive fluxes:\n"
-	  << std::setw(3)  << "R"
-	  << std::setw(11) << "Flux"
-	  << std::setw(9)  << "Err, %"
+  IO::log << "outgoing reactive flux:\n"
+    //
+	  << std::setw(10) << "reactant"
+	  << std::setw(10) << "flux"
+	  << std::setw(10) << "err, %"
 	  << "\n";
+  
   for(int r =  0; r < _ms.species_size(); ++r) {
+    //
     if(reactant() >= 0 && r != reactant())
+      //
       continue; 
 
     dtemp = reac_flux[r];
-    IO::log << std::setw(3)  << r 
-	    << std::setw(11) << dtemp * norm_factor();
+    
+    IO::log << std::setw(10) << r
+      //
+	    << std::setw(10) << dtemp * norm_factor();
 
-    if( dtemp == 0.)
-      IO::log << std::setw(9) << "***";
+    if( dtemp == 0.) {
+      //
+      IO::log << std::setw(10) << "***";
+    }
     else
-      IO::log << std::setw(9) << 100. * std::sqrt(reac_var[r]) / dtemp;
+      //
+      IO::log << std::setw(10) << 100. * std::sqrt(reac_var[r]) / dtemp;
 
     IO::log << "\n";
   }
   IO::log << "\n";
 
   IO::log.precision(old_precision);
-  
 }
 
 void CrossRate::MultiArray::_analize () const
 {
   double dtemp;
-  DynRes::Stat stat;
-  int reac, prod; 
+  int stat, reac, prod; 
   SharedPointer<DynRes> DynSmp::* reac_p;
   SharedPointer<DynRes> DynSmp::* prod_p;
 
@@ -1479,9 +2343,11 @@ void CrossRate::MultiArray::_analize () const
 	      for(prod = 0; prod < _ms.species_size(); ++prod) {// product cycle
 		if(prod == reac)
 		  continue;
-		  
-		for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit) {//sampling cycle
-		  if(fit->is_run_fail() || fit->is_pot_fail() || fit->is_exclude())
+
+		//sampling cycle
+		//
+		for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit) {
+		  if(fit->is_run_fail() || fit->is_pot_fail())
 		    continue;
 		  const DynSmp* s = fit.operator->();
 		  switch(ward) {
@@ -1507,9 +2373,9 @@ void CrossRate::MultiArray::_analize () const
 		    std::ostringstream sso;
 		    sso << (s->*reac_p)->species() << " -> " << (s->*prod_p)->species();
 		    amproj_stream << std::setw(10) << sso.str()
-				  << std::setw(10) << (s->*reac_p)->interfragment_distance()
-				  << std::setw(10) << fit->interfragment_distance()
-				  << std::setw(10) << (s->*prod_p)->interfragment_distance()
+				  << std::setw(10) << (s->*reac_p)->orb_len()
+				  << std::setw(10) << fit->orb_len()
+				  << std::setw(10) << (s->*prod_p)->orb_len()
 				  << std::setw(10) << fit->total_angular_momentum().vlength()
 				  << std::setw(14) << fit->total_energy() / Phys_const::kcal
 				  << "\n\n";
@@ -1554,40 +2420,66 @@ void CrossRate::MultiArray::_analize () const
 	  }// angular momentum projection output
 
 	  if(raden_flag) {// radial energy output
-	    for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit) { // sampling cycle
-	      if(fit->is_run_fail() || fit->is_pot_fail() || fit->is_exclude())
+	    //
+	    // sampling cycle
+	    //
+	    for(FacetArray::const_iterator fit = sit->second.begin(); fit != sit->second.end(); ++fit) {
+	      //
+	      if(fit->is_run_fail() || fit->is_pot_fail())
+		//
 		continue;
 
-	      if(fit->back->stat == DynRes::DIRECT || fit->forw->stat == DynRes::DIRECT)
+	      if(fit->back->stat == DynRes::DIRECT || fit->forw->stat == DynRes::DIRECT) {
+		//
 		for(int ward = 0; ward < 2; ++ward) {
+		  //
 		  switch(ward) {
+		    //
 		  case BACKWARD:
+		    //
 		    stat  = fit->forw->stat;
 		    prod  = fit->back->species();
+		    
 		    break;
+		    //
 		  case FORWARD:
+		    //
 		    stat  = fit->back->stat;
 		    prod  = fit->forw->species();
-		    break;
 		  }
+		  
 		  if(stat == DynRes::DIRECT) {
+		    //
 		    raden[ward][prod].insert(fit->radial_kinetic_energy());
 		  }
 		}
+	      }
 	    }// sampling cycle
 
-	    for (int ward = 0; ward < 2; ++ward) {// ward cycle
+	    // ward cycle
+	    //
+	    for (int ward = 0; ward < 2; ++ward) {
+	      //
 	      switch(ward) {
+		//
 	      case BACKWARD:
+		//
 		reac = sit->first.second;
+		
 		break;
+		//
 	      case FORWARD:
+		//
 		reac = sit->first.first;
-		break;
 	      }
+	      
 	      if(reactant() >= 0 && reac != reactant())
+		//
 		continue;
-	      for(prod = 0; prod < _ms.species_size(); ++prod)// product cycle
+
+	      // product cycle
+	      //
+	      for(prod = 0; prod < _ms.species_size(); ++prod)
 		if(reac != prod) {
 		  raden_stream << mit - begin() << "-th surface, "
 			       << sit->first << " facet, "
@@ -1630,49 +2522,65 @@ void CrossRate::print_progress (int& old_share, int new_share)
   }
 }
 
-bool CrossRate::MultiArray::_work (Dynamic::CCP stop) 
+bool CrossRate::MultiArray::_work () 
 {
   const char funame [] = "CrossRate::MultiArray::_work: ";
 
   double dtemp;
-  int itemp;
-  bool btemp;
+  long   itemp;
+  bool   btemp;
 
-  int count, count_max;
+  long count, count_max;
   int old_share, new_share;
 
   SurArray::iterator sit;
 
-  std::map<DivSur::face_t, int> proj_samp_num; // projected number of samplings per facet
-  std::map<DivSur::face_t, int>::iterator nit;
+  std::map<DivSur::face_t, long> proj_samp_num; // projected number of samplings per facet
+  std::map<DivSur::face_t, long>::iterator nit;
 
   /**********************************************************************
    ********** SATISFY  MINIMAL NON-ZERO FLUX SAMPLINGS NUMBER ***********
    *********************************************************************/
 
-  IO::log << "Sampling to satisfy minimal flux samplings number (flux samplings counted) ...\n";
+  IO::log << "sampling to satisfy minimal flux samplings number (flux samplings counted) ..." << std::endl;
+  
   for(iterator mit = begin(); mit != end(); ++mit) {// surface cycle
-
+    //
     count_max = 0;
+
     for(sit = mit->begin(); sit != mit->end(); ++sit) {
+      //
       itemp = min_pot_size - sit->second.samp_num();
+
       if(itemp > 0)
+        //
 	count_max += itemp;
     }
 
     if(!count_max)
+      //
       continue;
 
     IO::log << "   " << mit - begin() << "-th surface:\n";
+
     old_share = 0;
-    while(1) {// sampling loop
+
+    // sampling loop
+    //
+    while(1) {
+      //
       std::set<DivSur::face_t > face_work;
 
       count = 0;
+
       for(sit = mit->begin(); sit != mit->end(); ++sit) {
+	//
 	itemp = min_pot_size - sit->second.samp_num();
+
 	if(itemp > 0) { 
+	  //
 	  face_work.insert(sit->first);
+
 	  count += itemp;
 	}
       }
@@ -1681,37 +2589,50 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
       print_progress(old_share, new_share);
 
       // exit condition
+      //
       if(!face_work.size())
+	//
 	break;
 
       if(_sample(mit, face_work))
+	//
 	return false;
+      //
     }// sampling loop
+    //
   }// surface cycle
+
   IO::log << "done\n\n";
 
   /**********************************************************************
    ********** SATISFY FACET STATISTICAL FLUX RELATIVE TOLERANCE *********
    *********************************************************************/
 
-  IO::log << "Sampling to satisfy facet statistical flux relative tolerance (flux samplings counted) ...\n";
+  IO::log << "sampling to satisfy facet statistical flux relative tolerance (flux samplings counted) ..." << std::endl;
+
   for(iterator mit = begin(); mit != end(); ++mit) {// primitive cycle
+    //
     proj_samp_num.clear();
 
     for(sit = mit->begin(); sit != mit->end(); ++sit) {
-      dtemp = face_rel_tol * sit->second.flux_val();
+      //
+      dtemp = face_rel_tol * sit->second.flux_value();
+
       if(dtemp != 0.)
-	proj_samp_num[sit->first] = int(sit->second.flux_var() / dtemp / dtemp);
+	//
+	proj_samp_num[sit->first] = std::floor(sit->second.flux_var() / dtemp / dtemp + 0.5);
     }
 
     if(proj_samp_num.size()) {
+      //
       IO::log << "   " << mit - begin() << "-th surface:\n"
-	      << std::setw(15) << "Facet" 
-	      << std::setw(15) << "Projected" 
-	      << std::setw(15) << "Current"  
+	      << std::setw(15) << "facet" 
+	      << std::setw(15) << "projected" 
+	      << std::setw(15) << "current"  
 	      << "\n";
 
       for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit)
+	//
 	IO::log << std::setw(15) << nit->first 
 		<< std::setw(15) << nit->second 
 		<< std::setw(15) << mit->find(nit->first)->second.samp_num() 
@@ -1719,92 +2640,151 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
     }
 
     count_max = 0;
+
     for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit) {
+      //
       sit = mit->find(nit->first);
+
       itemp =  nit->second - sit->second.samp_num();
+
       if(itemp > 0) {
+	//
 	count_max += itemp; 
       }
     }
     
     if(!count_max)
+      //
       continue;
 
     old_share = 0;
-    while(1) {// sampling loop
+
+    // sampling loop
+    //
+    while(1) {
+      //
       std::set<DivSur::face_t > face_work;
 
       count = 0;
+
       for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit) {
+	//
 	sit = mit->find(nit->first);
+
 	itemp =  nit->second - sit->second.samp_num();
+
 	if(itemp > 0) {
+	  //
 	  count += itemp; 
-	  if(sit->second.samp_num() < max_pot_size)
-	    face_work.insert(nit->first);
+
+	  face_work.insert(nit->first);
 	}
       }
 
       new_share = int((double)(count_max - count) / (double)count_max * 100.);
+
       print_progress(old_share, new_share);
 
       // exit condition
+      //
       if(!face_work.size())
+	//
 	break;
 
       if(_sample(mit, face_work))
+	//
 	return false;
+      //
     }// sampling loop
+    //
   }// primitive cycle
+
   IO::log << "done\n\n";
 
   /**********************************************************************
    ******** SATISFY SPECIES STATISTICAL FLUX RELATIVE TOLERANCE *********
    *********************************************************************/
 
+  IO::log << "sampling to satisfy outgoing statistical flux relative tolerance (flux samplings counted) ..." << std::endl;
+
   std::vector<double> stat_flux_mean, stat_flux_rmsd, stat_flux_variance;
+
   _get_stat_flux(stat_flux_mean, stat_flux_rmsd, stat_flux_variance);
 
-  IO::log << "Sampling to satisfy species statistical flux relative tolerance (flux samplings counted) ... \n";
+#ifdef DEBUG
+  /*
+  IO::log << std::setw(7) << "Species"  << std::setw(15) << "stat_flux_mean" 
+	//
+ 	  << std::setw(15) << "stat_flux_rmsd" << std::setw(15) << "stat_flux_var" << std::endl;
 
-  for(iterator mit = begin(); mit != end(); ++mit) {// surface cycle
+  for(int s = 0; s < _ms.species_size(); ++s)
+    //
+    IO::log << std::setw(7) << s << std::setw(15) << stat_flux_mean[s] << std::setw(15) << stat_flux_rmsd[s] 
+	//
+	    << std::setw(15) << stat_flux_variance[s] << "\n";
+*/
+#endif
+
+  // surface cycle
+  //
+  for(iterator mit = begin(); mit != end(); ++mit) {
+    //
     proj_samp_num.clear();
+
     for(sit = mit->begin(); sit != mit->end(); ++sit) {
+      //
       int react;
+
       for(int ward = 0; ward < 2; ++ward) {// ward cycle
+	//
 	switch(ward) {
+	  //
 	case BACKWARD:
+	  //
 	  react = sit->first.second;
+
 	  break;
+	  //
 	case FORWARD:
+	  //
 	  react = sit->first.first;
-	  break;
 	}
 
 	if(reactant() >= 0 && reactant() != react) 
+	  //
 	  continue;
 
 	// projected number of samplings
+	//
 	dtemp = spec_rel_tol * stat_flux_mean[react];
+
 	if(dtemp != 0.) {
+	  //
 	  double face_rmsd = mit->vol_frac(sit) * std::sqrt(sit->second.flux_var());
-	  itemp = (int)(face_rmsd * stat_flux_rmsd[react] / dtemp / dtemp);
+
+	  itemp = std::floor(face_rmsd * stat_flux_rmsd[react] / dtemp / dtemp + 0.5);
 
 	  nit = proj_samp_num.find(sit->first);
+
 	  if(nit == proj_samp_num.end() || itemp > nit->second)
+	    //
 	    proj_samp_num[sit->first] = itemp;
 	}
+	//
       }// ward cycle
+      //
     }// facet cycle
     
     if(proj_samp_num.size()) {
+      //
       IO::log << "   " << mit - begin() << "-th surface:\n"
-	      << std::setw(15) << "Facet" 
-	      << std::setw(15) << "Projected" 
-	      << std::setw(15) << "Current"  
+	      << std::setw(15) << "facet" 
+	      << std::setw(15) << "projected" 
+	      << std::setw(15) << "current"  
 	      << "\n";
 
       for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit)
+	//
 	IO::log << std::setw(15) << nit->first
 		<< std::setw(15) << nit->second 
 		<< std::setw(15) << mit->find(nit->first)->second.samp_num() 
@@ -1812,28 +2792,44 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
     }
 
     count_max = 0;
+
     for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit) {
+      //
       sit = mit->find(nit->first);
+
       itemp =  nit->second - sit->second.samp_num();
+
       if(itemp > 0) {
+	//
 	count_max += itemp; 
       }
     }
 
     if(!count_max)
+      //
       continue;
 
     old_share = 0;
-    while(1) {// sampling loop
+
+    // sampling loop
+    //
+    while(1) {
+      //
       std::set<DivSur::face_t > face_work;
+
       count = 0;
+      //
       for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit) {
+	//
 	sit = mit->find(nit->first);
+
 	itemp =  nit->second - sit->second.samp_num();
+
 	if(itemp > 0) {
+	  //
 	  count += itemp; 
-	  if(sit->second.samp_num() < max_pot_size)
-	    face_work.insert(nit->first);
+
+	  face_work.insert(nit->first);
 	}
       }
       
@@ -1841,15 +2837,24 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
       print_progress(old_share, new_share);
 
       if(!face_work.size())
+	//
 	break;
 
       if(_sample(mit, face_work))
+	//
 	return false;
+      //
     }// sampling loop
+    //
   }// surface cycle
+
   IO::log << "done\n\n";
 
-  if(job() == DYN_JOB) {
+  if(job() != DYN_JOB) {
+    //
+    _stat_pot_hit = _pot.reset_count();
+  }
+  else {
 
     /****************************** DYNAMICAL CALCULATIONS ***************************/
 
@@ -1857,44 +2862,54 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
      ******* SATISFY MINIMAL IMPORTANCE SAMPLINGS NUMBER *********
      *************************************************************/
 
-    IO::log << "Sampling to satisfy minimal importance samplings number (importance samplings counted) ...\n";
-    for(iterator mit = begin(); mit != end(); ++mit) {// surface cycle
+    IO::log << "sampling to satisfy minimal importance samplings number (importance samplings counted) ..." << std::endl;
 
+    for(iterator mit = begin(); mit != end(); ++mit) {// surface cycle
+      //
       IO::log << "   " << mit - begin() << "-th surface:\n"
-	      << std::setw(15) << "Facet" 
-	      << std::setw(15) << "Projected" 
-	      << std::setw(15) << "Current" << "\n";
+	      << std::setw(15) << "facet" 
+	      << std::setw(15) << "projected" 
+	      << std::setw(15) << "current" << "\n";
 
       count_max = 0;
       for(sit = mit->begin(); sit != mit->end(); ++sit) {
+	//
 	IO::log << std::setw(15) << sit->first
 		<< std::setw(15) << min_imp_size
 		<< std::setw(15) << sit->second.size()
 		<< "\n";
+
 	itemp = min_imp_size - sit->second.size();
+
 	if(sit->second.size() && itemp > 0)
+	  //
 	  count_max += itemp;
-	
       }
 
       if(!count_max)
+	//
 	continue;
       
       old_share = 0;
-      while(1) {// sampling loop
+
+      // sampling loop
+      //
+      while(1) {
+	//
 	// tests
+	//
 	std::set<DivSur::face_t > face_work;
+
 	count = 0;
+
 	for(sit = mit->begin(); sit != mit->end(); ++sit)  {
+	  //
 	  itemp = min_imp_size - sit->second.size();
+
 	  if(sit->second.size() && itemp > 0) {
-	    if(sit->second.samp_num() >= max_pot_size) {
-	      std::cerr << funame << mit - begin() << "-th surface, " << sit->first << " facet: "
-			<< "cannot satisfy minimal importance sampling number: "
-			<< "maximal number of flux samplings has been reached\n";
-	      throw Error::Run();
-	    }
+	    //
 	    count += itemp;
+
 	    face_work.insert(sit->first);
 	  }
 	}
@@ -1903,90 +2918,149 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
 	print_progress(old_share, new_share);
 
 	// exit condition
+	//
 	if(!face_work.size())
+	  //
 	  break;
 
 	if(_sample(mit, face_work))
+	  //
 	  return false;
+	//
       }// sampling loop
+      //
     }// surface cycle
+
     IO::log << "done\n\n";
   
-    _print_sampling_results();
-    
     /*************************************************************
      *********************** RUN TRAJECTORIES ********************
      *************************************************************/
 
-    IO::log << "Running trajectories ...\n";
-    run_traj(stop);
+    _stat_pot_hit = _pot.reset_count();
+
+    IO::log << "running trajectories ...\n";
+    
+    run_traj();
+    
     IO::log << "done\n\n";
 
-    _print_traj_results();
+    _traj_pot_hit = _pot.reset_count();
 
     /*************************************************************
      * SATISFY SPECIES OUTGOING REACTIVE FLUX RELATIVE TOLERANCE *
      *************************************************************/
 
+    bool run_again = false;
+
+    IO::log << "sampling to satisfy outgoing reactive flux relative tolerance (importance samplings counted) ..." << std::endl;
+
     std::map<DivSur::face_t, double> cross_flux_mean, cross_flux_rmsd, cross_flux_variance;
+
     _get_reac_flux(cross_flux_mean, cross_flux_rmsd, cross_flux_variance);
 
-    std::vector<double> reac_flux(_ms.species_size());
-    std::vector<double> reac_rmsd(_ms.species_size());
-    for(std::map<DivSur::face_t, double>::const_iterator it = cross_flux_mean.begin();
-	it != cross_flux_mean.end(); ++it) {
+    std::vector<double> reac_flux(_ms.species_size(), 0.);
+    std::vector<double> reac_rmsd(_ms.species_size(), 0.);
+
+    for(std::map<DivSur::face_t, double>::const_iterator it = cross_flux_mean.begin(); it != cross_flux_mean.end(); ++it) {
+      //
       reac_flux[it->first.first] += it->second;
       reac_rmsd[it->first.first] += cross_flux_rmsd.find(it->first)->second;
     }
 
-    IO::log << "Sampling to satisfy species outgoing reactive flux relative tolerance (importance samplings counted) ...\n";
-    for(iterator mit = begin(); mit != end(); ++mit) {// surface cycle
+    // surface cycle
+    //
+    for(iterator mit = begin(); mit != end(); ++mit) {
+      //
       // estimate necessary number of importance samplings for each facet on a given surface
+      //
       proj_samp_num.clear();
       int react;
-      for(sit = mit->begin(); sit != mit->end(); ++sit) {// facet cycle
-	if(sit->second.run_traj_num())
+
+      // facet cycle
+      //
+      for(sit = mit->begin(); sit != mit->end(); ++sit) {
+	//
+	if(sit->second.run_traj_num()) {
+	  //
 	  for(int ward = 0; ward < 2; ++ward) {
+	    //
 	    switch(ward) {
+	      //
 	    case BACKWARD:
+	      //
 	      react = sit->first.second;
+
 	      break;
+	      //
 	    case FORWARD:
+	      //
 	      react = sit->first.first;
-	      break;
 	    }
 	    
 	    if(reactant() >= 0 && reactant() != react)
+	      //
 	      continue;
 	    
-	    for(int spec = 0; spec < _ms.species_size(); ++spec) {//product cycle
-	      if(spec != react && (itemp = sit->second.reac_traj_num(ward, spec))) {
-
+	    // product cycle
+	    //
+	    for(int prod = 0; prod < _ms.species_size(); ++prod) {
+	      //
+	      if(prod != react && (itemp = sit->second.reac_traj_num(ward, prod))) {
+		//
 		// recrossing factor
+		//
 		dtemp = (double)itemp / (double)sit->second.run_traj_num();
 
 		// facet reactive flux standard deviation
+		//
 		double face_rmsd = std::sqrt(dtemp * (1. - dtemp)) * mit->face_flux(sit);
 		
 		dtemp = reac_rel_tol * reac_flux[react];
-		itemp = (int)(face_rmsd * reac_rmsd[react] / dtemp / dtemp);
-		itemp = int((double)itemp * (double)sit->second.size() / (double)sit->second.run_traj_num());
+
+		dtemp = face_rmsd * reac_rmsd[react] / dtemp / dtemp * (double)sit->second.size() / (double)sit->second.run_traj_num();
+
+		if(dtemp > (double)max_imp_size) {
+		  //
+		  IO::log << "\n   WARNING: " << mit - begin() << "-th surface: " << sit->first << " facet: " 
+			//
+			  << react << "-th reactant: requested importance samplings #, " << std::floor(dtemp) << ",\n"
+			//
+			  << std::setw(12) << " " << "exceeds maximal facet importance samplings #, " << max_imp_size 
+			//
+			  << ": truncating" << "\n\n";
+
+		    itemp = max_imp_size;
+		}
+		else
+		  //
+		  itemp = (long)dtemp;
 
 		nit = proj_samp_num.find(sit->first);
+
 		if(nit == proj_samp_num.end() || itemp > nit->second)
+		  //
 		  proj_samp_num[sit->first] = itemp;
-	      }
+		//
+	      }//
+	      //
 	    }// product cycle
-	  } // ward cycle
+	    //
+	  }// ward cycle
+	  //
+	}//
+	//
       }// facet cycle 
     
       if(proj_samp_num.size()) {
+	//
 	IO::log << "   " << mit - begin() << "-th surface:\n"
-		<< std::setw(15) << "Facet" 
-		<< std::setw(15) << "Projected" 
-		<< std::setw(15) << "Current" << "\n";
+		<< std::setw(15) << "facet" 
+		<< std::setw(15) << "projected" 
+		<< std::setw(15) << "current" << "\n";
 
 	for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit)
+	  //
 	  IO::log << std::setw(15) << nit->first 
 		  << std::setw(15) << nit->second 
 		  << std::setw(15) << mit->find(nit->first)->second.size() 
@@ -1994,41 +3068,68 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
       }
 
       count_max = 0;
+
       for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit) {
+	//
 	sit = mit->find(nit->first);
+
 	itemp = nit->second - sit->second.size();
+
 	if(itemp > 0) {
+	  //
 	  count_max += itemp;
 	}
       }
 
       if(!count_max)
+	//
 	continue;
 
       old_share = 0;
-      while(1) {// sampling loop
+
+      // sampling loop
+      //
+      while(1) {
+	//
 	std::set<DivSur::face_t > face_work;
+
 	count = 0;
+
 	for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit) {
+	  //
 	  sit = mit->find(nit->first);
+
 	  itemp = nit->second - sit->second.size();
+
 	  if(itemp > 0) {
+	    //
 	    count += itemp;
-	    if(sit->second.samp_num() < max_pot_size && sit->second.size() < max_imp_size)
-	      face_work.insert(nit->first);
+
+	    face_work.insert(nit->first);
 	  }
 	}
 
 	new_share = int((double)(count_max - count) / (double)count_max * 100.);
+
 	print_progress(old_share, new_share);
 
-	if(!face_work.size())
+	if(!face_work.size()) {
+	  //
 	  break;
+	}
+	else
+	  //
+	  run_again = true;
+
 
 	if(_sample(mit, face_work))
+	  //
 	  return false;
+	//
       }// sampling loop
+      //
     }// surface cycle
+
     IO::log << "done\n\n";
   
     /*******************************************************
@@ -2036,67 +3137,113 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
      *******************************************************/
 
     if(reactive_transition.size()) {
+      //
+      IO::log << "Sampling to satisfy reactive transition flux relative tolerance (importance samplings counted) ..." << std::endl;
+
       // checking
-      if(reactive_transition.size() != 2 || reactive_transition[0] == reactive_transition[1] 
-	 || reactive_transition[0] < 0 || reactive_transition[0] >= _ms.species_size()
-	 || reactive_transition[1] < 0 || reactive_transition[1] >= _ms.species_size()) {
+      //
+      if(reactive_transition.size() != 2 || reactive_transition[0] == reactive_transition[1] ||
+	 //
+	 reactive_transition[0] < 0      || reactive_transition[0] >= _ms.species_size() ||
+	 //
+	  reactive_transition[1] < 0     || reactive_transition[1] >= _ms.species_size()) {
+	//
 	std::cerr << funame << "reactive transition pair is not properly defined\n";
+
 	throw Error::Init();
       }
 
-      IO::log << "Sampling to satisfy reactive transition flux relative tolerance (importance samplings counted) ...\n";
+      // primitive's cycle
+      //
       for(iterator mit = begin(); mit != end(); ++mit) {// surface cycle
+	//
 	proj_samp_num.clear();
+
+	// facet cycle
+	//
 	for(sit = mit->begin(); sit != mit->end(); ++sit)
-	  if(sit->second.run_traj_num()) {// facet cycle
+	  //
+	  if(sit->second.run_traj_num()) {
+	    //
 	    int react, prod = -1;
 
 	    for(int ward = 0; ward < 2; ++ward) {
+	      //
 	      switch(ward) {
+		//
 	      case BACKWARD:
+		//
 		react = sit->first.second;
+
 		break;
+		//
 	      case FORWARD:
+		//
 		react = sit->first.first;
-		break;
 	      }
 	    
 	      if(reactant() >= 0 && reactant() != react)
+		//
 		continue;
 	    
 	      for(int i = 0; i < 2; ++i)
+		//
 		if(reactive_transition[i] == react)
+		  //
 		  prod = reactive_transition[1 - i];
 	    
 	      if(prod < 0)
+		//
 		continue;
 
 	      if(itemp = sit->second.reac_traj_num(ward, prod)) {
-	      
+		//
 		// recrossing factor
+		//
 		dtemp = (double)itemp / (double)sit->second.run_traj_num();
 
 		// facet reqctive flux standard deviation
+		//
 		double face_rmsd = std::sqrt(dtemp * (1. - dtemp)) * mit->face_flux(sit);
 		
 		dtemp = tran_rel_tol  * cross_flux_mean[DivSur::face_t(react, prod)];
-		itemp = int(face_rmsd * cross_flux_rmsd[DivSur::face_t(react, prod)] / dtemp / dtemp);
-		itemp = int((double)itemp * (double)sit->second.size() / (double)sit->second.run_traj_num());
+
+		dtemp = face_rmsd * cross_flux_rmsd[DivSur::face_t(react, prod)] / dtemp / dtemp 
+		//
+		 * (double)sit->second.size() / (double)sit->second.run_traj_num();
+
+		if(dtemp > (double)max_imp_size) {
+		  //
+		  IO::log << mit - begin() << "-th surface, " << sit->first << " facet: WARNING: requested importance samplings #, " 
+			//
+			  << std::floor(dtemp) << ", exceeds maximal facet importance samplings #, " << max_imp_size << ": truncating\n";
+
+		    itemp = max_imp_size;
+		}
+		else
+		  //
+		  itemp = (long)dtemp;
 
 		nit = proj_samp_num.find(sit->first);
+
 		if(nit == proj_samp_num.end() || itemp > nit->second)
+		  //
 		  proj_samp_num[sit->first] = itemp;
-	      }
-	    } // ward cycle
+	      }//
+	      //
+	    }// ward cycle
+	    //
 	  }// facet cycle
     
 	if(proj_samp_num.size()) {
+	  //
 	  IO::log << "   " << mit - begin() << "-th surface:\n"
-		  << std::setw(15) << "Facet" 
-		  << std::setw(15) << "Projected" 
-		  << std::setw(15) << "Current" << "\n";
+		  << std::setw(15) << "facet" 
+		  << std::setw(15) << "projected" 
+		  << std::setw(15) << "current" << "\n";
 
 	  for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit)
+	    //
 	    IO::log << std::setw(15) << nit->first 
 		    << std::setw(15) << nit->second 
 		    << std::setw(15) << mit->find(nit->first)->second.size() 
@@ -2104,41 +3251,66 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
 	}
 
 	count_max = 0;
+
 	for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit) {
+	  //
 	  sit = mit->find(nit->first);
+
 	  itemp = nit->second - sit->second.size();
+
 	  if(itemp > 0) {
+	    //
 	    count_max += itemp;
 	  }
 	}
 
 	if(!count_max)
+	  //
 	  continue;
 
 	old_share = 0;
-	while(1) {// sampling loop
+
+	// sampling loop
+	//
+	while(1) {
+	  //
 	  std::set<DivSur::face_t > face_work;
+
 	  count = 0;
+
 	  for(nit = proj_samp_num.begin(); nit != proj_samp_num.end(); ++nit) {
+	    //
 	    sit = mit->find(nit->first);
+
 	    itemp = nit->second - sit->second.size();
+
 	    if(itemp > 0) {
+	      //
 	      count += itemp;
-	      if(sit->second.samp_num() < max_pot_size && sit->second.size() < max_imp_size)
-		face_work.insert(nit->first);
+
+	      face_work.insert(nit->first);
 	    }
 	  }
 
 	  new_share = int((double)(count_max - count) / (double)count_max * 100.);
 	  print_progress(old_share, new_share);
 
-	  if(!face_work.size())
+	  if(!face_work.size()) {
+	    //
 	    break;
+	  }
+	  else
+	    //
+	    run_again = true;
 
 	  if(_sample(mit, face_work))
+	    //
 	    return false;
+	  //
 	}// sampling loop
+	//
       }// surface cycle
+
       IO::log << "done\n\n";
     }
 
@@ -2146,61 +3318,162 @@ bool CrossRate::MultiArray::_work (Dynamic::CCP stop)
      *********************** RUN TRAJECTORIES ********************
      *************************************************************/
 
-    // run trajectories
-    IO::log << "Running trajectories again ...\n";
-    run_traj(stop);
-    IO::log << "done\n\n";
-  
+    // run trajectories again
+    //
+    if(run_again) {
+      //
+      _stat_pot_hit += _pot.reset_count();
+
+      IO::log << "running trajectories again ...\n";
+
+      run_traj();
+
+      IO::log << "done\n\n";
+
+      _traj_pot_hit += _pot.reset_count();
+    }
   }
 
   _print_sampling_results();
 
   if(job() == DYN_JOB) {
+    //
     _print_traj_results();
-    _analize();
+    //_analize();
   }
 
   return true;
 } 
 
 CrossRate::MultiArray::MultiArray(const DivSur::MultiSur& ms, Potential::Wrap pot, Dynamic::CCP stop)
-   : std::vector<SurArray>(ms.primitive_size()), _ms(ms), _pot(pot)
+  //
+  : std::vector<SurArray>(ms.primitive_size()), _ms(ms), _pot(pot), _stop(stop), _stat_pot_hit(0), _traj_pot_hit(0)
 {
   const char funame [] = "CrossRate::MultiArray::MultiArray: ";
  
-  static const int max_fail = 10;
-
-  SurArray::iterator sit;
-
   // initial sampling to check which facets are actually present
-  IO::log << "Preliminary sampling with " << min_sur_size 
-	  << " samplings per primitive surface ...\n";
-  for(iterator mit = begin(); mit != end(); ++mit) {// surface cycle
+  //
+  IO::log << "preliminary sampling with " << min_sur_size << " samplings per primitive surface:\n";
+
+  // surface cycle
+  //
+  for(iterator mit = begin(); mit != end(); ++mit) {
+    //
     IO::log << "   " << mit - begin() << "-th surface:\n";
-    for(int s = 0; s < min_sur_size; ++s) {// sampling loop
 
+    // sampling loop
+    //
+    const int n = min_sur_size / smp_set_size;
+
+    for(int s = 0; s < n; ++s) {
+      //
       std::set<DivSur::face_t > face_work;
-      for(sit = mit->begin(); sit != mit->end(); ++sit)
-	face_work.insert(sit->first);
-      _sample(mit, face_work);
-    }// sampling loop
-  }// surface cycle
-  IO::log << "done\n\n";
 
-  // check for failures
-  for(iterator mit = begin(); mit != end(); ++mit) {// surface cycle
-    if(mit->fail_num() > max_fail) {
+      for(SurArray::iterator sit = mit->begin(); sit != mit->end(); ++sit)
+	//
+	face_work.insert(sit->first);
+
+      _sample(mit, face_work);
+      //
+    }// sampling loop
+
+    // check for failures
+    //
+    if(mit->fail_num() > max_fail_num) {
+      //
       std::cerr << funame << "too many failures for " << mit - begin() << "-th surface\n";
+
       throw Error::Run();
     }
-    for(sit = mit->begin(); sit != mit->end(); ++sit)
+
+    for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit) {
+      //
       if(!sit->second.flux_num()) {
-	std::cerr << funame << mit - begin() << "-th surface, " << sit->first << " facet: "
-		  <<"no flux samplings\n";
+	//
+	std::cerr << funame << mit - begin() << "-th surface, " << sit->first << " facet: " <<"no flux samplings\n";
+
 	throw Error::Run();
-      }
+      }//
+      //
+    }//
+    //
   }// surface cycle
 
+  IO::log << "done\n\n";
+
+  IO::log << "preliminary sampling results:\n";
+
+  for(const_iterator mit = begin(); mit != end(); ++mit) {
+    //
+    IO::log << "   " << mit - begin() << "-th surface:\n"
+      //
+	    << std::setw(15) << "facet"
+	    << std::setw(15) << "inner"
+	    << std::setw(15) << "exclude"
+	    << std::setw(15) << "close atoms"
+	    << std::setw(15) << "logic fails"
+	    << "\n"
+	    << std::setw(15) << "---"
+	    << std::setw(15) << mit->inner_num()
+	    << std::setw(15) << mit->excl_num()
+	    << std::setw(15) << mit->close_num()
+	    << std::setw(15) << mit->fail_num()
+	    << "\n\n";
+    
+    IO::log << std::setw(15) << "facet"
+	    << std::setw(15) << "flux number"
+	    << std::setw(15) << "fail number"
+	    << std::setw(15) << "fake number"
+	    << std::setw(15) << "imp. number"
+	    << std::setw(15) << "flux value"
+	    << std::setw(15) << "emin, kcal"
+	    << "\n";
+      
+    for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit)
+      //
+      IO::log << std::setw(15) << sit->first 
+	      << std::setw(15) << sit->second.flux_num()
+	      << std::setw(15) << sit->second.fail_num()
+	      << std::setw(15) << sit->second.fake_num()
+	      << std::setw(15) << sit->second.size()
+	      << std::setw(15) << sit->second.flux_value()
+	      << std::setw(15) << sit->second.min_ener() / Phys_const::kcal
+	      << "\n";
+
+    IO::log << "\n";
+  }
+  
+  for(const_iterator mit = begin(); mit != end(); ++mit) {
+    //
+    for(SurArray::const_iterator sit = mit->begin(); sit != mit->end(); ++sit) {
+      //
+      if(!sit->second.flux_num()) {
+	//
+	std::cerr << mit - begin() << "-th surface,  " << sit->first << " facet: no potential samplings\n";
+
+	throw Error::Run();
+      }
+
+      if(sit->second.min_ener() < reactive_energy()) {
+	//
+	std::cerr << mit - begin() << "-th surface,  " << sit->first << " facet: " 
+		//
+		  << "minimal energy = " << std::floor(sit->second.min_ener() /Phys_const::kcal * 10. + 0.5) / 10.
+		//
+		  << " kcal/mol is less than the reactive energy = " << std::floor(reactive_energy() / Phys_const::kcal * 10. + 0.5) / 10.
+		//
+		  << " kcal/mol\n";
+
+	throw Error::Run();
+      }
+    }
+  }
+
   // sample the surface and run trajectories to satisfy predefined tolerances
-  while(!_work(stop)) {}
+  //
+  while(!_work()) {}
+
+  IO::log << "potential sampling   calculations # = " << _stat_pot_hit << "\n"
+	//
+	  << "potential trajectory calculations # = " << _traj_pot_hit << "\n\n";
 }

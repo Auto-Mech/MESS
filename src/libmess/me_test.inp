@@ -1,0 +1,111 @@
+Main
+  Temperature[K]            1000
+  Pressure[Bar]             1000
+  FrequencyFactor[au]       10
+  EnergyStep[1/cm]          100
+  ReferenceEnergy[1/cm]     1.e4
+  WellCutoff                20
+  OutputFileName            me_test.out
+  PartitionTolerance        .01
+  MaximumEigenvalueRatio    .1
+  CollisionModel            
+    Exponential
+      EnergyDown[1/cm]    100
+      Cutoff              10
+    End
+  Well     W1
+    RRHO
+      Frequencies[1/cm]          5
+         100 200 300 400 500
+      RotationalConstants[1/cm]  3
+         1 2 3
+      FrequencyQuantum[1/cm]     1
+      SymmetryNumber             1
+      EnantiomerNumber           1
+      ElectronicEnergy[1/cm]     1000
+    End
+  Well     W2
+    Union
+      File            w2a.inp
+      RRHO	
+        Frequencies[1/cm]          5
+           100 200 300 400 500
+        RotationalConstants[1/cm]  3
+           1 2 3
+        FrequencyQuantum[1/cm]     1
+        SymmetryNumber             1
+        EnantiomerNumber           1
+        ElectronicEnergy[1/cm]     1000
+      End
+      RRHO	
+        Frequencies[1/cm]          6
+           100 200 300 400 500 600
+        RotationalConstants[1/cm]  3
+           1 2 3
+        FrequencyQuantum[1/cm]     1
+        SymmetryNumber             1
+        EnantiomerNumber           1
+        ElectronicEnergy[1/cm]     2000
+      End
+    End
+  Bimolecular  R1
+    RRHO
+      Frequencies[1/cm]             7
+        100 200 300 400 500 600 700
+      RotationalConstants[1/cm]     5
+        1 2 3 4 5
+      FragmentMasses[amu]           20 30
+      SymmetryNumber                1
+      EnantiomerNumber              1
+      ElectronicDegeneracy          1 
+      ElectronicEnergy[1/cm]        2000
+    End             
+  Bimolecular  R2
+    RRHO
+      Frequencies[1/cm]             7
+        100 200 300 400 500 600 700
+      RotationalConstants[1/cm]     5
+        1 2 3 4 5
+      FragmentMasses[amu]           20 30
+      SymmetryNumber                1
+      EnantiomerNumber              1
+      ElectronicDegeneracy          1 
+      ElectronicEnergy[1/cm]        2000
+    End             
+  InnerBarrier  IB1 W1 W2
+    RRHO
+      Frequencies[1/cm]           4
+        100 200 300 400
+      RotationalConstants[1/cm]   2
+         1 2
+      FrequencyQuantum[1/cm]      1
+      SymmetryNumber              1
+      EnantiomerNumber            1
+      ElectronicEnergy[1/cm]      2000
+    End            
+  OuterBarrier  OB1 W1 R1
+    RRHO
+      Frequencies[1/cm]           4
+        100 200 300 400
+      RotationalConstants[1/cm]   2
+         1 2
+      FrequencyQuantum[1/cm]      1
+      SymmetryNumber              1
+      EnantiomerNumber            1
+      ElectronicEnergy[1/cm]      2000
+    End            
+  OuterBarrier  OB2 W2 R2
+    Union
+      RRHO
+        Frequencies[1/cm]           4
+          100 200 300 400
+        RotationalConstants[1/cm]   2
+           1 2
+        FrequencyQuantum[1/cm]      1
+        SymmetryNumber              1
+        EnantiomerNumber            1
+        ElectronicEnergy[1/cm]      2000
+      End
+      File  ob2.inp
+    End             
+End

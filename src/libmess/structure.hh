@@ -26,8 +26,14 @@
 #include <vector>
 #include <iostream>
 
+namespace Structure
+{
+  extern int mute;
+}
+
 // Molecule
-class Molecule : private std::vector<Atom>, public IO::Read {
+//
+class Molecule : public std::vector<Atom>, public IO::Read {
 
   std::string _name;
   int         _type;
@@ -38,9 +44,11 @@ class Molecule : private std::vector<Atom>, public IO::Read {
   double _imom_sqrt  [3];
  
   // principal axes frame
+  //
   D3::Frame _std_frame;
 
   // multipole moments
+  //
   int                 _charge;
   std::vector<double> _dipole;
   std::vector<double> _quadrupole;
@@ -59,10 +67,12 @@ public:
 
   // reads geometry and possibly other features from the input stream
   // and uniquely orients molecular structure to the principal axes 
-  void read (std::istream&) ;
+  //
+  void read (std::istream&);
 
   // output the molecule geometry etc.
-  void print (std::ostream&) const ;
+  //
+  void print (std::ostream&, const std::string& = "") const;
 
   Molecule (std::istream& from)  { read(from); }
 
@@ -70,20 +80,26 @@ public:
   int    type () const { return _type; }
   int    top  () const { return _top;  }
   
-  int size () const { return std::vector<Atom>::size(); }
-  const Atom& operator[] (int i) const { return std::vector<Atom>::operator[](i); }
+  //int size () const { return std::vector<Atom>::size(); }
+  //const Atom& operator[] (int i) const { return std::vector<Atom>::operator[](i); }
 
   static double tolerance;
+  
   ConstSharedPointer<Symmetry::SpaceGroup> symmetry_group;
+  
   std::set<Permutation> permutation_symmetry_group (int f) const { return ::permutation_symmetry_group(*this, tolerance, f); }
 
+  Permutation is_symmetric (const Symmetry::SpaceElement& s) const { return ::is_symmetric(*this, s, tolerance); }
+  
   // inertia moments
-  double imom       (int) const ;
-  double imom_sqrt  (int) const ;
+  //
+  double imom       (int) const;
+  double imom_sqrt  (int) const;
 
   // dimensions of angular vector & angular velocity
-  int pos_size () const ;
-  int vel_size () const ;
+  //
+  int pos_size () const;
+  int vel_size () const;
 
   std::vector<int> ref_group;
   D3::Matrix      ref_orient;
@@ -91,10 +107,11 @@ public:
   bool is_equal (std::vector<Atom>, D3::Vector&, Quaternion&) const;
 
   // dynamic variables derivatives
-  void set_dvd (const D3::Vector& torque, const double* pos, const double* vel,
-			double* pos_drv, double* vel_drv) const ;
+  //
+  void set_dvd (const D3::Vector& torque, const double* pos, const double* vel, double* pos_drv, double* vel_drv) const;
 
   // number of rotational degrees of freedom
+  //
   int tm_dof () const ; 
 
   const std::string& name () const { return _name; }
@@ -119,95 +136,159 @@ inline std::ostream& operator<< (std::ostream& to, const Molecule& m)
   return to;
 }
 
+// angular coordinates dimension
+//
 inline int Molecule::pos_size () const 
 {
   const char funame [] = "Molecule::pos_size: ";
 
   switch(_type) {
+    //
   case MONOATOMIC:
+    //
     return 0;
+
   case LINEAR:
+    //
     return 3;
+
   case NONLINEAR:
+    //
     return 4;
+
   default:
+    //
+    if(!Structure::mute)
+      //
     std::cerr << funame << "unknown molecular type\n";
+
     throw Error::Logic();
   }  
 }
 
+// angular velocity dimension
+//
 inline int Molecule::vel_size () const 
 {
   const char funame [] = "Molecule::vel_size: ";
 
   switch(_type) {
+    //
   case MONOATOMIC:
+    //
     return 0;
+
   case LINEAR:
+    //
     return 3;
+
   case NONLINEAR:
+    //
     return 3;
+
   default:
+    //
+    if(!Structure::mute)
+      //
     std::cerr << funame << "unknown molecular type\n";
+
     throw Error::Logic();
   }  
 }
 
+// # of degrees of freedom
+//
 inline int Molecule::tm_dof () const 
 {
   const char funame [] = "Molecule::dof: ";
 
   switch(_type) {
+    //
   case MONOATOMIC:
+    //
     return 0;
+
   case LINEAR:
+    //
     return 2;
+
   case NONLINEAR:
+    //
     return 3;
+
   default:
+    //
+    if(!Structure::mute)
+      //
     std::cerr << funame << "unknown molecular type\n";
+
     throw Error::Logic();
   }  
 }
 
 namespace Structure {
+  //
+  // setup
+  //
+  bool isinit ();
 
-  const Molecule& fragment (int frag) ;
+  void init (std::istream&);
+
+  const Molecule& fragment (int);
+
   int type (int frag);
   int top  (int frag);
 
-  int size    () ; // total number of atoms
-  double mass () ; // reduced mass
-  double mass_sqrt () ; // reduced mass square root
+  int  size (); // total number of atoms
+  inline int size (int f) { return fragment(f).size(); }
+
+  double mass (); // reduced mass
+  double mass_sqrt (); // reduced mass square root
  
   // Offset for cm-to-cm vector relative to
   // the beginning of the cooridinates data section (0)
-  int orb_pos () ;
+  //
+  int orb_pos ();
 
   // Offset for orientational coordinates of the fragments
   // relative to the beginning of the cooridinates data section (0)
-  int ang_pos (int frag) ;
+  //
+  int ang_pos (int frag);
 
   // Offset for cm-to-cm velocity relative 
   // to the beginning of the velocities data section (pos_size)
-  int orb_vel () ;
+  //
+  int orb_vel ();
 
   // Offset for angular velicities of the fragments 
   // relative to the beginning of the velocities data (pos_size)
-  int ang_vel (int frag) ;
+  //
+  int ang_vel (int frag);
 
-  int pos_size () ; // size of the coordinates data section
+  // size of the coordinates data section
+  //
+  int pos_size (); 
+
+  // fragment angular coordinates dimension
+  //
   int pos_size (int frag);
-  int vel_size () ; // size of the velocities  data section
+
+  // size of the velocities  data section
+  //
+  int vel_size (); 
+
+  // fragment angular velocity dimension
+  //
   int vel_size (int frag);
-  int dv_size  () ; // total dynamical variables dimension
 
-  int tm_dof  () ; // number of degrees of freedom for transitional modes
-  int tm_dof  (int frag);
+  // total dynamical variables dimension
+  //
+  int dv_size (); 
 
-  // setup
-  bool isinit ();
-  void init (std::istream&) ;
+  // number of degrees of freedom for transitional modes
+  //
+  int tm_dof (); 
+  int tm_dof (int frag);
 }
 
 #endif

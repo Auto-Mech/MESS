@@ -8,6 +8,7 @@
         cudaError_t err_ = (err);                                                                  \
         if (err_ != cudaSuccess) {                                                                 \
             printf("CUDA error %d at %s:%d\n", err_, __FILE__, __LINE__);                          \
+	    fflush(stdout);									   \
             throw std::runtime_error("CUDA error");                                                \
         }                                                                                          \
     } while (0)
@@ -17,6 +18,7 @@
         cusolverStatus_t err_ = (err);                                                             \
         if (err_ != CUSOLVER_STATUS_SUCCESS) {                                                     \
             printf("cusolver error %d at %s:%d\n", err_, __FILE__, __LINE__);                      \
+	    fflush(stdout);									   \
             throw std::runtime_error("cusolver error");                                            \
         }                                                                                          \
     } while (0)
@@ -57,7 +59,13 @@ Offload::Cuda::Init::Init (int gpu)
   //
   unsigned gpu_flags = 0;
   CUDA_CHECK(cudaGetDeviceFlags(&gpu_flags));
+
+#if CUDART_VERSION >= 12020
+
   CUDA_CHECK(cudaInitDevice(gpu, gpu_flags, 0));
+
+#endif
+
   CUDA_CHECK(cudaSetDevice(gpu));
 
   // initialize cusolver library
@@ -76,6 +84,8 @@ Offload::Cuda::Init::~Init ()
 Lapack::Vector Offload::Cuda::eigenvalues (Lapack::SymmetricMatrix m, Lapack::Matrix* evec)
 {  
   const char funame [] = "Offload::Cuda::eigenvalues: ";
+
+  int itemp;
 
   if(!m.isinit()) {
     //
@@ -106,6 +116,10 @@ Lapack::Vector Offload::Cuda::eigenvalues (Lapack::SymmetricMatrix m, Lapack::Ma
   cudaGetDeviceProperties(&prop, 0);
 
   IO::log << IO::log_offset << "gpu name: " << prop.name << std::endl;
+  
+  cudaGetDevice(&itemp);
+
+  IO::log << IO::log_offset << "gpu id: " << itemp << std::endl;
   
   // initialize matrix on device
   //

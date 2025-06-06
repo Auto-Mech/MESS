@@ -3415,22 +3415,6 @@ int Model::FreeRotor::level_size () const
 
 double Model::FreeRotor::weight (double temperature) const
 {
-  /*
-  static const double max_exp_pow = 35.;
-
-  double dtemp;
-
-  double res = 1.;
-  for(int l = 1; l < level_size(); ++l) {
-    dtemp = energy_level(l) / temperature;
-    if(dtemp > max_exp_pow)
-      return res;
-    res += std::exp(-dtemp);
-  }
-
-  return res;
-  */
-
   return std::sqrt(M_PI * temperature / rotational_constant()) / (double)symmetry();
 }
 

@@ -17,22 +17,36 @@
 #define MOLPRO_HH
 
 #include "atom.hh"
+#include "lapack.hh"
 
 #include <string>
 #include <iostream>
 #include <vector>
 
 namespace Molpro {
+  //
+  extern int mute;
+  
+  enum {GUESS = 1, WFU = 2, RELAX = 4};
+  
   // initialization
-  void init (std::istream&) ;
+  //
+  void init (std::istream&);
   bool isinit ();
 
   // molpro potential energy
-  void pot (const std::vector<Atom>&, Array<double>&, int flags = 0) ;
+  //
+  void pot (const std::vector<Atom>&, Array<double>&, int flags = 0);
 
-  void set_scratch_dir (const std::string& s);
-  void remove_wfu      ();
+  bool is_guess ();
+  
+  void set_scratch_dir (const std::string&);
+  
+  void remove_wfu ();
 
+  Lapack::SymmetricMatrix hessian (int);
+
+  Lapack::Vector gradients (int);
 }
 
 #endif

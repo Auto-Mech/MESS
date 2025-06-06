@@ -210,29 +210,31 @@ namespace D3 {
 
   /******************************************* 3-D matrix *****************************************/
 
-  // C style matrix
+  // C style indexing
+  //
   class Matrix 
   {
     double _begin [9];
     void   _init ();
 
   public:
+    //
     Matrix () { _init(); }
     explicit Matrix (double a) { _init(); diagonal() = a; }
-    Matrix (Vector, Vector) ;               // standard orientation
-    explicit Matrix (const Quaternion&) ;
+    Matrix (Vector, Vector);					// standard orientation
+    explicit Matrix (const Quaternion&);
 
-    double&        operator() (int, int)       ;   // C style indexing
-    const double&  operator() (int, int) const ;   
+    double&        operator() (int, int);			// C style indexing
+    const double&  operator() (int, int) const;   
 
     operator Quaternion () const ;
 
     Matrix& operator= (double a) { _init(); diagonal() = a; return *this; }
 
-    Slice<double>      column (int i)       ;
-    ConstSlice<double> column (int i) const ;
-    Slice<double>      row    (int i)       ;
-    ConstSlice<double> row    (int i) const ;
+    Slice<double>      column (int i);
+    ConstSlice<double> column (int i) const;
+    Slice<double>      row    (int i);
+    ConstSlice<double> row    (int i) const;
 
     Slice<double>          diagonal ();
     ConstSlice<double>     diagonal () const;
@@ -284,7 +286,12 @@ namespace D3 {
 
   inline std::ostream& operator<< (std::ostream& to, const Plane& p)
   {
+    int old_precision = to.precision(3);
+
     to << "{normal = " << p.normal() << ", offset = " << p.dist() << "}";
+
+    to.precision(old_precision);
+
     return to;
   }
    
@@ -327,10 +334,10 @@ public:
 
   explicit Quaternion (double d)        : Array<double>(4, 0.) { *begin() = d; }
   explicit Quaternion (const double* p) : Array<double>(4) { Array<double>::operator=(p); }
-  explicit Quaternion (const D3::Matrix&, int =0) ;
+  explicit Quaternion (const D3::Matrix&, int =0);
 
   template<class V>
-  explicit Quaternion (const V&) ;
+  explicit Quaternion (const V&);
 
   int size () const { return Array<double>::size(); }
 
@@ -372,10 +379,12 @@ public:
 };
 
 // quaternion-to-matrix transformation
-void quat2mat (const double* q, D3::Matrix& m) ;
+//
+void quat2mat (const double* q, D3::Matrix& m);
 
 // (orthogonal) matrix-to-quaternion transformation
-void mat2quat (const D3::Matrix& mat, double* q, int =0) ;
+//
+void mat2quat (const D3::Matrix& mat, double* q, int =0);
 
 inline D3::Matrix::operator Quaternion () const 
 {
@@ -450,6 +459,8 @@ Quaternion& Quaternion::operator= (const V& v)
 
   return *this;
 }
+
+void euler2quat (const double*, double*, char ='X');
 
 void axis_quaternion (int, double, double*);
 

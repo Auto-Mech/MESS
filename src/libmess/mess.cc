@@ -28,12 +28,8 @@
 #include "io.hh"
 #include "shared.hh"
 #include "offload.hh"
-
-#if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
-  
 #include "mpack.hh"
-
-#endif
+#include "limits.hh"
 
 namespace MasterEquation {
 
@@ -69,9 +65,7 @@ namespace MasterEquation {
 
   /********************************* USER DEFINED PARAMETERS ********************************/
 
-  double                                                    exp_arg_max = 50.;
-  
-  int                                                       float_type = DOUBLE;
+  int                                                       use_mp = 0;
 
   double                                                    reference_temperature = -1.;
 
@@ -318,21 +312,21 @@ int MasterEquation::get_precision ()
   
 #if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
 
-  switch(float_type) {
+  switch(Mpack::mp_type) {
     //
-  case DOUBLE:
+  case Mpack::DOUBLE:
     //
     return std::numeric_limits<double>::digits10;
 
-  case DD:
+  case Mpack::DD:
     //
     return 31;
 
-  case QD:
+  case Mpack::QD:
     //
     return 62;
     
-  case MPFR:
+  case Mpack::MPFR:
       //
 #ifdef WITH_MPACK
     
@@ -342,17 +336,17 @@ int MasterEquation::get_precision ()
 
       return int(mpfr::mpreal::default_prec * bits2digits);
       
-  case FLOAT64X:
+  case Mpack::FLOAT64X:
     //
     return 18;
 
 #endif
       
-  case GMP:
+  case Mpack::GMP:
     //
     return int(mpf_get_default_prec() * bits2digits);
 
-  case FLOAT128:
+  case Mpack::FLOAT128:
     //
     return 62;
 
@@ -377,9 +371,9 @@ void MasterEquation::set_precision (int prec)
   
 #if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
 
-  switch(float_type) {
+  switch(Mpack::mp_type) {
     //
-  case MPFR:
+  case Mpack::MPFR:
       //
 #ifdef WITH_MPACK
     
@@ -393,7 +387,7 @@ void MasterEquation::set_precision (int prec)
     
     break;
 
-  case GMP:
+  case Mpack::GMP:
     //
     mpf_set_default_prec(int(prec / bits2digits));
 
@@ -5905,7 +5899,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
 	IO::log << std::setw(Model::log_precision + 7);
 
-	if(dtemp > -exp_arg_max) {
+	if(dtemp > -Limits::exp_pow_max()) {
 	  //
 	  IO::log << well(w).weight() / Model::bimolecular(p1).weight(temperature()) * std::exp(dtemp) / bpu;
 	}
@@ -5931,7 +5925,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 	
       IO::log << std::setw(Model::log_precision + 7);
 
-      if(dtemp > -exp_arg_max) {
+      if(dtemp > -Limits::exp_pow_max()) {
 	  //
 	IO::log << Model::bimolecular(p).weight(temperature()) / std::exp(dtemp) * bpu / well(w1).weight();
       }
@@ -5948,7 +5942,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
 	IO::log << std::setw(Model::log_precision + 7);
 
-	if(-exp_arg_max < dtemp && dtemp < exp_arg_max) {
+	if(-Limits::exp_pow_max() < dtemp && dtemp < Limits::exp_pow_max()) {
 	  //
 	  IO::log << Model::bimolecular(p).weight(temperature()) / Model::bimolecular(p1).weight(temperature()) / std::exp(dtemp);
 	}
@@ -5986,7 +5980,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
       IO::log << std::setw(Model::log_precision + 7);
       
-      if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+      if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	//
 	IO::log << Model::well(w).weight(temperature()) / Model::well(w1).weight(temperature()) / std::exp(dtemp);
       }
@@ -6003,7 +5997,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
 	IO::log << std::setw(Model::log_precision + 7);
       
-	if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+	if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	  //
 	  IO::log << Model::well(w).weight(temperature()) / Model::bimolecular(p1).weight(temperature()) / std::exp(dtemp) / bpu;
 	}
@@ -6029,7 +6023,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
       IO::log << std::setw(Model::log_precision + 7);
       
-      if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+      if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	//
 	IO::log << Model::bimolecular(p).weight(temperature()) / Model::well(w1).weight(temperature()) / std::exp(dtemp) * bpu;
       }
@@ -6046,7 +6040,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 
 	IO::log << std::setw(Model::log_precision + 7);
       
-	if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+	if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	  //
 	  IO::log << Model::bimolecular(p).weight(temperature()) / Model::bimolecular(p1).weight(temperature()) / std::exp(dtemp);
 	}
@@ -6076,7 +6070,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       
       dtemp = (Model::inner_barrier(b).ground() - Model::well(w1).ground()) / temperature();
 
-      if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+      if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	//
 	rate_data[std::make_pair(w1, w2)] = temperature() / 2. / M_PI / Phys_const::herz
 	  //
@@ -6085,7 +6079,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       
       dtemp = (Model::inner_barrier(b).ground() - Model::well(w2).ground()) / temperature();
 
-      if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+      if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	//
 	rate_data[std::make_pair(w2, w1)] = temperature() / 2. / M_PI / Phys_const::herz
 	  //
@@ -6106,7 +6100,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       
       dtemp = (Model::outer_barrier(b).ground() - Model::well(w).ground()) / temperature();
 
-      if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+      if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	//
 	rate_data[std::make_pair(w, Model::outer_connect(b).second + Model::well_size())] = temperature() / 2. / M_PI / Phys_const::herz
 	  //
@@ -6124,7 +6118,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
 	//
 	dtemp = (Model::outer_barrier(b).ground() - Model::bimolecular(p).ground()) / temperature();
 
-	if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+	if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	  //
 	  rate_data[std::make_pair(p + Model::well_size(), Model::outer_connect(b).first)] = temperature() / 2. / M_PI / bru
 	    //
@@ -6150,7 +6144,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
       //
       dtemp = (Model::outer_barrier(b).ground() - Model::bimolecular(p).ground()) / temperature();
 
-      if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+      if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
 	  //
 	capture[p + Model::well_size()] += temperature() / 2. / M_PI / bru
 	  //
@@ -6163,7 +6157,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     
     dtemp = (Model::outer_barrier(b).ground() - Model::well(w).ground()) / temperature();
     
-    if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+    if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
       //
       capture[w] += temperature() / 2. / M_PI / Phys_const::herz
 	//
@@ -6182,7 +6176,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     
     dtemp = (Model::inner_barrier(b).ground() - Model::well(w1).ground()) / temperature();
     
-    if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+    if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
       //
       capture[w1] += temperature() / 2. / M_PI / Phys_const::herz
 	//
@@ -6194,7 +6188,7 @@ void MasterEquation::set (std::map<std::pair<int, int>, double>& rate_data, std:
     
     dtemp = (Model::inner_barrier(b).ground() - Model::well(w2).ground()) / temperature();
     
-    if(dtemp < exp_arg_max && dtemp > -exp_arg_max) {
+    if(dtemp < Limits::exp_pow_max() && dtemp > -Limits::exp_pow_max()) {
       //
       capture[w2] += temperature() / 2. / M_PI / Phys_const::herz
 	//
@@ -6279,7 +6273,7 @@ void  MasterEquation::Well::_set_state_density (const Model::Well& model)
 
   // well extension
   //
-  if(well_extension >= 0. && well_cutoff > 0.) {
+  if(model.well_extension() && well_extension >= 0. && well_cutoff > 0.) {
     //
     base_ener += hval * (1. - well_extension);
 
@@ -6993,6 +6987,13 @@ MasterEquation::Barrier::Barrier (const Model::Species& model)
   
   int new_size = (int)std::ceil((energy_reference() - dtemp) / energy_step());
 
+  if(new_size <= 0) {
+    //
+    std::cerr << funame << "non-positive size: " << new_size << ": check reference energy\n";
+
+    throw Error::Range();
+  }
+
   _state_number.resize(new_size);
   
   resize_thermal_factor(new_size);
@@ -7603,87 +7604,14 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 
   Lapack::Vector chem_eval;
 
-#if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
-  
-  if(float_type == DD) {
+  if(Mpack::mp_type == Mpack::DOUBLE) {
     //
-    chem_eval = Mpack::eigenvalues<dd_real>(k_11, &chem_evec);
+    chem_eval = Offload::eigenvalues(k_11, &chem_evec);
   }
-  else if(float_type == QD) {
+  else
     //
-    chem_eval = Mpack::eigenvalues<qd_real>(k_11, &chem_evec);
-  }
-  else if(float_type == MPFR) {
-    //
-    chem_eval = Mpack::eigenvalues<mpreal>(k_11, &chem_evec);
-  }
-  else if(float_type == GMP) {
-    //
-    chem_eval = Mpack::eigenvalues<mpf_class>(k_11, &chem_evec);
-  }
+    chem_eval = Mpack::eigenvalues(k_11, &chem_evec);
 
-#ifdef WITH_FLOAT128
-#ifdef WITH_MPACK
-      
-  else if(float_type == FLOAT128) {
-    //
-    chem_eval = Mpack::eigenvalues<__float128>(k_11, &chem_evec);
-  }
-      
-#else
-  else if(float_type == FLOAT128) {
-    //
-    chem_eval = Mpack::eigenvalues<_Float128>(k_11, &chem_evec);
-  }
-  else if(float_type == FLOAT64X) {
-    //
-    chem_eval = Mpack::eigenvalues<_Float64x>(k_11, &chem_evec);
-  }
-#endif
-#endif
-      
-  else {
-    //
-#ifdef OFFLOAD_OMP
-	
-    chem_eval = Offload::Omp::eigenvalues(k_11, &chem_evec);
-
-#elif defined OFFLOAD_SYCL
-	
-    chem_eval = Offload::Sycl::eigenvalues(k_11, &chem_evec);
-
-#elif defined OFFLOAD_CUDA
-	
-    chem_eval = Offload::Cuda::eigenvalues(k_11, &chem_evec);
-
-#else
-	
-    chem_eval = k_11.eigenvalues(&chem_evec);
-
-#endif
-	
-  }
-
-#else
-#ifdef OFFLOAD_OMP
-	
-  chem_eval = Offload::Omp::eigenvalues(k_11, &chem_evec);
-
-#elif defined OFFLOAD_SYCL
-	
-  chem_eval = Offload::Sycl::eigenvalues(k_11, &chem_evec);
-
-#elif defined OFFLOAD_CUDA
-	
-  chem_eval = Offload::Cuda::eigenvalues(k_11, &chem_evec);
-
-#else
-	
-  chem_eval = k_11.eigenvalues(&chem_evec);
-
-#endif  
-#endif
-  
   // relaxational projection of the chemical eigenvector
   //
   l_21 = l_21 * chem_evec;
@@ -7909,7 +7837,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 
     dtemp = (Model::bimolecular(i).ground() - energy_reference()) / temperature();
 
-    if(dtemp < -exp_arg_max)
+    if(dtemp < -Limits::exp_pow_max())
       //
       continue;
 
@@ -8118,7 +8046,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	//
 	dtemp = (real_ground[i] - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 	
@@ -8142,7 +8070,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	//
 	dtemp = (real_ground[w] - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 	
@@ -8161,7 +8089,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	  //
 	  dtemp = (Model::bimolecular(p).ground() - energy_reference()) / temperature();
 
-	  if(dtemp < -exp_arg_max)
+	  if(dtemp < -Limits::exp_pow_max())
 	    //
 	    continue;
 	  
@@ -8182,7 +8110,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	//
 	dtemp = (real_ground[i] - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 	
@@ -8212,7 +8140,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	//
 	dtemp = (real_ground[w] - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 	
@@ -8240,7 +8168,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	  //
 	  dtemp = (Model::bimolecular(p).ground() - energy_reference()) / temperature();
 
-	  if(dtemp < -exp_arg_max)
+	  if(dtemp < -Limits::exp_pow_max())
 	    //
 	    continue;
 	  
@@ -8281,7 +8209,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
       //
       dtemp = (Model::well(i).ground() - energy_reference()) / temperature();
 
-      if(dtemp < -exp_arg_max)
+      if(dtemp < -Limits::exp_pow_max())
 	//
 	continue;
       
@@ -8305,7 +8233,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
       //
       dtemp = (Model::well(w).ground() - energy_reference()) / temperature();
 
-      if(dtemp < -exp_arg_max)
+      if(dtemp < -Limits::exp_pow_max())
 	//
 	continue;
       
@@ -8324,7 +8252,7 @@ void MasterEquation::low_eigenvalue_method (std::map<std::pair<int, int>, double
 	//
 	dtemp = (Model::bimolecular(p).ground() - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 	
@@ -8452,7 +8380,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       itemp = well(w).size();
   }
   
-  const int ener_index_max = itemp;
+  const int64_t ener_index_max = itemp;
 
   /*******************************************************************
    ********************* PARTITIONING THE WELLS **********************
@@ -8545,49 +8473,8 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       //
       Lapack::Matrix evec(well_array.size());
 
-      Lapack::Vector eval;
+      Lapack::Vector eval = Mpack::eigenvalues(km, &evec);
 
-#if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
-      
-      if(float_type == QD) {
-	//
-	eval = Mpack::eigenvalues<qd_real>(km, &evec);
-      }
-      else if(float_type == MPFR) {
-	//
-	eval = Mpack::eigenvalues<mpreal>(km, &evec);
-      }
-      else if(float_type == GMP) {
-	//
-	eval = Mpack::eigenvalues<mpf_class>(km, &evec);
-      }
-
-#ifdef WITH_FLOAT128
-#ifdef WITH_MPACK
-	
-      else if(float_type == FLOAT128) {
-	//
-	eval = Mpack::eigenvalues<__float128>(km, &evec);
-      }
-#else
-      else if(float_type == FLOAT128) {
-	//
-	eval = Mpack::eigenvalues<_Float128>(km, &evec);
-      }
-      else if(float_type == FLOAT64X) {
-	//
-	eval = Mpack::eigenvalues<_Float64x>(km, &evec);
-      }
-#endif
-#endif
-      else {
-	//
-	eval = Mpack::eigenvalues<dd_real>(km, &evec);
-      }
-#else
-      eval = km.eigenvalues(&evec);
-#endif
-      
       kinetic_basis[e].eigenvalue  = eval;
       
       kinetic_basis[e].eigenvector = evec;
@@ -8696,7 +8583,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 
 	dtemp = (Model::bimolecular(i).ground() - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 
@@ -8764,11 +8651,11 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
     
   // collisional energy relaxation
   //
-  int cycle_size = ener_index_max * ener_index_max;
+  int64_t cycle_size = ener_index_max * ener_index_max;
 
 #pragma omp parallel for default(shared) private(itemp,dtemp) schedule(static)
   
-  for(int cycle = 0; cycle < cycle_size; ++cycle) {
+  for(int64_t cycle = 0; cycle < cycle_size; ++cycle) {
     //
     const int e1 = cycle / ener_index_max;
 
@@ -8830,91 +8717,18 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 
   {
     IO::Marker solve_marker("diagonalizing global relaxation matrix", IO::Marker::ONE_LINE);
-    //
     
-#if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
-
-    if(float_type == DD) {
+    if(Mpack::mp_type == Mpack::DOUBLE) {
       //
-      eigenval = Mpack::eigenvalues<dd_real>(kin_mat, &global_eigen);
+      eigenval = Offload::eigenvalues(kin_mat, &global_eigen);
     }
-    else if(float_type == QD) {
+    else if(use_mp) {
       //
-      eigenval = Mpack::eigenvalues<qd_real>(kin_mat, &global_eigen);
+      eigenval = Mpack::eigenvalues(kin_mat, &global_eigen);
     }
-    else if(float_type == MPFR) {
+    else
       //
-      eigenval = Mpack::eigenvalues<mpreal>(kin_mat, &global_eigen);
-    }
-    else if(float_type == GMP) {
-      //
-      eigenval = Mpack::eigenvalues<mpf_class>(kin_mat, &global_eigen);
-    }
-
-#ifdef WITH_FLOAT128
-#ifdef WITH_MPACK
-    
-    else if(float_type == FLOAT128) {
-      //
-      eigenval = Mpack::eigenvalues<__float128>(kin_mat, &global_eigen);
-    }
-
-#else
-    
-    else if(float_type == FLOAT128) {
-      //
-      eigenval = Mpack::eigenvalues<_Float128>(kin_mat, &global_eigen);
-    }
-    else if(float_type == FLOAT64X) {
-      //
-      eigenval = Mpack::eigenvalues<_Float64x>(kin_mat, &global_eigen);
-    }
-    
-#endif
-#endif
-      
-    else {
-      //
-#ifdef OFFLOAD_OMP
-	
-      eigenval = Offload::Omp::eigenvalues(kin_mat, &global_eigen);
-
-#elif defined OFFLOAD_SYCL
-	
-      eigenval = Offload::Sycl::eigenvalues(kin_mat, &global_eigen);
-
-#elif defined OFFLOAD_CUDA
-	
-      eigenval = Offload::Cuda::eigenvalues(kin_mat, &global_eigen);
-
-#else
-	
       eigenval = kin_mat.eigenvalues(&global_eigen);
-
-#endif
-	
-    }
-    
-#else
-#ifdef OFFLOAD_OMP
-	
-    eigenval = Offload::Omp::eigenvalues(kin_mat, &global_eigen);
-
-#elif defined OFFLOAD_SYCL
-	
-    eigenval = Offload::Sycl::eigenvalues(kin_mat, &global_eigen);
-
-#elif defined OFFLOAD_CUDA
-	
-    eigenval = Offload::Cuda::eigenvalues(kin_mat, &global_eigen);
-
-#else
-	
-    eigenval = kin_mat.eigenvalues(&global_eigen);
-
-#endif
-#endif
-	
   }
 
   const double& relax_eval_min = eigenval[Model::well_size()];
@@ -9452,7 +9266,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 
       dtemp = (Model::bimolecular(i).ground() - energy_reference()) / temperature();
 
-      if(dtemp < - exp_arg_max)
+      if(dtemp < - Limits::exp_pow_max())
 	//
 	continue;
 
@@ -9561,7 +9375,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 
 	dtemp = (Model::bimolecular(p).ground() - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 
@@ -9889,7 +9703,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       //
       dtemp = (real_ground[i] - energy_reference()) / temperature();
 
-      if(dtemp < -exp_arg_max)
+      if(dtemp < -Limits::exp_pow_max())
 	//
 	continue;
       
@@ -9915,7 +9729,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	dtemp = (real_ground[w] - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 	
@@ -9935,7 +9749,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
       //
       dtemp = (real_ground[w] - energy_reference()) / temperature();
 
-      if(dtemp < -exp_arg_max)
+      if(dtemp < -Limits::exp_pow_max())
 	//
 	continue;
       
@@ -9957,7 +9771,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
 	//
 	dtemp = (Model::bimolecular(p).ground() - energy_reference()) / temperature();
 
-	if(dtemp < -exp_arg_max)
+	if(dtemp < -Limits::exp_pow_max())
 	  //
 	  continue;
 	
@@ -10219,7 +10033,7 @@ void MasterEquation::well_reduction_method (std::map<std::pair<int, int>, double
     //
     dtemp = (Model::well(w).ground() - energy_reference()) / temperature();
 
-    if(dtemp < -exp_arg_max)
+    if(dtemp < -Limits::exp_pow_max())
       //
       continue;
     
@@ -11250,41 +11064,12 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
     //
     for(int w = 0; w < Model::well_size(); ++w) {
       //
-      const int cycle_size = well(w).size() * well(w).size();
-      //const int cycle_size = well(w).size() * (well(w).size() + 1) / 2;
+      const int64_t cycle_size = (int64_t)well(w).size() * (int64_t)well(w).size();
 	
 #pragma omp parallel for default(shared) schedule(static)
 
-      for(int cycle = 0; cycle < cycle_size; ++cycle) {
+      for(int64_t cycle = 0; cycle < cycle_size; ++cycle) {
 	//
-	/*
-	  int test = (int)std::floor(std::sqrt(2. * (double)cycle + 0.25));
-
-	  int i, j;
-
-	  itemp = test * (test + 1) / 2;
-
-	  if(itemp <= cycle) {
-	  //
-	  j = test;
-
-	  i = cycle - itemp;
-	  }
-	  else {
-	  //
-	  j = test - 1;
-
-	  i = cycle - itemp + test;
-	  }
-	
-	  if(j < i) {
-	  //
-	  IO::log << IO::log_offset << funame << "symmetric matrix indices out of range: " << j << ", " << i << std::endl;
-
-	  throw Error::Range();
-	  }
-	*/
-	
 	int i = cycle / well(w).size();
 
 	int j = cycle % well(w).size();
@@ -11309,11 +11094,11 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       //
       if(well(w).radiation()) {
 
-	int cycle_size = well(w).size() * well(w).size();
+	int64_t cycle_size = (int64_t)well(w).size() * (int64_t)well(w).size();
 	
 #pragma omp parallel for default(shared) schedule(static)
 
-	for(int cycle = 0; cycle < cycle_size; ++cycle) {
+	for(int64_t cycle = 0; cycle < cycle_size; ++cycle) {
 	  //
 	  int i = cycle / well(w).size();
 
@@ -11436,88 +11221,17 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
       IO::log << "done\n";
     }
     
-#if defined(WITH_MPACK) || defined(WITH_MPLAPACK)
-
-    if(float_type == DD) {
+    if(Mpack::mp_type == Mpack::DOUBLE) {
       //
-      eigenval = Mpack::eigenvalues<dd_real>(kin_mat, &eigen_global);
+      eigenval = Offload::eigenvalues(kin_mat, &eigen_global);
     }
-    else if(float_type == QD) {
+    else if(use_mp) {
       //
-      eigenval = Mpack::eigenvalues<qd_real>(kin_mat, &eigen_global);
+      eigenval = Mpack::eigenvalues(kin_mat, &eigen_global);
     }
-    else if(float_type == MPFR) {
+    else
       //
-      eigenval = Mpack::eigenvalues<mpreal>(kin_mat, &eigen_global);
-    }
-    else if(float_type == GMP) {
-      //
-      eigenval = Mpack::eigenvalues<mpf_class>(kin_mat, &eigen_global);
-    }
-
-#ifdef WITH_FLOAT128
-#ifdef WITH_MPACK
-    
-    else if(float_type == FLOAT128) {
-      //
-      eigenval = Mpack::eigenvalues<__float128>(kin_mat, &eigen_global);
-    }
-
-#else
-    
-    else if(float_type == FLOAT128) {
-      //
-      eigenval = Mpack::eigenvalues<_Float128>(kin_mat, &eigen_global);
-    }
-    else if(float_type == FLOAT64X) {
-      //
-      eigenval = Mpack::eigenvalues<_Float64x>(kin_mat, &eigen_global);
-    }
-    
-#endif
-#endif
-      
-    else {
-      //
-#ifdef OFFLOAD_OMP
-	
-      eigenval = Offload::Omp::eigenvalues(kin_mat, &eigen_global);
-
-#elif defined OFFLOAD_SYCL
-	
-      eigenval = Offload::Sycl::eigenvalues(kin_mat, &eigen_global);
-
-#elif defined OFFLOAD_CUDA
-	
-      eigenval = Offload::Cuda::eigenvalues(kin_mat, &eigen_global);
-
-#else
-	
       eigenval = kin_mat.eigenvalues(&eigen_global);
-
-#endif
-      
-    }
-
-#else
-#ifdef OFFLOAD_OMP
-	
-    eigenval = Offload::Omp::eigenvalues(kin_mat, &eigen_global);
-
-#elif defined OFFLOAD_SYCL
-	
-    eigenval = Offload::Sycl::eigenvalues(kin_mat, &eigen_global);
-
-#elif defined OFFLOAD_CUDA
-	
-    eigenval = Offload::Cuda::eigenvalues(kin_mat, &eigen_global);
-
-#else
-	
-    eigenval = kin_mat.eigenvalues(&eigen_global);
-
-#endif
-#endif
 
     eigen_global = eigen_global.transpose();
   }
@@ -11622,40 +11336,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
   Lapack::Matrix chem_evec(Model::well_size());
     
-  Lapack::Vector chem_eval;
-    
-  #ifdef WITH_MPACK
-
-  if(float_type == DD) {
-  //
-  chem_eval = Mpack::eigenvalues<dd_real>(k_11, &chem_evec);
-  }
-  else if(float_type == QD) {
-  //
-  chem_eval = Mpack::eigenvalues<qd_real>(k_11, &chem_evec);
-  }
-  else if(float_type == MPFR) {
-  //
-  chem_eval = Mpack::eigenvalues<mpreal>(k_11, &chem_evec);
-  }
-  else if(float_type == GMP) {
-  //
-  chem_eval = Mpack::eigenvalues<mpf_class>(k_11, &chem_evec);
-  }
-  else if(float_type == FLOAT128) {
-  //
-  chem_eval = Mpack::eigenvalues<__float128>(k_11, &chem_evec);
-  }
-  else {
-  //
-  chem_eval = k_11.eigenvalues(&chem_evec);
-  }
-    
-  #else
-    
-  chem_eval = k_11.eigenvalues(&chem_evec);
-
-  #endif
+  Lapack::Vector chem_eval = Mpack::eigenvalues(k_11, &chem_evec);
     
   // low-eigenvalue chemical subspace
   //
@@ -11969,7 +11650,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
       dtemp = (Model::bimolecular(react).ground() - energy_reference()) / temperature();
 
-      if(dtemp > -exp_arg_max) {
+      if(dtemp > -Limits::exp_pow_max()) {
 	//
 	// normaziation factor
 	//
@@ -12588,7 +12269,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
       dtemp = (Model::bimolecular(i).ground() - energy_reference()) / temperature();
 
-      if(dtemp < -exp_arg_max)
+      if(dtemp < -Limits::exp_pow_max())
 	//
 	continue;
 
@@ -12645,7 +12326,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 	  //
 	  dtemp = (Model::bimolecular(p).ground() - energy_reference()) / temperature();
 
-	  if(dtemp > -exp_arg_max) {
+	  if(dtemp > -Limits::exp_pow_max()) {
 	    //
 	    const double fac = Model::bimolecular(p).weight(temperature()) / std::exp(dtemp);
 	    
@@ -13359,7 +13040,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
       double fac;
       
-      if(dtemp > -exp_arg_max) {
+      if(dtemp > -Limits::exp_pow_max()) {
 	//
 	fac = real_weight[i] / std::exp(dtemp);
       }
@@ -13389,7 +13070,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
 	double fac;
       
-	if(dtemp > -exp_arg_max) {
+	if(dtemp > -Limits::exp_pow_max()) {
 	  //
 	  fac = real_weight[w] / std::exp(dtemp);
 	}
@@ -13456,7 +13137,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
       double fac;
       
-      if(dtemp > -exp_arg_max) {
+      if(dtemp > -Limits::exp_pow_max()) {
 	//
 	fac = real_weight[w] / std::exp(dtemp);
       }
@@ -13482,7 +13163,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
 	double fac;
       
-	if(dtemp > -exp_arg_max) {
+	if(dtemp > -Limits::exp_pow_max()) {
 	  //
 	  fac = Model::bimolecular(p).weight(temperature()) / std::exp(dtemp);
 	}
@@ -13814,7 +13495,7 @@ void MasterEquation::direct_diagonalization_method (std::map<std::pair<int, int>
 
     double fac;
       
-    if(dtemp > -exp_arg_max) {
+    if(dtemp > -Limits::exp_pow_max()) {
       //
       fac = Model::well(w).weight(temperature()) / std::exp(dtemp);
     }
@@ -14712,7 +14393,7 @@ double MasterEquation::Group::real_weight (double t) const
     //
     dtemp = (Model::well(*w).ground() - g) / t;
 
-    if(dtemp < exp_arg_max)
+    if(dtemp < Limits::exp_pow_max())
       //
       res += Model::well(*w).weight(t) / std::exp(dtemp);
   }

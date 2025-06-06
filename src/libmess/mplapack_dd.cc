@@ -737,7 +737,7 @@ Mpack_dd::SymmetricMatrix Mpack_dd::SymmetricMatrix::copy () const
   
 Mpack_dd::SymmetricMatrix::SymmetricMatrix (Matrix m, char uplo)
   //
-  : RefArr<dd_real>(m.size() * (m.size() + 1) / 2), _size(new int_t(m.size()))
+  : RefArr<dd_real>(int(m.size() * (m.size() + 1) / 2)), _size(new int_t(m.size()))
 {
   const char funame [] = "Mpack_dd::SymmetricMatrix::SymmetricMatrix: ";
 
@@ -966,7 +966,7 @@ Mpack_dd::SymmetricMatrix Mpack_dd::SymmetricMatrix::operator= (dd_real d)
     throw Error::Init();
   }
 
-  RefArr<dd_real>::operator=(0.);
+  RefArr<dd_real>::operator=((dd_real)0.);
 
 #pragma omp parallel for default(shared)  schedule(static)
   //

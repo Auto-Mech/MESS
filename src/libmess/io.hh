@@ -59,21 +59,70 @@ namespace IO {
    ****************************** OUTPUT **********************************
    ************************************************************************/
 
-  class LogOut : public std::ofstream {};
-
-  template <typename T>
-  //
-  LogOut& operator<< (LogOut& to, const T& t)
-  {
-    // only the master node can print
+  class LogOut {
     //
-    if(mpi_rank)
-      //
-      return to;
+    std::ofstream      _ofs;
 
+    std::ostringstream _oss;
+    
+  public:
+    //
+    void open (const char*, std::ios::openmode m = std::ios::out);
+
+    operator std::ostream& () { if(!mpi_rank) return (std::ostream&)_ofs; return (std::ostream&) _oss; }
+    
+    bool is_open () const {
+      //
+      if(!mpi_rank)
+	//
+	return _ofs.is_open();
+
+      return true;
+    }
+
+    std::string str () const { return _oss.str(); }
+
+    void clear () { _oss.str(std::string()); }
+
+    int precision(int p) {
+      //
+      if(!mpi_rank)
+	//
+	return _ofs.precision(p);
+
+      return _oss.precision(p);
+    }
+
+    void seekp (std::ios::pos_type p) { if(!mpi_rank) _ofs.seekp(p); else _oss.seekp(p); }
+
+    std::ios::pos_type tellp () { if(!mpi_rank) return _ofs.tellp(); return _oss.tellp(); }
+
+    void flush () { if(!mpi_rank) _ofs.flush(); }
+
+    std::ios_base::fmtflags setf (std::ios_base::fmtflags f, std::ios_base::fmtflags m)
+    { if(!mpi_rank) return _ofs.setf(f, m); return _oss.setf(f, m); }
+    
+    operator bool () const { if(!mpi_rank) return (bool)_ofs; return true; }
+    
+    template<typename T>
+    friend LogOut& operator << (LogOut&, const T&);
+    
+    friend LogOut& operator << (LogOut&, std::ostream& (*_pf)(std::ostream&));
+  };
+
+  template<typename T>
+  LogOut& operator << (LogOut& to, const T& t)
+  {
+    if(mpi_rank) {
+      //
+      (std::ostream&)to._oss << t;
+      
+      return to;
+    }
+    
     if(to.is_open()) {
       //
-      (std::ostream&)to << t;
+      (std::ostream&)to._ofs << t;
     }
     else
       //
@@ -82,6 +131,26 @@ namespace IO {
     return to;
   }
 
+  inline LogOut& operator << (LogOut& to, std::ostream& (*_pf)(std::ostream&)) {
+    //
+    if(!mpi_rank) {
+      //
+      _pf((std::ostream&)to._ofs);
+    }
+    else
+      //
+      _pf((std::ostream&)to._oss);
+
+    return to;
+  }
+  
+  inline void LogOut::open (const char* f, std::ios::openmode m)
+  {
+    if(!mpi_rank)
+      //
+      _ofs.open(f, m);
+  }
+ 
   extern LogOut log;
   
   extern LogOut out;
@@ -96,14 +165,14 @@ namespace IO {
 
   class LineInput : public std::istringstream {
     //
-    LineInput();
-    
     LineInput(const LineInput&);
     
     LineInput& operator=(const LineInput&);
 
   public:
     //
+    LineInput() {}
+
     LineInput(std::istream& from);
 
     void read_line(std::istream& from);
@@ -148,6 +217,8 @@ namespace IO {
     //
     explicit Offset (int s) : _value(0), _step(s) {}
 
+    operator std::string () const { return std::string(_value, ' '); }
+
     void increase () { _value += _step; }
     
     void decrease () { _value -= _step; }
@@ -157,7 +228,7 @@ namespace IO {
 
   inline std::ostream& operator<< (std::ostream& to, const Offset& off)
   {
-    return to << std::setw(off) << "";
+    return to << std::setw((int)off) << "";
   }
 
   extern Offset log_offset;

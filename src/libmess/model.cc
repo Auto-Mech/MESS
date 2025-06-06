@@ -34,6 +34,7 @@
 #include "io.hh"
 #include "slatec.h"
 #include "random.hh"
+#include "limits.hh"
 
 // sparse matrix eigenvalue solver
 //#include "feast.h"
@@ -231,7 +232,7 @@ namespace Model {
 
     if(!_is_energy_limit) {
       //
-      IO::log << IO::log_offset << funame << "not defined\n";
+      IO::log << "\n" << IO::log_offset << funame << "not defined\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -254,7 +255,7 @@ namespace Model {
 
     if(!g.size() || *g.begin() < 0 || *g.rbegin() >= well_size()) {
       //
-      IO::log << IO::log_offset << funame << "wrong well indices\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong well indices\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -276,7 +277,7 @@ namespace Model {
 
     if(!g.size() || *g.begin() < 0 || *g.rbegin() >= well_size()) {
       //
-      IO::log << IO::log_offset << funame << "wrong well indices\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong well indices\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -300,7 +301,7 @@ namespace Model {
 
     if(!g.size() || *g.begin() < 0 || *g.rbegin() >= well_size()) {
       //
-      IO::log << IO::log_offset << funame << "well indices out of range\n";
+      IO::log << "\n" << IO::log_offset << funame << "well indices out of range\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -444,7 +445,7 @@ Model::ChemGraph Model::ChemGraph::subgraph (const std::set<int>& g) const
     //
     if(well_set.find(*w) == well_set.end()) {
       //
-      IO::log << IO::log_offset << funame << "group is not subgroup of the graph well set\n";
+      IO::log << "\n" << IO::log_offset << funame << "group is not subgroup of the graph well set\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -476,21 +477,21 @@ void Model::ChemGraph::assert () const
 
   if(!well_set.size() || *well_set.begin() < 0 || *well_set.rbegin() >= well_size()) {
     //
-    IO::log << IO::log_offset << funame << "well indices out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "well indices out of range\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
   
   if(inner_set.size() && (*inner_set.begin() < 0 || *inner_set.rbegin() >= inner_barrier_size())) {
     //
-    IO::log << IO::log_offset << funame << "inner barrier indices out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "inner barrier indices out of range\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
     
   if(outer_set.size() && (*outer_set.begin() < 0 || *outer_set.rbegin() >= outer_barrier_size())) {
     //
-    IO::log << IO::log_offset << funame << "outer barrier indices out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "outer barrier indices out of range\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -501,7 +502,7 @@ void Model::ChemGraph::assert () const
        //
        well_set.find(inner_connect(*b).second) == well_set.end()) {
       //
-      IO::log << IO::log_offset << funame << "inner barrier is not internal barrier of the graph\n";
+      IO::log << "\n" << IO::log_offset << funame << "inner barrier is not internal barrier of the graph\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -510,7 +511,7 @@ void Model::ChemGraph::assert () const
     //
     if(well_set.find(outer_connect(*b).first)  == well_set.end()) {
       //
-      IO::log << IO::log_offset << funame << "outer barrier is not connected to the graph\n";
+      IO::log << "\n" << IO::log_offset << funame << "outer barrier is not connected to the graph\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -609,7 +610,7 @@ void Model::ChemGraph::remove (spec_t s)
     //
   default:
     //
-    IO::log << IO::log_offset << funame << "should not be here\n";
+    IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -646,14 +647,14 @@ int Model::ChemGraph::split (double temperature, std::list<ChemGraph>* l) const
   
   if(well_set.size() < 2) {
     //
-    IO::log << IO::log_offset << funame << "wrong well size: " << well_set.size() << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong well size: " << well_set.size() << "\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
   
   if(factorize().size() != 1) {
     //
-    IO::log << IO::log_offset << funame << "graph is not connected: " << *this << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "graph is not connected: " << *this << "\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -681,14 +682,14 @@ int Model::ChemGraph::split (double temperature, std::list<ChemGraph>* l) const
 
   if(e == ener_map.rend()) {
     //
-    IO::log << IO::log_offset << funame << "energy map end reached\n";
+    IO::log << "\n" << IO::log_offset << funame << "energy map end reached\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
 
   if(l->size() != 2) {
     //
-    IO::log << IO::log_offset << funame << "wrong split size: " << l->size() << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong split size: " << l->size() << "\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -735,7 +736,7 @@ void Model::ChemGraph::assert (spec_t s) const
     //
     if(well_set.find(index) == well_set.end()) {
       //
-      IO::log << IO::log_offset << funame << s << " well is not found in the graph " << *this << "\n";
+      IO::log << "\n" << IO::log_offset << funame << s << " well is not found in the graph " << *this << "\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -746,7 +747,7 @@ void Model::ChemGraph::assert (spec_t s) const
     //
     if(inner_set.find(index) == inner_set.end()) {
       //
-      IO::log << IO::log_offset << funame << s << " inner barrier is not found in the graph " << *this << "\n";
+      IO::log << "\n" << IO::log_offset << funame << s << " inner barrier is not found in the graph " << *this << "\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -757,7 +758,7 @@ void Model::ChemGraph::assert (spec_t s) const
     //
     if(outer_set.find(index) == outer_set.end()) {
       //
-      IO::log << IO::log_offset << funame << s << " outer barrier is not found in the graph " << *this << "\n";
+      IO::log << "\n" << IO::log_offset << funame << s << " outer barrier is not found in the graph " << *this << "\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -766,7 +767,7 @@ void Model::ChemGraph::assert (spec_t s) const
     //
   default:
     //
-    IO::log << IO::log_offset << funame << "unknown type: " << type << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "unknown type: " << type << "\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -939,7 +940,7 @@ std::list<Model::ChemGraph> Model::ChemGraph::factorize () const
 
     if(i1 == gl.end() || i2 == gl.end()) {
       //
-      IO::log << IO::log_offset << funame << "inner barrier connections are out of well set\n";
+      IO::log << "\n" << IO::log_offset << funame << "inner barrier connections are out of well set\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -983,7 +984,7 @@ std::list<Model::ChemGraph> Model::ChemGraph::factorize () const
     
     if(i == gl.end()) {
       //
-      IO::log << IO::log_offset << funame << "outer barrier connection out of well set\n";
+      IO::log << "\n" << IO::log_offset << funame << "outer barrier connection out of well set\n";
       
       IO::log << std::flush; throw Error::Logic();
     }
@@ -1014,7 +1015,7 @@ Model::landscape_t Model::kinetic_landscape (const emap_t& energy_map)
 
 #ifdef DEBUG
 
-    IO::log << IO::log_offset << b << ": ";
+    IO::log << "\n" << IO::log_offset << b << ": ";
 
 #endif
     
@@ -1245,21 +1246,21 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
       //
       if(_excess > 0. || _temperature > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _excess)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(_excess <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -1272,21 +1273,21 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
       //
       if(_excess > 0. || _temperature > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _temperature)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(_temperature <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -1299,21 +1300,21 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
       //
       if(_start >= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _start)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(_start <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -1326,21 +1327,21 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
       //
       if(_finish >= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _finish)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(_finish <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -1353,21 +1354,21 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
       //
       if(_size > 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _size)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(_size < 2) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -1378,14 +1379,14 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
       //
       if(_reactant_name.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _reactant_name)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -1396,14 +1397,14 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
       //
       if(out.is_open()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -1412,7 +1413,7 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
 
       if(!out) {
 	//
-	IO::log << IO::log_offset << funame << token << ": cannot open " << stemp << " file\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": cannot open " << stemp << " file\n";
 	
 	IO::log << std::flush; throw Error::Open();
       }
@@ -1421,7 +1422,7 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -1431,49 +1432,49 @@ Model::TimeEvolution::TimeEvolution (IO::KeyBufferStream& from)
 
   if(!_reactant_name.size()) {
     //
-    IO::log << IO::log_offset << funame << "reactant name not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "reactant name not defined\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_excess < 0. && _temperature < 0.) {
     //
-    IO::log << IO::log_offset << funame << "excess reactant concentration not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "excess reactant concentration not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
   
   if(_start <= 0.) {
     //
-    IO::log << IO::log_offset << funame << "time grid start not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "time grid start not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
   
   if(_finish <= 0.) {
     //
-    IO::log << IO::log_offset << funame << "time grid finish not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "time grid finish not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
   
   if(_size < 2) {
     //
-    IO::log << IO::log_offset << funame << "time grid size not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "time grid size not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
   
   if(_finish <= _start) {
     //
-    IO::log << IO::log_offset << funame << "time grid finish should be bigger than start\n";
+    IO::log << "\n" << IO::log_offset << funame << "time grid finish should be bigger than start\n";
     
     IO::log << std::flush; throw Error::Init();
   }
   
   if(!out.is_open()) {
     //
-    IO::log << IO::log_offset << funame << "output stream not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "output stream not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -1494,7 +1495,7 @@ void Model::TimeEvolution::set_reactant () const
 	//
 	return;
     
-    IO::log << IO::log_offset << funame << "unknown bimolecular: " << _reactant_name <<"\n";
+    IO::log << "\n" << IO::log_offset << funame << "unknown bimolecular: " << _reactant_name <<"\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -1506,7 +1507,7 @@ void Model::TimeEvolution::set_reactant () const
       //
       return;
 
-  IO::log << IO::log_offset << funame << "unknown well: " << _reactant_name <<"\n";
+  IO::log << "\n" << IO::log_offset << funame << "unknown well: " << _reactant_name <<"\n";
   
   IO::log << std::flush; throw Error::Range();
 }
@@ -1863,7 +1864,7 @@ void Model::reset (const std::vector<std::set<int> >& well_partition)
       
     if(btemp) {
       //
-      IO::log << IO::log_offset << funame << "no barrier associated with " << well(w).name() << " well found\n";
+      IO::log << "\n" << IO::log_offset << funame << "no barrier associated with " << well(w).name() << " well found\n";
 	
       IO::log << std::flush; throw Error::Init();
     }
@@ -1910,7 +1911,7 @@ Model::bound_t Model::bound_groups (const emap_t& energy_map)
 
   if(!bimolecular_size()) {
     //
-    IO::log << IO::log_offset << funame << "there are no bimolecular channels\n";
+    IO::log << "\n" << IO::log_offset << funame << "there are no bimolecular channels\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -2087,7 +2088,7 @@ std::vector<double> Model::dissociation_energy_map (double temperature)
       
       if(!well_pool.insert(*w).second) {
 	//
-	IO::log << IO::log_offset << funame << "well index has been used already: " << *w << "\n";
+	IO::log << "\n" << IO::log_offset << funame << "well index has been used already: " << *w << "\n";
 	
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -2096,7 +2097,7 @@ std::vector<double> Model::dissociation_energy_map (double temperature)
 
   if(well_pool.size() != well_size()) {
     //
-    IO::log << IO::log_offset << funame << "some wells have not been used\n";
+    IO::log << "\n" << IO::log_offset << funame << "some wells have not been used\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -2518,21 +2519,21 @@ void Model::init (IO::KeyBufferStream& from)
 
   if(isinit()) {
     //
-    IO::log << IO::log_offset << funame << "allready initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "allready initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!IO::log.is_open()) {
     //
-    IO::log << IO::log_offset << funame  << "log stream is not open\n";
+    IO::log << "\n" << IO::log_offset << funame  << "log stream is not open\n";
     
     IO::log << std::flush; throw Error::Init();
   }      
 
   if(!is_energy_limit()) {
     //
-    IO::log << IO::log_offset << funame << "model energy limit should be set BEFORE model initialization\n";
+    IO::log << "\n" << IO::log_offset << funame << "model energy limit should be set BEFORE model initialization\n";
 	
     IO::log << std::flush; throw Error::Init();
   }
@@ -2601,7 +2602,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(well_size() || bimolecular_size()) {
 	//
-	IO::log << IO::log_offset << funame << token << "should be initialized before any species\n";
+	IO::log << "\n" << IO::log_offset << funame << token << "should be initialized before any species\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -2609,14 +2610,14 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(!(lin >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 					
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(dtemp <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
 					
 	IO::log << std::flush; throw Error::Range();
       }
@@ -2641,7 +2642,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(!(lin >> well_separator)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2658,7 +2659,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(!Model::well_exclude_group.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << " is empty\n";
+	IO::log << "\n" << IO::log_offset << funame << token << " is empty\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2669,7 +2670,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(!(from >> temp_rel_incr)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2678,7 +2679,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(temp_rel_incr <= 0. || temp_rel_incr >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -2689,7 +2690,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(!(from >> wout_file)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2701,7 +2702,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(!(from >> eref)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2715,7 +2716,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(!(from >> tstep)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2723,7 +2724,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(tstep <= 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -2734,7 +2735,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(!(from >> tmin)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2742,7 +2743,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(tmin <= 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -2753,7 +2754,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(!(from >> tsize)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2761,7 +2762,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(tsize <= 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }	
@@ -2784,7 +2785,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(_buffer_fraction.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -2795,7 +2796,7 @@ void Model::init (IO::KeyBufferStream& from)
 	//
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -2804,7 +2805,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(!_buffer_fraction.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -2844,7 +2845,7 @@ void Model::init (IO::KeyBufferStream& from)
 	  Kernel::add_flag(Kernel::DOWN);
 	}
 	else {
-	  IO::log << IO::log_offset << funame << token << ": unknown key: " << stemp 
+	  IO::log << "\n" << IO::log_offset << funame << token << ": unknown key: " << stemp 
 		    << " possible keys: up, density, notruncation\n";
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -2855,7 +2856,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(!(from >> name)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2864,7 +2865,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(!species_name.insert(name).second) {
 	//
-	IO::log << IO::log_offset << funame << token << ": name " << name << " already in use\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": name " << name << " already in use\n";
 	
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -2881,7 +2882,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       if(!(from >> name)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -2889,7 +2890,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(!species_name.insert(name).second) {
 	//
-	IO::log << IO::log_offset << funame << token << ": name " << name << " already in use\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": name " << name << " already in use\n";
 	
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -2908,21 +2909,21 @@ void Model::init (IO::KeyBufferStream& from)
       
       if(!(lin >> name >> species_pair.first >> species_pair.second)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(!species_name.insert(name).second) {
 	//
-	IO::log << IO::log_offset << funame << token << ": name " << name << " already in use\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": name " << name << " already in use\n";
 	
 	IO::log << std::flush; throw Error::Logic();
       }
 
       if(species_pair.first == species_pair.second) {
 	//
-	IO::log << IO::log_offset << funame << name << "barrier connects "
+	IO::log << "\n" << IO::log_offset << funame << name << "barrier connects "
 	  //
 		  << species_pair.first <<" well with itself\n";
 	
@@ -2937,7 +2938,7 @@ void Model::init (IO::KeyBufferStream& from)
 	   //
 	   *b == species_pair) {
 	  //
-	  IO::log << IO::log_offset << funame << name << " and " << barrier_pool[itemp]->name()
+	  IO::log << "\n" << IO::log_offset << funame << name << " and " << barrier_pool[itemp]->name()
 	    //
 		    << " barriers connect the same pair of species\n";
 	  
@@ -2957,7 +2958,7 @@ void Model::init (IO::KeyBufferStream& from)
 
 	if(i == bimolecular_index.end()) {
 	  //
-	  IO::log << IO::log_offset << funame << species_pair.first
+	  IO::log << "\n" << IO::log_offset << funame << species_pair.first
 	    //
 		    << " species is not initialized yet: wells and bimolecular should be initialized before barriers\n";
 
@@ -2968,7 +2969,7 @@ void Model::init (IO::KeyBufferStream& from)
 
 	if(i == well_index.end()) {
 	  //
-	  IO::log << IO::log_offset << funame << species_pair.second
+	  IO::log << "\n" << IO::log_offset << funame << species_pair.second
 	    //
 		    << " well is not initialized yet: wells and bimolecular should be initialized before barriers\n";
 	  
@@ -2989,7 +2990,7 @@ void Model::init (IO::KeyBufferStream& from)
 
 	  if(i == bimolecular_index.end()) {
 	    //
-	    IO::log << IO::log_offset << funame << species_pair.second
+	    IO::log << "\n" << IO::log_offset << funame << species_pair.second
 	      //
 		      << " species is not initialized yet: wells and bimolecular should be initialized before barriers\n";
 
@@ -3009,7 +3010,7 @@ void Model::init (IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -3027,28 +3028,28 @@ void Model::init (IO::KeyBufferStream& from)
 
     if(!from) {
       //
-      IO::log << IO::log_offset << funame << "input stream is currupted\n";
+      IO::log << "\n" << IO::log_offset << funame << "input stream is currupted\n";
       
       IO::log << std::flush; throw Error::Input();
     }
 
     if(!_default_collision.size()) {
       //
-      IO::log << IO::log_offset << funame  << "default collision model is not initialized\n";
+      IO::log << "\n" << IO::log_offset << funame  << "default collision model is not initialized\n";
       
       IO::log << std::flush; throw Error::Init();
     }
 
     if(!_default_kernel.size()) {
       //
-      IO::log << IO::log_offset << funame  << "default energy transfer kernel is not defined\n";
+      IO::log << "\n" << IO::log_offset << funame  << "default energy transfer kernel is not defined\n";
       
       IO::log << std::flush; throw Error::Init();
     }
 
     if(_default_collision.size() != _default_kernel.size()) {
       //
-      IO::log << IO::log_offset << funame  << "number of energy transfer kernels and collision frequency models mismatch\n";
+      IO::log << "\n" << IO::log_offset << funame  << "number of energy transfer kernels and collision frequency models mismatch\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -3062,14 +3063,14 @@ void Model::init (IO::KeyBufferStream& from)
     
     if(_default_collision.size() != _buffer_fraction.size()) {
       //
-      IO::log << IO::log_offset << funame  << "number of collision frequency models and buffer gas fractions mismatch\n";
+      IO::log << "\n" << IO::log_offset << funame  << "number of collision frequency models and buffer gas fractions mismatch\n";
       
       IO::log << std::flush; throw Error::Init();
     }
 
     if(!well_size()) {
       //
-      IO::log << IO::log_offset << funame << "no wells\n";
+      IO::log << "\n" << IO::log_offset << funame << "no wells\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -3119,7 +3120,7 @@ void Model::init (IO::KeyBufferStream& from)
       //
       else {
 	//
-	IO::log << IO::log_offset << funame << barrier_pool[itemp]->name() << " barrier connects wrong species: "
+	IO::log << "\n" << IO::log_offset << funame << barrier_pool[itemp]->name() << " barrier connects wrong species: "
 		  << b->first << " and " << b->second << "\n";
 	
 	IO::log << std::flush; throw Error::Logic();
@@ -3145,14 +3146,14 @@ void Model::init (IO::KeyBufferStream& from)
 
     if(!well_pair.insert(inner_connect(b).second).second) {
       //
-      IO::log << IO::log_offset << funame << "well self-connected: " << well(*well_pair.begin()).name();
+      IO::log << "\n" << IO::log_offset << funame << "well self-connected: " << well(*well_pair.begin()).name();
 
       IO::log << std::flush; throw Error::Logic();
     }
 
     if(!inner_set.insert(well_pair).second) {
       //
-      IO::log << IO::log_offset << funame << "multiple barriers for " << well(inner_connect(b).first).name() << " and "
+      IO::log << "\n" << IO::log_offset << funame << "multiple barriers for " << well(inner_connect(b).first).name() << " and "
 	//
 		<< well(inner_connect(b).second).name() << " wells\n";
 
@@ -3201,14 +3202,14 @@ void Model::init (IO::KeyBufferStream& from)
     //
     if(well_size() > 1) {
       //
-      IO::log << IO::log_offset << funame << "wells are not connected\n";
+      IO::log << "\n" << IO::log_offset << funame << "wells are not connected\n";
 	
       IO::log << std::flush; throw Error::Init();
     }
   }
   else if(pool.size() > 1) {
     //
-    IO::log << IO::log_offset << funame << "there are " << pool.size() << " unconnected groups of wells: ";
+    IO::log << "\n" << IO::log_offset << funame << "there are " << pool.size() << " unconnected groups of wells: ";
       
     for(Pit p = pool.begin(); p != pool.end(); ++p) {
       //
@@ -3231,7 +3232,7 @@ void Model::init (IO::KeyBufferStream& from)
   }
   else if(pool.begin()->size() != well_size()) {
     //
-    IO::log << IO::log_offset << funame << "there are unconnected wells:";
+    IO::log << "\n" << IO::log_offset << funame << "there are unconnected wells:";
       
     for(int w = 0; w < well_size(); ++w)
       //
@@ -3254,7 +3255,7 @@ void Model::init (IO::KeyBufferStream& from)
     //
     if(!outer_set.insert(outer_connect(b)).second) {
       //
-      IO::log << IO::log_offset << funame << "there are multiple barriers for " << well(outer_connect(b).first).name()
+      IO::log << "\n" << IO::log_offset << funame << "there are multiple barriers for " << well(outer_connect(b).first).name()
 	//
 		<< " well and " << bimolecular(outer_connect(b).second).name() << " barrier\n";
 
@@ -3266,7 +3267,7 @@ void Model::init (IO::KeyBufferStream& from)
     
   if(product_pool.size() != bimolecular_size()) {
     //
-    IO::log << IO::log_offset << funame << "there are unconnected bimolecular products:";
+    IO::log << "\n" << IO::log_offset << funame << "there are unconnected bimolecular products:";
     //
     for(int p = 0; p < bimolecular_size(); ++p)
       //
@@ -3332,7 +3333,7 @@ void Model::init (IO::KeyBufferStream& from)
 
 	if(well_map.find(name) == well_map.end()) {
 	  //
-	  IO::log << IO::log_offset << funame << "well name <" << name << "> in the group <" << *git
+	  IO::log << "\n" << IO::log_offset << funame << "well name <" << name << "> in the group <" << *git
 		    << "> either does not exist or is duplicated from the previous groups\n";
 
 	  IO::log << std::flush; throw Error::Input();
@@ -3351,7 +3352,7 @@ void Model::init (IO::KeyBufferStream& from)
 
       if(!well_group.size()) {
 	//
-	IO::log << IO::log_offset << funame << "empty group: " << *git << "\n";
+	IO::log << "\n" << IO::log_offset << funame << "empty group: " << *git << "\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -3365,7 +3366,7 @@ void Model::init (IO::KeyBufferStream& from)
 
     if(btemp) {
       //
-      IO::log << IO::log_offset << funame << "no lumping\n";
+      IO::log << "\n" << IO::log_offset << funame << "no lumping\n";
 
       IO::log << std::flush; throw Error::Init();
     }
@@ -3395,7 +3396,7 @@ void Model::init (IO::KeyBufferStream& from)
        //
        inner_barrier(b).real_ground() < well(inner_connect(b).second).ground() ) {
       //
-      IO::log << IO::log_offset << funame << inner_barrier(b).name() << " barrier, "
+      IO::log << "\n" << IO::log_offset << funame << inner_barrier(b).name() << " barrier, "
 	//
 		<< inner_barrier(b).real_ground() / Phys_const::kcal
 	//
@@ -3408,7 +3409,7 @@ void Model::init (IO::KeyBufferStream& from)
     //
     if(outer_barrier(b).real_ground() < well(outer_connect(b).first).ground() ) {
       //
-      IO::log << IO::log_offset << funame << outer_barrier(b).name() << " barrier, "
+      IO::log << "\n" << IO::log_offset << funame << outer_barrier(b).name() << " barrier, "
 	//
 		<< outer_barrier(b).real_ground() / Phys_const::kcal
 	//
@@ -3987,26 +3988,38 @@ void Model::pf_print () {
     //
     for(int b = 0; b < inner_barrier_size(); ++b) {
       //
-      dtemp = std::log(inner_barrier(b).tunnel_weight(tval)) * tval
-	//
-	+ inner_barrier(b).real_ground() - inner_barrier(b).ground();
+      dtemp = std::log(inner_barrier(b).tunnel_weight(tval)) + (inner_barrier(b).real_ground() - inner_barrier(b).ground()) / tval;
 
-      IO::log << std::setw(log_precision + 7) << std::exp(dtemp / tval)
+      IO::log << std::setw(log_precision + 7);
+
+      if(dtemp > Limits::exp_pow_max()) {
 	//
-	      << std::setw(log_precision + 7) << -dtemp / Phys_const::kcal;
+	IO::log << "***";
+      }
+      else
+	//
+	IO::log << std::exp(dtemp);
+
+      IO::log << std::setw(log_precision + 7) << -dtemp * tval / Phys_const::kcal;
     }
     
     // outer barrier
     //
     for(int b = 0; b < outer_barrier_size(); ++b) {
       //
-      dtemp = std::log(outer_barrier(b).tunnel_weight(tval)) * tval
-	//
-	+ outer_barrier(b).real_ground() - outer_barrier(b).ground();
+      dtemp = std::log(outer_barrier(b).tunnel_weight(tval)) + (outer_barrier(b).real_ground() - outer_barrier(b).ground()) / tval;
       
-      IO::log << std::setw(log_precision + 7) << std::exp(dtemp / tval)
+      IO::log << std::setw(log_precision + 7);
+
+      if(dtemp > Limits::exp_pow_max()) {
 	//
-	      << std::setw(log_precision + 7) << -dtemp / Phys_const::kcal;
+	IO::log << "***";
+      }
+      else
+	//
+	IO::log << std::exp(dtemp);
+
+      IO::log << std::setw(log_precision + 7) << -dtemp * tval / Phys_const::kcal;
     }
     
     IO::log << "\n";
@@ -4086,7 +4099,7 @@ std::vector<D3::Vector> Model::adjusted_normal_mode (const std::vector<Atom>& at
 
   if(motion.begin()->first < 0 || motion.rbegin()->first >= atom.size()) {
     //
-    IO::log << IO::log_offset << funame << "motion index out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "motion index out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -4206,14 +4219,14 @@ std::vector<std::vector<int> > Model::population (double ener, const std::vector
 
   if(findex < 0 || findex > freq.size()) {
     //
-    IO::log << IO::log_offset << funame << "index out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "index out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
 
   if(ener <= 0.) {
     //
-    IO::log << IO::log_offset << funame << "negative energy\n";
+    IO::log << "\n" << IO::log_offset << funame << "negative energy\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -4226,7 +4239,7 @@ std::vector<std::vector<int> > Model::population (double ener, const std::vector
   
   if(f <= 0.) {
     //
-    IO::log << IO::log_offset << funame << findex << "-th frequency negative\n";
+    IO::log << "\n" << IO::log_offset << funame << findex << "-th frequency negative\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -4265,14 +4278,14 @@ double Model::vibrational_sum (double ener, const Lapack::Vector& freq, double p
 
   if(findex < 0 || findex > freq.size()) {
     //
-    IO::log << IO::log_offset << funame << "index out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "index out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
 
   if(ener <= 0.) {
     //
-    IO::log << IO::log_offset << funame << "negative energy\n";
+    IO::log << "\n" << IO::log_offset << funame << "negative energy\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -4285,7 +4298,7 @@ double Model::vibrational_sum (double ener, const Lapack::Vector& freq, double p
   
   if(f <= 0.) {
     //
-    IO::log << IO::log_offset << funame << findex << "-th frequency negative\n";
+    IO::log << "\n" << IO::log_offset << funame << findex << "-th frequency negative\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -4320,7 +4333,7 @@ void Model::read_geometry (IO::KeyBufferStream& from, std::vector<Atom>& atom, i
   
   if(!size_input) {
     //
-    IO::log << IO::log_offset << funame << "cannot read number of atoms\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read number of atoms\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -4335,7 +4348,7 @@ void Model::read_geometry (IO::KeyBufferStream& from, std::vector<Atom>& atom, i
     
     if(!(data_input >> *at)) {
       //
-      IO::log << IO::log_offset << funame << at - atom.begin() << "-th atom input failed\n";
+      IO::log << "\n" << IO::log_offset << funame << at - atom.begin() << "-th atom input failed\n";
       
       IO::log << std::flush; throw Error::Input();
     } 
@@ -4354,7 +4367,7 @@ void Model::read_geometry (IO::KeyBufferStream& from, std::vector<Atom>& atom, i
       
     default:
       //
-      IO::log << IO::log_offset << funame << "unknown units\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown units\n";
       
       IO::log << std::flush; throw Error::Logic();
     }
@@ -4370,7 +4383,7 @@ void Model::read_geometry (IO::KeyBufferStream& from, std::vector<Atom>& atom, i
       
       if(dtemp < atom_dist_min) {
 	//
-	IO::log << IO::log_offset << funame << "the distance between the "
+	IO::log << "\n" << IO::log_offset << funame << "the distance between the "
 	  //
 		  << i + 1 << " and " << j + 1 << "-th atoms = "
 	  //
@@ -4422,7 +4435,7 @@ SharedPointer<Model::Escape> Model::new_escape(IO::KeyBufferStream& from)
     //
     if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -4430,7 +4443,7 @@ SharedPointer<Model::Escape> Model::new_escape(IO::KeyBufferStream& from)
     }
   }  
 
-  IO::log << IO::log_offset << funame << "corrupted\n";
+  IO::log << "\n" << IO::log_offset << funame << "corrupted\n";
   
   IO::log << std::flush; throw Error::Input();
 }
@@ -4459,7 +4472,7 @@ SharedPointer<Model::Collision> Model::new_collision(IO::KeyBufferStream& from)
     //
     if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -4467,7 +4480,7 @@ SharedPointer<Model::Collision> Model::new_collision(IO::KeyBufferStream& from)
     }
   }  
 
-  IO::log << IO::log_offset << funame << "corrupted\n";
+  IO::log << "\n" << IO::log_offset << funame << "corrupted\n";
   
   IO::log << std::flush; throw Error::Input();
 }
@@ -4496,7 +4509,7 @@ SharedPointer<Model::Kernel> Model::new_kernel(IO::KeyBufferStream& from)
     //
     if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -4506,7 +4519,7 @@ SharedPointer<Model::Kernel> Model::new_kernel(IO::KeyBufferStream& from)
     }
   }
 
-  IO::log << IO::log_offset << funame << "corrupted\n";
+  IO::log << "\n" << IO::log_offset << funame << "corrupted\n";
 
   IO::log << std::flush; throw Error::Input();
 }
@@ -4553,7 +4566,7 @@ SharedPointer<Model::Rotor> Model::new_rotor(IO::KeyBufferStream& from, const st
     //
     if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
 
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -4563,7 +4576,7 @@ SharedPointer<Model::Rotor> Model::new_rotor(IO::KeyBufferStream& from, const st
     }
   }
 
-  IO::log << IO::log_offset << funame << "corrupted\n";
+  IO::log << "\n" << IO::log_offset << funame << "corrupted\n";
   
   IO::log << std::flush; throw Error::Input();
 }
@@ -4627,7 +4640,7 @@ SharedPointer<Model::Tunnel> Model::new_tunnel(IO::KeyBufferStream& from)
     //
     if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -4637,7 +4650,7 @@ SharedPointer<Model::Tunnel> Model::new_tunnel(IO::KeyBufferStream& from)
     }
   }
 
-  IO::log << IO::log_offset << funame << "corrupted\n";
+  IO::log << "\n" << IO::log_offset << funame << "corrupted\n";
 
   IO::log << std::flush; throw Error::Input();  
 }
@@ -4695,7 +4708,7 @@ SharedPointer<Model::Core> Model::new_core(IO::KeyBufferStream& from, const std:
     //
     if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -4705,7 +4718,7 @@ SharedPointer<Model::Core> Model::new_core(IO::KeyBufferStream& from, const std:
     }
   }
 
-  IO::log << IO::log_offset << funame << "corrupted\n";
+  IO::log << "\n" << IO::log_offset << funame << "corrupted\n";
 
   IO::log << std::flush; throw Error::Input();
 }
@@ -4734,7 +4747,7 @@ SharedPointer<Model::Species> Model::new_species(IO::KeyBufferStream& from, cons
   
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "end of file\n";
+    IO::log << "\n" << IO::log_offset << funame << "end of file\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -4769,7 +4782,7 @@ SharedPointer<Model::Species> Model::new_species(IO::KeyBufferStream& from, cons
     //
     if(mode == DENSITY) {
       //
-      IO::log << IO::log_offset << funame << token << ": wrong mode\n";
+      IO::log << "\n" << IO::log_offset << funame << token << ": wrong mode\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -4784,7 +4797,7 @@ SharedPointer<Model::Species> Model::new_species(IO::KeyBufferStream& from, cons
     //
     if(mode != NOSTATES) {
       //
-      IO::log << IO::log_offset << funame << token << ": wrong mode\n";
+      IO::log << "\n" << IO::log_offset << funame << token << ": wrong mode\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -4799,7 +4812,7 @@ SharedPointer<Model::Species> Model::new_species(IO::KeyBufferStream& from, cons
     //
     if(mode != NOSTATES) {
       //
-      IO::log << IO::log_offset << funame << token << ": wrong mode\n";
+      IO::log << "\n" << IO::log_offset << funame << token << ": wrong mode\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -4814,7 +4827,7 @@ SharedPointer<Model::Species> Model::new_species(IO::KeyBufferStream& from, cons
     //
     if(mode != NOSTATES) {
       //
-      IO::log << IO::log_offset << funame << token << ": wrong mode\n";
+      IO::log << "\n" << IO::log_offset << funame << token << ": wrong mode\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -4834,7 +4847,7 @@ SharedPointer<Model::Species> Model::new_species(IO::KeyBufferStream& from, cons
   
   // unknown keyword
   //
-  IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+  IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
   
   Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -4898,13 +4911,13 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
       //
       if(_epsilon > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       if(!(from >> dtemp1 >> dtemp2)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -4912,7 +4925,7 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
 
       if(dtemp1 <= 0. || dtemp2 <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -4936,14 +4949,14 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
       //
       if(sigma > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> dtemp1 >> dtemp2)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -4951,7 +4964,7 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
 
       if(dtemp1 <= 0. || dtemp2 <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -4963,14 +4976,14 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
       //
       if(mass > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> dtemp1 >> dtemp2)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -4978,7 +4991,7 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
 
       if(dtemp1 <= 0. || dtemp2 <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -4989,7 +5002,7 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -5003,28 +5016,28 @@ Model::LennardJonesCollision::LennardJonesCollision(IO::KeyBufferStream& from)
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(_epsilon < 0.) {
     //
-    IO::log << IO::log_offset << funame << "epsilons not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "epsilons not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(sigma < 0.) {
     //
-    IO::log << IO::log_offset << funame << "sigmas not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "sigmas not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(mass < 0.) {
     //
-    IO::log << IO::log_offset << funame << "masses not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "masses not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -5103,7 +5116,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
       //
       if(_factor.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -5114,7 +5127,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
 	//
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": out of range\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -5127,7 +5140,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
       //
       if(_power.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -5138,7 +5151,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
 	//
 	if(dtemp < 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": out of range\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -5151,7 +5164,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
       //
       if(_fraction.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -5162,7 +5175,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
 	//
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": out of range\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -5175,7 +5188,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
       //
       if(!(from >> _cutoff)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -5183,7 +5196,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
 
       if(_cutoff <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -5192,7 +5205,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -5205,7 +5218,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
   // checking
   //
   if(!from) {
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -5216,7 +5229,7 @@ Model::ExponentialKernel::ExponentialKernel(IO::KeyBufferStream& from)
 
   if(!_power.size() || _power.size() != _factor.size() || _power.size() != _fraction.size()) {
     //
-    IO::log << IO::log_offset << funame << "initialization error\n";
+    IO::log << "\n" << IO::log_offset << funame << "initialization error\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -5261,7 +5274,7 @@ double Model::ExponentialKernel::operator () (double energy, double temperature)
  
   if(energy < 0.) {
     //
-    IO::log << IO::log_offset << funame << "negative energy\n";
+    IO::log << "\n" << IO::log_offset << funame << "negative energy\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -5298,17 +5311,16 @@ double Model::ExponentialKernel::cutoff_energy (double temperature) const
  ***************************************** TUNNELING ****************************************
  ********************************************************************************************/
 
-Model::Tunnel::Tunnel (IO::KeyBufferStream& from) 
-  : _cutoff(-1.), _wtol(1.e-2), _freq(-1.), _efac(0.)
+Model::Tunnel::Tunnel (IO::KeyBufferStream& from) :_cutoff(-1.), _wtol(1.e-2), _freq(-1.), _efac(0.)
 {
-  const char funame [] = "Model::Tunnel::Tunnel : ";
+  const char funame [] = "Model::Tunnel::Tunnel: ";
 
   KeyGroup TunnelModel;
 
   Key kcal_cut_key("CutoffEnergy[kcal/mol]"    );
   Key incm_cut_key("CutoffEnergy[1/cm]"        );
   Key   kj_cut_key("CutoffEnergy[kJ/mol]"      );
-  Key     wtol_key("StatisticalWeightTolerance");
+  Key     wtol_key("EnergyStepOverTemperature" );
   Key     freq_key("ImaginaryFrequency[1/cm]"  );
 
   std::string token, comment;
@@ -5321,15 +5333,15 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
       //
       if(!(from >> _cutoff)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }    
       std::getline(from, comment);
 
-      if(_cutoff < 0.) {
+      if(_cutoff <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should not be negative\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << _cutoff << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -5352,14 +5364,14 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
       //
       if(_freq > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!(from >> _freq)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -5367,7 +5379,7 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
 
       if(_freq <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -5380,7 +5392,7 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
       //
       if(!(from >> _wtol)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }    
@@ -5388,7 +5400,7 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
 
       if(_wtol <= 0. || _wtol >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -5425,14 +5437,14 @@ Model::Tunnel::Tunnel (IO::KeyBufferStream& from)
 
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(_freq < 0.) {
     //
-    IO::log << IO::log_offset << funame << "imaginary frequency not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "imaginary frequency not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -5451,7 +5463,7 @@ void Model::Tunnel::convolute(Array<double>& stat, double step) const
 
   if(cutoff() < 0.) {
     //
-    IO::log << IO::log_offset << funame << "cutoff energy is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "cutoff energy is not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -5491,17 +5503,61 @@ void Model::Tunnel::convolute(Array<double>& stat, double step) const
   stat = new_stat;
 }
 
+// tunneling cutoff energy adjustment in relation to tunneling action maximum
+//
+void Model::Tunnel::_adjust_cutoff ()
+{
+  const char funame [] = "Model::Tunnel::_adjust_cutoff: ";
+
+  static const double etol = Phys_const::incm;
+
+  if(cutoff() < 0.) {
+    //
+    IO::log << "\n" << IO::log_offset << funame << "cutoff energy is not initialized\n";
+
+    std::cerr << funame << "cutoff energy is not initialized\n";
+    
+    IO::log << std::flush; throw Error::Init();
+  }
+
+  int    itemp;
+  double dtemp;
+
+  double emin = 0., emax = cutoff(), etest = 0.;
+
+  if(-action(-emax) < action_max())
+    //
+    return;
+
+  while(emax - emin > etol) {
+    //
+    etest = (emax + emin) / 2.;
+
+    if(-action(-etest) < action_max()) {
+      //
+      emin = etest;
+    }
+    else
+      //
+      emax = etest;
+  }
+
+  set_cutoff(emin);
+
+  IO::log << IO::log_offset << "adjusted cutoff energy = " << std::floor(cutoff() / Phys_const::kcal * 10. + 0.5) / 10. << " kcal/mol\n";
+
+  IO::log << IO::log_offset << "adjusted tunnel factor = " << factor(-cutoff()) << "\n";
+}
+
 // statistical weight relative to cutoff energy
 //
 double Model::Tunnel::weight (double temperature) const
 {
   const char funame [] = "Model::Tunnel::weight: ";
 
-  static const double exp_arg_max = 50.;
-  
   if(cutoff() < 0.) {
     //
-    IO::log << IO::log_offset << funame << "cutoff energy is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "cutoff energy is not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -5509,45 +5565,75 @@ double Model::Tunnel::weight (double temperature) const
   double dtemp;
   int    itemp;
 
+  double arg, arg_max;
+
   const double estep = temperature * _wtol; // discretization energy step
+
+  const double emax = 10. * temperature;
+
+  itemp = 1;
+
+  for(double ener = -cutoff(); ener < emax; ener += estep) {
+    //
+    dtemp = factor(ener);
+
+    if(dtemp == 0.)
+      //
+      continue;
+
+    arg = std::log(dtemp) - ener / temperature;
+
+    if(itemp || arg > arg_max) {
+      //
+      itemp = 0;
+
+      arg_max = arg;
+    }
+  }
 
   double res = 0.;
 
-  for(double ener = 0.; ener < cutoff(); ener += estep) {
+  for(double ener = -cutoff(); ener < emax; ener += estep) {
     //
-    dtemp = (cutoff() - ener) / temperature;
+    dtemp = factor(ener);
 
-    if(dtemp < exp_arg_max)
+    if(dtemp == 0.)
       //
-      res += factor(-ener) / std::exp(dtemp);
-  }
-  
-  const double emax = 10. * temperature;
+      continue;
 
-  for(double ener = estep; ener < emax; ener += estep) {
-    //
-    dtemp = (cutoff() + ener) / temperature;
+    arg = std::log(dtemp) - ener / temperature - arg_max;
 
-    if(dtemp < exp_arg_max)
+    if(arg > -Limits::exp_pow_max())
       //
-      res += factor(ener) / std::exp(dtemp);
+      res += std::exp(arg);
   }
-  
-  res *= _wtol;
-  
-  if(!std::isnormal(res)) {
-    //
-    IO::log << IO::log_offset << funame << "the result is not a normal number\n";
 
-    IO::log << std::flush; throw Error::Range();
+  arg_max -= cutoff() / temperature;
+
+  if(arg_max < -Limits::exp_pow_max()) {
+    //
+    std::cerr << funame << "decrease the tunneling cutoff energy [kcal/mol], " << cutoff() / Phys_const::kcal << ", to, at least, "
+	//
+	      << (cutoff() + (arg_max + Limits::exp_pow_max()) * temperature) / Phys_const::kcal << std::endl;
+
+    IO::log << "\n" << IO::log_offset << funame << "decrease the tunneling cutoff energy [kcal/mol], " 
+	//
+	    << cutoff() / Phys_const::kcal << ", by, at least, "
+	//
+	    << -(arg_max + Limits::exp_pow_max()) * temperature / Phys_const::kcal << std::endl;
+
+
+    throw Error::Range();
   }
+
+  res *= _wtol * std::exp(arg_max);
   
   return res;
 }
 
 double Model::Tunnel::density (double ener) const
 {
-  double dtemp = action(ener, 0);
+  double dtemp = action(ener);
   
   if(dtemp > action_max() || dtemp < - action_max())
     //
@@ -5569,7 +5655,7 @@ double Model::Tunnel::density (double ener) const
 
 double Model::Tunnel::factor (double ener) const
 {
-  double dtemp = action(ener, 0);
+  double dtemp = action(ener);
 
   if(dtemp > action_max())
     //
@@ -5626,14 +5712,14 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
       //
       if(file_name.size()) {
 	//
-	IO::log << IO::log_offset << funame << token <<  ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token <<  ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!(from >> file_name)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -5643,7 +5729,7 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -5656,14 +5742,14 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
  
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(!file_name.size()) {
     //
-    IO::log << IO::log_offset << funame << "data file is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "data file is not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -5674,7 +5760,7 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
   
   if(!fin) {
     //
-    IO::log << IO::log_offset << funame << "cannot open rotd input file " << file_name << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot open rotd input file " << file_name << "\n";
     
     IO::log << std::flush; throw Error::Open();
   }
@@ -5689,7 +5775,7 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
 
     if(!(fin >> dtemp)) { // tunneling action
       //
-      IO::log << IO::log_offset << funame << "reading tunneling action failed\n";
+      IO::log << "\n" << IO::log_offset << funame << "reading tunneling action failed\n";
       
       IO::log << std::flush; throw Error::Input();
     }
@@ -5699,7 +5785,7 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
 
   if(ener_action_map.begin()->first >= 0.) {
     //
-    IO::log << IO::log_offset << funame << "no energies below the barrier\n";
+    IO::log << "\n" << IO::log_offset << funame << "no energies below the barrier\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -5725,6 +5811,23 @@ Model::ReadTunnel::ReadTunnel (IO::KeyBufferStream& from)
   if(_action.arg_max() == 0.)
     //
     IO::log << IO::log_offset << "no data for tunneling action above the barrier: mirrow immage will be used\n";
+
+  if(cutoff() < 0.) {
+    //
+    IO::log << "\n" << IO::log_offset << funame << "cutoff energy is not initialized\n";
+    
+    std::cerr  << funame << "cutoff energy is not initialized\n";
+
+    IO::log << std::flush; throw Error::Init();
+  }
+
+  IO::log << IO::log_offset << "cutoff energy = " << cutoff() / Phys_const::kcal << " kcal/mol\n"
+    //
+	  << IO::log_offset << "tunnel factor = " << factor(-cutoff()) << "\n";
+
+  if(-action(-cutoff()) > action_max())
+    //
+    _adjust_cutoff();
 }
 
 double Model::ReadTunnel::action (double ener, int n) const
@@ -5759,7 +5862,7 @@ double Model::ReadTunnel::action (double ener, int n) const
 
     default:
       //
-      IO::log << IO::log_offset << funame << "wrong case\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong case\n";
       
       IO::log << std::flush; throw Error::Logic();
     }
@@ -5778,7 +5881,7 @@ double Model::ReadTunnel::action (double ener, int n) const
 
     default:
       //
-      IO::log << IO::log_offset << funame << "wrong case\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong case\n";
       
       IO::log << std::flush; throw Error::Logic();
     }
@@ -5799,7 +5902,7 @@ double Model::ReadTunnel::action (double ener, int n) const
 
     default:
       //
-      IO::log << IO::log_offset << funame << "wrong case\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong case\n";
       
       IO::log << std::flush; throw Error::Logic();
     }
@@ -5814,10 +5917,12 @@ Model::ReadTunnel::~ReadTunnel ()
  ******************************** PARABOLIC BARRIER TUNNELING *******************************
  ********************************************************************************************/
 
-Model::HarmonicTunnel::HarmonicTunnel (IO::KeyBufferStream& from) 
-  : Tunnel(from)
+Model::HarmonicTunnel::HarmonicTunnel (IO::KeyBufferStream& from) : Tunnel(from)
 {
   const char funame [] = "Model::HarmonicTunnel::HarmonicTunnel: ";
+
+  int    itemp;
+  double dtemp;
 
   IO::Marker funame_marker(funame);
 
@@ -5839,7 +5944,7 @@ Model::HarmonicTunnel::HarmonicTunnel (IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -5851,25 +5956,29 @@ Model::HarmonicTunnel::HarmonicTunnel (IO::KeyBufferStream& from)
   
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(cutoff() < 0.) {
     //
-    IO::log << IO::log_offset << funame << "cutoff energy is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "cutoff energy is not initialized\n";
     
+    std::cerr  << funame << "cutoff energy is not initialized\n";
+
     IO::log << std::flush; throw Error::Init();
   }
 
-  IO::log << IO::log_offset
+  dtemp = action_max() / 2. / M_PI * frequency();
+
+  if(dtemp < cutoff())
     //
-	  << "cutoff energy    = " << -cutoff() / Phys_const::kcal << " kcal/mol\n"
+    set_cutoff(dtemp);
+
+  IO::log << IO::log_offset << "cutoff energy = " << cutoff() / Phys_const::kcal << " kcal/mol\n"
     //
-	  << IO::log_offset
-    //
-	  << "tunneling factor = " << factor(-cutoff()) << "\n";
+	  << IO::log_offset << "tunnel factor = " << factor(-cutoff()) << "\n";
 }
 
 Model::HarmonicTunnel::~HarmonicTunnel ()
@@ -5893,14 +6002,14 @@ double Model::HarmonicTunnel::action (double ener, int n) const
     
   default:
     //
-    IO::log << IO::log_offset << funame << "should not be here\n";
+    IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
 }
 
 /********************************************************************************************
- ******************************** PARABOLIC BARRIER TUNNELING *******************************
+ ********************************* ACTION EXPANSION TUNNELING *******************************
  ********************************************************************************************/
 
 Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from) 
@@ -5938,14 +6047,14 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
 
       if(!(lin >> _efac)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_efac <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << _efac << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << _efac << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -5956,7 +6065,7 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
       //
       if(_expansion.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -5967,7 +6076,7 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
 	//
 	if(!from) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": forgot to add End?\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": forgot to add End?\n";
 
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -5978,7 +6087,7 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
 	
 	if(!(lin >> index)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": empty line?\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": empty line?\n";
 
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -5991,21 +6100,21 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
 
 	if(itemp < 2) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": index out of range: " << itemp << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": index out of range: " << itemp << "\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
 
 	if(_expansion.find(itemp) != _expansion.end()) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": dupplicated index: " << itemp << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": dupplicated index: " << itemp << "\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
 	  
 	if(!(lin >> dtemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read " << itemp << "=th value\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << itemp << "=th value\n";
 								       
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -6018,7 +6127,7 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -6031,22 +6140,24 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
   
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(_expansion.size() && _expansion.begin()->first < 2) {
     //
-    IO::log << IO::log_offset << funame << "action expansion starts from the wrong term: " << _expansion.begin()->first << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "action expansion starts from the wrong term: " << _expansion.begin()->first << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
   
   if(cutoff() < 0.) {
     //
-    IO::log << IO::log_offset << funame << "cutoff energy is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "cutoff energy is not initialized\n";
     
+    std::cerr  << funame << "cutoff energy is not initialized\n";
+
     IO::log << std::flush; throw Error::Init();
   }
 
@@ -6054,7 +6165,7 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
     //
     if(_expansion.find(2) == _expansion.end()) {
       //
-      IO::log << IO::log_offset << funame << "for entanglement correction alpha should be present\n";
+      IO::log << "\n" << IO::log_offset << funame << "for entanglement correction alpha should be present\n";
 
       IO::log << std::flush; throw Error::Init();
     }
@@ -6064,14 +6175,13 @@ Model::ExpTunnel::ExpTunnel (IO::KeyBufferStream& from)
     IO::log << IO::log_offset << "entanglement correction: " << _efac << "\n";
   }
 
-  IO::log << IO::log_offset
+  IO::log << IO::log_offset << "cutoff energy = " << cutoff() / Phys_const::kcal << " kcal/mol\n"
     //
-	  << "cutoff energy = " << -cutoff() / Phys_const::kcal << " kcal/mol\n"
-    //
-	  << IO::log_offset
-    //
-	  << "tunneling factor = " << factor(-cutoff()) << "\n";
+	  << IO::log_offset << "tunnel factor = " << factor(-cutoff()) << "\n";
 
+  if(-action(-cutoff()) > action_max())
+    //
+    _adjust_cutoff();
 }
 
 Model::ExpTunnel::~ExpTunnel ()
@@ -6104,7 +6214,7 @@ double Model::ExpTunnel::action (double ener, int n) const
     
   default:
       //
-      IO::log << IO::log_offset << funame << "should not be here\n";
+      IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
       
       IO::log << std::flush; throw Error::Logic();
     }
@@ -6161,15 +6271,7 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
 {
   const char funame [] = "Model::EckartTunnel::EckartTunnel: ";
 
-#ifdef DEBUG
-
   IO::Marker funame_marker(funame);
-
-#else
-
-  IO::Marker funame_marker(funame, IO::Marker::ONE_LINE | IO::Marker::NOTIME);
-
-#endif
 
   KeyGroup EckartTunnelModel;
 
@@ -6198,7 +6300,7 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -6206,7 +6308,7 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
 
       if(dtemp <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -6226,7 +6328,7 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
 
       if(cutoff() >=0. && dtemp < cutoff()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should not be smaller than cutoff energy\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should not be smaller than cutoff energy\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -6237,7 +6339,7 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -6250,14 +6352,14 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
   
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(_depth.size() != 2) {
     //
-    IO::log << IO::log_offset << funame << "wrong number of wells\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong number of wells\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -6300,16 +6402,15 @@ Model::EckartTunnel::EckartTunnel (IO::KeyBufferStream& from)
 	    << std::setw(log_precision + 7) << 2. * M_PI * (double)e * Phys_const::kcal / frequency()
 	    << std::setw(log_precision + 7) << -action(-(double)e * Phys_const::kcal) << "\n";
 
-  IO::log << IO::log_offset
-    //
-	  << "cutoff energy = " << -cutoff() / Phys_const::kcal << " kcal/mol\n"
-    //
-	  << IO::log_offset
-    //
-	  << "tunneling factor = " << factor(-cutoff()) << "\n";
-
 #endif
 
+  IO::log << IO::log_offset << "cutoff energy = " << cutoff() / Phys_const::kcal << " kcal/mol\n"
+    //
+	  << IO::log_offset << "tunnel factor = " << factor(-cutoff()) << "\n";
+
+  if(-action(-cutoff()) > action_max())
+    //
+    _adjust_cutoff();
 }
 
 Model::EckartTunnel::~EckartTunnel ()
@@ -6352,7 +6453,7 @@ double Model::EckartTunnel::action (double ener, int der) const
       
     default:
       //
-      IO::log << IO::log_offset << funame << "should not be here\n";
+      IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
       
       IO::log << std::flush; throw Error::Logic();
     }
@@ -6390,17 +6491,17 @@ double Model::QuarticTunnel::XratioSearch::operator() (double x, int n) const
     
   default:
     //
-    IO::log << IO::log_offset << funame << "wrong case\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong case\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
 }
 
-Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
-  //
-  : Tunnel(from)
+Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from) : Tunnel(from)
 {
   const char funame [] = "Model::QuarticTunnel::QuarticTunnel: ";
+
+  IO::Marker funame_marker(funame);
 
   // potential minima coordinates ratio search tolerance
   //
@@ -6415,8 +6516,6 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
   int ener_size = 50;
   
   std::vector<double> depth;
-
-  IO::Marker funame_marker(funame);
 
   KeyGroup QuarticTunnelModel;
 
@@ -6448,7 +6547,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -6456,7 +6555,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
 
       if(dtemp <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -6476,7 +6575,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
 
       if(cutoff() >= 0. && dtemp < cutoff()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be bigger than cutoff energy\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be bigger than cutoff energy\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -6488,7 +6587,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
       //
       if(!(from >> xtol)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -6496,7 +6595,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
 
       if(xtol <= 0. || xtol >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();	
       }
@@ -6507,7 +6606,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
       //
       if(!(from >> xstep)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -6515,7 +6614,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
 
       if(xstep <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();	
       }
@@ -6526,7 +6625,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
       //
       if(!(from >> ener_size)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -6534,7 +6633,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
 
       if(ener_size <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();	
       }
@@ -6543,7 +6642,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -6554,7 +6653,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
   
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -6618,7 +6717,7 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
     
   default:
     //
-    IO::log << IO::log_offset << funame << "wrong number of wells\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong number of wells\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -6709,10 +6808,13 @@ Model::QuarticTunnel::QuarticTunnel(IO::KeyBufferStream& from)
 	    << "\n";
   }
 
-  IO::log << IO::log_offset << "cutoff energy = " << -cutoff() / Phys_const::kcal 
-	  << " kcal/mol   tunneling factor = "
-	  << factor(-cutoff()) << "\n";
+  IO::log << IO::log_offset << "cutoff energy = " << std::floor(cutoff() / Phys_const::kcal * 10. + 0.5) / 10. << " kcal/mol\n"
+	  //
+	  << IO::log_offset << "tunnel factor = " << factor(-cutoff()) << "\n";
 
+  if(-action(-cutoff()) > action_max())
+    //
+    _adjust_cutoff();
 }
 
 Model::QuarticTunnel::~QuarticTunnel ()
@@ -6740,7 +6842,7 @@ double Model::QuarticTunnel::action (double ener, int der) const
       
     default:
       //
-      IO::log << IO::log_offset << funame << "wrong derivative\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong derivative\n";
       
       IO::log << std::flush; throw Error::Range();
     }
@@ -6761,7 +6863,7 @@ double Model::QuarticTunnel::action (double ener, int der) const
       
     default:
       //
-      IO::log << IO::log_offset << funame << "wrong derivative\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong derivative\n";
       
       IO::log << std::flush; throw Error::Range();
     }
@@ -6780,7 +6882,7 @@ double Model::QuarticTunnel::action (double ener, int der) const
       
     default:
       //
-      IO::log << IO::log_offset << funame << "wrong derivative\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong derivative\n";
       
       IO::log << std::flush; throw Error::Logic();
     }
@@ -6796,7 +6898,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
 
   if(_isinit) {
     //
-    IO::log << IO::log_offset << funame << "already initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "already initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -6820,7 +6922,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
   //  IO::last_key.clear();
   //}
   //else if(!(from >> token)) {
-  //  IO::log << IO::log_offset << funame << "stream is corrupted\n";
+  //  IO::log << "\n" << IO::log_offset << funame << "stream is corrupted\n";
   //  IO::log << std::flush; throw Error::Input();
   //}  
   
@@ -6832,7 +6934,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
       //
       if(_group.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": group is already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": group is already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -6845,7 +6947,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
 	//
 	if(itemp < 1) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": atomic index should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": atomic index should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -6865,7 +6967,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
       //
       if(_axis.first >= 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -6876,7 +6978,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
 	//
 	if(!(axis_input >> itemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -6885,7 +6987,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
 	//
 	if(itemp < 1) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": atomic index should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": atomic index should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -6903,7 +7005,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
     
       if(_axis.first == _axis.second) {
 	//
-	IO::log << IO::log_offset << funame << token << ": atomic indices should be different\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": atomic indices should be different\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -6914,13 +7016,13 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
       //
       if(!(from >> _symmetry)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       if(_symmetry < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": symmetry should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": symmetry should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -6958,21 +7060,21 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
 
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input is corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input is corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(!_group.size()) {
     //
-    IO::log << IO::log_offset << funame  << "rotor group not defined\n";
+    IO::log << "\n" << IO::log_offset << funame  << "rotor group not defined\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_axis.first < 0) {
     //
-    IO::log << IO::log_offset << funame  << "axis not defined\n";
+    IO::log << "\n" << IO::log_offset << funame  << "axis not defined\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -6982,7 +7084,7 @@ void Model::InternalRotationDef::init (IO::KeyBufferStream& from)
      //
      _group.find(_axis.second) != _group.end()) {
     //
-    IO::log << IO::log_offset << funame << "rotor group should not have common atoms with the axis\n";
+    IO::log << "\n" << IO::log_offset << funame << "rotor group should not have common atoms with the axis\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -7010,14 +7112,14 @@ std::vector<Atom> Model::InternalRotationDef::rotate (const std::vector<Atom>& a
 
   if(!_isinit) {
     //
-    IO::log << IO::log_offset << funame << "not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_imax >= atom.size() || _group.size() + 2 >= atom.size()) {
     //
-    IO::log << IO::log_offset << funame << "atomic indices are inconsistent with the number of atoms\n";
+    IO::log << "\n" << IO::log_offset << funame << "atomic indices are inconsistent with the number of atoms\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
@@ -7072,14 +7174,14 @@ std::vector<D3::Vector> Model::InternalRotationDef::normal_mode (const std::vect
 
   if(!_isinit) {
     //
-    IO::log << IO::log_offset << funame << "not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_imax >= atom.size() || _group.size() + 2 >= atom.size()) {
     //
-    IO::log << IO::log_offset << funame << "atomic indices are inconsistent with the number of atoms\n";
+    IO::log << "\n" << IO::log_offset << funame << "atomic indices are inconsistent with the number of atoms\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
@@ -7160,7 +7262,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
       //
       if(!(from >> _ham_size_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7169,7 +7271,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
 
       if(_ham_size_max < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -7184,7 +7286,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
       //
       if(!(from >> _ham_size_min)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7192,7 +7294,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
 
       if(_ham_size_min < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -7207,7 +7309,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
       //
       if(!(from >> _grid_size)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7215,7 +7317,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
 
       if(_grid_size < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -7226,7 +7328,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
       //
       if(!(from >> _therm_pow_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7234,7 +7336,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
 
       if(_therm_pow_max <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();	
       }
@@ -7274,7 +7376,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -7283,7 +7385,7 @@ Model::Rotor::Rotor (IO::KeyBufferStream& from, const std::vector<Atom>& atom)
   //
   if(!_atom.size()) {
     //
-    IO::log << IO::log_offset << funame << "geometry is not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "geometry is not defined\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -7311,7 +7413,7 @@ void Model::Rotor::convolute (Array<double>& stat_grid, double ener_quant) const
 
     if(dtemp < 0.) {
       //
-      IO::log << IO::log_offset << funame << n << "-th energy level is negative: "
+      IO::log << "\n" << IO::log_offset << funame << n << "-th energy level is negative: "
 	//
 		<< energy_level(n) / Phys_const::kcal << " kcal/mol\n";
 
@@ -7415,7 +7517,7 @@ Model::FreeRotor::FreeRotor (IO::KeyBufferStream& from, const std::vector<Atom>&
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -7431,7 +7533,7 @@ Model::FreeRotor::FreeRotor (IO::KeyBufferStream& from, const std::vector<Atom>&
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -7466,22 +7568,6 @@ int Model::FreeRotor::level_size () const
 
 double Model::FreeRotor::weight (double temperature) const
 {
-  /*
-  static const double max_exp_pow = 35.;
-
-  double dtemp;
-
-  double res = 1.;
-  for(int l = 1; l < level_size(); ++l) {
-    dtemp = energy_level(l) / temperature;
-    if(dtemp > max_exp_pow)
-      return res;
-    res += std::exp(-dtemp);
-  }
-
-  return res;
-  */
-
   return std::sqrt(M_PI * temperature / rotational_constant()) / (double)symmetry();
 }
 
@@ -7520,7 +7606,7 @@ double Model::HinderedRotorBundle::weight (double temperature) const
 
   if(temperature <= 0.) {
     //
-    IO::log << IO::log_offset << funame << "temperature out of range: " << temperature / Phys_const::kelv << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "temperature out of range: " << temperature / Phys_const::kelv << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -7645,14 +7731,14 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(pot_four.size()) {
 	//
-	IO::log << IO::log_offset << funame << "potential fourier expansion has been already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << "potential fourier expansion has been already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!internal_rotation.size()) {
 	//
-	IO::log << IO::log_offset << funame << "internal rotations should be defined first\n";
+	IO::log << "\n" << IO::log_offset << funame << "internal rotations should be defined first\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -7669,14 +7755,14 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       
 	if(!(size_input >> itemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": potential sampling size unreadable\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": potential sampling size unreadable\n";
 
 	  IO::log << std::flush; throw Error::Input();
 	}
       
 	if(itemp < 2) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": potential sampling size = " << itemp << " too small\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": potential sampling size = " << itemp << " too small\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -7689,14 +7775,14 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 	  //
 	  if(!(from >> dtemp)) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": cannot read potential\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": cannot read potential\n";
 
 	    IO::log << std::flush; throw Error::Input();
 	  }
 
 	  if(!i && dtemp != 0.) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": first potential value should be zero for all rotational profiles\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": first potential value should be zero for all rotational profiles\n";
 
 	    IO::log << std::flush; throw Error::Input();
 	  }
@@ -7734,7 +7820,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(!internal_rotation.size()) {
 	//
-	IO::log << IO::log_offset << funame << "internal rotations should be defined first\n";
+	IO::log << "\n" << IO::log_offset << funame << "internal rotations should be defined first\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -7751,14 +7837,14 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       
 	if(!(size_input >> itemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": " << freq_four.size() << "-th frequency, " << r + 1 <<"-th profile size unreadable\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": " << freq_four.size() << "-th frequency, " << r + 1 <<"-th profile size unreadable\n";
 
 	  IO::log << std::flush; throw Error::Input();
 	}
       
 	if(itemp < 2) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": frequency sampling size = " << itemp << " too small\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": frequency sampling size = " << itemp << " too small\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -7771,7 +7857,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 	  //
 	  if(!(from >> dtemp)) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": cannot read (" << freq_four.size() << ", "
+	    IO::log << "\n" << IO::log_offset << funame << token << ": cannot read (" << freq_four.size() << ", "
 	      //
 		      << r + 1 << ", " << i + 1 << ") frequency\n";
 
@@ -7780,7 +7866,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
 	  if(dtemp <= 0.) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ":  (" << freq_four.size() << ", " << r + 1 << ", "
+	    IO::log << "\n" << IO::log_offset << funame << token << ":  (" << freq_four.size() << ", " << r + 1 << ", "
 	      //
 		      << i + 1 << ") frequency not positive\n";
 
@@ -7797,7 +7883,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
 	  if(r && !i && dtemp != ref_freq.back()) {
 	    //
-	    IO::log << IO::log_offset << funame << ref_freq.size() + 1
+	    IO::log << "\n" << IO::log_offset << funame << ref_freq.size() + 1
 	      //
 		      << "-th adiabatic frequency : first frequency value in all profiles should be the same\n";
 
@@ -7824,7 +7910,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(!(from >> extra_step)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7832,7 +7918,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
       if(extra_step <= 0. || extra_step >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -7843,7 +7929,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(!(from >> ener_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7852,7 +7938,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
       if(ener_max <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -7875,7 +7961,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(!(from >> _ener_step)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	//
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7884,7 +7970,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
       if(_ener_step <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -7897,7 +7983,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(!(from >> level_ener_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	//
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7906,7 +7992,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
       if(level_ener_max <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -7919,14 +8005,14 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(mc_modes.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!internal_rotation.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": internal rotations should be initialized first\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": internal rotations should be initialized first\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -7937,7 +8023,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 	//
 	if(itemp < 1 || itemp > internal_rotation.size()) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": internal rotation index out of range: " << itemp << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": internal rotation index out of range: " << itemp << "\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -7946,7 +8032,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
 	if(!mc_modes.insert(itemp).second) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": duplicated internal rotation index: " << itemp + 1 << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": duplicated internal rotation index: " << itemp + 1 << "\n";
 
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -7958,7 +8044,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(!(from >> mc_size)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7967,7 +8053,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
       if(mc_size <= 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << mc_size << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << mc_size << "\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7978,7 +8064,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
       //
       if(!(from >> overlap)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -7987,7 +8073,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
       if(overlap >= 1. || overlap <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << overlap << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << overlap << "\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -8005,7 +8091,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -8016,28 +8102,28 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
   if(!internal_rotation.size()) {
     //
-    IO::log << IO::log_offset << funame << "internal rotations not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "internal rotations not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
   
   if(!pot_four.size()) {
     //
-    IO::log << IO::log_offset << funame << "potential profiles not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "potential profiles not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
   
   if(!freq_four.size()) {
     //
-    IO::log << IO::log_offset << funame << "adiabatic frequency profiles not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "adiabatic frequency profiles not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
   
   if(ener_max < level_ener_max) {
     //
-    IO::log << IO::log_offset << funame << "interpolation energy limit out of range: " << ener_max / Phys_const::kcal << " kcal/mol\n";
+    IO::log << "\n" << IO::log_offset << funame << "interpolation energy limit out of range: " << ener_max / Phys_const::kcal << " kcal/mol\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -8122,7 +8208,7 @@ Model::HinderedRotorBundle::HinderedRotorBundle (IO::KeyBufferStream& from, cons
 
 	if(itemp < 0) {
 	  //
-	  IO::log << IO::log_offset << funame << "excited vibrational state energy is less than the ground one\n";
+	  IO::log << "\n" << IO::log_offset << funame << "excited vibrational state energy is less than the ground one\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -8581,7 +8667,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
   if(s < 1) {
     //
-    IO::log << IO::log_offset << funame << "wrong symmetry: " << s << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong symmetry: " << s << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -8594,7 +8680,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
   if(!(lin >> stemp)) {
     //
-    IO::log << IO::log_offset << funame << "cannot read potential type\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read potential type\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -8603,7 +8689,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
   if (_type < 0) {
     //
-    IO::log << IO::log_offset << funame << "unknown potential type: " << stemp << "\n"
+    IO::log << "\n" << IO::log_offset << funame << "unknown potential type: " << stemp << "\n"
 	      << "available types: ";
 
     _key_type.print_keys(IO::log << IO::log_offset);
@@ -8615,14 +8701,14 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
   if(!(lin >> data_size)) {
     //
-    IO::log << IO::log_offset << funame << "cannot read data size\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read data size\n";
 
     IO::log << std::flush; throw Error::Input();
   }
 
   if(data_size <= 0) {
     //
-    IO::log << IO::log_offset << funame << "data size out of range: " << data_size << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "data size out of range: " << data_size << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -8651,7 +8737,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << "cannot read " << i+1 << "data point\n";
+	IO::log << "\n" << IO::log_offset << funame << "cannot read " << i+1 << "data point\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -8669,7 +8755,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << "cannot read " << i+1 <<"-th angle\n";
+	IO::log << "\n" << IO::log_offset << funame << "cannot read " << i+1 <<"-th angle\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -8682,7 +8768,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
 	if(dtemp > 1.e-10) {
 	  //
-	  IO::log << IO::log_offset << funame << "first point argument should be 0: " << dtemp << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << "first point argument should be 0: " << dtemp << "\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -8708,14 +8794,14 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << "cannot read " << i+1 <<"-th energy value\n";
+	IO::log << "\n" << IO::log_offset << funame << "cannot read " << i+1 <<"-th energy value\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(pot_map.find(ang_val[i]) != pot_map.end()) {
 	//
-	IO::log << IO::log_offset << funame << "duplicated argument: " << ang_val[i] * ang_max << "\n";
+	IO::log << "\n" << IO::log_offset << funame << "duplicated argument: " << ang_val[i] * ang_max << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -8729,7 +8815,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
       //
       if(cit != pot_map.begin() && cit->first - dtemp < min_ang_step / ang_max) {
 	//
-	IO::log << IO::log_offset << funame << "successive angles are too close: "
+	IO::log << "\n" << IO::log_offset << funame << "successive angles are too close: "
 	  //
 		  << dtemp * ang_max << ", " << cit->first * ang_max << "\n";
 	
@@ -8741,7 +8827,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
     if(1. - pot_map.rbegin()->first + pot_map.begin()->first < min_ang_step / ang_max) {
       //
-      IO::log << IO::log_offset << funame << "boundary angles are too close: "
+      IO::log << "\n" << IO::log_offset << funame << "boundary angles are too close: "
 	//
 		<< pot_map.begin()->first * ang_max << ", " << pot_map.rbegin()->first * ang_max << "\n";
 	  
@@ -8750,7 +8836,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
       
     if(pot_map.begin()->first != 0.) {
       //
-      IO::log << IO::log_offset << funame << "lower bound out of range: " << pot_map.begin()->first << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "lower bound out of range: " << pot_map.begin()->first << "\n";
 
       IO::log << std::flush; throw Error::Range();
     }
@@ -8793,21 +8879,21 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
       //
       if(_fourier.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
       
       if(!(from >> itemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(itemp < 3) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << itemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << itemp << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -8826,7 +8912,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
       if(_print_pot_size < 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << _print_pot_size << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << _print_pot_size << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -8835,7 +8921,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -8848,7 +8934,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "stream is corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "stream is corrupted\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -8861,7 +8947,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
     //
     if(!_fourier.size()) {
       //
-      IO::log << IO::log_offset << funame << "no sampling data\n";
+      IO::log << "\n" << IO::log_offset << funame << "no sampling data\n";
 
       IO::log << std::flush; throw Error::Init();
     }
@@ -8880,7 +8966,7 @@ void Model::HinderedRotor::_Potential::init(IO::KeyBufferStream& from, int s)
 
   case FOURIER_FIT:
     //
-    IO::log << IO::log_offset << funame << "not implemented yet, sorry\n";
+    IO::log << "\n" << IO::log_offset << funame << "not implemented yet, sorry\n";
 
     IO::log << std::flush; throw Error::Init();
     
@@ -8991,7 +9077,7 @@ double Model::HinderedRotor::_Potential::_spline_value (double angle, int der) c
 
   if(!_spline.isinit()) {
     //
-    IO::log << IO::log_offset << funame << "spline not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "spline not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -9013,7 +9099,7 @@ double Model::HinderedRotor::_Potential::_fourier_value (double angle, int der) 
   
   if(!_fourier.size()) {
     //
-    IO::log << IO::log_offset << funame << "Fourier expansion is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "Fourier expansion is not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -9084,6 +9170,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
   Key   cspline_key("UseCSpline"                );
   Key kcal_pspl_key("PotentialSpline[kcal/mol]" );
   Key kcal_emax_key("LevelEnergyMax[kcal/mol]"  );
+  Key kcal_four_key("FourierExpansion[kcal/mol]");
   
   std::string token, line, comment;
   
@@ -9103,13 +9190,48 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       //
       _pot.init(from, symmetry());
     }
+    // potential fourier expansion coefficients
+    //
+    else if(kcal_four_key == token) {
+      //
+      IO::LineInput lin(from);
+
+      if(!(lin >> itemp)) {
+	//
+	IO::log << IO::log_offset << funame << token << ": cannot read terms #" << std::endl;
+
+	throw Error::Init();
+      }
+
+      if(itemp <= 0) {
+	//
+	IO::log << IO::log_offset << funame << token << ": terms # out of range: " << itemp << std::endl;
+
+	throw Error::Range();
+      }
+      _pot_four.resize(itemp);
+
+      for(int i = 0; i < _pot_four.size(); ++i) {
+	//
+	lin.read_line(from);
+	
+	if(!(lin >> itemp >> dtemp)) {
+	  //
+	  IO::log << IO::log_offset << funame << token << ": " << i << "-th term corrupted" << std::endl;
+
+	  throw Error::Input();
+	}
+
+	_pot_four[i] = dtemp * Phys_const::kcal;
+      }
+    }
     // use Slatec spline code instead of GSL
     //
     else if(slatec_key == token) {
       //
       if(_pot_four.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be BEFORE potential definition\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be BEFORE potential definition\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -9122,7 +9244,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       //
       if(_pot_four.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be BEFORE potential definition\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be BEFORE potential definition\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -9135,21 +9257,21 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       //
       if(_ener_max > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!(from >> _ener_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_ener_max <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -9164,7 +9286,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       //
       if(_pot_four.size()) {
 	//
-	IO::log << IO::log_offset << funame << "potential fourier expansion has been already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << "potential fourier expansion has been already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -9175,14 +9297,14 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       //
       if(!(lin >> itemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": potential sampling size unreadable\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": potential sampling size unreadable\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(itemp < 3) {
 	//
-	IO::log << IO::log_offset << funame << token << ": potential spline size, " << itemp << ", is too small\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": potential spline size, " << itemp << ", is too small\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -9195,7 +9317,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	//
 	if(itemp <= 0) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": potential expansion size, " << itemp << ", is out of range\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": potential expansion size, " << itemp << ", is out of range\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -9228,7 +9350,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	  //
 	  if(!(from >> dtemp)) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": cannot read " << i+1 <<"-th angle\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i+1 <<"-th angle\n";
 
 	    IO::log << std::flush; throw Error::Input();
 	  }
@@ -9257,14 +9379,14 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	  //
 	  if(!(from >> dtemp)) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
 
 	    IO::log << std::flush; throw Error::Input();
 	  }
 
 	  if(pot_map.find(ang_val[i]) != pot_map.end()) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": duplicated argument: " << ang_val[i] * ang_max << "\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": duplicated argument: " << ang_val[i] * ang_max << "\n";
 
 	    IO::log << std::flush; throw Error::Range();
 	  }
@@ -9278,7 +9400,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	  //
 	  if(cit != pot_map.begin() && cit->first - dtemp < 1.e-3) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": successive angles are too close: "
+	    IO::log << "\n" << IO::log_offset << funame << token << ": successive angles are too close: "
 	      //
 		      << dtemp * ang_max << ", " << cit->first * ang_max << "\n";
 
@@ -9290,7 +9412,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
 	if(1. - pot_map.rbegin()->first + pot_map.begin()->first < 1.e-3) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": end angles are too close: "
+	  IO::log << "\n" << IO::log_offset << funame << token << ": end angles are too close: "
 	    //
 		    << pot_map.begin()->first * ang_max << ", " << pot_map.rbegin()->first * ang_max << "\n";
 	  
@@ -9362,7 +9484,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	  //
 	  if(!(from >> dtemp)) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": cannot read " << i+1 <<"-th angle\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i+1 <<"-th angle\n";
 
 	    IO::log << std::flush; throw Error::Input();
 	  }
@@ -9375,7 +9497,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
 	    if(dtemp > 1.e-10) {
 	      //
-	      IO::log << IO::log_offset << funame << token << ": first point argument should be 0: " << dtemp << "\n";
+	      IO::log << "\n" << IO::log_offset << funame << token << ": first point argument should be 0: " << dtemp << "\n";
 													      
 	      IO::log << std::flush; throw Error::Range();
 	    }
@@ -9401,14 +9523,14 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	  //
 	  if(!(from >> dtemp)) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i+1 <<"-th energy value\n";
 
 	    IO::log << std::flush; throw Error::Input();
 	  }
 
 	  if(pot_map.find(ang_val[i]) != pot_map.end()) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": duplicated argument: " << ang_val[i] * ang_max << "\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": duplicated argument: " << ang_val[i] * ang_max << "\n";
 
 	    IO::log << std::flush; throw Error::Range();
 	  }
@@ -9422,7 +9544,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	  //
 	  if(cit != pot_map.begin() && cit->first - dtemp < 1.e-3) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": successive angles are too close: "
+	    IO::log << "\n" << IO::log_offset << funame << token << ": successive angles are too close: "
 	      //
 		      << dtemp * ang_max << ", " << cit->first * ang_max << "\n";
 
@@ -9434,7 +9556,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
 	if(1. - pot_map.rbegin()->first + pot_map.begin()->first < 1.e-3) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": end angles are too close: "
+	  IO::log << "\n" << IO::log_offset << funame << token << ": end angles are too close: "
 	    //
 		    << pot_map.begin()->first * ang_max << ", " << pot_map.rbegin()->first * ang_max << "\n";
 	  
@@ -9443,7 +9565,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       
 	if(pot_map.begin()->first != 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": lower bound out of range: " << pot_map.begin()->first << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": lower bound out of range: " << pot_map.begin()->first << "\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -9548,7 +9670,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       //
       if(_pot_four.size()) {
 	//
-	IO::log << IO::log_offset << funame << "potential fourier expansion has been already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << "potential fourier expansion has been already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -9559,14 +9681,14 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
       
       if(!(size_input >> itemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": potential sampling size unreadable\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": potential sampling size unreadable\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(itemp < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": potential sampling size = " << itemp << " too small\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": potential sampling size = " << itemp << " too small\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -9579,7 +9701,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 	//
 	if(!(from >> dtemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read potential\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read potential\n";
 
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -9616,7 +9738,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
 
       if(dtemp < 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << "initial point not a minumum\n";
+	IO::log << "\n" << IO::log_offset << funame << token << "initial point not a minumum\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -9670,7 +9792,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -9685,7 +9807,7 @@ void Model::HinderedRotor::_read(IO::KeyBufferStream& from)
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -9702,7 +9824,7 @@ void Model::HinderedRotor::_init ()
   //
   if(!_pot_four.size()) {
     //
-    IO::log << IO::log_offset << funame << "fourier expansion is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "fourier expansion is not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -9718,7 +9840,7 @@ void Model::HinderedRotor::_init ()
   
   if(_ham_size_max < _ham_size_min) {
     //
-    IO::log << IO::log_offset << funame << "requested Hamiltonian size (" << _ham_size_min <<") exceeds HamiltonSizeMax (" << _ham_size_max << ")/n";
+    IO::log << "\n" << IO::log_offset << funame << "requested Hamiltonian size (" << _ham_size_min <<") exceeds HamiltonSizeMax (" << _ham_size_max << ")/n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -9846,9 +9968,7 @@ void Model::HinderedRotor::_init ()
   }
   else {
     //
-    IO::log << IO::log_offset
-      //
-	    << "WARNING: potential second derivative at the minimum is negative, assuming zero\n";
+    IO::log << IO::log_offset << "WARNING: potential second derivative at the minimum is negative, assuming zero\n";
     
     freq_anal = 0.;
   }
@@ -9897,11 +10017,11 @@ void Model::HinderedRotor::_init ()
 
   if(ff0 < 0.) {
     //
-    IO::log << IO::log_offset << funame << "negative harmonic frequency at first point: "
+    IO::log << "\n" << IO::log_offset << funame << "negative harmonic frequency at first point: "
       //
 	      << -std::ceil(std::sqrt(-ff0) / Phys_const::incm) << " 1/cm\n";
     
-    IO::log << IO::log_offset << "negative harmonic frequency at first point: "
+    IO::log << "\n" << IO::log_offset << "negative harmonic frequency at first point: "
       //
 	      << -std::ceil(std::sqrt(-ff0) / Phys_const::incm) << " 1/cm\n";
     
@@ -9950,7 +10070,7 @@ void Model::HinderedRotor::_init ()
       //
       if(weight_output_temperature_step <= 0) {
 	//
-	IO::log << IO::log_offset << funame << "stat weight output temperature step out of range: " << weight_output_temperature_step << "\n";
+	IO::log << "\n" << IO::log_offset << funame << "stat weight output temperature step out of range: " << weight_output_temperature_step << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -10541,7 +10661,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       //
       if(group_def.size()) {
 	//
-	IO::log << IO::log_offset << funame << token <<  ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token <<  ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -10552,14 +10672,14 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
 	//
 	if(itemp < 1) {// Fortran indexing
 	  //
-	  IO::log << IO::log_offset << funame << token << ": index out of range\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": index out of range\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
 	
 	if(!group_def.insert(itemp - 1).second) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": " << itemp
+	  IO::log << "\n" << IO::log_offset << funame << token << ": " << itemp
 	    //
 		    << "-th atom already has been used in umbrella group defininition\n";
 	  
@@ -10573,7 +10693,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       //
       if(dir.size() || plan_def.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -10586,21 +10706,21 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
 	//
 	if(!(plan_input >> itemp))  {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": corrupted";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": corrupted";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
 	
 	if(itemp < 1) {// Fortran indexing
 	  //
-	  IO::log << IO::log_offset << funame << token << ": index out of range\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": index out of range\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
 	
 	if(!set_temp.insert(itemp).second) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": " << itemp
+	  IO::log << "\n" << IO::log_offset << funame << token << ": " << itemp
 	    //
 		    << "-th atom already has been used in the plane defininition\n";
 	  
@@ -10616,7 +10736,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       //
       if(dir.size() || plan_def.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -10629,7 +10749,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
 	//
 	if(!(dir_input >> dir[i]))  {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": corrupted";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": corrupted";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -10642,14 +10762,14 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       //
       if(ref_def >= 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> ref_def)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -10657,7 +10777,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
 
       if(ref_def-- < 1) {// Fortran indexing
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -10670,7 +10790,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       //
       if(!(from >> itemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": sampling size is corrupted";
+	IO::log << "\n" << IO::log_offset << funame << token << ": sampling size is corrupted";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -10678,7 +10798,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
 
       if(itemp < 3) {
 	//
-	IO::log << IO::log_offset << funame << token << ": not enough sampling points\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": not enough sampling points\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -10695,14 +10815,14 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
 
 	if(!(data_input >> xval)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read " << i << "-th coordinate value\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i << "-th coordinate value\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
 
 	if(!(data_input >> dtemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read " << i << "-th potential value\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i << "-th potential value\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -10779,7 +10899,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -10796,56 +10916,56 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(!_pot_coef.size()) {
     //
-    IO::log << IO::log_offset << funame << "potential is not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "potential is not defined\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!atom.size()) {
     //
-    IO::log << IO::log_offset << funame << "geometry is not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "geometry is not defined\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!dir.size() && !plan_def.size()) {
     //
-    IO::log << IO::log_offset << funame << "motion direction is not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "motion direction is not defined\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!group_def.size()) {
     //
-    IO::log << IO::log_offset << funame << "moving group is not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "moving group is not defined\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(*group_def.rbegin() >= atom.size()) {
     //
-    IO::log << IO::log_offset << funame << "atom index in moving group definition is out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "atom index in moving group definition is out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
 
   if(group_def.find(ref_def) != group_def.end()) {
     //
-    IO::log << IO::log_offset << funame << "reference atom should not belong to moving group\n";
+    IO::log << "\n" << IO::log_offset << funame << "reference atom should not belong to moving group\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
 
   if(ref_def >= atom.size()) {
     //
-    IO::log << IO::log_offset << funame << "refernce atom index  is out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "refernce atom index  is out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -10856,7 +10976,7 @@ Model::Umbrella::Umbrella (IO::KeyBufferStream& from, const std::vector<Atom>& a
       //
       if(plan_def[i] >= atom.size()) {
 	//
-	IO::log << IO::log_offset << funame << i << "-th atom index in the umbrella plane definition is out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << i << "-th atom index in the umbrella plane definition is out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -11166,7 +11286,7 @@ double Model::Umbrella::potential(double x, int der) const
 
   if(der < 0) {
     //
-    IO::log << IO::log_offset << funame << "negative derivative power requested\n";
+    IO::log << "\n" << IO::log_offset << funame << "negative derivative power requested\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -11390,14 +11510,14 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
 
       if(!(lin >> etol)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted" << std::endl;
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted" << std::endl;
 
 	IO::log << std::flush; throw Error::Input();
       }
 	
       if(etol <= 0. || etol >= 0.5) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << etol << std::endl;
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << etol << std::endl;
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -11410,14 +11530,14 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
 
       if(!(lin >> erange)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted" << std::endl;
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted" << std::endl;
 
 	IO::log << std::flush; throw Error::Input();
       }
 	
       if(erange <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << erange << std::endl;
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << erange << std::endl;
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -11432,14 +11552,14 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
 
       if(!(lin >> rfreq)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted" << std::endl;
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted" << std::endl;
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(rfreq <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": reference frequency out of range: " << rfreq << std::endl;
+	IO::log << "\n" << IO::log_offset << funame << token << ": reference frequency out of range: " << rfreq << std::endl;
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -11456,7 +11576,7 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
 
       if(!(lin >> rpos)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted" << std::endl;
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted" << std::endl;
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -11469,7 +11589,7 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
       //
       if(!(from >> itemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": sampling size is corrupted";
+	IO::log << "\n" << IO::log_offset << funame << token << ": sampling size is corrupted";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -11477,7 +11597,7 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
 
       if(itemp < 4) {
 	//
-	IO::log << IO::log_offset << funame << token << ": not enough sampling points: " << itemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": not enough sampling points: " << itemp << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -11494,14 +11614,14 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
 
 	if(!(lin >> x)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read " << i << "-th coordinate value" << std::endl;
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i << "-th coordinate value" << std::endl;
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
 
 	if(!(lin >> y)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read " << i << "-th potential value" << std::endl;
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i << "-th potential value" << std::endl;
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -11569,7 +11689,7 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -11586,21 +11706,21 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(!pot_spline.isinit()) {
     //
-    IO::log << IO::log_offset << funame << "potential not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "potential not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }    
 
   if(rfreq < 0.) {
     //
-    IO::log << IO::log_offset << funame << "reference frequency not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "reference frequency not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -11614,7 +11734,7 @@ Model::NewUmbrella::NewUmbrella (IO::KeyBufferStream& from)
   
   if(rpos <= pot_spline.arg_min() || rpos >= pot_spline.arg_max()) {
     //
-    IO::log << IO::log_offset << funame << "reference position out of range: " << rpos << ": [" << pot_spline.arg_min() << ", " << pot_spline.arg_max() << "]\n";
+    IO::log << "\n" << IO::log_offset << funame << "reference position out of range: " << rpos << ": [" << pot_spline.arg_min() << ", " << pot_spline.arg_max() << "]\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -11726,7 +11846,7 @@ double Model::NewUmbrella::weight (double t) const
 
   if(t <= 0.) {
     //
-    IO::log << IO::log_offset << funame << "non-positive temperature\n";
+    IO::log << "\n" << IO::log_offset << funame << "non-positive temperature\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -11746,7 +11866,7 @@ void  Model::NewUmbrella::quadratic_extrapolation(const Array<double>& x, const 
 
   if(x.size() < 3 || y.size() < 3 || c.size() < 3) {
     //
-    IO::log << IO::log_offset << funame << "dimension(s) out of range: " << x.size() << ", " << y.size() << ", " << c.size() << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "dimension(s) out of range: " << x.size() << ", " << y.size() << ", " << c.size() << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -11768,7 +11888,7 @@ double Model::NewUmbrella::xpot (const Array<double>& c, double x)
 
   if(!c.size()) {
     //
-    IO::log << IO::log_offset << funame << "coefficients not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "coefficients not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -11883,14 +12003,14 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       //
       if(!gcount && (frag_mass.size() || frag_rcon.size())) {
 	//
-	IO::log << IO::log_offset << funame << token << ": no geometry if fragments masses or rotational constants are used\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": no geometry if fragments masses or rotational constants are used\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(gcount > 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": wrong fragmens #\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": wrong fragmens #\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -11963,7 +12083,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       //
       if(gcount || frag_mass.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -11974,14 +12094,14 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 	//
 	if(!(mass_input >> dtemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
       
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -11995,7 +12115,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       //
       if(gcount || frag_rcon.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -12006,7 +12126,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 	//
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -12028,7 +12148,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12036,7 +12156,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 
       if(dtemp <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12049,7 +12169,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       //
       if(!(from >> pot_fac)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12058,7 +12178,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 
       if(pot_fac <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12069,7 +12189,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       //
       if(!(from >> pot_exp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12078,7 +12198,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 
       if(pot_exp <= 2.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be more than 2\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be more than 2\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12091,7 +12211,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       
       if(!(lin >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12114,7 +12234,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
       }
       else {
 	//
-	IO::log << IO::log_offset << funame << token << ": unknown level: " << stemp << ": avaiable levels: EJ, E, T\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": unknown level: " << stemp << ": avaiable levels: EJ, E, T\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12123,7 +12243,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -12135,14 +12255,14 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
  
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
   
   if(frag_mass.size() != 2) {
     //
-    IO::log << IO::log_offset << funame << "wrong number of fragments\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong number of fragments\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -12171,7 +12291,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 
   default:
     //
-    IO::log << IO::log_offset << funame << "unknown tst level: " << tst_level << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "unknown tst level: " << tst_level << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -12220,7 +12340,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
     
     default:
       //
-      IO::log << IO::log_offset << funame << "wrong number of rotational constants: " << frag_rcon.size() << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "wrong number of rotational constants: " << frag_rcon.size() << "\n";
     
       IO::log << std::flush; throw Error::Init();
     }
@@ -12267,7 +12387,7 @@ Model::PhaseSpaceTheory::PhaseSpaceTheory (IO::KeyBufferStream& from)
 
   default:
     //
-    IO::log << IO::log_offset << funame << "wrong case: " << tst_level << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong case: " << tst_level << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -12385,7 +12505,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(_rdim > 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -12396,7 +12516,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	//
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -12418,9 +12538,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	//
 	if(rcon[0] != rcon[1])
 	  //
-	  IO::log << IO::log_offset
-	    //
-		  << "WARNING: inertia moments for linear molecule read from input file differ\n";
+	  IO::log << IO::log_offset << "WARNING: inertia moments for linear molecule read from input file differ\n";
 	
 	_rdim = 2;
 	
@@ -12444,7 +12562,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	
       default:
 	//
-	IO::log << IO::log_offset << funame << token << ": wrong size\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": wrong size\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12455,7 +12573,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> ener_quant)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12464,7 +12582,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(ener_quant <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12477,7 +12595,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _emax)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12486,7 +12604,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_emax <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12498,7 +12616,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> extra_step)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12507,7 +12625,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(extra_step <= 0. || extra_step >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12518,7 +12636,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _ground)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12527,7 +12645,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_ground < 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12542,7 +12660,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(_frequency.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": have been initialized already\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": have been initialized already\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -12551,7 +12669,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> itemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": cannot read number of frequencies\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": cannot read number of frequencies\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12559,7 +12677,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(itemp < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": number of frequencies should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": number of frequencies should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -12571,14 +12689,14 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	//
 	if(!(from >> dtemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read " << i << "-th frequency\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i << "-th frequency\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
 	
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": " << i << "-th frequency: should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": " << i << "-th frequency: should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -12588,7 +12706,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       
       if(!from) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -12614,7 +12732,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       }
       
       if(fscale <= 0.) {
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	IO::log << std::flush; throw Error::Range();
       }
 
@@ -12877,7 +12995,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     
     if(!atom.size()) {
       //
-      IO::log << IO::log_offset << funame << "geometry is not available\n";
+      IO::log << "\n" << IO::log_offset << funame << "geometry is not available\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -12963,7 +13081,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     //
     if(!iszero) {
       //
-      IO::log << IO::log_offset << funame << "zero-point energy is not defined\n";
+      IO::log << "\n" << IO::log_offset << funame << "zero-point energy is not defined\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -12976,7 +13094,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     
     if(_fdegen.size() > _frequency.size()) {
       //
-      IO::log << IO::log_offset << funame << "number of frequency degeneracies exceeds number of frequencies\n";
+      IO::log << "\n" << IO::log_offset << funame << "number of frequency degeneracies exceeds number of frequencies\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -13044,7 +13162,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	
 	if(itemp < 0) {
 	  //
-	  IO::log << IO::log_offset << funame << "negative frequency\n";
+	  IO::log << "\n" << IO::log_offset << funame << "negative frequency\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -13073,7 +13191,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	//
 	if(_rvc[f].size() != _rdim) {
 	  //
-	  IO::log << IO::log_offset << funame << f + 1 << "-th frequency: rovibrational coupling size " << _rvc[f].size()
+	  IO::log << "\n" << IO::log_offset << funame << f + 1 << "-th frequency: rovibrational coupling size " << _rvc[f].size()
 		    << " inconsistent with rotational dimension " << _rdim << "\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
@@ -13093,7 +13211,7 @@ Model::RigidRotor::RigidRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << "negative zero-point correction to " << i + 1 << "-th rotational constant\n";
+	  IO::log << "\n" << IO::log_offset << funame << "negative zero-point correction to " << i + 1 << "-th rotational constant\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -13117,14 +13235,14 @@ double Model::RigidRotor::_rovib (int rank ...) const
   
   if(!_rvc.size()) {
     //
-    IO::log << IO::log_offset << funame << "not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(rank < 1) {
     //
-    IO::log << IO::log_offset << funame << "rank out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "rank out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -13143,7 +13261,7 @@ double Model::RigidRotor::_rovib (int rank ...) const
       //
       va_end(ap);
       
-      IO::log << IO::log_offset << "index out of range\n";
+      IO::log << "\n" << IO::log_offset << "index out of range\n";
       
       IO::log << std::flush; throw Error::Range();
     }
@@ -13477,7 +13595,7 @@ double Model::RigidRotor::states (double ener) const
 
   if(mode() == NOSTATES) {
     //
-    IO::log << IO::log_offset << funame << "wrong case\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong case\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
@@ -13536,7 +13654,7 @@ double Model::RigidRotor::_core_states (double ener) const
     
   default:
     //
-    IO::log << IO::log_offset << funame << "wrong case\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong case\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
@@ -13596,7 +13714,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
       //
       if(issym) {
 	//
-	IO::log << IO::log_offset << funame << "symmetry number has been initialized already\n";
+	IO::log << "\n" << IO::log_offset << funame << "symmetry number has been initialized already\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -13605,7 +13723,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -13613,7 +13731,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
       if(dtemp <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -13626,7 +13744,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
       //
       if(unit_string.size()) {
 	//
-	IO::log << IO::log_offset << funame << token <<  ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token <<  ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -13635,7 +13753,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
       if(!(lin >> unit_string)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -13646,7 +13764,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
       //
       if(is_zero) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -13657,7 +13775,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
       if(!(lin >> _ground)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -13670,7 +13788,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
       //
       if(rotd_name.size()) {
 	//
-	IO::log << IO::log_offset << funame << token <<  ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token <<  ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -13679,7 +13797,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
       
       if(!(lin >> rotd_name)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -13688,7 +13806,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -13700,14 +13818,14 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
  
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(!rotd_name.size()) {
     //
-    IO::log << IO::log_offset << funame << "rotd output file name is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "rotd output file name is not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -13723,7 +13841,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
   
   if(!rotd_in) {
     //
-    IO::log << IO::log_offset << funame << "cannot open rotd input file " << rotd_name << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot open rotd input file " << rotd_name << "\n";
     
     IO::log << std::flush; throw Error::Open();
   }
@@ -13751,7 +13869,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
 
     if(!(lin >> nos)) {
       //
-      IO::log << IO::log_offset << funame << "reading transitional modes number/density of states failed\n";
+      IO::log << "\n" << IO::log_offset << funame << "reading transitional modes number/density of states failed\n";
       
       IO::log << std::flush; throw Error::Input();
     }
@@ -13779,7 +13897,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
       //
       if(is_zero) {
 	//
-	IO::log << IO::log_offset << funame << "number of states at E = "
+	IO::log << "\n" << IO::log_offset << funame << "number of states at E = "
 	  //
 		<< std::ceil(izero->first / Phys_const::incm)
 	  //
@@ -13797,7 +13915,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
   
   if(itemp < 3) {
     //
-    IO::log << IO::log_offset << funame << "not enough data\n";
+    IO::log << "\n" << IO::log_offset << funame << "not enough data\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -13810,7 +13928,7 @@ Model::Rotd::Rotd(IO::KeyBufferStream& from, int m)
     }
     else {
       //
-      IO::log << IO::log_offset << funame << "zero flux energy is not reached\n";
+      IO::log << "\n" << IO::log_offset << funame << "zero flux energy is not reached\n";
     
       IO::log << std::flush; throw Error::Input();
     }
@@ -13932,7 +14050,7 @@ double Model::Rotd::weight (double temperature) const
   
   if (info != 1) {
     //
-    IO::log << IO::log_offset << funame  << "davint integration error\n";
+    IO::log << "\n" << IO::log_offset << funame  << "davint integration error\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
@@ -13940,9 +14058,7 @@ double Model::Rotd::weight (double temperature) const
   
   if(dtemp <= _rotd_nmax) {
     //
-    IO::log << IO::log_offset << funame << "WARNING: "
-      //
-	    << "integration cutoff energy is less than weight maximum energy\n";
+    IO::log << IO::log_offset << funame << "WARNING: " << "integration cutoff energy is less than weight maximum energy\n";
     
     return res;
   }
@@ -14006,7 +14122,7 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
       //
       if(!(from >> _msize)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corruped\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corruped\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14014,7 +14130,7 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
 
       if(_msize < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive and odd\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive and odd\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14032,13 +14148,13 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
       //
       if(_psize) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
       if(!(from >> _psize)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corruped\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corruped\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14047,7 +14163,7 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
 
       if(_psize < 1 || !(_psize % 2)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive and odd\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive and odd\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14065,14 +14181,14 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
       //
       if(_qmin) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!(from >> _qmin)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corruped\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corruped\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14081,7 +14197,7 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
 
       if(_qmin < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive and odd\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive and odd\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14099,14 +14215,14 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
       //
       if(_qmax) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!(from >> _qmax)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corruped\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corruped\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14115,7 +14231,7 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
 
       if(_qmax < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive and odd\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive and odd\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14133,7 +14249,7 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
       //
       if(!(from >> _wsize)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corruped\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corruped\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14142,7 +14258,7 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
 
       if(_wsize < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14151,7 +14267,7 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
 
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -14166,28 +14282,28 @@ Model::MultiRotor::InternalRotation::InternalRotation (IO::KeyBufferStream& from
 
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input is corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input is corrupted\n";
 
     IO::log << std::flush; throw Error::Input();
   }
 
   if(!_msize) {
     //
-    IO::log << IO::log_offset << funame << "mass expansion size not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "mass expansion size not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!_wsize) {
     //
-    IO::log << IO::log_offset << funame << "angular grid size not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "angular grid size not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   //  if(!_qmin || !_qmax || _qmin > _qmax) {
   //
-  //IO::log << IO::log_offset << funame << "harmonic expansion size limits should be positive, odd, and ordered: " << _qmin << ", " << _qmax << "\n";
+  //IO::log << "\n" << IO::log_offset << funame << "harmonic expansion size limits should be positive, odd, and ordered: " << _qmin << ", " << _qmax << "\n";
   
   //IO::log << std::flush; throw Error::Range();
   //
@@ -14298,7 +14414,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(_pot_index.rank()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -14309,7 +14425,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(!(name_input >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": cannot read potential energy surface file name\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": cannot read potential energy surface file name\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14318,7 +14434,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(!file_input) {
 	//
-	IO::log << IO::log_offset << funame << token << ": cannot open potential energy surface file " << stemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": cannot open potential energy surface file " << stemp << "\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14333,7 +14449,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	//
 	if(itemp < 1) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": the sampling dimensions should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": the sampling dimensions should be positive\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -14355,14 +14471,14 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	//
 	if(itemp < 1) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": vibration index should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": vibration index should be positive\n";
 
 	  IO::log << std::flush; throw Error::Init();
 	}
 
 	if(!vib_set.insert(itemp).second) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": identical vibration indices\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": identical vibration indices\n";
 
 	  IO::log << std::flush; throw Error::Init();
 	}
@@ -14395,7 +14511,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	  //
 	  if(!(sampling_input >> itemp)) {
 	    //
-	    IO::log << IO::log_offset << funame << token 
+	    IO::log << "\n" << IO::log_offset << funame << token 
 		      << ": potential data corrupted: line input format: i_1 ... i_n energy f_1 ... f_m\n";
 
 	    IO::log << std::flush; throw Error::Input();
@@ -14405,7 +14521,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	  //
 	  if(itemp < 1 || itemp > _pot_index.size(i)) {
 	    //
-	    IO::log << IO::log_offset << funame << token 
+	    IO::log << "\n" << IO::log_offset << funame << token 
 		      << ": " << i + 1 
 		      << "-th potential sampling index (Fortran style indexing) out of range\n";
 
@@ -14421,7 +14537,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
 	if(!pl_pool.insert(pl_curr).second) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": identical sampling: (";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": identical sampling: (";
 
 	  for(int i = 0; i < ivec.size(); ++i) {
 	    //
@@ -14440,7 +14556,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	//
 	if(!(sampling_input >> dtemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token 
+	  IO::log << "\n" << IO::log_offset << funame << token 
 		    << ": potential data corrupted: line input format: i_1 ... i_n energy f_1 .. f_m\n";
 
 	  IO::log << std::flush; throw Error::Input();
@@ -14476,7 +14592,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	      //
 	      if(dtemp <= 0.) {
 		//
-		IO::log << IO::log_offset << funame << token << ": ("; 
+		IO::log << "\n" << IO::log_offset << funame << token << ": ("; 
 
 		for(int i = 0; i < ivec.size(); ++i) {
 		  //
@@ -14499,7 +14615,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	  //
 	  if(vibration_sampling[pl_curr].size() != _vib_four.size()) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": (";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": (";
 
 	    for(int i = 0; i < ivec.size(); ++i) {
 	      //
@@ -14526,7 +14642,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _external_symmetry)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14534,7 +14650,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_external_symmetry <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14561,7 +14677,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _level_ener_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14586,7 +14702,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _extra_ener)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14595,7 +14711,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_extra_ener <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14618,7 +14734,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _extra_step)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14627,7 +14743,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_extra_step <= 0. || _extra_step >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14638,7 +14754,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _ener_quant)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14647,7 +14763,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_ener_quant <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14660,7 +14776,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _amom_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14669,7 +14785,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_amom_max <= 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14680,7 +14796,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _ptol)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14689,7 +14805,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_ptol <= 0. || _ptol >= 0.5) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14700,7 +14816,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _vtol)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14709,7 +14825,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_vtol <= 0. || _vtol >= 0.5) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14720,7 +14836,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       //
       if(!(from >> _mtol)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -14729,7 +14845,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_mtol <= 0. || _mtol >= 0.5) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -14738,7 +14854,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
 
       Key::show_all(IO::log, (std::string)IO::log_offset);
 
@@ -14752,7 +14868,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -14761,7 +14877,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   //
   if(!internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "internal motions are not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "internal motions are not defined\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -14770,7 +14886,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   //
   if(!atom.size()) {
     //
-    IO::log << IO::log_offset << funame << "geometry is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "geometry is not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -14779,14 +14895,14 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
   //
   if(_pot_index.rank() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "potential dimensionality is inconsistent with the number of internal motions\n";
+    IO::log << "\n" << IO::log_offset << funame << "potential dimensionality is inconsistent with the number of internal motions\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_extra_ener < 0. && (mode() != NOSTATES || force_qfactor)) {
     //
-    IO::log << IO::log_offset << funame << "Maximum interpolation energy not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "Maximum interpolation energy not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -14974,7 +15090,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	  }
 	  else {
 	    //
-	    IO::log << IO::log_offset << funame << "molecule is linear?\n";
+	    IO::log << "\n" << IO::log_offset << funame << "molecule is linear?\n";
 
 	    IO::log << std::flush; throw Error::Range();
 	  }
@@ -15250,7 +15366,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(threshold == 0.) {
 	//
-	IO::log << IO::log_offset << funame << "no kinetic energy term\n";
+	IO::log << "\n" << IO::log_offset << funame << "no kinetic energy term\n";
 
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -15332,7 +15448,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(threshold == 0.) {
 	//
-	IO::log << IO::log_offset << funame << "no kinetic energy term\n";
+	IO::log << "\n" << IO::log_offset << funame << "no kinetic energy term\n";
 
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -15398,7 +15514,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(threshold == 0.) {
 	//
-	IO::log << IO::log_offset << funame << "no external rotation\n";
+	IO::log << "\n" << IO::log_offset << funame << "no external rotation\n";
 
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -15464,7 +15580,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(threshold == 0.) {
 	//
-	IO::log << IO::log_offset << funame << "no external rotation\n";
+	IO::log << "\n" << IO::log_offset << funame << "no external rotation\n";
 
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -15530,7 +15646,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(threshold == 0.) {
 	//
-	IO::log << IO::log_offset << funame << "no external rotation\n";
+	IO::log << "\n" << IO::log_offset << funame << "no external rotation\n";
 
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -15596,7 +15712,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(threshold == 0.) {
 	//
-	IO::log << IO::log_offset << funame << "no external rotation\n";
+	IO::log << "\n" << IO::log_offset << funame << "no external rotation\n";
 
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -15778,7 +15894,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
 	if(threshold == 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << "no internal mobility\n";
+	  IO::log << "\n" << IO::log_offset << funame << "no internal mobility\n";
 
 	  IO::log << std::flush; throw Error::Logic();
 	}
@@ -15852,7 +15968,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
 	if(threshold == 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << "no external mobility\n";
+	  IO::log << "\n" << IO::log_offset << funame << "no external mobility\n";
 	  
 	  IO::log << std::flush; throw Error::Logic();
 	}
@@ -17116,7 +17232,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
       } 
       catch(Error::General) {
 	//
-	IO::log << IO::log_offset << funame 
+	IO::log << "\n" << IO::log_offset << funame 
 		  << "interpolated mass matrix is not positive definite: "
 	  "check your internal rotation definitions and/or increase mass expansion sizes\n";
 	IO::log << std::flush; throw;
@@ -17130,7 +17246,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
 	if(dtemp < 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << "negative external rotation factor at (";
+	  IO::log << "\n" << IO::log_offset << funame << "negative external rotation factor at (";
 
 	  for(int r = 0; r < internal_size(); ++r) {
 	    //
@@ -17162,7 +17278,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 	  //
 	  if(_vib_grid[g][v] <= 0.) {
 	    //
-	    IO::log << IO::log_offset << funame << v + 1 << "-th negative vibrational frequency at (";
+	    IO::log << "\n" << IO::log_offset << funame << v + 1 << "-th negative vibrational frequency at (";
 
 	    for(int r = 0; r < internal_size(); ++r) {
 	      //
@@ -17359,7 +17475,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
       if(_mobility_parameter[0] <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << "negative mobility parameter\n";
+	IO::log << "\n" << IO::log_offset << funame << "negative mobility parameter\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -17395,7 +17511,7 @@ Model::MultiRotor::MultiRotor(IO::KeyBufferStream& from, const std::vector<Atom>
 
 	if(_mobility_parameter[r] <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << "negative mobility parameter\n";
+	  IO::log << "\n" << IO::log_offset << funame << "negative mobility parameter\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -18094,7 +18210,7 @@ void Model::MultiRotor::_set_qfactor ()
   pruned_irf_grid[g] =  Lapack::Cholesky(mass(angle)).det_sqrt();
   } 
   catch(Error::General) {
-  IO::log << IO::log_offset << funame 
+  IO::log << "\n" << IO::log_offset << funame 
   << "interpolated mass matrix is not positive definite: decrease mass tolerance\n";
   IO::log << std::flush; throw;
   }
@@ -18103,7 +18219,7 @@ void Model::MultiRotor::_set_qfactor ()
   if(_with_ext_rot) {
   dtemp = external_rotation_factor(angle);
   if(dtemp < 0.) {
-  IO::log << IO::log_offset << funame << "negative external rotation factor at (";
+  IO::log << "\n" << IO::log_offset << funame << "negative external rotation factor at (";
   for(int r = 0; r < internal_size(); ++r) {
   if(r)
   IO::log << IO::log_offset << ", ";
@@ -18923,7 +19039,7 @@ Lapack::SymmetricMatrix Model::MultiRotor::mass (const std::vector<double>& angl
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle size\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle size\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -18983,7 +19099,7 @@ double Model::MultiRotor::external_rotation_factor (const std::vector<double>& a
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle size\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle size\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -19029,7 +19145,7 @@ double Model::MultiRotor::internal_rotation_factor (const std::vector<double>& a
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle size\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle size\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -19075,7 +19191,7 @@ double Model::MultiRotor::curvlinear_factor (const std::vector<double>& angle) c
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle size\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle size\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -19121,14 +19237,14 @@ Lapack::Vector  Model::MultiRotor::vibration (const std::vector<double>& angle) 
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle size\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle size\n";
 
     IO::log << std::flush; throw Error::Range();
   }
 
   if(!_vib_four.size()) {
     //
-    IO::log << IO::log_offset << funame << "no vibrations\n";
+    IO::log << "\n" << IO::log_offset << funame << "no vibrations\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -19185,7 +19301,7 @@ double Model::MultiRotor::potential (const std::vector<double>& angle, const std
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle dimension\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle dimension\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -19196,7 +19312,7 @@ double Model::MultiRotor::potential (const std::vector<double>& angle, const std
     //
     if(dit->second <= 0) {
       //
-      IO::log << IO::log_offset << funame << "derivative order out of range: " << dit->second << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "derivative order out of range: " << dit->second << "\n";
 
       IO::log << std::flush; throw Error::Range();
     }
@@ -19204,7 +19320,7 @@ double Model::MultiRotor::potential (const std::vector<double>& angle, const std
 
   if(der.size() && (der.begin()->first < 0 || der.rbegin()->first >= internal_size())) {
     //
-    IO::log << IO::log_offset << funame << "variable index out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "variable index out of range\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -19274,7 +19390,7 @@ Lapack::SymmetricMatrix Model::MultiRotor::force_constant_matrix (const std::vec
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle dimension\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle dimension\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -19310,7 +19426,7 @@ Lapack::Vector Model::MultiRotor::potential_gradient(const std::vector<double>& 
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle dimension\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle dimension\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -19339,7 +19455,7 @@ Lapack::Vector Model::MultiRotor::frequencies (const std::vector<double>& angle)
 
   if(angle.size() != internal_size()) {
     //
-    IO::log << IO::log_offset << funame << "wrong angle size\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong angle size\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -19482,7 +19598,7 @@ void Model::MultiRotor::quantum_states (Array<double>& stat_grid, double ener_st
 
   if(!_energy_level.size()) {
     //
-    IO::log << IO::log_offset << funame << "not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -20304,7 +20420,7 @@ std::string Model::Species::short_name () const
       //
       return "C" + IO::String(outer_index[name()] + 1);
 
-    IO::log << IO::log_offset << funame << "unknown species: " << name();
+    IO::log << "\n" << IO::log_offset << funame << "unknown species: " << name();
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -20341,7 +20457,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
       //
       if(_atom.size() || _mass > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -20362,14 +20478,14 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
       
       if(!(lin >> _print_min >> _print_max >> _print_step)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_print_step <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": step out of range: " << _print_step << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": step out of range: " << _print_step << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -20380,14 +20496,14 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
       //
       if(_atom.size() || _mass > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	//
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _mass)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       };
@@ -20396,7 +20512,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
 
       if(_mass <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range:" << _mass << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range:" << _mass << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       };
@@ -20411,14 +20527,14 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
 
       if(_atom.size() || _mass > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << "mass is already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << "mass is already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!(from >> word)) {
 	//
-	IO::log << IO::log_offset << funame << token << "corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << "corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       };
@@ -20443,7 +20559,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
 	    
 	    if(itemp <= 0) {
 	      //
-	      IO::log << IO::log_offset << funame << token << "wrong number of atoms: " << itemp << "\n";
+	      IO::log << "\n" << IO::log_offset << funame << token << "wrong number of atoms: " << itemp << "\n";
 	      
 	      IO::log << std::flush; throw Error::Range();
 	    }
@@ -20459,7 +20575,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
 	}
 	else {
 	  //
-	  IO::log << IO::log_offset << funame << token << "unrecognized character: " << c << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << "unrecognized character: " << c << "\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -20467,7 +20583,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
 
       if(!name.size() || !number.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << "wrong format: " << word << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << "wrong format: " << word << "\n";
 	
 	IO::log << std::flush; throw Error::Form();
       }
@@ -20476,7 +20592,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
       
       if(itemp <= 0) {
 	//
-	IO::log << IO::log_offset << funame << token << "wrong number of atoms: " << itemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << "wrong number of atoms: " << itemp << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -20517,7 +20633,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
 
   if(mode() != DENSITY && mode() != NUMBER && mode() !=  NOSTATES) {
     //
-    IO::log << IO::log_offset << funame << "wrong mode\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong mode\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
@@ -20526,7 +20642,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -20542,7 +20658,7 @@ Model::Species::Species (IO::KeyBufferStream& from, const std::string& n, int m)
 
   if(_mass < 0.) {
     //
-    IO::log << IO::log_offset << funame << "mass is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "mass is not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -20591,7 +20707,7 @@ double Model::Species::mass () const
   const char funame [] = "Model::Species::mass: ";
 
   if(_mass <= 0.) {
-    IO::log << IO::log_offset << funame << "not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "not initialized\n";
     IO::log << std::flush; throw Error::Init();
   }
 
@@ -20605,7 +20721,7 @@ double Model::Species::oscillator_frequency (int) const
 {
   const char funame [] = "Model::Species::oscillator_frequency: ";
 
-  IO::log << IO::log_offset << funame << "should not be here\n";
+  IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
   IO::log << std::flush; throw Error::Logic();
 }
 
@@ -20613,7 +20729,7 @@ double  Model::Species::infrared_intensity (double, int) const
 {
   const char funame [] = "Model::Species::infrared_intensity: ";
 
-  IO::log << IO::log_offset << funame << "should not be here\n";
+  IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
   IO::log << std::flush; throw Error::Logic();
 }
 
@@ -20684,7 +20800,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
 
   if(mode() == NOSTATES) {
     //
-    IO::log << IO::log_offset << funame << "wrong calculation mode\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong calculation mode\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
@@ -20718,7 +20834,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
 
       if(!(from >> ener_ref)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -20746,7 +20862,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       //
       if(!(from >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -20774,7 +20890,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       }
       else {
 	//
-	IO::log << IO::log_offset << funame << token << ": unknown energy unit: " << stemp << ": available energy units: kcal/mol, 1/cm, eV, au, kJ/mol\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": unknown energy unit: " << stemp << ": available energy units: kcal/mol, 1/cm, eV, au, kJ/mol\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -20785,13 +20901,13 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       //
       if(!(from >> _dtol)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       if(_dtol <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -20802,14 +20918,14 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       //
       if(_mass > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _mass)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": unreadable\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": unreadable\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -20817,7 +20933,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       
       if(_mass <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -20830,7 +20946,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       //
       if(!(from >> name)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -20841,7 +20957,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
       
       if(!file) {
 	//
-	IO::log << IO::log_offset << funame << "cannot open file " << name << " for reading\n";
+	IO::log << "\n" << IO::log_offset << funame << "cannot open file " << name << " for reading\n";
 	
 	IO::log << std::flush; throw Error::File();
       }
@@ -20854,7 +20970,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
 	
 	if(!file) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": reading number/density failed\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": reading number/density failed\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -20866,7 +20982,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -20896,7 +21012,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
 
   if(itemp < 3) {
     //
-    IO::log << IO::log_offset << funame << "not enough data\n";
+    IO::log << "\n" << IO::log_offset << funame << "not enough data\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -20969,7 +21085,7 @@ Model::ReadSpecies::ReadSpecies (std::istream& from, const std::string& n, int m
 
   if(ground_min.first && _ground < ground_min.second) {
     //
-    IO::log << IO::log_offset << funame << "ground state energy, "
+    IO::log << "\n" << IO::log_offset << funame << "ground state energy, "
       //
 	      << std::ceil(_ground / Phys_const::kcal * 10.) / 10. << " kcal/mol, is less than ground state energy minimum, "
       //
@@ -21021,7 +21137,7 @@ double Model::ReadSpecies::weight (double temperature) const
   
   if (info != 1) {
     //
-    IO::log << IO::log_offset << funame  << "davint integration error\n";
+    IO::log << "\n" << IO::log_offset << funame  << "davint integration error\n";
     
     IO::log << std::flush; throw Error::Logic();
   }
@@ -21050,7 +21166,7 @@ Model::IntMod::IntMod (int molec_size, IO::KeyBufferStream& from)
 
   if(molec_size < 2) {
     //
-    IO::log << IO::log_offset << funame << "molecule size is out of range: " << molec_size << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "molecule size is out of range: " << molec_size << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -21069,7 +21185,7 @@ Model::IntMod::IntMod (int molec_size, IO::KeyBufferStream& from)
       //
       if(_atoms.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -21082,14 +21198,14 @@ Model::IntMod::IntMod (int molec_size, IO::KeyBufferStream& from)
 	//
 	if(itemp < 1 || itemp > molec_size) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": atomic index is out of range: " << itemp << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": atomic index is out of range: " << itemp << "\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
 
 	if(!_pool.insert(--itemp).second) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": identical atomic indices: " << itemp + 1 << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": identical atomic indices: " << itemp + 1 << "\n";
 
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -21099,7 +21215,7 @@ Model::IntMod::IntMod (int molec_size, IO::KeyBufferStream& from)
 
       if(_atoms.size() < 2 || _atoms.size() > 4) {
 	//
-	IO::log << IO::log_offset << funame << token << ": number of atomic indices is out of range: " << _atoms.size() << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": number of atomic indices is out of range: " << _atoms.size() << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -21138,7 +21254,7 @@ Model::IntMod::IntMod (int molec_size, IO::KeyBufferStream& from)
   //
   if(!_atoms.size()) {
     //
-    IO::log << IO::log_offset << funame << "not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "not defined\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -21277,7 +21393,7 @@ double Model::IntMod::evaluate (Lapack::Vector          cart_pos, // atomic cart
     //
   default:
 
-    IO::log << IO::log_offset << funame << "should not be here\n";
+    IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
 
     IO::log << std::flush; throw Error::Logic();
   }
@@ -21314,7 +21430,7 @@ Model::Fluxional::Fluxional (int molec_size, IO::KeyBufferStream& from) : IntMod
       //
       if(_span > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -21323,14 +21439,14 @@ Model::Fluxional::Fluxional (int molec_size, IO::KeyBufferStream& from) : IntMod
 
       if(!(lin >> _span)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(_span <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << _span << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << _span << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -21339,7 +21455,7 @@ Model::Fluxional::Fluxional (int molec_size, IO::KeyBufferStream& from) : IntMod
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -21355,9 +21471,9 @@ Model::Fluxional::Fluxional (int molec_size, IO::KeyBufferStream& from) : IntMod
       //
     case DISTANCE:
       //
-      IO::log << IO::log_offset << "ERROR: for interatomic distances span should be explicitely defined\n";
+      IO::log << "\n" << IO::log_offset << "ERROR: for interatomic distances span should be explicitely defined\n";
 
-      IO::log << IO::log_offset << funame << "for interatomic distances span should be explicitely defined\n";
+      IO::log << "\n" << IO::log_offset << funame << "for interatomic distances span should be explicitely defined\n";
 
       IO::log << std::flush; throw Error::Init();
 
@@ -21379,7 +21495,7 @@ Model::Fluxional::Fluxional (int molec_size, IO::KeyBufferStream& from) : IntMod
 
     default:
 
-      IO::log << IO::log_offset << funame << "should not be here\n";
+      IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
 
       IO::log << std::flush; throw Error::Logic();
     }
@@ -21417,7 +21533,7 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
       //
       if(_value >= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -21426,7 +21542,7 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
 
       if(!(lin >> _value)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -21439,7 +21555,7 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
 	//
 	if(_value <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": out of range: " << _value << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << _value << "\n";
 	
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -21452,7 +21568,7 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
 	//
 	if(_value < 0. || _value > 180.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": out of range: " << _value << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << _value << "\n";
 	
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -21465,7 +21581,7 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
 	//
 	if(_value < 0. || _value > 360.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": out of range: " << _value << "\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << _value << "\n";
 	
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -21476,7 +21592,7 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
 	//
       default:
 	//
-	IO::log << IO::log_offset << funame << "should not be here\n";
+	IO::log << "\n" << IO::log_offset << funame << "should not be here\n";
 
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -21485,7 +21601,7 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -21498,7 +21614,7 @@ Model::Constrain::Constrain (int molec_size, IO::KeyBufferStream& from) : IntMod
 
   if(_value < 0.) { 
     //
-    IO::log << IO::log_offset << funame << "value not defined\n";
+    IO::log << "\n" << IO::log_offset << funame << "value not defined\n";
 
     IO::log << std::flush; throw Error::Init();
   }      
@@ -21510,7 +21626,7 @@ double Model::MonteCarlo::_RefPot::operator() (const double* pos) const
 
   if(!_pot) {
     //
-    IO::log << IO::log_offset << funame << "Potential not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "Potential not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -21523,7 +21639,7 @@ double Model::MonteCarlo::_RefPot::operator() (const double* pos) const
 
   if(ifail) {
     //
-    IO::log << IO::log_offset << funame << "reference potential failed with the code: " << ifail << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "reference potential failed with the code: " << ifail << "\n";
 
     IO::log << std::flush; throw PotFail();
   }
@@ -21537,14 +21653,14 @@ double Model::MonteCarlo::_RefPot::weight (double temperature) const
 
   if(!_weight) {
     //
-    IO::log << IO::log_offset << funame << "not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(temperature <= 0.) {
     //
-    IO::log << IO::log_offset << funame << "temperature out of range: " << temperature / Phys_const::kelv << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "temperature out of range: " << temperature / Phys_const::kelv << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -21587,7 +21703,7 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
       //
       if(_lib.isopen()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -21596,7 +21712,7 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
 
       if(!(lin >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -21610,14 +21726,14 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
       //
       if(_pot) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!_lib.isopen()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": library should be initialized first\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": library should be initialized first\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -21626,7 +21742,7 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
 
       if(!(lin >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -21640,14 +21756,14 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
       //
       if(_weight) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!_lib.isopen()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": library should be initialized first\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": library should be initialized first\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -21656,7 +21772,7 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
 
       if(!(lin >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -21667,7 +21783,7 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -21682,21 +21798,21 @@ void Model::MonteCarlo::_RefPot::init(std::istream& from)
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream is currupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream is currupted\n";
 
     IO::log << std::flush; throw Error::Input();
   }
 
   if(!_pot) {
     //
-    IO::log << IO::log_offset << funame << "potential not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "potential not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!_weight) {
     //
-    IO::log << IO::log_offset << funame << "statistical weight not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "statistical weight not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -21712,7 +21828,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     //
     nm_freq_min(10. * Phys_const::incm), high_freq_thres(5.), low_freq_thres(1.e-5),
     //
-    exp_arg_max(200.), deep_tunnel_thres(0.8), _deep_tunnel(false),
+    deep_tunnel_thres(0.8), _deep_tunnel(false),
     //
     _ilt_min(100. * Phys_const::kelv), _ilt_max(10000. * Phys_const::kelv), _ilt_num(100),
     //
@@ -21808,14 +21924,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(ref_conf.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!(from >> ref_conf)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -21828,14 +21944,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(!(from >> _rsymm)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_rsymm < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << _rsymm << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << _rsymm << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -21896,14 +22012,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(!(from >> _ilt_min)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_ilt_min <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -21918,14 +22034,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(!(from >> _ilt_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_ilt_max <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -21940,14 +22056,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(!(from >> _ilt_num)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_ilt_num < 2) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -21966,13 +22082,13 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       
       if(!(from >> num)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": levels number unreadable\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": levels number unreadable\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(num < 1) {
-	IO::log << IO::log_offset << funame << token << ": levels number should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": levels number should be positive\n";
 	IO::log << std::flush; throw Error::Range();
       }
 
@@ -21984,7 +22100,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 	
 	if(!(level_input >> dtemp >> itemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": format: energy degeneracy(>=1)\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": format: energy degeneracy(>=1)\n";
 
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -22007,21 +22123,21 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
 	if(_elevel.find(dtemp) != _elevel.end()) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": identical energy levels\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": identical energy levels\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
 
 	if(itemp < 1) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": degeneracy should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": degeneracy should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
 
 	if(dtemp < 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": should not be negative\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": should not be negative\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -22029,7 +22145,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
 	if(!_elevel.size() && dtemp != 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": first energy level should be zero\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": first energy level should be zero\n";
 
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -22043,14 +22159,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(!(from >> _ener_quant)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_ener_quant <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -22065,14 +22181,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(!(from >> _ener_max)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_ener_max <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -22091,7 +22207,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(isrefen) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -22100,7 +22216,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       
       if(!(from >> _refen)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -22134,7 +22250,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(isground) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -22143,7 +22259,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       
       if(!(from >> _ground)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -22184,7 +22300,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(_mass_sqrt.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -22207,7 +22323,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 	  //
 	  if(dot_pos == stemp.size() - 1 || dot_pos == 0) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": dot position out of range: " << stemp << "\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": dot position out of range: " << stemp << "\n";
 
 	    IO::log << std::flush; throw Error::Range();
 	  }
@@ -22220,7 +22336,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
 	  if(isot <= 0) {
 	    //
-	    IO::log << IO::log_offset << funame << token << ": isotope number out of range: " << stemp << "\n";
+	    IO::log << "\n" << IO::log_offset << funame << token << ": isotope number out of range: " << stemp << "\n";
 
 	    IO::log << std::flush; throw Error::Range();
 	  }
@@ -22257,7 +22373,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
       if(!atom_size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": molecular specification should go first\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": molecular specification should go first\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -22280,14 +22396,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
       if(!(lin >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(dtemp <= 0. || dtemp >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -22302,7 +22418,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
       if(_ref_pot) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -22315,7 +22431,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(_ref_tem > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -22324,14 +22440,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       
       if(!(lin >> _ref_tem)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_ref_tem <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -22344,7 +22460,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(is_symm) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -22355,14 +22471,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
       if(!(lin >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(dtemp <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -22375,7 +22491,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
       //
       if(is_excl) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -22386,14 +22502,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
       if(!(lin >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(dtemp <= 0. || dtemp >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -22408,14 +22524,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
       if(_data_file.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(lin >> _data_file)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -22424,7 +22540,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -22439,7 +22555,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream is currupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream is currupted\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -22450,28 +22566,28 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   
   if(!atom_size()) {
     //
-    IO::log << IO::log_offset << funame << "no atoms specified\n";
+    IO::log << "\n" << IO::log_offset << funame << "no atoms specified\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!_fluxional.size() && !_internal_rotation.size()) {
     //
-    IO::log << IO::log_offset << funame << "neither fluxional modes nor internal rotations specified\n";
+    IO::log << "\n" << IO::log_offset << funame << "neither fluxional modes nor internal rotations specified\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_fluxional.size() && _internal_rotation.size()) {
     //
-    IO::log << IO::log_offset << funame << "fluxional and internal rotations specifications are mutually exclusive\n";
+    IO::log << "\n" << IO::log_offset << funame << "fluxional and internal rotations specifications are mutually exclusive\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(fluxional_size() + 6 > atom_size() * 3) {
     //
-    IO::log << IO::log_offset << funame << "number of fluxional modes (" << fluxional_size()
+    IO::log << "\n" << IO::log_offset << funame << "number of fluxional modes (" << fluxional_size()
 	      << ") is inconsistent with the number of atoms, " << atom_size() << "\n";
 
     IO::log << std::flush; throw Error::Range();
@@ -22479,14 +22595,14 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
   if(!_data_file.size()) {
     //
-    IO::log << IO::log_offset << funame << "no data file is provided\n";
+    IO::log << "\n" << IO::log_offset << funame << "no data file is provided\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_ists && _fluxional.size() && _nohess) {
     //
-    IO::log << IO::log_offset << funame << "transition state with constrained optimization: must provide Hessian\n";
+    IO::log << "\n" << IO::log_offset << funame << "transition state with constrained optimization: must provide Hessian\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -22508,7 +22624,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "cannot open data file " << _data_file << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot open data file " << _data_file << "\n";
 
     IO::log << std::flush; throw Error::File();
   }
@@ -22548,7 +22664,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
     if(!from) {
       //
-      IO::log << IO::log_offset << funame << "cannot open reference configuration file\n";
+      IO::log << "\n" << IO::log_offset << funame << "cannot open reference configuration file\n";
 
       IO::log << std::flush; throw Error::Init();
     }
@@ -22579,7 +22695,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
     if(_set_reference_energy()) {
       //
-      IO::log << IO::log_offset << funame << "setting reference energy failed\n";
+      IO::log << "\n" << IO::log_offset << funame << "setting reference energy failed\n";
 
       IO::log << std::flush; throw Error::Init();
     }
@@ -22590,7 +22706,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   }
   else {
     //
-    IO::log << IO::log_offset << funame << "neither Hessian data nor reference configuration have been provided\n";
+    IO::log << "\n" << IO::log_offset << funame << "neither Hessian data nor reference configuration have been provided\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -22615,7 +22731,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
   
   if(_ref_pot && _ref_tem < 0. || !_ref_pot && _ref_tem > 0.) {
     //
-    IO::log << IO::log_offset << funame << "the reference potential and the reference temperature should be defined simultaneously\n";
+    IO::log << "\n" << IO::log_offset << funame << "the reference potential and the reference temperature should be defined simultaneously\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -22714,7 +22830,7 @@ Model::MonteCarlo::MonteCarlo(IO::KeyBufferStream& from, const std::string& n, i
 
       if(!itemp) {
 	//
-	IO::log << IO::log_offset << funame << "true non-fluxional frequency is too low: " << std::floor(_ref_freq[f] / Phys_const::incm) << " 1/cm\n";
+	IO::log << "\n" << IO::log_offset << funame << "true non-fluxional frequency is too low: " << std::floor(_ref_freq[f] / Phys_const::incm) << " 1/cm\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -23107,7 +23223,7 @@ double Model::MonteCarlo::states (double ener) const
 
     if(x >= _ilt_log.arg_max()) {
       //
-      IO::log << IO::log_offset << funame << "energy out of range: " << ener / Phys_const::kcal << " kcal/mol\n";
+      IO::log << "\n" << IO::log_offset << funame << "energy out of range: " << ener / Phys_const::kcal << " kcal/mol\n";
 
       IO::log << std::flush; throw Error::Range();
     }
@@ -23123,7 +23239,7 @@ double Model::MonteCarlo::states (double ener) const
 
   if(ener >= _states.arg_max()) {
     //
-    IO::log << IO::log_offset << funame << "energy out of range: " << ener / Phys_const::kcal << " kcal/mol\n";
+    IO::log << "\n" << IO::log_offset << funame << "energy out of range: " << ener / Phys_const::kcal << " kcal/mol\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -23171,7 +23287,7 @@ double Model::MonteCarlo::weight_with_error (double temperature, double& werr) c
 
   if(!count) {
     //
-    IO::log << IO::log_offset << funame << "no usable data\n";
+    IO::log << "\n" << IO::log_offset << funame << "no usable data\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -23269,7 +23385,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
       //
       return false;
 
-    IO::log << IO::log_offset << funame << "corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "corrupted\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -23280,7 +23396,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
   
   if(!(from >> token) || token != "Energy") {
     //
-    IO::log << IO::log_offset << funame << "cannot read energy label: " << token << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read energy label: " << token << "\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -23289,7 +23405,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
   //
   if(!(from >> ener)) {
     //
-    IO::log << IO::log_offset << funame << "cannot read energy\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read energy\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -23302,7 +23418,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
   
   if(!(from >> token) || token != "Geometry") {
     //
-    IO::log << IO::log_offset << funame << "cannot read geometry label: " << token << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read geometry label: " << token << "\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -23311,14 +23427,14 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
   //
   if(!(from >> itemp)) {
     //
-    IO::log << IO::log_offset << funame << "cannot read atoms #\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read atoms #\n";
 
     IO::log << std::flush; throw Error::Input();
   }
 
   if(itemp <= 1) {
     //
-    IO::log << IO::log_offset << funame << "wrong # of atoms: " << itemp << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong # of atoms: " << itemp << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -23327,17 +23443,17 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
 
   if(cart_pos.size() != atom_number * 3) {
     //
-    IO::log << IO::log_offset << funame << "wrong number of coordinates: " << cart_pos.size();
+    IO::log << "\n" << IO::log_offset << funame << "wrong number of coordinates: " << cart_pos.size();
   }
 
   if(cart_grad.size() != atom_number * 3) {
     //
-    IO::log << IO::log_offset << funame << "wrong number of gradient components: " << cart_grad.size();
+    IO::log << "\n" << IO::log_offset << funame << "wrong number of gradient components: " << cart_grad.size();
   }
 
   if(cart_fc.size() != atom_number * 3) {
     //
-    IO::log << IO::log_offset << funame << "wrong force constant dimensionality: " << cart_fc.size();
+    IO::log << "\n" << IO::log_offset << funame << "wrong force constant dimensionality: " << cart_fc.size();
   }
 
     
@@ -23349,7 +23465,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
     //
     if(!(from >> stemp)) {
       //
-      IO::log << IO::log_offset << funame << "cannot read " << a + 1 << "-th atom name\n";
+      IO::log << "\n" << IO::log_offset << funame << "cannot read " << a + 1 << "-th atom name\n";
 
       IO::log << std::flush; throw Error::Input();
     }
@@ -23360,7 +23476,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << "cannot read " << a + 1 << "-th atom " << i + 1 << "-th coordinate\n";
+	IO::log << "\n" << IO::log_offset << funame << "cannot read " << a + 1 << "-th atom " << i + 1 << "-th coordinate\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -23385,7 +23501,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
   
   if(!(from >> token) || token != "Gradient") {
     //
-    IO::log << IO::log_offset << funame << "cannot read energy gradient label: " << token << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read energy gradient label: " << token << "\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -23396,7 +23512,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
     //
     if(!(from >> cart_grad[i])) {
       //
-      IO::log << IO::log_offset << funame << "cannot read " << i + 1 << "-th energy gradient component\n";
+      IO::log << "\n" << IO::log_offset << funame << "cannot read " << i + 1 << "-th energy gradient component\n";
 
       IO::log << std::flush; throw Error::Input();
     }
@@ -23407,7 +23523,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
   
   if(!(from >> token) || token != "Hessian") {
     //
-    IO::log << IO::log_offset << funame << "cannot read hessian label: " << token << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot read hessian label: " << token << "\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -23420,7 +23536,7 @@ bool Model::MonteCarlo::_read (std::istream&           from,       // data strea
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << "cannot read (" << i + 1 << ", " << j + 1 << ")-th hessian component\n";
+	IO::log << "\n" << IO::log_offset << funame << "cannot read (" << i + 1 << ", " << j + 1 << ")-th hessian component\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -23532,7 +23648,7 @@ int Model::MonteCarlo::_set_reference_energy ()
 
       if(freq[itemp] < nm_freq_min) {
 	//
-	IO::log << IO::log_offset << funame << "non-fluxional frequency too low: " << freq[itemp] << " 1/cm\n";
+	IO::log << "\n" << IO::log_offset << funame << "non-fluxional frequency too low: " << freq[itemp] << " 1/cm\n";
 
 	res = 1;
       }
@@ -23650,7 +23766,7 @@ Lapack::SymmetricMatrix Model::MonteCarlo::_inertia_matrix (Lapack::Vector pos) 
 
   if(pos.size() != atom_size() * 3) {
     //
-    IO::log << IO::log_offset << funame << "sizes mismatch: " << pos.size() << " vs. " << atom_size() * 3 << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "sizes mismatch: " << pos.size() << " vs. " << atom_size() * 3 << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -23685,7 +23801,7 @@ void Model::MonteCarlo::_make_cm_shift (Lapack::Vector pos) const
 
   if(pos.size() != atom_size() * 3) {
     //
-    IO::log << IO::log_offset << funame << "sizes mismatch: " << pos.size() << " vs. " << atom_size() * 3 << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "sizes mismatch: " << pos.size() << " vs. " << atom_size() * 3 << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -23744,7 +23860,7 @@ Lapack::Matrix Model::MonteCarlo::_internal_basis (Lapack::Vector cart_pos) cons
 
   if(cart_pos.size() != cart_size) {
     //
-    IO::log << IO::log_offset << funame << "wrong number of coordinates: " << cart_pos.size() << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong number of coordinates: " << cart_pos.size() << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -23913,9 +24029,7 @@ double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
       //
       // potential energy gradient over fluxional modes coordinates
       //
-      double residue;
-  
-      Lapack::Vector flux_grad = Lapack::svd_solve(fmfd, mw_grad, &residue);
+      Lapack::Vector flux_grad = Lapack::svd_solve(fmfd, mw_grad);
 
       /*
 	IO::log << IO::log_offset << "energy, kcal/mol, over fluxional modes coordinates gradient:";
@@ -23927,20 +24041,16 @@ double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
 	IO::log << "\n";
   
 	IO::log << IO::log_offset << "cartesian gradient length,  kcal/mol/Bohr: " << std::setw(log_precision + 7)
-	<< std::sqrt(cart_grad.vdot()) / Phys_const::kcal << "\n";
-  
-	IO::log << IO::log_offset << "cartesian gradient residue, kcal/mol/Bohr: " << std::setw(log_precision + 7)
-	<< residue / Phys_const::kcal << "\n";
-
-	// check residue: => OK
 	//
-      
+		<< std::sqrt(cart_grad.vdot()) / Phys_const::kcal << "\n";
+  
 	Lapack::Vector appr_grad = fmfd * flux_grad;
 
 	appr_grad -= cart_grad;
 
 	IO::log << IO::log_offset << "test residue,               kcal/mol/Bohr: " << std::setw(log_precision + 7)
-	<< std::sqrt(appr_grad.vdot()) / Phys_const::kcal << "\n";
+	//
+		<< std::sqrt(appr_grad.vdot()) / Phys_const::kcal << "\n";
       */
     
       curv_fc = sd.cart_fc.copy();
@@ -24016,7 +24126,7 @@ double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
 
     if(_ists && local_freq[0] > -nm_freq_min) {
       //
-      IO::log << IO::log_offset << funame << "true imaginary frequency out of range: " << local_freq[0] / Phys_const::incm << " 1/cm\n";
+      IO::log << "\n" << IO::log_offset << funame << "true imaginary frequency out of range: " << local_freq[0] / Phys_const::incm << " 1/cm\n";
       
       IO::log << std::flush; throw Error::Range();
     }
@@ -24025,7 +24135,7 @@ double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
     
     if(local_freq[itemp] < nm_freq_min) {
       //
-      IO::log << IO::log_offset << funame <<  "true non-fluxional frequency out of range: " << local_freq[itemp] / Phys_const::incm << " 1/cm\n";
+      IO::log << "\n" << IO::log_offset << funame <<  "true non-fluxional frequency out of range: " << local_freq[itemp] / Phys_const::incm << " 1/cm\n";
 
       IO::log << std::flush; throw Error::Range();
     }
@@ -24284,7 +24394,7 @@ double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
     
     if(_ists && nm_local_freq[0] > -nm_freq_min) {
       //
-      IO::log << IO::log_offset << funame << "projected imaginary frequency out of range: "
+      IO::log << "\n" << IO::log_offset << funame << "projected imaginary frequency out of range: "
 	//
 		<< std::floor(nm_local_freq[0] / Phys_const::incm) << " 1/cm\n";
 	    
@@ -24295,7 +24405,7 @@ double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
       
     if(nm_local_freq[itemp] < nm_freq_min) {
       //
-      IO::log << IO::log_offset << funame << "projected stable frequency out of range: "
+      IO::log << "\n" << IO::log_offset << funame << "projected stable frequency out of range: "
 	//
 		<< std::floor(nm_local_freq[itemp] / Phys_const::incm) << " 1/cm\n";
       
@@ -24317,7 +24427,7 @@ double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
     
     if(_ref_freq[itemp] <= 0.) {
       //
-      IO::log << IO::log_offset << funame << "negative stable reference frequency: " << std::floor(_ref_freq[itemp] / Phys_const::incm) << " 1/cm\n";
+      IO::log << "\n" << IO::log_offset << funame << "negative stable reference frequency: " << std::floor(_ref_freq[itemp] / Phys_const::incm) << " 1/cm\n";
       
       IO::log << std::flush; throw Error::Range();
     }
@@ -24546,11 +24656,11 @@ double Model::MonteCarlo::_local_weight (const _Sampling&        sd,
     wfac += _ref_pot(flux_pos) / _ref_tem;
   }
 
-  if(wfac < -exp_arg_max)
+  if(wfac < -Limits::exp_pow_max())
     //
     return 0.;
 
-  if(wfac > exp_arg_max) {
+  if(wfac > Limits::exp_pow_max()) {
     //
     IO::log << IO::log_offset << funame << " number of states (natural log), " << wfac << ", is too large\n"
       //
@@ -24635,7 +24745,7 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
       //
       if(_atom_array.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -24646,14 +24756,14 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
       
       if(!(lin >> na)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": cannot read number of atoms\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": cannot read number of atoms\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(na <= 0) {
 	//
-	IO::log << IO::log_offset << funame << token << ": number of atoms out of range: " << na << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": number of atoms out of range: " << na << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -24679,7 +24789,7 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
 
       if(!_atom_array.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": molecule specification should go first\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": molecule specification should go first\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -24694,7 +24804,7 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
 
       if(!_atom_array.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": molecule specification should go first\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": molecule specification should go first\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
@@ -24709,14 +24819,14 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
 
       if(!(lin >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(dtemp <= 0. || dtemp >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << dtemp << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -24731,14 +24841,14 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
 
       if(_data_file.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(lin >> _data_file)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -24747,7 +24857,7 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -24762,28 +24872,28 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
   //
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream is currupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream is currupted\n";
 
     IO::log << std::flush; throw Error::Input();
   }
 
   if(!_atom_array.size()) {
     //
-    IO::log << IO::log_offset << funame << "no molecule specification\n";
+    IO::log << "\n" << IO::log_offset << funame << "no molecule specification\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!_fluxional.size()) {
     //
-    IO::log << IO::log_offset << funame << "no fluxional modes specified\n";
+    IO::log << "\n" << IO::log_offset << funame << "no fluxional modes specified\n";
 
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_fluxional.size() + 6 > _real_atom.size() * 3) {
     //
-    IO::log << IO::log_offset << funame << "number of fluxional modes, " << _fluxional.size()
+    IO::log << "\n" << IO::log_offset << funame << "number of fluxional modes, " << _fluxional.size()
 	      << ", is inconsistent with the number of real atoms, " << _real_atom.size() << "\n";
 
     IO::log << std::flush; throw Error::Init();
@@ -24791,7 +24901,7 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
 
   if(_constrain.size() != _dummy_atom.size() * 3) {
     //
-    IO::log << IO::log_offset << funame << "number of dummy constrains, " << _constrain.size() << ", is inconsistent with the number of dummy atoms, "
+    IO::log << "\n" << IO::log_offset << funame << "number of dummy constrains, " << _constrain.size() << ", is inconsistent with the number of dummy atoms, "
 	      << _dummy_atom.size() << "\n";
 
     IO::log << std::flush; throw Error::Init();
@@ -24799,7 +24909,7 @@ Model::MonteCarloWithDummy::MonteCarloWithDummy(IO::KeyBufferStream& from, const
 
   if(!_data_file.size()) {
     //
-    IO::log << IO::log_offset << funame << "no data file is provided\n";
+    IO::log << "\n" << IO::log_offset << funame << "no data file is provided\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -24813,7 +24923,7 @@ void Model::MonteCarloWithDummy::_assert(ConstSlice<double> v) const
     //
     return;
 
-  IO::log << IO::log_offset << funame << "vector size out of range: " << v.size();
+  IO::log << "\n" << IO::log_offset << funame << "vector size out of range: " << v.size();
   
   IO::log << std::flush; throw Error::Range();
 }
@@ -24860,7 +24970,7 @@ double Model::MonteCarloWithDummy::_normalize(Slice<double> a) const
 
   if(aa < eps) {
     //
-    IO::log << IO::log_offset << funame << "vector has zero length\n";
+    IO::log << "\n" << IO::log_offset << funame << "vector has zero length\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -24914,10 +25024,6 @@ double Model::MonteCarloWithDummy::_local_weight (double                  ener, 
   //
   static const double high_freq_thres = 5.;
 
-  // maximal exponent argument
-  //
-  static const double exp_arg_max = 50.;
-  
   /*****************************************************************************
    **************************** CALCULATION BEGINS *****************************
    *****************************************************************************/
@@ -24971,9 +25077,7 @@ double Model::MonteCarloWithDummy::_local_weight (double                  ener, 
 
   // energy gradient over internal coordinates (fluxional and constrained ones)
   //
-  double residue;
-  
-  Lapack::Vector curv_grad = Lapack::svd_solve(imfd, cart_grad, &residue);
+  Lapack::Vector curv_grad = Lapack::svd_solve(imfd, cart_grad);
   
   // force constant matrix over all cartesian coordinates (real and dummy ones)
   //
@@ -25286,7 +25390,7 @@ double Model::MonteCarloWithDummy::_local_weight (double                  ener, 
     
   if(dtemp < nm_freq_min) {
     //
-    IO::log << IO::log_offset << funame << "non-fluxional mode frequency is too low: " << dtemp  << " 1/cm \n";
+    IO::log << "\n" << IO::log_offset << funame << "non-fluxional mode frequency is too low: " << dtemp  << " 1/cm \n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -25309,13 +25413,13 @@ double Model::MonteCarloWithDummy::_local_weight (double                  ener, 
   //
   dtemp = (ener - ground()) / temperature;
 
-  if(dtemp > exp_arg_max)
+  if(dtemp > Limits::exp_pow_max())
     //
     return 0.;
 
-  if(dtemp < -exp_arg_max) {
+  if(dtemp < -Limits::exp_pow_max()) {
     //
-    IO::log << IO::log_offset << funame << "energy is too low: " << (ener - ground()) / Phys_const::kcal << " kcal/mol. Check the ground energy\n";
+    IO::log << "\n" << IO::log_offset << funame << "energy is too low: " << (ener - ground()) / Phys_const::kcal << " kcal/mol. Check the ground energy\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -25327,7 +25431,7 @@ double Model::MonteCarloWithDummy::states (double ener) const
 {
   const char funame [] = "Model::MonteCarloWithDummy::states: ";
 
-  IO::log << IO::log_offset << funame << "not implemented yet, sorry\n";
+  IO::log << "\n" << IO::log_offset << funame << "not implemented yet, sorry\n";
 
   IO::log << std::flush; throw Error::General();
 
@@ -25348,7 +25452,7 @@ double Model::MonteCarloWithDummy::weight (double temperature) const
 
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "cannot open data file " << _data_file << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "cannot open data file " << _data_file << "\n";
 
     IO::log << std::flush; throw Error::File();
   }
@@ -25376,7 +25480,7 @@ double Model::MonteCarloWithDummy::weight (double temperature) const
 
     if(!from) {
       //
-      IO::log << IO::log_offset << funame << "data file " << _data_file << " is corrupted\n";
+      IO::log << "\n" << IO::log_offset << funame << "data file " << _data_file << " is corrupted\n";
 
       IO::log << std::flush; throw Error::Input();
     }
@@ -25411,7 +25515,7 @@ double Model::MonteCarloWithDummy::weight (double temperature) const
 
   if(!count) {
     //
-    IO::log << IO::log_offset << funame << "no data\n";
+    IO::log << "\n" << IO::log_offset << funame << "no data\n";
 
     IO::log << std::flush; throw Error::Input();
   }
@@ -25549,7 +25653,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       
       if(!(lin >> hess_file)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted" << std::endl;
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted" << std::endl;
 
 	throw Error::Input();
       }
@@ -25574,7 +25678,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       
       if(fscale <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -25684,14 +25788,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(!(from >> _sym_num)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
    
       if(_sym_num <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -25704,7 +25808,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(!_frequency.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": frequencies should be initialized first\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": frequencies should be initialized first\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -25719,14 +25823,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(_tunnel) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already intialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already intialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(mode() == DENSITY) {
 	//
-	IO::log << IO::log_offset << funame << token << ": only for barriers\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": only for barriers\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -25739,7 +25843,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(_core) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already intialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already intialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -25782,21 +25886,21 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(fscale > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> fscale)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
       
       if(fscale <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -25809,7 +25913,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(_frequency.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": have been initialized already\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": have been initialized already\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -25818,7 +25922,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(!(from >> itemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": cannot read number of frequencies\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": cannot read number of frequencies\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -25827,7 +25931,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
       if(itemp < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": number of frequencies should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": number of frequencies should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -25840,14 +25944,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 	//
 	if(!(from >> dtemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read " << i << "-th frequency\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i << "-th frequency\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
 	
 	if(dtemp <= 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": " << i << "-th frequency: should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": " << i << "-th frequency: should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -25857,7 +25961,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       
       if(!from) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -25870,14 +25974,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(mode() != DENSITY) {
 	//
-	IO::log << IO::log_offset << funame << token << "only for wells\n";
+	IO::log << "\n" << IO::log_offset << funame << token << "only for wells\n";
 	
 	IO::log << std::flush; throw Error::Logic();
       }
       
       if(_osc_int.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": have been initialized already\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": have been initialized already\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -25886,7 +25990,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(!(from >> itemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": cannot read number of oscillators\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": cannot read number of oscillators\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -25894,7 +25998,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
       if(itemp < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": number of oscillators should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": number of oscillators should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -25907,14 +26011,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 	//
 	if(!(from >> dtemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": cannot read " << i << "-th intensity\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": cannot read " << i << "-th intensity\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
 	
 	if(dtemp < 0.) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": " << i << "-th intensity: should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": " << i << "-th intensity: should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -25924,7 +26028,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       
       if(!from) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -25938,7 +26042,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(!(from >> _ener_quant)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -25946,7 +26050,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
       if(_ener_quant <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -25958,7 +26062,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(!(from >> _emax)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -25966,7 +26070,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
       if(_emax <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -25978,7 +26082,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(!(from >> extra_step)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -25986,7 +26090,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       std::getline(from, comment);
 
       if(extra_step <= 0. || extra_step >= 1.) {
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	IO::log << std::flush; throw Error::Range();
       }
     }
@@ -25998,7 +26102,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(isener || iszero) {
 	//
-	IO::log << IO::log_offset << funame << "ground energy has been initialized already\n";
+	IO::log << "\n" << IO::log_offset << funame << "ground energy has been initialized already\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -26009,7 +26113,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       
       if(!(lin >> _ground)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -26038,7 +26142,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       //
       if(isener || iszero) {
 	//
-	IO::log << IO::log_offset << funame << "ground energy has been initialized already\n";
+	IO::log << "\n" << IO::log_offset << funame << "ground energy has been initialized already\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -26049,7 +26153,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       
       if(!(lin >> _ground)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -26082,14 +26186,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       
       if(!(lin >> num)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": levels number unreadable\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": levels number unreadable\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(num < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": levels number should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": levels number should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -26099,7 +26203,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 	lin.read_line(from);
 	
 	if(!(lin >> dtemp >> itemp)) {
-	  IO::log << IO::log_offset << funame << token << ": format: energy(1/cm) degeneracy(>=1)\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": format: energy(1/cm) degeneracy(>=1)\n";
 	  IO::log << std::flush; throw Error::Input();
 	}
 
@@ -26121,14 +26225,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
 	if(elevel_map.find(dtemp) != elevel_map.end()) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": identical energy levels\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": identical energy levels\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
 
 	if(itemp < 1) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": degeneracy should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": degeneracy should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -26140,7 +26244,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword: " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword: " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -26153,7 +26257,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
  
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -26168,7 +26272,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
     
     if(_fdegen.size() > _frequency.size()) {
       //
-      IO::log << IO::log_offset << funame << "number of frequency degeneracies exceeds number of frequencies\n";
+      IO::log << "\n" << IO::log_offset << funame << "number of frequency degeneracies exceeds number of frequencies\n";
       
       IO::log << std::flush; throw Error::Init();
     }
@@ -26219,14 +26323,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
   //
   if(!isener && !iszero) {
     //
-    IO::log << IO::log_offset << funame << "ground state energy/minimal potential energy has not been initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "ground state energy/minimal potential energy has not been initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_osc_int.size() && _osc_int.size() != _frequency.size()) {
     //
-    IO::log << IO::log_offset << funame << "numbers of vibrational frequencies and infrared intensities mismatch\n";
+    IO::log << "\n" << IO::log_offset << funame << "numbers of vibrational frequencies and infrared intensities mismatch\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -26296,7 +26400,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
     if(_ground_shift > ground_shift_max) {
       //
-      IO::log << IO::log_offset << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
+      IO::log << "\n" << IO::log_offset << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
 	//
 		<< " kcal/mol, is lower than the ground state of the well it connects to, " 
 	//
@@ -26459,7 +26563,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 	  
 	  if(itemp < 0) {
 	    //
-	    IO::log << IO::log_offset << funame << "negative frequency\n";
+	    IO::log << "\n" << IO::log_offset << funame << "negative frequency\n";
 	    
 	    IO::log << std::flush; throw Error::Range();
 	  }
@@ -26581,7 +26685,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
       if(itemp >= ener_grid.size()) {
 	//
-	IO::log << IO::log_offset << funame << "energy grid shift is too large: " << itemp << "\n";
+	IO::log << "\n" << IO::log_offset << funame << "energy grid shift is too large: " << itemp << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -27173,7 +27277,7 @@ double Model::RRHO::oscillator_frequency (int f) const
   
   if(f < 0 || f >= _osc_int.size()) {
     //
-    IO::log << IO::log_offset << funame << "oscillator index out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "oscillator index out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -27187,7 +27291,7 @@ double Model::RRHO::infrared_intensity (double ener, int f) const
   
   if(f < 0 || f >= _osc_int.size()) {
     //
-    IO::log << IO::log_offset << funame << "oscillator index out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "oscillator index out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -27271,7 +27375,7 @@ void Model::UnionSpecies::_set ()
 
   if(!_species.size()) {
     //
-    IO::log << IO::log_offset << funame << "no species found\n";
+    IO::log << "\n" << IO::log_offset << funame << "no species found\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -27354,7 +27458,7 @@ double Model::UnionSpecies::oscillator_frequency (int num) const
 
   if(num >= _osc_spec_index.size() || num < 0) {
     //
-    IO::log << IO::log_offset << funame << "out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -27370,7 +27474,7 @@ double  Model::UnionSpecies::infrared_intensity (double ener, int num) const
 
   if(num >= _osc_spec_index.size() || num < 0) {
     //
-    IO::log << IO::log_offset << funame << "out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "out of range\n";
     
     IO::log << std::flush; throw Error::Range();
   }
@@ -27444,7 +27548,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       //
       if(_tunnel) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already intialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already intialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -27467,7 +27571,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       //
       if(_outer) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already intialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already intialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -27484,7 +27588,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       //
       if(!(from >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -27500,7 +27604,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       }
       else {
 	//
-	IO::log << IO::log_offset << funame << token << ": unknown method: " << stemp << ": available methods: statistical, dynamical\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": unknown method: " << stemp << ": available methods: statistical, dynamical\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -27513,14 +27617,14 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       
       if(!(lin >> _ener_quant)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_ener_quant <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive: " << _ener_quant << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive: " << _ener_quant << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -27535,14 +27639,14 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       
       if(!(lin >> extra_step)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(extra_step <= 0. || extra_step >= 1.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << extra_step << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << extra_step << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -27555,14 +27659,14 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       
       if(!(lin >> _emax)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(_emax <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive: " << _emax << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive: " << _emax << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -27577,14 +27681,14 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       
       if(!(lin >> tmin)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(tmin <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive: " << tmin << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive: " << tmin << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -27597,14 +27701,14 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       
       if(!(lin >> tmax)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(tmax <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive: " << tmax << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive: " << tmax << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -27617,14 +27721,14 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
       
       if(!(lin >> tstep)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(tstep <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive: " << tstep << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive: " << tstep << "\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -27633,7 +27737,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -27645,7 +27749,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
  
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -27654,7 +27758,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
   //
   if(!_rrho.size()) {
     //
-    IO::log << IO::log_offset << funame << "RRHOs not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "RRHOs not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -27712,7 +27816,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
     
     if(ground_shift > ground_shift_max) {
       //
-      IO::log << IO::log_offset << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
+      IO::log << "\n" << IO::log_offset << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
 	//
 		<< " kcal/mol, is lower than the ground state of the well it connects to, "
 	//
@@ -27867,7 +27971,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
 	//
       default:
 	//
-	IO::log << IO::log_offset << funame << "wrong two-transition-states model case\n";
+	IO::log << "\n" << IO::log_offset << funame << "wrong two-transition-states model case\n";
 	
 	IO::log << std::flush; throw Error::Logic();
       }
@@ -28079,14 +28183,14 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
       //
       if(_mass > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
       
       if(!(from >> _mass)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": unreadable\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": unreadable\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -28094,7 +28198,7 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
       
       if(_mass <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -28107,7 +28211,7 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
       //
       if(_mass > 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -28125,14 +28229,14 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
       
       if(!(from >> num)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": levels number unreadable\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": levels number unreadable\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(num < 1) {
 	//
-	IO::log << IO::log_offset << funame << token << ": levels number should be positive\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": levels number should be positive\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -28145,7 +28249,7 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
 	
 	if(!(level_input >> dtemp >> itemp)) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": format: energy[1/cm] degeneracy(>=1)\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": format: energy[1/cm] degeneracy(>=1)\n";
 	  
 	  IO::log << std::flush; throw Error::Input();
 	}
@@ -28169,14 +28273,14 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
 
 	if(elevel_map.find(dtemp) != elevel_map.end()) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": identical energy levels\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": identical energy levels\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
 
 	if(itemp < 1) {
 	  //
-	  IO::log << IO::log_offset << funame << token << ": degeneracy should be positive\n";
+	  IO::log << "\n" << IO::log_offset << funame << token << ": degeneracy should be positive\n";
 	  
 	  IO::log << std::flush; throw Error::Range();
 	}
@@ -28188,7 +28292,7 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -28200,14 +28304,14 @@ Model::AtomicSpecies::AtomicSpecies (IO::KeyBufferStream& from, const std::strin
  
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
 
   if(_mass < 0.) {
     //
-    IO::log << IO::log_offset << funame << "mass is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "mass is not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -28324,7 +28428,7 @@ std::string Model::Bimolecular::short_name () const
       //
       return "P" + IO::String(bimolecular_index[name()] + 1);
 
-    IO::log << IO::log_offset << funame << "unknown bimolecular: " << name();
+    IO::log << "\n" << IO::log_offset << funame << "unknown bimolecular: " << name();
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -28373,7 +28477,7 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
       //
       if(isener) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -28381,7 +28485,7 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
 
       if(!(from >> _ground)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -28408,7 +28512,7 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
       
       if(!(lin >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -28429,7 +28533,7 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
       //
       if(_fragment.size()) {
 	//
-	IO::log << IO::log_offset << funame << token << "should be before any fragment definition\n";
+	IO::log << "\n" << IO::log_offset << funame << token << "should be before any fragment definition\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -28443,7 +28547,7 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -28455,7 +28559,7 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
  
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "input stream corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "input stream corrupted\n";
     
     IO::log << std::flush; throw Error::Input();
   }
@@ -28464,14 +28568,14 @@ Model::Bimolecular::Bimolecular(IO::KeyBufferStream& from, const std::string& n)
 
   if(!isener) {
     //
-    IO::log << IO::log_offset << funame << "ground energy has not been initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "ground energy has not been initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(_fragment.size() != 2) {
     //
-    IO::log << IO::log_offset << funame << "wrong number of fragments\n";
+    IO::log << "\n" << IO::log_offset << funame << "wrong number of fragments\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -28547,7 +28651,7 @@ void Model::Escape::_assert () const
 
   if(!_spec) {
     //
-    IO::log << IO::log_offset << funame << "density of statate is not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "density of statate is not initialized\n";
 
     IO::log << std::flush; throw Error::Init();
   }
@@ -28588,7 +28692,7 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from)
 
       if(!(lin >> _name)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -28599,7 +28703,7 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from)
       //
       if(!(from >> dtemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -28608,7 +28712,7 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from)
       
       if(dtemp <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range\n";
 	
 	IO::log << std::flush; throw Error::Range();
       }
@@ -28619,7 +28723,7 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from)
     //
     else {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword: " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword: " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -28632,14 +28736,14 @@ Model::ConstEscape::ConstEscape(IO::KeyBufferStream& from)
   
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "stream is corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "stream is corrupted\n";
     
     IO::log << std::flush; throw Error::Input(); 
   }
 
   if(_rate <= 0.) {
     //
-    IO::log << IO::log_offset << funame << "not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -28689,7 +28793,7 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
 
       if(!(lin >> _name)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
@@ -28700,14 +28804,14 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
       //
       if(rate_in.is_open()) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already initialized\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already initialized\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
 
       if(!(from >> stemp)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 	
 	IO::log << std::flush; throw Error::Input();
       }
@@ -28718,7 +28822,7 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
       
       if(!rate_in) {
 	//
-	IO::log << IO::log_offset << funame << token << ": cannot open  " << stemp << " file\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": cannot open  " << stemp << " file\n";
 	
 	IO::log << std::flush; throw Error::Open();
       }
@@ -28726,7 +28830,7 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
     // unknown key
     //
     else {
-      IO::log << IO::log_offset << funame << "unknown keyword: " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword: " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -28739,14 +28843,14 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
 
   if(!from) {
     //
-    IO::log << IO::log_offset << funame << "corrupted\n";
+    IO::log << "\n" << IO::log_offset << funame << "corrupted\n";
     
     IO::log << std::flush; throw Error::Input(); 
   }
 
   if(!rate_in) {
     //
-    IO::log << IO::log_offset << funame << "rate data not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "rate data not initialized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -28761,14 +28865,14 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
 
     if(!(rate_in >> rval)) {
       //
-      IO::log << IO::log_offset << funame << "reading rate data failed\n";
+      IO::log << "\n" << IO::log_offset << funame << "reading rate data failed\n";
       
       IO::log << std::flush; throw Error::Input();
     }
     
     if(rval < 0.) {
       //
-      IO::log << IO::log_offset << funame << "negative rate\n";
+      IO::log << "\n" << IO::log_offset << funame << "negative rate\n";
       
       IO::log << std::flush; throw Error::Range();
     }
@@ -28778,7 +28882,7 @@ Model::FitEscape::FitEscape(IO::KeyBufferStream& from)
 
   if(!rate_data.size()) {
     //
-    IO::log << IO::log_offset << funame << "not initialized";
+    IO::log << "\n" << IO::log_offset << funame << "not initialized";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -28828,14 +28932,13 @@ double Model::FitEscape::rate (double ener) const
  **************************************** WELL MODEL ****************************************
  ********************************************************************************************/
 
-Model::Well::Well(const std::vector<Well>& well_array)
-  : well_ext_cap(-1.)
+Model::Well::Well(const std::vector<Well>& well_array) : well_ext_cap(-1.), _well_extension(1)
 {
   const char funame [] = "Model::Well::Well: ";
 
   if(well_array.size() < 2) {
     //
-    IO::log << IO::log_offset << funame << "number of wells out of range: " << well_array.size() << "\n";
+    IO::log << "\n" << IO::log_offset << funame << "number of wells out of range: " << well_array.size() << "\n";
 
     IO::log << std::flush; throw Error::Range();
   }
@@ -28862,8 +28965,7 @@ Model::Well::Well(const std::vector<Well>& well_array)
   _kernel = well_array[well_order.begin()->second]._kernel;
 }
 
-Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
-  : well_ext_cap(-1.)
+Model::Well::Well(IO::KeyBufferStream& from, const std::string& n) : well_ext_cap(-1.), _well_extension(1)
 {
   const char funame [] = "Model::Well::Well: ";
 
@@ -28872,7 +28974,8 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   Key   spec_key("Species");
   Key escape_key("Escape");
   Key   freq_key("CollisionFrequency");
-  Key    ext_key("WellExtensionCap[kcal/mol]");
+  Key    cap_key("WellExtensionCap[kcal/mol]");
+  Key   wext_key("NoWellExtension");
 
   std::string token, comment;
 
@@ -28886,20 +28989,28 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
       
       break;
     }
+    // no well extension
+    //
+    else if(wext_key == token) {
+      //
+      std::getline(from, comment);
+
+      _well_extension = 0;     
+    }
     // well extension cap
     //
-    else if(ext_key == token) {
+    else if(cap_key == token) {
       //
       if(!(from >> well_ext_cap)) {
 	//
-	IO::log << IO::log_offset << funame << token << ": corrupted\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": corrupted\n";
 
 	IO::log << std::flush; throw Error::Input();
       }
 
       if(well_ext_cap <= 0.) {
 	//
-	IO::log << IO::log_offset << funame << token << ": out of range: " << well_ext_cap << "\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": out of range: " << well_ext_cap << "\n";
 
 	IO::log << std::flush; throw Error::Range();
       }
@@ -28926,7 +29037,7 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
       //
       if(_species) {
 	//
-	IO::log << IO::log_offset << funame << token << ": already defined\n";
+	IO::log << "\n" << IO::log_offset << funame << token << ": already defined\n";
 	
 	IO::log << std::flush; throw Error::Init();
       }
@@ -28942,7 +29053,7 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
     //
     else if(IO::skip_comment(token, from)) {
       //
-      IO::log << IO::log_offset << funame << "unknown keyword " << token << "\n";
+      IO::log << "\n" << IO::log_offset << funame << "unknown keyword " << token << "\n";
       
       Key::show_all(IO::log, (std::string)IO::log_offset);
       
@@ -28954,7 +29065,7 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
 
   if(!_default_kernel.size()) {
     //
-    IO::log << IO::log_offset << funame << "default kernel(s) has not been defined yet\n";
+    IO::log << "\n" << IO::log_offset << funame << "default kernel(s) has not been defined yet\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -28965,14 +29076,14 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   }
   else if(_kernel.size() != _default_kernel.size()) {
     //
-    IO::log << IO::log_offset << funame << "number of kernels mismatch with the default\n";
+    IO::log << "\n" << IO::log_offset << funame << "number of kernels mismatch with the default\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!_collision.size() && !_default_collision.size()) {
     //
-    IO::log << IO::log_offset << funame << "default collision model has not been defined yet\n";
+    IO::log << "\n" << IO::log_offset << funame << "default collision model has not been defined yet\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -28983,14 +29094,14 @@ Model::Well::Well(IO::KeyBufferStream& from, const std::string& n)
   }
   else if(_collision.size() != _default_collision.size()) {
     //
-    IO::log << IO::log_offset << funame << "number of collision models mismatch with the default\n";
+    IO::log << "\n" << IO::log_offset << funame << "number of collision models mismatch with the default\n";
     
     IO::log << std::flush; throw Error::Init();
   }
 
   if(!_species) {
     //
-    IO::log << IO::log_offset << funame << "species not inititalized\n";
+    IO::log << "\n" << IO::log_offset << funame << "species not inititalized\n";
     
     IO::log << std::flush; throw Error::Init();
   }
@@ -29045,17 +29156,17 @@ double Model::Well::transition_probability (double ener, double temperature, int
   static const double nfac = 2. / M_PI / Phys_const::light_speed;
 
   if(!_species) {
-    IO::log << IO::log_offset << funame << "species not initialized\n";
+    IO::log << "\n" << IO::log_offset << funame << "species not initialized\n";
     IO::log << std::flush; throw Error::Init();
   }
 
   if(num < 0 || num >= oscillator_size()) {
-    IO::log << IO::log_offset << funame << "index out of range\n";
+    IO::log << "\n" << IO::log_offset << funame << "index out of range\n";
     IO::log << std::flush; throw Error::Range();
   }
 
   if(temperature <= 0.) {
-    IO::log << IO::log_offset << funame << "negative temperature\n";
+    IO::log << "\n" << IO::log_offset << funame << "negative temperature\n";
     IO::log << std::flush; throw Error::Range();
   }
 
