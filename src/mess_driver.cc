@@ -1541,12 +1541,52 @@ int main (int argc, char* argv [])
     }
 
     Model::names_translation(micro_out);
+
+    // microcanonical number of states
+    //
+    micro_out << "microcanonical number of states:\n";
+
+    micro_out << std::setw(15) << "E, kcal/mol";
+    
+    for(int b = 0; b < Model::inner_barrier_size(); ++b)
+	//
+      micro_out << std::setw(15) << Model::inner_barrier(b).short_name();
+    
+    for(int b = 0; b < Model::outer_barrier_size(); ++b)
+	//
+      micro_out << std::setw(15) << Model::outer_barrier(b).short_name();
+
+    micro_out << "\n";
+    
+    // energy cycle
+    //
+    for(double ener = micro_ener_min; ener <= micro_ener_max; ener += micro_ener_step) {
+      //
+      micro_out << std::setw(15) << ener / Phys_const::kcal;
+
+      for(int b = 0; b < Model::inner_barrier_size(); ++b)
+	//
+	micro_out << std::setw(15) << Model::inner_barrier(b).states(ener);
+    
+      for(int b = 0; b < Model::outer_barrier_size(); ++b)
+	//
+	micro_out << std::setw(15) << Model::outer_barrier(b).states(ener);
+
+      micro_out << "\n";
+    }
+
+    micro_out << "\n";
+
+    // microcanonical rate constants
+    //
+    micro_out << "state density, microcanonical rate constants:\n";
     
     // well cycle
     //
     for(int w = 0; w < Model::well_size(); ++w) {
       //
-      micro_out << std::setw(15) << "E, kcal/mol"
+      micro_out << "well = " << Model::well(w).short_name() << "\n"
+		<< std::setw(15) << "E, kcal/mol"
 		<< std::setw(15) << "D, mol/kcal";
 
       for(int b = 0; b < Model::inner_barrier_size(); ++b) {
