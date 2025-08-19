@@ -51,7 +51,7 @@ namespace Model {
   
   bool checking = true;
 
-  double ground_shift_max = -1.;
+  double ground_shift_max = 0.;
   
   int _name_size_max;
 
@@ -5461,6 +5461,11 @@ void Model::Tunnel::convolute(Array<double>& stat, double step) const
 {
   const char funame [] = "Model::Tunnel::convolute: ";
 
+  static const double upper_cutoff_factor = 2.;
+  
+  int    itemp;
+  double dtemp;
+
   if(cutoff() < 0.) {
     //
     IO::log << "\n" << IO::log_offset << funame << "cutoff energy is not initialized\n";
@@ -5468,11 +5473,11 @@ void Model::Tunnel::convolute(Array<double>& stat, double step) const
     IO::log << std::flush; throw Error::Init();
   }
 
-  double dtemp;
-
-  // tunneling density of states
+  // tunneling density of states range
   //
-  Array<double> td((int)std::ceil(2. * cutoff() / step) + 1);
+  itemp = std::ceil((cutoff() + upper_cutoff_factor * frequency()) / step);
+  
+  Array<double> td(itemp);
   
   double ener = - cutoff();
   
@@ -5482,11 +5487,11 @@ void Model::Tunnel::convolute(Array<double>& stat, double step) const
     
   Array<double> new_stat(stat.size());
   
-#pragma omp parallel for default(shared) private(dtemp) schedule(dynamic, 1)
+#pragma omp parallel for default(shared) private(dtemp) schedule(static)
 
   for(int j = 0; j < stat.size(); ++j) {
     //
-    dtemp = stat[j] * td[0];
+    dtemp = stat[j] * td.front();
     
     for(int i = 1; i < td.size(); ++i) {
       //
@@ -5496,6 +5501,10 @@ void Model::Tunnel::convolute(Array<double>& stat, double step) const
      
       dtemp += stat[j - i] * (td[i] - td[i - 1]);
     }
+
+    if(j >= td.size())
+      //
+      dtemp += stat[j - td.size()] * (1. - td.back());
     
     new_stat[j] = dtemp;
   }
@@ -26394,11 +26403,11 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
       _ground += _hrb[b]->ground();
   }
 
-  if(ground_min.first && _ground < ground_min.second) {
+  if(ground_min.first && _ground <= ground_min.second) {
     //
     _ground_shift = ground_min.second - _ground;
 
-    if(_ground_shift > ground_shift_max) {
+    if(_ground_shift > ground_shift_max || _tunnel) {
       //
       IO::log << "\n" << IO::log_offset << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
 	//
@@ -26422,12 +26431,14 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
   _real_ground = _ground;
 
-  // tunneling correction
+  // ground state energy tunneling correction
   //
-  if(_tunnel && _ground_shift < 0.) {
-
+  if(_tunnel) {
+    //
     dtemp = _ground - _tunnel->cutoff();
 
+    // tunneling cutoff energy adjustment
+    //
     if(ground_min.first && dtemp < ground_min.second) {
       //
       IO::log << IO::log_offset << "WARNING: ground state energy with tunneling correction, "
@@ -26438,7 +26449,9 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 	//
 	      << " kcal/mol: adjusting the tunneling cutoff energy\n";
 
-      _tunnel->set_cutoff(_ground - ground_min.second);
+      dtemp = _ground - ground_min.second;
+
+      _tunnel->set_cutoff(dtemp);
 
       _ground = ground_min.second;
     }
@@ -26629,7 +26642,7 @@ Model::RRHO::RRHO(IO::KeyBufferStream& from, const std::string& n, int m, std::p
 
     // tunneling
     //
-    if(_tunnel && _ground_shift < 0.) {
+    if(_tunnel) {
       //
       IO::Marker tunnel_marker("tunneling contribution", IO::Marker::ONE_LINE);
 
@@ -27808,13 +27821,11 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
 
   // is inner barrier submerged
   //
-  double ground_shift = -1.;
-  
-  if(ground_min.first && _ground < ground_min.second) {
+  if(ground_min.first && _ground <= ground_min.second) {
     //
-    ground_shift = ground_min.second - _ground;
+    dtemp = ground_min.second - _ground;
     
-    if(ground_shift > ground_shift_max) {
+    if(dtemp > ground_shift_max || _tunnel) {
       //
       IO::log << "\n" << IO::log_offset << funame << name() << " barrier ground state energy, "	<< _ground / Phys_const::kcal
 	//
@@ -27879,7 +27890,7 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
 
   // tunneling correcton
   //
-  if(_tunnel && (!ground_min.first || ground_shift < 0.)) {
+  if(_tunnel) {
     //
     dtemp = _ground - _tunnel->cutoff();
       
@@ -27893,10 +27904,11 @@ Model::VarBarrier::VarBarrier(IO::KeyBufferStream& from, const std::string& n, s
 
       _tunnel->set_cutoff(_ground - ground_min.second);
 	
-      _ground = ground_min.first;
+      _ground = ground_min.second;
     }
-
-    _ground = dtemp;
+    else
+      //
+      _ground = dtemp;
 
     // convolute number of states with tunneling density
     //
