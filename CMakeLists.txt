@@ -298,6 +298,7 @@ link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
 add_library(messlibs
     ${PROJECT_SOURCE_DIR}/src/libmess/atom.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/io.cc
+    ${PROJECT_SOURCE_DIR}/src/libmess/limits.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/math.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/symmetry.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/d3.cc
