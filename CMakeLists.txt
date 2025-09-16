@@ -308,7 +308,7 @@ add_library(messlibs
     ${PROJECT_SOURCE_DIR}/src/libmess/units.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/graph_common.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/lapack.cc
-    # ${PROJECT_SOURCE_DIR}/src/libmess/mpack.cc
+    ${PROJECT_SOURCE_DIR}/src/libmess/mpack.cc
     # ${PROJECT_SOURCE_DIR}/src/libmess/mpack_dd.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/permutation.cc
     ${PROJECT_SOURCE_DIR}/src/libmess/graph_omp.cc
