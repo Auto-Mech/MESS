@@ -659,15 +659,14 @@ namespace Lapack {
   int_t parity (RefArr<int_t>);
 
   class LU : private Matrix {
-    //
-    ::RefArr<int_t> _ipiv;
+    Array<int_t> _ipiv;
 
   public:
     //
     explicit LU (Matrix) ;
     
     int_t size ()            const { return Matrix::size1(); }
-    ::RefArr<int_t> ipiv ()  const { return _ipiv.copy(); }
+    Array<int_t> ipiv ()     const { return _ipiv; }
     double det ()          const;
 
     Matrix invert ()       const ; // inverse matrix
@@ -679,8 +678,7 @@ namespace Lapack {
    ******* LU Factorization for symmetric packed matrices *********
    ****************************************************************/
   class SymLU : private SymmetricMatrix {
-    //
-    ::RefArr<int_t> _ipiv;
+    Array<int_t> _ipiv;
 
   public:
     //

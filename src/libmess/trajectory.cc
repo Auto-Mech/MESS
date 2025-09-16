@@ -101,9 +101,9 @@ void Trajectory::Propagator::run (const Dynamic::CCP& stop, const Dynamic::Class
 	 << "\n";
   }
 
-  // dynamic variables
-  //
-  ::Array<double> dv(size());
+  // dynamic variables - use std::vector instead of Array<double>
+  std::vector<double> dv_vec(size());
+  double* dv = dv_vec.data();
 
   put(dv);
   Mode mode = RESTART;

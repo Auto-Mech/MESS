@@ -1,3 +1,5 @@
+[![C/C++ CI](https://github.com/keceli/MESS/actions/workflows/build.yml/badge.svg)](https://github.com/keceli/MESS/actions/workflows/build.yml)
+
 # MESS
 
 Master Equation System Solver
@@ -79,6 +81,48 @@ bash build.sh
 ```
 
 Note that the results of the `make install` command in build.sh will depend on your system setup.
+
+### Building from Source (CMake)
+
+This project uses CMake for building from source. Ensure you have CMake (version 3.16 or higher), a C++ compiler (supporting C++11), and a Fortran compiler installed.
+
+1.  **Clone the repository (if you haven't already):**
+    ```bash
+    git clone https://github.com/keceli/MESS.git
+    cd MESS
+    ```
+
+2.  **Create a build directory and navigate into it:**
+    ```bash
+    mkdir build
+    cd build
+    ```
+
+3.  **Configure the project using CMake:**
+    Run CMake from the `build` directory, pointing to the parent directory (where the main `CMakeLists.txt` is located).
+    ```bash
+    cmake ..
+    ```
+    This command prepares the build system. By default, it will try to find system libraries and download/build dependencies if they are not found.
+
+    **Build Options (passed to the `cmake ..` command):
+
+    *   `AUTO_DOWNLOAD_DEPENDENCIES` (Default: `ON`): Automatically download and build missing dependencies. To disable, use:
+        ```bash
+        cmake -DAUTO_DOWNLOAD_DEPENDENCIES=OFF ..
+        ```
+    *   `USE_SYSTEM_LIBS` (Default: `ON`): Try to use system libraries before downloading. To disable (and force download/build of all dependencies), use:
+        ```bash
+        cmake -DUSE_SYSTEM_LIBS=OFF ..
+        ```
+    *   You can combine options: `cmake -DAUTO_DOWNLOAD_DEPENDENCIES=OFF -DUSE_SYSTEM_LIBS=OFF ..`
+
+4.  **Compile the project:**
+    After CMake configuration is successful, run `make` (or your chosen build tool like `ninja`) in the `build` directory.
+    ```bash
+    make -jN # Replace N with the number of parallel jobs you want to use, e.g., make -j4
+    ```
+    This will compile the MESS executables (mess, mess-v2, messpf, messabs, messsym) and place them in the `build` directory.
 
 ## Reference
 
