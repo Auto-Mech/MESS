@@ -15,6 +15,14 @@ option(USE_SYSTEM_LIBS "Try to use system libraries before downloading" ON)
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 include(ExternalProject)
 
+# External library URLs and versions
+set(OPENBLAS_GIT_URL "https://github.com/xianyi/OpenBLAS.git")
+set(OPENBLAS_VERSION "v0.3.21")
+set(SLATEC_URL "https://www.netlib.org/slatec/slatec_src.tgz")
+set(GSL_URL "https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz")
+set(QD_URL "https://www.davidhbailey.com/dhbsoftware/qd-2.3.23.tar.gz")
+set(QD_SHA256 "b3eaf41ce413ec08f348ee73e606bd3ff9203e411c377c3c0467f89acf69ee26")
+
 # Check for direct SLATEC build
 if(USE_DIRECT_SLATEC)
   message(STATUS "Using direct SLATEC build")
@@ -54,8 +62,8 @@ if((NOT BLAS_FOUND OR NOT LAPACK_FOUND) AND AUTO_DOWNLOAD_DEPENDENCIES)
   
   ExternalProject_Add(
     openblas
-    GIT_REPOSITORY https://github.com/xianyi/OpenBLAS.git
-    GIT_TAG v0.3.21
+    GIT_REPOSITORY ${OPENBLAS_GIT_URL}
+    GIT_TAG ${OPENBLAS_VERSION}
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_C_FLAGS="-Wno-misleading-indentation"
     BUILD_COMMAND $(MAKE)
     INSTALL_COMMAND $(MAKE) PREFIX=${EXTERNAL_INSTALL_LOCATION} install
@@ -150,7 +158,7 @@ echo 'Build complete'
   include(ExternalProject)
   ExternalProject_Add(
     slatec_external
-    URL https://www.netlib.org/slatec/slatec_src.tgz
+    URL ${SLATEC_URL}
     DOWNLOAD_DIR ${CMAKE_BINARY_DIR}/downloads
     SOURCE_DIR ${SLATEC_SOURCE_DIR}
     BINARY_DIR ${SLATEC_BUILD_DIR}
@@ -240,7 +248,7 @@ if(NOT GSL_FOUND AND AUTO_DOWNLOAD_DEPENDENCIES)
   message(STATUS "GSL not found. Will download and build it.")
   ExternalProject_Add(
     gsl_external
-    URL https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
+    URL ${GSL_URL}
     CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${EXTERNAL_INSTALL_LOCATION}
     BUILD_COMMAND make
     INSTALL_COMMAND make install
@@ -263,8 +271,8 @@ if(NOT QD AND AUTO_DOWNLOAD_DEPENDENCIES)
   message(STATUS "QD not found. Will download and build it.")
   ExternalProject_Add(
     qd_external
-    URL https://www.davidhbailey.com/dhbsoftware/qd-2.3.23.tar.gz
-    URL_HASH SHA256=b3eaf41ce413ec08f348ee73e606bd3ff9203e411c377c3c0467f89acf69ee26
+    URL ${QD_URL}
+    URL_HASH SHA256=${QD_SHA256}
     CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${EXTERNAL_INSTALL_LOCATION}
     BUILD_COMMAND make
     INSTALL_COMMAND make install
