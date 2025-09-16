@@ -16,7 +16,7 @@ set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 include(ExternalProject)
 
 # External library URLs and versions
-set(OPENBLAS_GIT_URL "https://github.com/xianyi/OpenBLAS.git")
+set(OPENBLAS_GIT_URL "https://github.com/OpenMathLib/OpenBLAS.git")
 set(OPENBLAS_VERSION "v0.3.21")
 set(SLATEC_URL "https://www.netlib.org/slatec/slatec_src.tgz")
 set(GSL_URL "https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz")
