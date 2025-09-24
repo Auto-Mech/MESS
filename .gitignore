@@ -56,3 +56,11 @@ debug
 
 # Ignore rattler build output folder
 output/
+
+# pixi environments
+.pixi/
+!.pixi/config.toml
+
+# Other
+test-examples/
+*.conda
