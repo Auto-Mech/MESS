@@ -24,7 +24,7 @@ jobs:
 
       # Upload
       - name: Upload
-        if: ${{ github.ref == 'refs/heads/main' && github.repository == 'Auto-Mech/mechtools'}}
-        run: pixi run upload
+        if: ${{ github.ref == 'refs/heads/master' && github.repository_owner == 'Auto-Mech'}}
+        run: pixi run upload || true
         env:
           ANACONDA_API_KEY: ${{ secrets.ANACONDA_API_KEY }}

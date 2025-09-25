@@ -16,7 +16,7 @@ backend = { name = "pixi-build-rattler-build", version = "0.3.*" }
 rattler-build = "*"
 
 [feature.dev.tasks]
-upload = "rattler-build upload anaconda -o Auto-Mech *.conda || true"
+upload = "rattler-build upload anaconda -o Auto-Mech *.conda"
 
 [environments]
 dev = ["dev"]
