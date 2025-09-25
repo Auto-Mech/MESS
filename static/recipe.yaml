@@ -1,6 +1,6 @@
 package:
   name: mess-static
-  version: "2024.5.16"
+  version: "2025.9.0"
 
 source:
   path: .
