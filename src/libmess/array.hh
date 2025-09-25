@@ -733,6 +733,9 @@ void Array<T>::resize (int64_t s)
     for(const T* it = begin(); it != end(); ++it, ++vit)
       *vit = *it;
     delete[] _begin;
+  } else {
+    // Initialize new memory to zero for primitive types
+    std::fill(new_begin, new_begin + s, T(0));
   }
 
   _capacity = _size = s;
