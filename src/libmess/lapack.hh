@@ -25,7 +25,11 @@
 
 namespace Lapack {
 
+#ifdef USE_INT64
   typedef int64_t int_t;
+#else
+  typedef int32_t int_t;
+#endif
 
   typedef std::complex<double> complex;
 

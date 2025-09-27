@@ -3,477 +3,265 @@ cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
-# Options for automatic dependency handling
-option(AUTO_DOWNLOAD_DEPENDENCIES "Automatically download and build missing dependencies" ON)
-option(USE_SYSTEM_LIBS "Try to use system libraries before downloading" ON)
+# Simple options
+option(USE_MKL "Use Intel MKL instead of OpenBLAS" OFF)
+option(USE_INT64 "Use 64-bit integers for BLAS/LAPACK (ILP64 interface)" OFF)
+option(USE_DIRECT_CBLAS "Use direct CBLAS instead of GSL's wrapper" OFF)
+set(CBLAS_LIBRARY_PATH "" CACHE STRING "Path to specific CBLAS library")
 
-# Directory for downloaded and built dependencies
-set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
-include(ExternalProject)
-
-# External library URLs and versions
-set(OPENBLAS_GIT_URL "https://github.com/OpenMathLib/OpenBLAS.git")
-set(OPENBLAS_VERSION "v0.3.21")
-set(SLATEC_URL "https://www.netlib.org/slatec/slatec_src.tgz")
-set(GSL_URL "https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz")
-set(QD_URL "https://www.davidhbailey.com/dhbsoftware/qd-2.3.23.tar.gz")
-set(QD_SHA256 "b3eaf41ce413ec08f348ee73e606bd3ff9203e411c377c3c0467f89acf69ee26")
-
-# Check for direct SLATEC build
-if(USE_DIRECT_SLATEC)
-  message(STATUS "Using direct SLATEC build")
-  if(EXISTS "${CMAKE_SOURCE_DIR}/external/lib/libslatec.a")
-    set(SLATEC "${CMAKE_SOURCE_DIR}/external/lib/libslatec.a")
-    message(STATUS "Found direct SLATEC: ${SLATEC}")
+# Set up BLAS/LAPACK libraries
+if(USE_MKL)
+  message(STATUS "Using Intel MKL")
+  if(USE_INT64)
+    set(BLAS_LIBRARIES 
+      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_intel_ilp64.so
+      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_sequential.so
+      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_core.so
+      m dl
+    )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMKL_ILP64")
   else()
-    message(WARNING "Direct SLATEC build enabled but library not found. Please run ./slatec_direct.sh first.")
-    message(STATUS "Falling back to regular SLATEC build")
-    set(USE_DIRECT_SLATEC OFF)
+    set(BLAS_LIBRARIES 
+      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_intel_lp64.so
+      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_sequential.so
+      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_core.so
+      m dl
+    )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_32BIT_INTEGERS")
   endif()
-endif()
-
-# Function to conditionally download and build a dependency
-function(handle_dependency name)
-  if(NOT ${name}_FOUND AND AUTO_DOWNLOAD_DEPENDENCIES)
-    message(STATUS "Will download and build ${name}")
-    set(${name}_FOUND TRUE PARENT_SCOPE)
-    set(${name}_DOWNLOADED TRUE PARENT_SCOPE)
-  endif()
-endfunction()
-
-# Find BLAS and LAPACK
-if(USE_SYSTEM_LIBS)
-  find_package(BLAS QUIET)
-  find_package(LAPACK QUIET)
+  include_directories(/opt/intel/oneapi/mkl/latest/include)
 else()
-  set(BLAS_FOUND FALSE)
-  set(LAPACK_FOUND FALSE)
-endif()
-
-# If BLAS/LAPACK not found, use OpenBLAS which provides both
-if((NOT BLAS_FOUND OR NOT LAPACK_FOUND) AND AUTO_DOWNLOAD_DEPENDENCIES)
-  message(STATUS "BLAS or LAPACK not found. Will download and build OpenBLAS.")
-  set(BLAS_FOUND TRUE)
-  set(LAPACK_FOUND TRUE)
-  
-  ExternalProject_Add(
-    openblas
-    GIT_REPOSITORY ${OPENBLAS_GIT_URL}
-    GIT_TAG ${OPENBLAS_VERSION}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_C_FLAGS="-Wno-misleading-indentation"
-    BUILD_COMMAND $(MAKE)
-    INSTALL_COMMAND $(MAKE) PREFIX=${EXTERNAL_INSTALL_LOCATION} install
-  )
-  
-  set(BLAS_LIBRARIES ${EXTERNAL_INSTALL_LOCATION}/lib/libopenblas.so)
-  set(LAPACK_LIBRARIES ${EXTERNAL_INSTALL_LOCATION}/lib/libopenblas.so)
-  set(OPENBLAS_DOWNLOADED TRUE)
-else()
-  message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
-  message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
-endif()
-
-# Find Fortran compilation capabilities
-# This tells CMake to enable Fortran language for our project
-enable_language(Fortran OPTIONAL)
-
-# Find SLATEC
-if(USE_SYSTEM_LIBS)
-  find_library(SLATEC NAMES slatec libslatec QUIET)
-endif()
-
-if(NOT SLATEC AND AUTO_DOWNLOAD_DEPENDENCIES)
-  message(STATUS "SLATEC not found. Will download and build it.")
-
-  # Create SLATEC wrapper file content for missing C interfaces
-  file(WRITE ${CMAKE_BINARY_DIR}/slatec_wrapper.f "
-! Explicit wrapper for SLATEC functions that need C-compatible interfaces
-      subroutine davint(x, y, n, xlo, xup, ans, ierr)
-      implicit none
-      integer n, ierr
-      double precision x(n), y(n), xlo, xup, ans
-      call davint_(x, y, n, xlo, xup, ans, ierr)
-      return
-      end
-
-      subroutine ddeabm(f, neq, t, y, tout, info, rtol, atol, idid,
-     &                 rwork, lrw, iwork, liw, rpar, ipar)
-      external f
-      integer neq, info(*), idid, lrw, iwork(*), liw
-      double precision t, y(*), tout, rtol(*), atol(*), rwork(*)
-      integer ipar(*)
-      double precision rpar(*)
-      call ddeabm_(f, neq, t, y, tout, info, rtol, atol, idid,
-     &            rwork, lrw, iwork, liw, rpar, ipar)
-      return
-      end
-
-      subroutine dbint4(x, y, n, ibcl, ibcr, fbcl, fbcr, kntopt, t, nc, 
-     &                 bc, ws, lws, ierr)
-      integer n, ibcl, ibcr, kntopt, nc, lws, ierr
-      double precision x(*), y(*), fbcl, fbcr, t(*), bc(*), ws(*)
-      call dbint4_(x, y, n, ibcl, ibcr, fbcl, fbcr, kntopt, t, nc, 
-     &            bc, ws, lws, ierr)
-      return
-      end
-
-      function dbvalu(t, a, n, k, ideriv, x, inbv, work)
-      integer n, k, ideriv, inbv
-      double precision t(*), a(*), x, work(*), dbvalu
-      dbvalu = dbvalu_(t, a, n, k, ideriv, x, inbv, work)
-      return
-      end
-")
-
-  # Create build script for SLATEC
-  file(WRITE ${CMAKE_BINARY_DIR}/build_slatec.sh "#!/bin/sh
-set -e
-# Use gfortran as default Fortran compiler if not specified
-FC=${CMAKE_Fortran_COMPILER}
-if [ -z \"$FC\" ]; then
-  FC=gfortran
-fi
-FFLAGS='-O2 -fPIC -fdefault-real-8 -fdefault-double-8 -std=legacy'
-AR=ar
-
-echo 'Compiling SLATEC modules...'
-for f in *.f; do
-  echo \"Compiling $f...\"
-  $FC $FFLAGS -c $f || exit 1
-done
-
-echo 'Creating library...'
-$AR rcs libslatec.a *.o
-echo 'Build complete'
-")
-
-  # Set up SLATEC build with more detailed configuration for reproducibility
-  set(SLATEC_SOURCE_DIR ${CMAKE_BINARY_DIR}/slatec_src)
-  set(SLATEC_BUILD_DIR ${CMAKE_BINARY_DIR}/slatec_build)
-  
-  include(ExternalProject)
-  ExternalProject_Add(
-    slatec_external
-    URL ${SLATEC_URL}
-    DOWNLOAD_DIR ${CMAKE_BINARY_DIR}/downloads
-    SOURCE_DIR ${SLATEC_SOURCE_DIR}
-    BINARY_DIR ${SLATEC_BUILD_DIR}
-    # Configure step - create a simpler setup
-    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E copy_directory ${SLATEC_SOURCE_DIR} ${SLATEC_BUILD_DIR}
-                      # Copy wrapper file
-                      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-                              ${CMAKE_BINARY_DIR}/slatec_wrapper.f ${SLATEC_BUILD_DIR}/
-                      # Copy build script
-                      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-                              ${CMAKE_BINARY_DIR}/build_slatec.sh ${SLATEC_BUILD_DIR}/
-                      # Make build script executable
-                      COMMAND chmod +x ${SLATEC_BUILD_DIR}/build_slatec.sh
-    # Build step - run the build script
-    BUILD_COMMAND ${SLATEC_BUILD_DIR}/build_slatec.sh
-    # Install step - copy built library
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-                    ${SLATEC_BUILD_DIR}/libslatec.a ${EXTERNAL_INSTALL_LOCATION}/lib/libslatec.a
-    # Disable updates
-    UPDATE_COMMAND ""
-    # Logging
-    LOG_DOWNLOAD ON
-    LOG_CONFIGURE ON
-    LOG_BUILD ON
-    LOG_INSTALL ON
-  )
-  
-  set(SLATEC ${EXTERNAL_INSTALL_LOCATION}/lib/libslatec.a)
-  set(SLATEC_DOWNLOADED TRUE)
-else()
-  message(STATUS "Found SLATEC: ${SLATEC}")
-endif()
-
-# Find Fortran libraries needed for SLATEC
-# Try to find Intel Fortran runtime
-find_library(IFORT_LIBRARY NAMES 
-  ifcore ifport ifcoremt ifportmt
-  PATHS
-  /opt/aurora/24.347.0/oneapi/compiler/latest/lib
-  /opt/aurora/24.347.0/oneapi/compiler/latest/lib/intel64
-  /opt/intel/oneapi/compiler/latest/lib
-  /opt/intel/oneapi/compiler/latest/lib/intel64
-)
-
-if(IFORT_LIBRARY)
-  message(STATUS "Found Intel Fortran runtime: ${IFORT_LIBRARY}")
-  set(FORTRAN_LIBRARIES ${IFORT_LIBRARY})
-else()
-  message(WARNING "Intel Fortran runtime not found, will try gfortran")
-  # Fall back to gfortran if Intel runtime not found
-  find_library(GFORTRAN_LIBRARY NAMES 
-    gfortran libgfortran libgfortran.so.5 libgfortran.so.4 libgfortran.so.3
-    PATHS
-    /usr/lib
-    /usr/lib64
-    /usr/lib/gcc
-    /usr/local/lib
-    /usr/local/lib64
+  message(STATUS "Using OpenBLAS")
+  find_library(OPENBLAS_LIB NAMES openblas PATHS
     /usr/lib/x86_64-linux-gnu
-    /lib/x86_64-linux-gnu
-    PATH_SUFFIXES gcc/x86_64-linux-gnu/10 gcc/x86_64-linux-gnu/9 gcc/x86_64-linux-gnu/8 gcc/x86_64-linux-gnu/7
+    /usr/local/lib
   )
-  if(GFORTRAN_LIBRARY)
-    message(STATUS "Found gfortran: ${GFORTRAN_LIBRARY}")
-    set(FORTRAN_LIBRARIES ${GFORTRAN_LIBRARY})
-  else()
-    message(FATAL_ERROR "No Fortran runtime found")
+  if(OPENBLAS_LIB)
+    set(BLAS_LIBRARIES ${OPENBLAS_LIB})
+    if(USE_INT64)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMKL_ILP64")
+    else()
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_32BIT_INTEGERS")
+    endif()
+    else()
+    message(FATAL_ERROR "OpenBLAS not found")
   endif()
 endif()
 
-# Find optional quadmath library (often needed with gfortran)
-find_library(QUADMATH_LIBRARY NAMES quadmath)
-if(QUADMATH_LIBRARY)
-  message(STATUS "Found quadmath: ${QUADMATH_LIBRARY}")
-  list(APPEND FORTRAN_LIBRARIES ${QUADMATH_LIBRARY})
+set(LAPACK_LIBRARIES ${BLAS_LIBRARIES})
+
+# CBLAS will be handled by GSL's internal configuration
+set(CBLAS_LIBRARIES "")
+message(STATUS "CBLAS will be configured through GSL build")
+
+# Build GSL from source with OpenBLAS/MKL as CBLAS backend
+set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
+  include(ExternalProject)
+
+set(GSL_URL "https://ftp.gnu.org/gnu/gsl/gsl-2.7.1.tar.gz")
+
+message(STATUS "Building GSL from source with OpenBLAS/MKL as CBLAS backend")
+
+# Set up CBLAS configuration for GSL
+if(USE_MKL)
+  set(GSL_CBLAS_CONFIG "--with-cblas=/opt/intel/oneapi/mkl/latest/lib/intel64")
+  set(GSL_CBLAS_LIBS "-lmkl_intel_lp64 -lmkl_sequential -lmkl_core")
+  if(USE_INT64)
+    set(GSL_CBLAS_LIBS "-lmkl_intel_ilp64 -lmkl_sequential -lmkl_core")
+endif()
+else()
+  # Use OpenBLAS as CBLAS backend
+  set(GSL_CBLAS_CONFIG "--with-cblas=${OPENBLAS_LIB}")
+  set(GSL_CBLAS_LIBS "${OPENBLAS_LIB}")
 endif()
 
-# Set up link libraries for SLATEC
-set(FORTRAN_LIBRARIES ${FORTRAN_LIBRARIES})
-
-# Find GSL
-if(USE_SYSTEM_LIBS)
-  find_package(GSL QUIET)
-endif()
-
-if(NOT GSL_FOUND AND AUTO_DOWNLOAD_DEPENDENCIES)
-  message(STATUS "GSL not found. Will download and build it.")
   ExternalProject_Add(
     gsl_external
     URL ${GSL_URL}
-    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${EXTERNAL_INSTALL_LOCATION}
+  CONFIGURE_COMMAND <SOURCE_DIR>/configure 
+    --prefix=${EXTERNAL_INSTALL_LOCATION}
+    --disable-shared
+    --enable-static
+    ${GSL_CBLAS_CONFIG}
     BUILD_COMMAND make
     INSTALL_COMMAND make install
   )
+
   set(GSL_INCLUDE_DIRS ${EXTERNAL_INSTALL_LOCATION}/include)
-  set(GSL_LIBRARIES ${EXTERNAL_INSTALL_LOCATION}/lib/libgsl.so)
+set(GSL_LIBRARIES ${EXTERNAL_INSTALL_LOCATION}/lib/libgsl.a)
   include_directories(${GSL_INCLUDE_DIRS})
+set(GSL_FOUND TRUE)
   set(GSL_DOWNLOADED TRUE)
-  set(GSL_FOUND TRUE)
-else()
-  message(STATUS "Found GSL: ${GSL_LIBRARIES}")
-endif()
 
-# Find QD
-if(USE_SYSTEM_LIBS)
-  find_library(QD NAMES qd libqd libqd.a QUIET)
-endif()
+# Find other libraries
+find_library(QD_LIBRARIES NAMES qd libqd QUIET)
+find_library(SLATEC_LIBRARIES NAMES slatec libslatec QUIET)
 
-if(NOT QD AND AUTO_DOWNLOAD_DEPENDENCIES)
-  message(STATUS "QD not found. Will download and build it.")
-  ExternalProject_Add(
-    qd_external
-    URL ${QD_URL}
-    URL_HASH SHA256=${QD_SHA256}
-    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${EXTERNAL_INSTALL_LOCATION}
-    BUILD_COMMAND make
-    INSTALL_COMMAND make install
+# Make SLATEC optional - if not found, create empty library
+if(NOT SLATEC_LIBRARIES)
+  message(STATUS "SLATEC not found, creating stub library")
+  add_library(slatec_stub STATIC)
+  target_sources(slatec_stub PRIVATE
+    ${CMAKE_SOURCE_DIR}/slatec_stub.c
   )
-  set(QD ${EXTERNAL_INSTALL_LOCATION}/lib/libqd.a)
-  set(QD_DOWNLOADED TRUE)
-else()
-  message(STATUS "Found QD: ${QD}")
+  set(SLATEC_LIBRARIES slatec_stub)
 endif()
 
-# Create a list of dependencies we need to add
-set(DEPENDENCIES_TARGETS "")
-if(DEFINED OPENBLAS_DOWNLOADED)
-  list(APPEND DEPENDENCIES_TARGETS openblas)
-endif()
-if(DEFINED SLATEC_DOWNLOADED)
-  list(APPEND DEPENDENCIES_TARGETS slatec_external)
-endif()
-if(DEFINED GSL_DOWNLOADED)
-  list(APPEND DEPENDENCIES_TARGETS gsl_external)
-endif()
-if(DEFINED QD_DOWNLOADED)
-  list(APPEND DEPENDENCIES_TARGETS qd_external)
+# Display configuration
+message(STATUS "Configuration:")
+message(STATUS "  USE_MKL: ${USE_MKL}")
+message(STATUS "  USE_INT64: ${USE_INT64}")
+message(STATUS "  USE_DIRECT_CBLAS: ${USE_DIRECT_CBLAS}")
+message(STATUS "  BLAS Libraries: ${BLAS_LIBRARIES}")
+message(STATUS "  LAPACK Libraries: ${LAPACK_LIBRARIES}")
+message(STATUS "  CBLAS Libraries: ${CBLAS_LIBRARIES}")
+message(STATUS "  GSL Libraries: ${GSL_LIBRARIES}")
+
+# Include directories
+include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_SOURCE_DIR}/src/libmess)
+if(GSL_INCLUDE_DIRS)
+  include_directories(${GSL_INCLUDE_DIRS})
 endif()
 
-# Set up include directories for downloaded libraries
-include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
-link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
-
-# Define the library
-add_library(messlibs
-    ${PROJECT_SOURCE_DIR}/src/libmess/atom.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/io.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/limits.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/math.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/symmetry.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/d3.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/key.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/mess.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/multindex.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/units.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/graph_common.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/lapack.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/mpack.cc
-    # ${PROJECT_SOURCE_DIR}/src/libmess/mpack_dd.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/permutation.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/graph_omp.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/linpack.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/model.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/slatec.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/crossrate.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/random.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/read.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/divsur.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/dynamic.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/structure.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/configuration.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/dynlib.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/monom.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/logical.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/potential.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/system.cc
-    ${PROJECT_SOURCE_DIR}/src/libmess/trajectory.cc)
-
-# Add dependency on external libraries if needed
-if(DEPENDENCIES_TARGETS)
-  add_dependencies(messlibs ${DEPENDENCIES_TARGETS})
+# Find MPI early so we can add sources to MESS_SOURCES
+find_package(MPI QUIET)
+message(STATUS "MPI_FOUND: ${MPI_FOUND}")
+if(MPI_FOUND)
+  include_directories(${MPI_INCLUDE_PATH})
 endif()
 
-# Set Fortran-compatible flags for C/C++ code
-set_target_properties(messlibs PROPERTIES
-  COMPILE_FLAGS "-fPIC -fno-strict-aliasing"
+# Source files
+set(MESS_SOURCES
+  src/libmess/atom.cc
+  src/libmess/io.cc
+  src/libmess/limits.cc
+  src/libmess/math.cc
+  src/libmess/symmetry.cc
+  src/libmess/d3.cc
+  src/libmess/key.cc
+  src/libmess/mess.cc
+  src/libmess/multindex.cc
+  src/libmess/units.cc
+  src/libmess/graph_common.cc
+  src/libmess/lapack.cc
+  src/libmess/mpack.cc
+  src/libmess/permutation.cc
+  src/libmess/graph_omp.cc
+  src/libmess/linpack.cc
+  src/libmess/model.cc
+  src/libmess/slatec.cc
+  src/libmess/crossrate.cc
+  src/libmess/random.cc
+  src/libmess/read.cc
+  src/libmess/divsur.cc
+  src/libmess/dynamic.cc
+  src/libmess/structure.cc
+  src/libmess/configuration.cc
+  src/libmess/dynlib.cc
+  src/libmess/monom.cc
+  src/libmess/logical.cc
+  src/libmess/potential.cc
+  src/libmess/system.cc
+  src/libmess/trajectory.cc
 )
 
-# Set up executables
-add_executable(mess ${PROJECT_SOURCE_DIR}/src/mess_driver.cc)
-add_executable(mess-v2 ${PROJECT_SOURCE_DIR}/src/mess_test.cc)
-add_executable(messpf ${PROJECT_SOURCE_DIR}/src/partition_function.cc)
-add_executable(messabs ${PROJECT_SOURCE_DIR}/src/abstraction.cc)
-add_executable(messsym ${PROJECT_SOURCE_DIR}/src/symmetry_number.cc)
+# Add MPI communication sources if MPI is available
+if(MPI_FOUND)
+  message(STATUS "MPI found, adding communication sources")
+  list(APPEND MESS_SOURCES
+    src/libmess/comm.cc
+    src/libmess/auto_comm.cc
+    src/libmess/new_comm.cc
+  )
+  list(LENGTH MESS_SOURCES num_sources)
+  message(STATUS "Total MESS_SOURCES after MPI: ${num_sources}")
+  message(STATUS "Added MPI communication sources to MESS_SOURCES")
+endif()
 
-# Link libraries
-target_link_libraries(mess
-    messlibs 
+# Create static library
+add_library(messlibs STATIC ${MESS_SOURCES})
+
+# Link libraries to messlibs
+target_link_libraries(messlibs
     ${BLAS_LIBRARIES} 
     ${LAPACK_LIBRARIES} 
     ${GSL_LIBRARIES}
-    ${QD} 
-    -Wl,--start-group  # Use link groups to handle circular dependencies
-    ${SLATEC} 
-    ${FORTRAN_LIBRARIES} 
-    -lm  # Math library
-    -Wl,--end-group
-    ${CMAKE_DL_LIBS}
-)
-target_link_libraries(mess-v2
-    messlibs 
-    ${BLAS_LIBRARIES} 
-    ${LAPACK_LIBRARIES} 
-    ${GSL_LIBRARIES}
-    ${QD} 
-    -Wl,--start-group
-    ${SLATEC} 
-    ${FORTRAN_LIBRARIES} 
-    -lm
-    -Wl,--end-group
-    ${CMAKE_DL_LIBS}
-)
-target_link_libraries(messpf
-    messlibs 
-    ${BLAS_LIBRARIES} 
-    ${LAPACK_LIBRARIES} 
-    ${GSL_LIBRARIES}
-    ${QD} 
-    -Wl,--start-group
-    ${SLATEC} 
-    ${FORTRAN_LIBRARIES} 
-    -lm
-    -Wl,--end-group
-    ${CMAKE_DL_LIBS}
-)
-target_link_libraries(messabs
-    messlibs 
-    ${BLAS_LIBRARIES} 
-    ${LAPACK_LIBRARIES} 
-    ${GSL_LIBRARIES}
-    ${QD} 
-    -Wl,--start-group
-    ${SLATEC} 
-    ${FORTRAN_LIBRARIES} 
-    -lm
-    -Wl,--end-group
-    ${CMAKE_DL_LIBS}
-)
-target_link_libraries(messsym
-    messlibs 
-    ${BLAS_LIBRARIES} 
-    ${LAPACK_LIBRARIES} 
-    ${GSL_LIBRARIES}
-    ${QD} 
-    -Wl,--start-group
-    ${SLATEC} 
-    ${FORTRAN_LIBRARIES} 
-    -lm
-    -Wl,--end-group
-    ${CMAKE_DL_LIBS}
+  gfortran
+  m
+  dl
 )
 
-install(TARGETS mess DESTINATION bin)
-install(TARGETS mess-v2 DESTINATION bin)
-install(TARGETS messpf DESTINATION bin)
-install(TARGETS messabs DESTINATION bin)
-install(TARGETS messsym DESTINATION bin)
+# Add GSL dependency
+if(GSL_DOWNLOADED)
+  add_dependencies(messlibs gsl_external)
+  endif()
 
-# Create a direct wrapper for missing SLATEC functions
-file(WRITE ${CMAKE_BINARY_DIR}/slatec_wrapper.f "
-      subroutine davint(x, y, n, xlo, xup, ans, ierr)
-      implicit none
-      integer n, ierr
-      double precision x(n), y(n), xlo, xup, ans
-      call davint_(x, y, n, xlo, xup, ans, ierr)
-      return
-      end
+# Add optional libraries
+if(QD_LIBRARIES)
+  target_link_libraries(messlibs ${QD_LIBRARIES})
+  endif()
+if(SLATEC_LIBRARIES)
+  target_link_libraries(messlibs ${SLATEC_LIBRARIES})
+endif()
 
-      subroutine ddeabm(f, neq, t, y, tout, info, rtol, atol, idid,
-     &                 rwork, lrw, iwork, liw, rpar, ipar)
-      external f
-      integer neq, info(*), idid, lrw, iwork(*), liw
-      double precision t, y(*), tout, rtol(*), atol(*), rwork(*)
-      integer ipar(*)
-      double precision rpar(*)
-      call ddeabm_(f, neq, t, y, tout, info, rtol, atol, idid,
-     &            rwork, lrw, iwork, liw, rpar, ipar)
-      return
-      end
-
-      subroutine dbint4(x, y, n, ibcl, ibcr, fbcl, fbcr, kntopt, t, nc, 
-     &                 bc, ws, lws, ierr)
-      integer n, ibcl, ibcr, kntopt, nc, lws, ierr
-      double precision x(*), y(*), fbcl, fbcr, t(*), bc(*), ws(*)
-      call dbint4_(x, y, n, ibcl, ibcr, fbcl, fbcr, kntopt, t, nc, 
-     &            bc, ws, lws, ierr)
-      return
-      end
-
-      function dbvalu(t, a, n, k, ideriv, x, inbv, work)
-      integer n, k, ideriv, inbv
-      double precision t(*), a(*), x, work(*), dbvalu
-      dbvalu = dbvalu_(t, a, n, k, ideriv, x, inbv, work)
-      return
-      end
-")
-
-# Compile the SLATEC wrapper
-add_custom_command(
-  OUTPUT ${CMAKE_BINARY_DIR}/slatec_wrapper.o
-  COMMAND gfortran -c -O2 -fPIC ${CMAKE_BINARY_DIR}/slatec_wrapper.f -o ${CMAKE_BINARY_DIR}/slatec_wrapper.o
-  DEPENDS ${CMAKE_BINARY_DIR}/slatec_wrapper.f
-  COMMENT "Compiling SLATEC wrapper"
+# Source files
+set(MESS_SOURCES
+  src/libmess/atom.cc
+  src/libmess/io.cc
+  src/libmess/limits.cc
+  src/libmess/math.cc
+  src/libmess/symmetry.cc
+  src/libmess/d3.cc
+  src/libmess/key.cc
+  src/libmess/mess.cc
+  src/libmess/multindex.cc
+  src/libmess/units.cc
+  src/libmess/graph_common.cc
+  src/libmess/lapack.cc
+  src/libmess/mpack.cc
+  src/libmess/permutation.cc
+  src/libmess/graph_omp.cc
+  src/libmess/linpack.cc
+  src/libmess/model.cc
+  src/libmess/slatec.cc
+  src/libmess/crossrate.cc
+  src/libmess/random.cc
+  src/libmess/read.cc
+  src/libmess/divsur.cc
+  src/libmess/dynamic.cc
+  src/libmess/structure.cc
+  src/libmess/configuration.cc
+  src/libmess/dynlib.cc
+  src/libmess/monom.cc
+  src/libmess/logical.cc
+  src/libmess/potential.cc
+  src/libmess/system.cc
+  src/libmess/trajectory.cc
 )
 
-# Create a custom target for the wrapper
-add_custom_target(slatec_wrapper DEPENDS ${CMAKE_BINARY_DIR}/slatec_wrapper.o)
-add_dependencies(messlibs slatec_wrapper)
+# Create executables
+add_executable(mess src/mess_driver.cc)
+add_executable(mess-v2 src/mess_test.cc)
+add_executable(messpf src/partition_function.cc)
+if(MPI_FOUND)
+  add_executable(messabs src/mess_mpi.cc)
+  target_link_libraries(messabs MPI::MPI_CXX)
+  else()
+  message(STATUS "MPI not found, skipping messabs executable")
+    endif()
+add_executable(messsym src/gumbo.cc)
+
+# Link executables
+target_link_libraries(mess messlibs ${CBLAS_LIBRARIES})
+target_link_libraries(mess-v2 messlibs ${CBLAS_LIBRARIES})
+target_link_libraries(messpf messlibs ${CBLAS_LIBRARIES})
+if(MPI_FOUND)
+  target_link_libraries(messabs messlibs ${CBLAS_LIBRARIES})
+endif()
+target_link_libraries(messsym messlibs ${CBLAS_LIBRARIES})
+
+# Test program
+add_executable(test_integer_interface test_mkl_ilp64.cpp)
+target_link_libraries(test_integer_interface messlibs ${CBLAS_LIBRARIES})
