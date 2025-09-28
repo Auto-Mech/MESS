@@ -43,7 +43,7 @@ if(USE_CONDA_LIBS)
     message(STATUS "Using Intel MKL from conda")
     # Use explicit MKL libraries to ensure proper 64-bit integer support
     if(USE_INT64)
-      set(BLAS_LIBRARIES 
+    set(BLAS_LIBRARIES 
         ${CONDA_LIB_PATH}/libmkl_intel_ilp64.so
         ${CONDA_LIB_PATH}/libmkl_gnu_thread.so
         ${CONDA_LIB_PATH}/libmkl_core.so
@@ -54,7 +54,7 @@ if(USE_CONDA_LIBS)
       set(LAPACK_LIBRARIES ${BLAS_LIBRARIES})
       message(STATUS "  - Using 64-bit integers (ILP64)")
     else()
-      set(BLAS_LIBRARIES 
+    set(BLAS_LIBRARIES 
         ${CONDA_LIB_PATH}/libmkl_intel_lp64.so
         ${CONDA_LIB_PATH}/libmkl_gnu_thread.so
         ${CONDA_LIB_PATH}/libmkl_core.so
@@ -163,12 +163,12 @@ else()
     LOG_INSTALL TRUE
   )
 
-    set(GSL_INCLUDE_DIRS ${EXTERNAL_INSTALL_LOCATION}/include)
+  set(GSL_INCLUDE_DIRS ${EXTERNAL_INSTALL_LOCATION}/include)
     set(GSL_LIBRARIES ${EXTERNAL_INSTALL_LOCATION}/lib/libgsl.a)
-    set(GSL_DOWNLOADED TRUE)
-  else()
-    message(STATUS "Found GSL: ${GSL_LIBRARIES}")
-  endif()
+  set(GSL_DOWNLOADED TRUE)
+else()
+  message(STATUS "Found GSL: ${GSL_LIBRARIES}")
+endif()
 endif()
 
 
@@ -317,14 +317,12 @@ add_executable(mess src/mess_driver.cc)
 add_executable(mess-v2 src/mess_test.cc)
 add_executable(messpf src/partition_function.cc)
 add_executable(messsym src/gumbo.cc)
-add_executable(test_integer_interface test_mkl_ilp64.cpp)
 
 # Link all standard executables to the main library
 target_link_libraries(mess messlibs)
 target_link_libraries(mess-v2 messlibs)
 target_link_libraries(messpf messlibs)
 target_link_libraries(messsym messlibs)
-target_link_libraries(test_integer_interface messlibs)
 
 # Handle MPI executable separately
 if(MPI_FOUND)
