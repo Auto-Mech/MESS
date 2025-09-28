@@ -1,7 +1,7 @@
 # =============================================================================
 # Project Definition
 # =============================================================================
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
 project(MESS LANGUAGES C CXX Fortran)
 
 # =============================================================================
@@ -14,6 +14,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Use a dedicated folder for external projects to keep the build directory clean
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/_deps)
+
+# Include required modules
+include(FetchContent)
+include(ExternalProject)
 
 # =============================================================================
 # Project Options
@@ -122,11 +126,20 @@ else()
   find_package(GSL QUIET)
   if(NOT GSL_FOUND)
     message(STATUS "GSL not found. Building from source...")
-  FetchContent_Declare(
-    gsl_external
-    URL "https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz"
-    URL_HASH SHA256=6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190
-  )
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+    FetchContent_Declare(
+      gsl_external
+      URL "https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz"
+      URL_HASH SHA256=6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190
+      DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+  else()
+    FetchContent_Declare(
+      gsl_external
+      URL "https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz"
+      URL_HASH SHA256=6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190
+    )
+  endif()
   FetchContent_MakeAvailable(gsl_external)
 
   # Configure GSL to use the BLAS library we found earlier
@@ -164,11 +177,20 @@ endif()
 find_library(SLATEC_LIBRARY NAMES slatec libslatec)
 if(NOT SLATEC_LIBRARY)
     message(STATUS "SLATEC not found. Building from source...")
-    FetchContent_Declare(
-        slatec_external
-        URL "http://www.netlib.org/slatec/slatec_src.tgz"
-        URL_HASH SHA1=6100817113c115778eddec5811065be818157554 # SHA1 from CMake docs for this file
-    )
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+      FetchContent_Declare(
+          slatec_external
+          URL "http://www.netlib.org/slatec/slatec_src.tgz"
+          URL_HASH SHA1=6100817113c115778eddec5811065be818157554
+          DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+      )
+    else()
+      FetchContent_Declare(
+          slatec_external
+          URL "http://www.netlib.org/slatec/slatec_src.tgz"
+          URL_HASH SHA1=6100817113c115778eddec5811065be818157554
+      )
+    endif()
     FetchContent_Populate(slatec_external)
 
     # Glob all Fortran sources from the downloaded content
