@@ -153,7 +153,7 @@ else()
     gsl_project
     SOURCE_DIR ${gsl_external_SOURCE_DIR}
     BINARY_DIR ${gsl_external_BINARY_DIR}
-    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env LDFLAGS="-L/usr/lib/x86_64-linux-gnu" LIBS="${BLAS_LIBRARIES}" <SOURCE_DIR>/configure ${GSL_CONFIGURE_OPTIONS}
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env "LDFLAGS=-L/usr/lib/x86_64-linux-gnu" "LIBS=${BLAS_LIBRARIES}" <SOURCE_DIR>/configure ${GSL_CONFIGURE_OPTIONS}
     BUILD_COMMAND $(MAKE)
     INSTALL_COMMAND $(MAKE) install
     LOG_CONFIGURE TRUE
