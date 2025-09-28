@@ -20,6 +20,7 @@ set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/_deps)
 # =============================================================================
 option(USE_MKL "Use Intel MKL instead of OpenBLAS" OFF)
 option(USE_INT64 "Use 64-bit integers for BLAS/LAPACK (ILP64 interface)" OFF)
+option(USE_CONDA_LIBS "Use libraries from conda environment" OFF)
 # option(USE_DIRECT_CBLAS "Use direct CBLAS instead of GSL's wrapper" OFF) # This option was unused.
 
 # =============================================================================
@@ -30,25 +31,67 @@ include(FetchContent)
 # --- BLAS / LAPACK Configuration ---
 message(STATUS "Configuring BLAS and LAPACK...")
 
-if(USE_MKL)
+if(USE_CONDA_LIBS)
+  message(STATUS "Using conda environment libraries")
+  set(CONDA_LIB_PATH "/home/keceli/miniconda3/envs/kmess-env/lib")
+  
+  if(USE_MKL)
+    message(STATUS "Using Intel MKL from conda")
+    # Use explicit MKL libraries to ensure proper 64-bit integer support
+    if(USE_INT64)
+      set(BLAS_LIBRARIES 
+        ${CONDA_LIB_PATH}/libmkl_intel_ilp64.so
+        ${CONDA_LIB_PATH}/libmkl_gnu_thread.so
+        ${CONDA_LIB_PATH}/libmkl_core.so
+        m
+        dl
+        gomp
+      )
+      set(LAPACK_LIBRARIES ${BLAS_LIBRARIES})
+      message(STATUS "  - Using 64-bit integers (ILP64)")
+    else()
+      set(BLAS_LIBRARIES 
+        ${CONDA_LIB_PATH}/libmkl_intel_lp64.so
+        ${CONDA_LIB_PATH}/libmkl_gnu_thread.so
+        ${CONDA_LIB_PATH}/libmkl_core.so
+        m
+        dl
+        gomp
+      )
+      set(LAPACK_LIBRARIES ${BLAS_LIBRARIES})
+      message(STATUS "  - Using 32-bit integers (LP64)")
+    endif()
+  else()
+    message(STATUS "Using OpenBLAS from conda")
+    set(BLAS_LIBRARIES ${CONDA_LIB_PATH}/libopenblas.so)
+    set(LAPACK_LIBRARIES ${CONDA_LIB_PATH}/libopenblas.so)
+    if(USE_INT64)
+      message(STATUS "  - Using 64-bit integers (ILP64)")
+    else()
+      message(STATUS "  - Using 32-bit integers (LP64)")
+    endif()
+  endif()
+elseif(USE_MKL)
   message(STATUS "Using Intel MKL")
   if(USE_INT64)
     set(BLAS_LIBRARIES 
       /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_intel_ilp64.so
-      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_sequential.so
+      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_gnu_thread.so
       /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_core.so
       m
       dl
+      gomp
     )
   set(LAPACK_LIBRARIES ${BLAS_LIBRARIES})
     message(STATUS "  - Using 64-bit integers (ILP64)")
   else()
     set(BLAS_LIBRARIES 
       /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_intel_lp64.so
-      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_sequential.so
+      /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_gnu_thread.so
       /opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_core.so
       m
       dl
+      gomp
     )
   set(LAPACK_LIBRARIES ${BLAS_LIBRARIES})
     message(STATUS "  - Using 32-bit integers (LP64)")
@@ -70,9 +113,15 @@ message(STATUS "LAPACK Libraries: ${LAPACK_LIBRARIES}")
 
 # --- GSL (GNU Scientific Library) ---
 # First, try to find an installed version. If not found, download and build it.
-find_package(GSL QUIET)
-if(NOT GSL_FOUND)
-  message(STATUS "GSL not found. Building from source...")
+if(USE_CONDA_LIBS)
+  message(STATUS "Using GSL from conda environment")
+  set(GSL_INCLUDE_DIRS "/home/keceli/miniconda3/envs/kmess-env/include")
+  set(GSL_LIBRARIES "/home/keceli/miniconda3/envs/kmess-env/lib/libgsl.so")
+  set(GSL_DOWNLOADED TRUE)
+else()
+  find_package(GSL QUIET)
+  if(NOT GSL_FOUND)
+    message(STATUS "GSL not found. Building from source...")
   FetchContent_Declare(
     gsl_external
     URL "https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz"
@@ -101,11 +150,12 @@ if(NOT GSL_FOUND)
     LOG_INSTALL TRUE
   )
 
-  set(GSL_INCLUDE_DIRS ${EXTERNAL_INSTALL_LOCATION}/include)
-  set(GSL_LIBRARIES ${EXTERNAL_INSTALL_LOCATION}/lib/libgsl.a)
-  set(GSL_DOWNLOADED TRUE)
-else()
-  message(STATUS "Found GSL: ${GSL_LIBRARIES}")
+    set(GSL_INCLUDE_DIRS ${EXTERNAL_INSTALL_LOCATION}/include)
+    set(GSL_LIBRARIES ${EXTERNAL_INSTALL_LOCATION}/lib/libgsl.a)
+    set(GSL_DOWNLOADED TRUE)
+  else()
+    message(STATUS "Found GSL: ${GSL_LIBRARIES}")
+  endif()
 endif()
 
 
@@ -190,7 +240,7 @@ set(MESS_SOURCES
 add_library(messlibs STATIC ${MESS_SOURCES})
 
 # Add dependencies if they were built from source
-if(GSL_DOWNLOADED)
+if(GSL_DOWNLOADED AND NOT USE_CONDA_LIBS)
   add_dependencies(messlibs gsl_project)
 endif()
 
