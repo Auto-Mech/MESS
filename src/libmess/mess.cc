@@ -6753,9 +6753,7 @@ MasterEquation::Well::Well (const Model::Well& model)
 
   // CRM basis
   //
-  if(size() > 0) {
-    _set_crm_basis();
-  }
+  _set_crm_basis();
 
   if(with_crm_basis) {
     //
