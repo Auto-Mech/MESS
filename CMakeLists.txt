@@ -142,18 +142,19 @@ else()
   endif()
   FetchContent_MakeAvailable(gsl_external)
 
-  # Configure GSL to use the BLAS library we found earlier
+  # Configure GSL with internal CBLAS (more reliable for CI)
   set(GSL_CONFIGURE_OPTIONS
     "--prefix=${EXTERNAL_INSTALL_LOCATION}"
     "--disable-shared"
     "--enable-static"
+    "--with-cblas=internal"
   )
 
   ExternalProject_Add(
     gsl_project
     SOURCE_DIR ${gsl_external_SOURCE_DIR}
     BINARY_DIR ${gsl_external_BINARY_DIR}
-    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env "LDFLAGS=-L/usr/lib/x86_64-linux-gnu" "LIBS=${BLAS_LIBRARIES}" <SOURCE_DIR>/configure ${GSL_CONFIGURE_OPTIONS}
+    CONFIGURE_COMMAND <SOURCE_DIR>/configure ${GSL_CONFIGURE_OPTIONS}
     BUILD_COMMAND $(MAKE)
     INSTALL_COMMAND $(MAKE) install
     LOG_CONFIGURE TRUE
