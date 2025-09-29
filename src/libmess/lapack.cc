@@ -273,21 +273,8 @@ Lapack::Matrix Lapack::Matrix::operator* (Matrix m) const
 
   Matrix res(size1(), m.size2());
 
-  int_t n = size1() * m.size2();
-
-#pragma omp parallel for default(shared)  schedule(static)
-
-  for(int_t k = 0; k < n; ++k) {
-    //
-    int_t i = k / m.size2();
-
-    int_t j = k % m.size2();
-
-    res(i, j) = vdot(row(i), (ConstSlice<double>)m.column(j));
-  }
-  
-  //dgemm_('N', 'N', size1(), m.size2(), size2(), 1., 
-  //*this, size1(), m, m.size1(), 0., res, size1());
+  dgemm_('N', 'N', size1(), m.size2(), size2(), 1., 
+         *this, size1(), m, m.size1(), 0., res, size1());
 
   return res;
 }
@@ -319,13 +306,7 @@ Lapack::Vector Lapack::Matrix::operator* (const double* v) const
 
   Vector res(size1());
   
-#pragma omp parallel for default(shared)  schedule(static)
-
-  for(int_t i = 0; i < size1(); ++i)
-    //
-    res[i] = vdot(row(i), v);
-    
-  //dgemv_('N', size1(), size2(), 1.,  *this, size1(), v, 1, 0., res, 1);
+  dgemv_('N', size1(), size2(), 1.,  *this, size1(), v, 1, 0., res, 1);
   return res;
 }
 
@@ -335,13 +316,7 @@ Lapack::Vector Lapack::operator* (const double* v, Matrix m)
 
   Vector res(m.size2());
 
-#pragma omp parallel for default(shared)  schedule(static)
-
-  for(int_t i = 0; i < m.size2(); ++i)
-    //
-    res[i] = vdot(m.column(i), v);
-  
-  //dgemv_('T', m.size1(), m.size2(), 1., m, m.size1(), v, 1, 0., res, 1);
+  dgemv_('T', m.size1(), m.size2(), 1., m, m.size1(), v, 1, 0., res, 1);
   
   return res;
 }

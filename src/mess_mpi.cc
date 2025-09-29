@@ -20,6 +20,9 @@
 #include <sys/resource.h>
 #include <cstdlib>
 
+//#undef INT
+#include <mpi.h>
+
 #include "libmess/mess.hh"
 #include "libmess/key.hh"
 #include "libmess/units.hh"
@@ -28,9 +31,6 @@
 #include "libmess/comm.hh"
 #include "libmess/mpack.hh"
 #include "libmess/limits.hh"
-
-//#undef INT
-#include <mpi.h>
 
 int main (int argc, char* argv [])
 {

@@ -6654,14 +6654,12 @@ void MasterEquation::Well::_set_crm_basis ()
 
   std::vector<double> nfac;
   
-  if(with_crm_basis) {
-    //
-    _crm_basis.resize(size(), crm_size());
+  // Always initialize CRM basis when this function is called
+  _crm_basis.resize(size(), crm_size());
   
-    _crm_basis = 0.;
+  _crm_basis = 0.;
 
-    nfac.resize(crm_size());
-  }
+  nfac.resize(crm_size());
   
   _weight = 0.;
   
@@ -6673,37 +6671,35 @@ void MasterEquation::Well::_set_crm_basis ()
     
     _boltzman_sqrt[i] = std::sqrt(dtemp);
 
-    if(with_crm_basis) {
+    if(i) {
       //
-      if(i) {
-	//
-	itemp = i - 1;
-      
-	_crm_basis(i, itemp) = - _weight;
-      
-	nfac[itemp] = std::sqrt((_weight / dtemp + 1.) * _weight);
-      }
+      itemp = i - 1;
     
-      for(int r = i; r < crm_size(); ++r)
-	//
-	_crm_basis(i, r) = dtemp;
+      _crm_basis(i, itemp) = - _weight;
+    
+      nfac[itemp] = std::sqrt((_weight / dtemp + 1.) * _weight);
     }
+  
+    for(int r = i; r < crm_size(); ++r)
+      //
+      _crm_basis(i, r) = dtemp;
     
     _weight += dtemp;    
   }
 
-  if(with_crm_basis)
+  for(int r = 0; r < crm_size(); ++r) {
     //
-    for(int r = 0; r < crm_size(); ++r) {
+    itemp = r + 2;
+  
+    for(int i = 0; i < itemp; ++i)
       //
-      itemp = r + 2;
-    
-      for(int i = 0; i < itemp; ++i)
-	//
-	_crm_basis(i, r) /= nfac[r];
-    }
+      _crm_basis(i, r) /= nfac[r];
+  }
 
   _weight_sqrt = std::sqrt(_weight);
+  
+  // Set the CRM basis flag to indicate initialization is complete
+  with_crm_basis = 1;
 }
 
 MasterEquation::Well::Well (const Model::Well& model)

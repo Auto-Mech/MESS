@@ -1,8 +1,8 @@
-#include "comm.hh"
-
 //#undef INT
 
 #include <mpi.h>
+
+#include "comm.hh"
 
 void Comm::send_rate_data(const std::map<std::pair<int, int>, double>& data)
 {
