@@ -28,6 +28,25 @@ option(USE_CONDA_LIBS "Use libraries from conda environment" OFF)
 # option(USE_DIRECT_CBLAS "Use direct CBLAS instead of GSL's wrapper" OFF) # This option was unused.
 
 # =============================================================================
+# Build Configuration
+# =============================================================================
+# Set default build type to Release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+# Print build configuration
+message(STATUS "==========================================")
+message(STATUS "MESS Build Configuration")
+message(STATUS "==========================================")
+message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "USE_MKL: ${USE_MKL}")
+message(STATUS "USE_INT64: ${USE_INT64}")
+message(STATUS "USE_CONDA_LIBS: ${USE_CONDA_LIBS}")
+message(STATUS "==========================================")
+
+# =============================================================================
 # Find Dependencies (BLAS, LAPACK, GSL, MPI, etc.)
 # =============================================================================
 include(FetchContent)
