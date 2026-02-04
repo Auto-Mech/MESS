@@ -127,6 +127,7 @@ int main (int argc, char* argv [])
   Key gpu_size_key("GpuSize"                    );
   Key   gpu_id_key("GpuId"                      );
   Key  exp_max_key("ExpArgMax"                  );
+  Key      crm_key("WithCRM"                    );
 
   int gpu_id = 0;
   int gpu_size = 0;
@@ -283,6 +284,12 @@ int main (int argc, char* argv [])
       }
 
       Limits::set_exp_pow_max(dtemp);       
+    }
+    else if(crm_key == token) {
+      //
+      std::getline(from, comment);
+      
+      MasterEquation::with_crm_basis = 1;
     }
     // out stream precision
     //

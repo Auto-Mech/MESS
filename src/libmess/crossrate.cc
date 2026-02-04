@@ -1334,6 +1334,8 @@ void CrossRate::MultiArray::run_traj ()
 		  << ", is smaller than the reactive energy: "
 		  << "decrease the reactive energy or change the transition state dividing surface\n";
 
+	IO::log.flush();
+
 	throw Error::Run();
       }
 
@@ -1458,9 +1460,12 @@ int CrossRate::MultiArray::_sample (iterator mit, const std::set<DivSur::face_t 
 	//
 	      << " kcal/mol, is lower than the reactive energy, " << reactive_energy() / Phys_const::kcal << "\n";
 
-  if(itemp)
+  if(itemp) {
     //
+    IO::log.flush();
+
     throw Error::Run();
+  }
 
   int isnew = 0;
   
@@ -3150,6 +3155,8 @@ bool CrossRate::MultiArray::_work ()
 	//
 	std::cerr << funame << "reactive transition pair is not properly defined\n";
 
+        IO::log.flush();
+
 	throw Error::Init();
       }
 
@@ -3383,6 +3390,8 @@ CrossRate::MultiArray::MultiArray(const DivSur::MultiSur& ms, Potential::Wrap po
       //
       std::cerr << funame << "too many failures for " << mit - begin() << "-th surface\n";
 
+      IO::log.flush();
+
       throw Error::Run();
     }
 
@@ -3391,6 +3400,8 @@ CrossRate::MultiArray::MultiArray(const DivSur::MultiSur& ms, Potential::Wrap po
       if(!sit->second.flux_num()) {
 	//
 	std::cerr << funame << mit - begin() << "-th surface, " << sit->first << " facet: " <<"no flux samplings\n";
+
+	IO::log.flush();
 
 	throw Error::Run();
       }//
@@ -3451,6 +3462,8 @@ CrossRate::MultiArray::MultiArray(const DivSur::MultiSur& ms, Potential::Wrap po
 	//
 	std::cerr << mit - begin() << "-th surface,  " << sit->first << " facet: no potential samplings\n";
 
+	IO::log.flush();
+
 	throw Error::Run();
       }
 
@@ -3463,6 +3476,8 @@ CrossRate::MultiArray::MultiArray(const DivSur::MultiSur& ms, Potential::Wrap po
 		  << " kcal/mol is less than the reactive energy = " << std::floor(reactive_energy() / Phys_const::kcal * 10. + 0.5) / 10.
 		//
 		  << " kcal/mol\n";
+
+	IO::log.flush();
 
 	throw Error::Run();
       }
