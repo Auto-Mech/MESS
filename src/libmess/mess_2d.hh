@@ -2,6 +2,9 @@
 # define MESS_2D_HH
 
 namespace Mess {
+  //
+  class ReactiveComplex: public Model::ChemGraph {
+  };
   
   extern double energy_reference;
 

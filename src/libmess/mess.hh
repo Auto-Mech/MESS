@@ -126,6 +126,8 @@ namespace MasterEquation {
   
   extern double   time_propagation_interval; // time-interval between printouts
   
+  extern int with_crm_basis; 
+
   double temperature            ();
   
   double pressure               ();
