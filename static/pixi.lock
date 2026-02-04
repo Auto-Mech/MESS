@@ -3,6 +3,8 @@ environments:
   default:
     channels:
     - url: https://prefix.dev/conda-forge/
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: .
@@ -15,6 +17,8 @@ environments:
   dev:
     channels:
     - url: https://prefix.dev/conda-forge/
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://prefix.dev/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -102,14 +106,11 @@ packages:
   timestamp: 1757042571458
 - conda: .
   name: mess-static
-  version: 2025.9.0
+  version: 2026.2.4
   build: h4616a5c_0
   subdir: noarch
-  input:
-    hash: 8b79e5a3bc55d53830f91092ff4bcc7c5185097232b1ad65b0316fa5a0d921ca
-    globs:
-    - recipe.yaml
-    - variants.yaml
+  variants:
+    target_platform: noarch
 - conda: https://prefix.dev/conda-forge/linux-64/openssl-3.5.3-h26f9b46_1.conda
   sha256: 0572be1b7d3c4f4c288bb8ab1cb6007b5b8b9523985b34b862b5222dea3c45f5
   md5: 4fc6c4c88da64c0219c0c6c0408cedd4
