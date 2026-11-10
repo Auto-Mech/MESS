@@ -1,22 +1,12 @@
-[workspace]
-channels = ["https://prefix.dev/conda-forge"]
-platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
-preview = ["pixi-build"]
-
-[dependencies]
-mess-static = { path = "." }
+# Fully static MESS executables, built from the repository root with -DMESS_STATIC=ON.
+# This is a package of the root workspace (see ../pixi.toml).
+# It uses the rattler-build backend so that recipe.yaml can drop the run-exports
+# of its build and host dependencies: the package has no runtime dependencies.
 
 [package]
 name = "mess-static"
+version = "2026.11.0"
 
-[package.build]
-backend = { name = "pixi-build-rattler-build", version = "0.3.*" }
-
-[feature.dev.dependencies]
-rattler-build = "*"
-
-[feature.dev.tasks]
-upload = "rattler-build upload anaconda -o Auto-Mech *.conda"
-
-[environments]
-dev = ["dev"]
+[package.build.backend]
+name = "pixi-build-rattler-build"
+version = "0.*"

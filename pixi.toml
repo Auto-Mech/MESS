@@ -1,0 +1,44 @@
+[workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+preview = ["pixi-build"]
+
+
+[package]
+name = "mess"
+version = "2.10.32"
+
+[package.build.backend]
+name = "pixi-build-cmake"
+version = "0.*"
+
+[package.build.config]
+compilers = ["c", "cxx", "fortran"]
+# MESS needs ILP64 (64-bit integer) BLAS/LAPACK. conda-forge's openblas-ilp64
+# suffixes its symbols with 64_, which MESS_BLAS_SUFFIX maps to.
+extra-args = [
+    "-DBLAS_LIBRARIES=$PREFIX/lib/libopenblas64_.so",
+    "-DLAPACK_LIBRARIES=$PREFIX/lib/libopenblas64_.so",
+    "-DMESS_BLAS_SUFFIX=64_",
+]
+
+[package.host-dependencies]
+openblas-ilp64 = "*"     # headers and libopenblas64_.so (no run-exports)
+libopenblas-ilp64 = "*"  # runtime library (run-exports itself)
+gsl = "*"
+
+[tasks]
+test = "bash tests/run-examples.sh"
+
+# Two environments with the same executables:
+#   default: dynamically linked against conda-forge libraries (this package)
+#   static:  fully static executables, no runtime dependencies (static/recipe.yaml)
+[feature.dynamic.dependencies]
+mess = { path = "." }
+
+[feature.static.dependencies]
+mess-static = { path = "static" }
+
+[environments]
+default = ["dynamic"]
+static = ["static"]
