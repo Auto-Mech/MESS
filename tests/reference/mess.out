@@ -1,0 +1,175 @@
+Wells (G - ground energy, D - dissociation limit, kcal/mol):
+       W         G         D
+      W1     -99.1         0
+
+Bimolecular Products (G - ground energy, kcal/mol):
+       P         G
+      P1         0
+
+Well-to-Bimolecular Barriers (H/G - barrier height/well depth, kcal/mol)
+       B         H  W         G  P
+      B1         0 W1     -99.1 P1
+
+Bound Groups: dissociation barrier (name/ground energy, kcal/mol): wells (name/ground energy, kcal/mol):
+     B1/0:  W1/-99.1
+
+________________________________________________________________________________________
+
+Unimolecular Rate Units: 1/sec;  Bimolecular Rate Units: cm^3/sec
+
+______________________________________________________________________________________
+
+Species-Species Rate Tables:
+
+Temperature = 100 K
+
+High Pressure Rate Coefficients:
+
+From\To         W1        P1
+W1             ***       ***
+P1        1.69e-10       ***
+
+Temperature = 100 K    Pressure = 0.1 bar
+
+From\To         W1        P1
+W1             ***       ***
+P1        1.67e-10  1.67e-10
+
+Temperature = 100 K    Pressure = 1 bar
+
+From\To         W1        P1
+W1             ***       ***
+P1        1.69e-10  1.69e-10
+
+Temperature = 200 K
+
+High Pressure Rate Coefficients:
+
+From\To         W1        P1
+W1             ***       ***
+P1        1.79e-10       ***
+
+Temperature = 200 K    Pressure = 0.1 bar
+
+From\To         W1        P1
+W1             ***       ***
+P1        1.51e-10  1.51e-10
+
+Temperature = 200 K    Pressure = 1 bar
+
+From\To         W1        P1
+W1             ***       ***
+P1        1.75e-10  1.75e-10
+
+______________________________________________________________________________________
+
+High Pressure Rate Coefficients (Temperature-Species Rate Tables):
+
+Reactant = W1
+   T(K)        W1        P1
+    100       ***       ***
+    200       ***       ***
+
+Reactant = P1
+   T(K)        W1        P1
+    100  1.69e-10       ***
+    200  1.79e-10       ***
+
+Capture/Escape Rate Coefficients:
+
+   T(K)        W1        P1
+    100       ***  1.69e-10
+    200       ***  1.79e-10
+
+______________________________________________________________________________________
+
+Pressure-Species Rate Tables:
+
+Reactant = W1   Temperature = 100 K
+
+   P(bar)        P1      Loss
+      0.1       ***       ***
+        1       ***       ***
+      O-O       ***       ***
+
+Reactant = W1   Temperature = 200 K
+
+   P(bar)        P1      Loss
+      0.1       ***       ***
+        1       ***       ***
+      O-O       ***       ***
+
+Reactant = P1   Temperature = 100 K
+
+   P(bar)        W1      Loss
+      0.1  1.67e-10  1.67e-10
+        1  1.69e-10  1.69e-10
+      O-O  1.69e-10  1.69e-10
+
+Reactant = P1   Temperature = 200 K
+
+   P(bar)        W1      Loss
+      0.1  1.51e-10  1.51e-10
+        1  1.75e-10  1.75e-10
+      O-O  1.79e-10  1.79e-10
+
+______________________________________________________________________________________
+
+Temperature-Species Rate Tables:
+
+Reactant = W1   Pressure = 0.1 bar
+
+   T(K)        P1      Loss   Capture
+    100       ***       ***       ***
+    200       ***       ***       ***
+
+Reactant = W1   Pressure = 1 bar
+
+   T(K)        P1      Loss   Capture
+    100       ***       ***       ***
+    200       ***       ***       ***
+
+Reactant = P1   Pressure = 0.1 bar
+
+   T(K)        W1      Loss   Capture
+    100  1.67e-10  1.67e-10  1.69e-10
+    200  1.51e-10  1.51e-10  1.79e-10
+
+Reactant = P1   Pressure = 1 bar
+
+   T(K)        W1      Loss   Capture
+    100  1.69e-10  1.69e-10  1.69e-10
+    200  1.75e-10  1.75e-10  1.79e-10
+
+______________________________________________________________________________________
+
+Temperature-Pressure Rate Tables:
+
+W1->P1
+
+P\T           100       200
+0.1           ***       ***
+1             ***       ***
+O-O           ***       ***
+
+P1->W1
+
+P\T           100       200
+0.1      1.67e-10  1.51e-10
+1        1.69e-10  1.75e-10
+O-O      1.69e-10  1.79e-10
+
+W1-> 
+
+P\T           100       200
+0.1           ***       ***
+1             ***       ***
+O-O           ***       ***
+
+P1-> 
+
+P\T           100       200
+0.1      1.67e-10  1.51e-10
+1        1.69e-10  1.75e-10
+O-O      1.69e-10  1.79e-10
+

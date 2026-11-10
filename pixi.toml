@@ -27,6 +27,9 @@ openblas-ilp64 = "*"     # headers and libopenblas64_.so (no run-exports)
 libopenblas-ilp64 = "*"  # runtime library (run-exports itself)
 gsl = "*"
 
+[tasks]
+test = "bash tests/run-examples.sh"
+
 # Two environments with the same executables:
 #   default: dynamically linked against conda-forge libraries (this package)
 #   static:  fully static executables, no runtime dependencies (static/recipe.yaml)

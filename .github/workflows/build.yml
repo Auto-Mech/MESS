@@ -1,29 +1,52 @@
-name: C/C++ CI
+name: Build and test
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-test:
+    name: ${{ matrix.environment }}
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        # default: linked against conda-forge libraries; static: no runtime dependencies
+        environment: [default, static]
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up C++ and Fortran
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y g++ gfortran make cmake
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        with:
+          pixi-version: v0.84.1
+          environments: ${{ matrix.environment }}
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'master' }}
 
-    - name: Install OpenBLAS
-      run: sudo apt-get install -y libopenblas-dev
+      # Installing the environment builds the package from source.
+      - name: Test the examples
+        run: pixi run -e ${{ matrix.environment }} test
 
-    - name: Configure CMake
-      run: |
-        mkdir build
-        cd build
-        cmake .. -DUSE_SYSTEM_LIBS=ON
+      - name: Check that the executables are static
+        if: matrix.environment == 'static'
+        run: |
+          for exe in .pixi/envs/static/bin/mess*; do
+            if ldd "$exe"; then echo "$exe is dynamically linked"; exit 1; fi
+          done
 
-    - name: Build Project
-      run: |
-        cd build
-        make -j2 # Using 2 cores for the CI build 
+      - name: Upload the static executables
+        if: matrix.environment == 'static'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mess-static-linux-64
+          path: .pixi/envs/static/bin/mess*
+
+      - name: Upload mess-static to the Auto-Mech channel
+        if: matrix.environment == 'static' && github.event_name == 'push' && github.ref_name == 'master' && github.repository_owner == 'Auto-Mech'
+        run: |
+          pixi publish --path static --target-dir dist
+          # As before: an upload of an existing version fails, which is not an error here
+          pixi exec rattler-build upload anaconda -o Auto-Mech dist/*.conda || true
+        env:
+          ANACONDA_API_KEY: ${{ secrets.ANACONDA_API_KEY }}

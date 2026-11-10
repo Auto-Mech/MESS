@@ -64,3 +64,6 @@ output/
 # Other
 test-examples/
 *.conda
+
+# Reference outputs for tests/run-examples.sh
+!tests/reference/*
