@@ -1,15 +1,53 @@
 package:
   name: mess-static
-  version: "2026.2.4"
+  version: "2026.11.0"
 
 source:
-  path: .
+  path: ..
+  use_gitignore: true
 
 build:
-  noarch: generic
-  script:
-    - mkdir -p ${PREFIX}/bin
-    - cp ${RECIPE_DIR}/mess ${PREFIX}/bin/mess
-    - cp ${RECIPE_DIR}/abstraction ${PREFIX}/bin/messabs
-    - cp ${RECIPE_DIR}/partition_function ${PREFIX}/bin/messpf
-    - cp ${RECIPE_DIR}/gumbo ${PREFIX}/bin/gumbo
+  number: 0
+  # Fully static executables: nothing to relocate, no runtime dependencies.
+  dynamic_linking:
+    binary_relocation: false
+  script: |
+    cmake $CMAKE_ARGS -GNinja -S . -B ../build \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DMESS_STATIC=ON \
+      -DBLAS_LIBRARIES=$PREFIX/lib/libopenblas64_.a \
+      -DLAPACK_LIBRARIES=$PREFIX/lib/libopenblas64_.a
+    cmake --build ../build --target install
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('fortran') }}
+    - ${{ stdlib('c') }}
+    - cmake
+    - ninja
+  host:
+    # The static archive libopenblas64_.a keeps the unsuffixed (ILP64) names,
+    # so no MESS_BLAS_SUFFIX here.
+    - openblas-ilp64
+    - gsl
+  ignore_run_exports:
+    by_name:
+      - libgcc
+      - libstdcxx
+      - libgfortran
+      - libgfortran5
+      - libgomp
+      - gsl
+      - libopenblas-ilp64
+
+tests:
+  - script:
+      - test -x $PREFIX/bin/mess
+      - "! ldd $PREFIX/bin/mess"
+
+about:
+  homepage: https://github.com/Auto-Mech/MESS
+  license: Apache-2.0
+  summary: MESS (Master Equation System Solver), fully static executables
