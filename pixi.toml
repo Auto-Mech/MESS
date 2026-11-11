@@ -6,7 +6,7 @@ preview = ["pixi-build"]
 
 [package]
 name = "mess"
-version = "2.10.32"
+version = "2026.2.4"
 
 [package.build.backend]
 name = "pixi-build-cmake"
