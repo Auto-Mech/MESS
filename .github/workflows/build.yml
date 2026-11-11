@@ -8,6 +8,22 @@ on:
   workflow_call:
 
 jobs:
+  workflows:
+    name: lint the workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        with:
+          pixi-version: v0.84.1
+          environments: release
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'master' }}
+
+      - name: Lint the GitHub Actions workflows
+        run: pixi run workflows
+
   build-test:
     name: ${{ matrix.environment }}
     runs-on: ubuntu-latest

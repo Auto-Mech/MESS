@@ -39,15 +39,18 @@ mess = { path = "." }
 [feature.static.dependencies]
 mess-static = { path = "static" }
 
-# Release tooling (see tbump.toml and "Releasing" in the README)
+# Release and repository tooling (see tbump.toml and "Releasing" in the README)
 [feature.release.dependencies]
 python = "*"
 tbump = "*"
+actionlint = "*"
 
 [feature.release.pypi-dependencies]
 keepachangelog = "*"
 
 [feature.release.tasks]
+# Lint the GitHub Actions workflows
+workflows = "actionlint"
 # Build both conda packages into dist/
 build-conda = "pixi publish --target-dir dist && pixi publish --path static --target-dir dist"
 # Publish them to prefix.dev, skipping files that were already uploaded, so that a
@@ -61,5 +64,5 @@ release = "tbump"
 [environments]
 default = ["dynamic"]
 static = ["static"]
-# Only the release tooling: this environment does not build MESS
+# Only the tooling: this environment does not build MESS
 release = { features = ["release"], no-default-feature = true }
