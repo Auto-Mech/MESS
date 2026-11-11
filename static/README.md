@@ -12,4 +12,5 @@ pixi publish --path static --target-dir dist           # build dist/mess-static-
 ```
 
 The executables are then in `.pixi/envs/static/bin/`.
-The GitHub Actions workflow uploads them as a build artifact, and uploads the conda package to the Auto-Mech channel on pushes to `master` of `Auto-Mech/MESS`.
+The GitHub Actions workflow uploads them as a build artifact.
+Each release publishes the conda package to the `automech` channel on prefix.dev and attaches the executables to the GitHub release (see "Releasing" in the main `README.md`).

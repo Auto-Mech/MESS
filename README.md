@@ -9,11 +9,26 @@ rate coefficients for complex-forming reactions via solution of the one-dimensio
 
 ## Installation
 
-The Auto-Mech channel provides fully static executables that run on any x86-64 Linux, with no runtime dependencies:
+The [`automech`](https://prefix.dev/channels/automech) channel on prefix.dev provides two conda packages with the same executables (`mess`, `messpf`, `messabs`).
+Install only one of them.
+
+`mess-static` has fully static executables that run on any x86-64 Linux, with no runtime dependencies:
 ```
-conda install -c auto-mech mess-static
+conda install -c https://repo.prefix.dev/automech mess-static
 ```
-They are also attached to each run of the GitHub Actions workflow (artifact `mess-static-linux-64`).
+In a [Pixi](https://pixi.sh) workspace:
+```
+pixi workspace channel add https://repo.prefix.dev/automech
+pixi add mess-static
+```
+`mess` is linked against the conda-forge libraries (OpenBLAS, GSL), so it also needs the `conda-forge` channel:
+```
+conda install -c https://repo.prefix.dev/automech -c conda-forge mess
+```
+The static executables are also attached to each [GitHub release](https://github.com/Auto-Mech/MESS/releases) as a tarball, for systems without conda.
+The changes in each release are listed in [`CHANGELOG.md`](CHANGELOG.md).
+
+The `auto-mech` channel on anaconda.org keeps the `mess-static` packages up to version 2026.2.4 and gets no new ones.
 
 ## Building from source
 
@@ -42,6 +57,21 @@ Options:
 - `BLAS_LIBRARIES`, `LAPACK_LIBRARIES`: the ILP64 library. These can be left out if CMake's FindBLAS finds it (e.g. `-DBLA_VENDOR=Intel10_64ilp` for MKL).
 - `MESS_BLAS_SUFFIX`: the suffix on the library's BLAS/LAPACK symbol names, if any. For example, `64_` for OpenBLAS built with `SYMBOLSUFFIX=64_`, like conda-forge's `libopenblas64_.so`. Check with `nm -D <library> | grep dsyev`. The static archive `libopenblas64_.a` has no suffix.
 - `MESS_STATIC` (default `OFF`): link fully static executables.
+
+## Releasing
+
+`mess` and `mess-static` share one version, `YYYY.M.N`, where `N` counts the releases within the month, starting from 0.
+To release, from an up-to-date `master` of this repository:
+1. List the changes to the source since the last release:
+   ```
+   git log --no-merges $(git describe --tags --abbrev=0)..HEAD -- src examples
+   ```
+2. Describe them under `[Unreleased]` in `CHANGELOG.md`, and commit.
+3. Run `pixi run release YYYY.M.N` (for example, `pixi run release 2026.11.0`).
+   This updates the version and the changelog, then commits, tags and pushes.
+
+The tag starts the release workflow (`.github/workflows/release.yml`), which builds and tests both packages, publishes them to the `automech` channel, and makes a GitHub release.
+`pixi run version` shows the current version.
 
 ## Reference
 
