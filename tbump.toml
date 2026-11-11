@@ -3,7 +3,7 @@ github_url = "https://github.com/Auto-Mech/MESS"
 # One version for both packages, mess and mess-static: YYYY.M.N, where N counts the
 # releases within the month, starting from 0
 [version]
-current = "2026.2.4"
+current = "2026.11.0"
 regex = '''
   (?P<major>\d+)
   \.

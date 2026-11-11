@@ -7,6 +7,8 @@ Versions are `YYYY.M.N`, where `N` counts the releases within the month.
 
 ## [Unreleased]
 
+## [2026.11.0] - 2026-11-11
+
 ### Added
 
 - The `mess` conda package: the executables linked against conda-forge's ILP64 OpenBLAS and GSL.
