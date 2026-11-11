@@ -1,0 +1,41 @@
+github_url = "https://github.com/Auto-Mech/MESS"
+
+# One version for both packages, mess and mess-static: YYYY.M.N, where N counts the
+# releases within the month, starting from 0
+[version]
+current = "2026.2.4"
+regex = '''
+  (?P<major>\d+)
+  \.
+  (?P<minor>\d+)
+  \.
+  (?P<patch>\d+)
+  '''
+
+[git]
+message_template = "Bump to {new_version}"
+tag_template = "v{new_version}"
+
+[[file]]
+src = "pixi.toml"
+search = 'version = "{current_version}"'
+
+[[file]]
+src = "static/recipe.yaml"
+search = 'version: "{current_version}"'
+
+[[before_commit]]
+name = "Update changelog"
+cmd = "pixi run changelog {new_version}"
+
+[[before_commit]]
+name = "Add changelog to commit"
+cmd = "git add CHANGELOG.md"
+
+[[before_commit]]
+name = "Update lockfile"
+cmd = "pixi lock"
+
+[[before_commit]]
+name = "Add lockfile to commit"
+cmd = "git add pixi.lock"
