@@ -2,8 +2,10 @@ name: Build and test
 
 on:
   push:
+    branches: ["**"]  # not tags: a release tag runs this workflow through release.yml
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build-test:
@@ -41,12 +43,3 @@ jobs:
         with:
           name: mess-static-linux-64
           path: .pixi/envs/static/bin/mess*
-
-      - name: Upload mess-static to the Auto-Mech channel
-        if: matrix.environment == 'static' && github.event_name == 'push' && github.ref_name == 'master' && github.repository_owner == 'Auto-Mech'
-        run: |
-          pixi publish --path static --target-dir dist
-          # As before: an upload of an existing version fails, which is not an error here
-          pixi exec rattler-build upload anaconda -o Auto-Mech dist/*.conda || true
-        env:
-          ANACONDA_API_KEY: ${{ secrets.ANACONDA_API_KEY }}

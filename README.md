@@ -9,11 +9,37 @@ rate coefficients for complex-forming reactions via solution of the one-dimensio
 
 ## Installation
 
-The Auto-Mech channel provides fully static executables that run on any x86-64 Linux, with no runtime dependencies:
+The [`automech`](https://prefix.dev/channels/automech) channel on prefix.dev provides two conda packages with the same executables (`mess`, `messpf`, `messabs`).
+Install only one of them.
+
+**`mess-static`** has fully static executables that run on any x86-64 Linux, with no runtime dependencies:
 ```
-conda install -c auto-mech mess-static
+# conda (or mamba)
+conda install -c https://repo.prefix.dev/automech mess-static
+
+# Pixi, for all your projects
+pixi global install -c https://repo.prefix.dev/automech mess-static
+
+# Pixi, in a workspace
+pixi workspace channel add https://repo.prefix.dev/automech && pixi add mess-static
 ```
-They are also attached to each run of the GitHub Actions workflow (artifact `mess-static-linux-64`).
+
+**`mess`** is linked against the conda-forge libraries (OpenBLAS, GSL), so it also needs the `conda-forge` channel:
+```
+# conda (or mamba)
+conda install -c https://repo.prefix.dev/automech -c conda-forge mess
+
+# Pixi, for all your projects
+pixi global install -c https://repo.prefix.dev/automech -c conda-forge mess
+
+# Pixi, in a workspace (which has the conda-forge channel by default)
+pixi workspace channel add https://repo.prefix.dev/automech && pixi add mess
+```
+
+The static executables are also attached to each [GitHub release](https://github.com/Auto-Mech/MESS/releases) as a tarball, for systems without conda.
+The changes in each release are listed in [`CHANGELOG.md`](CHANGELOG.md).
+
+The `auto-mech` channel on anaconda.org keeps the `mess-static` packages up to version 2026.2.4 and gets no new ones.
 
 ## Building from source
 

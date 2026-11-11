@@ -39,6 +39,27 @@ mess = { path = "." }
 [feature.static.dependencies]
 mess-static = { path = "static" }
 
+# Release tooling (see tbump.toml and RELEASING.md)
+[feature.release.dependencies]
+python = "*"
+tbump = "*"
+
+[feature.release.pypi-dependencies]
+keepachangelog = "*"
+
+[feature.release.tasks]
+# Build both conda packages into dist/
+build-conda = "pixi publish --target-dir dist && pixi publish --path static --target-dir dist"
+# Publish them to prefix.dev, skipping files that were already uploaded, so that a
+# failed release can be rerun
+publish-conda = "pixi upload prefix --skip-existing --channel automech dist/*.conda"
+# Initiate release
+version = "tbump current-version"
+changelog = { cmd = "keepachangelog release {{ version }}", args = ["version"] }
+release = "tbump"
+
 [environments]
 default = ["dynamic"]
 static = ["static"]
+# Only the release tooling: this environment does not build MESS
+release = { features = ["release"], no-default-feature = true }
