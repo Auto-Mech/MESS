@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  # Releases are made from master only: stop if the tag is on another branch
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # all branches, to compare the tag with master
+
+      - name: Check that the tagged commit is on master
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+
+  test:
+    needs: check
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # for prefix.dev Trusted Publishing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        with:
+          pixi-version: v0.84.1
+          environments: release
+          cache: true
+
+      - name: Build the conda packages
+        run: pixi run build-conda
+
+      - name: Upload the conda packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: conda-packages
+          path: dist/*.conda
+
+      # Only the main repository is a trusted publisher of the channel
+      - name: Publish the conda packages to prefix.dev
+        if: github.repository_owner == 'Auto-Mech'
+        run: pixi run publish-conda
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # to create the GitHub release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the conda packages
+        uses: actions/download-artifact@v4
+        with:
+          name: conda-packages
+          path: dist/
+
+      # The static executables that the test job built and tested
+      - name: Download the static executables
+        uses: actions/download-artifact@v4
+        with:
+          name: mess-static-linux-64
+          path: mess-static/
+
+      - name: Archive the static executables
+        run: |
+          name="mess-static-${GITHUB_REF_NAME#v}-linux-64"
+          mv mess-static "$name"
+          chmod +x "$name"/*  # artifacts do not keep file permissions
+          tar -czf "dist/$name.tar.gz" "$name"
+
+      - name: Extract release notes
+        id: extract-release-notes
+        uses: ffurrer2/extract-release-notes@v2
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          body: ${{ steps.extract-release-notes.outputs.release_notes }}
+          files: |
+            dist/*.conda
+            dist/*.tar.gz
