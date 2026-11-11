@@ -2,10 +2,7 @@
 # This is a package of the root workspace (see ../pixi.toml).
 # It uses the rattler-build backend so that recipe.yaml can drop the run-exports
 # of its build and host dependencies: the package has no runtime dependencies.
-
-[package]
-name = "mess-static"
-version = "2026.11.0"
+# The name and version of the package are set in recipe.yaml.
 
 [package.build.backend]
 name = "pixi-build-rattler-build"
